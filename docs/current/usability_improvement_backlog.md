@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 889: Clarified workflow 02 case status wording by separating initial CaseTable manifest state from final CaseResultCollection status in bindings, prints, and docs.
 - Batch 888: Made VS Code saved-file uncertainty argument diagnostics underline invalid named argument values such as `samples=many` instead of the uncertainty constructor name.
 - Batch 887: Routed VS Code saved-file `E-WITH-UNIT-001` diagnostics through option-value fallback ranges so incompatible report display units underline the requested unit value.
 - Batch 886: Made VS Code saved-file Problems fallback ranges parse print/write interpolation fields so format unit diagnostics underline the requested unit instead of the expression binding.

@@ -31,7 +31,8 @@ What it proves:
 - explicit native `materialize cases training_results` CaseTable materialization
 - native `apply case_input_template over cases` CaseOutput materialization
 - native `collect results case_inputs` CaseResultCollection materialization
-- case metadata bindings such as `cases.pending_count`,
+- case metadata bindings that separate initial CaseTable manifest state from
+  final collection state, including `case_manifest_pending_count`,
   `case_inputs.expected_count`, `case_inputs.rendered_count`,
   `case_inputs.blocked_count`, and
   `case_result_collection.collected_count`

@@ -9,7 +9,7 @@ native `derive` transforms materializing annual_electricity, annual_cooling, pea
 explicit native `materialize cases training_results` CaseTable rows with case directories and sample row hashes
 native `apply case_input_template over cases` CaseOutput rows for per-case template inputs
 native `collect results case_inputs` CaseResultCollection rows for collected per-case output paths
-workflow bindings expose case pending/failed counts, case-input rendered/blocked counts, and collected/missing/blocked result counts
+workflow bindings expose initial case manifest pending/failed counts separately from case-input rendered/blocked counts and collected/missing/blocked final result counts
 native filter/require_one transforms selecting case_001 for summary metrics
 summary metrics derived from the selected case_001 derived-result row rather than fixed literals
 native `train regression` model with feature, target, split, residual, training-hash, and model-hash metadata
@@ -20,5 +20,5 @@ two native SQLite db_write manifests using args.database_target: simulation_resu
 typed SQLite structured readback for persisted_predictions from the predictions table
 output_manifest.json entries for case_input, template_render_manifest, sqlite_database, db_write_manifest, sample table standard-text files, sampling_summary.txt, csv_export, and model:// artifacts
 process_results.json with process_count = 0
-report entries for sampler method/seed/count/row-preview metadata, case status counts, training, case-input, case-result-collection, prediction row counts, persisted prediction readback count, model metrics, the DB target, and native DB summary/table/count/status bindings
+report entries for sampler method/seed/count/row-preview metadata, initial case manifest status, case-input and final case-result-collection counts, prediction row counts, persisted prediction readback count, model metrics, the DB target, and native DB summary/table/count/status bindings
 ```

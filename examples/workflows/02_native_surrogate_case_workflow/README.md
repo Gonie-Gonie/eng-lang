@@ -33,7 +33,7 @@ report entries include native sample method, seed, count, parameter-count, and r
 object_store.tables includes the explicit CaseTable binding `cases`
 object_store.tables includes the CaseOutput binding `case_inputs`
 object_store.tables includes the CaseResultCollection binding `case_result_collection`
-report entries include `cases.pending_count`, `cases.failed_count`, `case_inputs.expected_count`, `case_inputs.rendered_count`, `case_result_collection.collected_count`, and `case_result_collection.status`
+report entries separate initial CaseTable manifest fields (`case_manifest_pending_count`, `case_manifest_failed_count`, `case_manifest_initial_status`) from final CaseOutput/CaseResultCollection fields such as `case_inputs.rendered_count`, `case_result_collection.collected_count`, and `case_result_collection.status`
 typed_payload.table_transforms includes native derive records for annual_electricity, annual_cooling, peak_cooling, and unmet_hours
 typed_payload.model_cards/model_specs/prediction_manifests are native records
 typed_payload.db_manifests records committed writes to simulation_results and predictions
@@ -52,9 +52,9 @@ consume them. The workflow reads sampler metadata through
 `training_designs.method`, `training_designs.seed`,
 `training_designs.sample_count`, and `training_designs.row_preview`, so the
 native sampling contract is visible in normal bindings, standard-text sample table files, reports,
-and the result JSON. It also reads `cases.pending_count`, `case_inputs.expected_count`, `case_inputs.rendered_count`,
+and the result JSON. It also exposes the initial CaseTable manifest status separately from `case_inputs.expected_count`, `case_inputs.rendered_count`,
 `case_result_collection.collected_count`, and `case_result_collection.status`, so case materialization, case-input
-rendering, and native result collection are visible without digging through JSON
+rendering, and final native result collection are visible without digging through JSON
 artifacts. Domain adapters can replace the
 deterministic surrogate formulas later, but they should still enter EngLang
 through typed tables, model cards, prediction manifests, typed DB readback, DB connection summary bindings such as `db.summary`, and
