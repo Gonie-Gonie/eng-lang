@@ -5782,9 +5782,79 @@ fn language_constant_modifiers_for_line(
 ) -> &'static [&'static str] {
     if is_log_level_literal(line, keyword, token_start) {
         &["sideEffect"]
+    } else if let Some(modifiers) =
+        contextual_language_constant_modifiers(line, keyword, token_start)
+    {
+        modifiers
     } else {
         language_constant_modifiers(keyword)
     }
+}
+
+fn contextual_language_constant_modifiers(
+    line: &str,
+    keyword: &str,
+    token_start: usize,
+) -> Option<&'static [&'static str]> {
+    let (key, key_start) = assignment_key_before_value(line, token_start)?;
+    match (keyword, key) {
+        ("linear", "uncertainty") => Some(&["uncertain"]),
+        ("linear", "method")
+            if named_argument_call_owner_before(line, key_start) == Some("propagate") =>
+        {
+            Some(&["uncertain"])
+        }
+        ("linear", "algorithm")
+            if matches!(
+                named_argument_call_owner_before(line, key_start),
+                Some("regression" | "train_regression")
+            ) =>
+        {
+            Some(&["model"])
+        }
+        _ => None,
+    }
+}
+
+fn assignment_key_before_value(line: &str, token_start: usize) -> Option<(&str, usize)> {
+    let bytes = line.as_bytes();
+    let mut cursor = token_start.min(bytes.len());
+    while cursor > 0 && bytes[cursor - 1].is_ascii_whitespace() {
+        cursor -= 1;
+    }
+    if cursor == 0 || bytes[cursor - 1] != b'=' {
+        return None;
+    }
+    cursor -= 1;
+    while cursor > 0 && bytes[cursor - 1].is_ascii_whitespace() {
+        cursor -= 1;
+    }
+    let key_end = cursor;
+    while cursor > 0 && is_ident_byte(bytes[cursor - 1]) {
+        cursor -= 1;
+    }
+    if cursor == key_end || !is_ident_start(bytes[cursor]) {
+        return None;
+    }
+    Some((&line[cursor..key_end], cursor))
+}
+
+fn named_argument_call_owner_before(line: &str, key_start: usize) -> Option<&str> {
+    let open_paren = line[..key_start.min(line.len())].rfind('(')?;
+    identifier_before_position(line, open_paren)
+}
+
+fn identifier_before_position(line: &str, position: usize) -> Option<&str> {
+    let bytes = line.as_bytes();
+    let mut cursor = position.min(bytes.len());
+    while cursor > 0 && bytes[cursor - 1].is_ascii_whitespace() {
+        cursor -= 1;
+    }
+    let end = cursor;
+    while cursor > 0 && is_ident_byte(bytes[cursor - 1]) {
+        cursor -= 1;
+    }
+    (cursor < end && is_ident_start(bytes[cursor])).then_some(&line[cursor..end])
 }
 
 fn is_log_level_literal(line: &str, keyword: &str, token_start: usize) -> bool {
@@ -9650,6 +9720,30 @@ mod tests {
         );
     }
 
+    fn assert_no_semantic_token_on_line_with_empty_modifiers(
+        snapshot: &LspSnapshot,
+        source: &str,
+        line_needle: &str,
+        label: &str,
+        token_type: &str,
+    ) {
+        let line_index = source
+            .lines()
+            .position(|line| line.contains(line_needle))
+            .unwrap_or_else(|| panic!("source line `{line_needle}` should be present"));
+        assert!(
+            !snapshot.semantic_tokens.tokens.iter().any(|token| {
+                token.line == line_index
+                    && token.token_type == token_type
+                    && token.modifiers.is_empty()
+                    && source.lines().nth(token.line).is_some_and(|line| {
+                        line.get(token.start..token.start + token.length) == Some(label)
+                    })
+            }),
+            "semantic token `{label}` on `{line_needle}` should not be `{token_type}` with no modifiers"
+        );
+    }
+
     fn semantic_token_count(
         snapshot: &LspSnapshot,
         source: &str,
@@ -13299,6 +13393,42 @@ Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW
             "equation_timeseries_operator_words.eng",
         );
     }
+    #[test]
+    fn snapshot_marks_contextual_constant_literals_role_aware() {
+        let source = r#"Q_dist = distribution(kind=normal, mean=10 kW, std=1 kW)
+Q_unc = propagate(Q_dist, method=linear)
+reg_model = regression(split, algorithm=linear)
+with {
+    uncertainty = linear
+}
+"#;
+        let snapshot = snapshot_for_source(Path::new("contextual_constant_literals.eng"), source);
+
+        for (line, label, modifier) in [
+            ("propagate(Q_dist, method=linear)", "linear", "uncertain"),
+            ("regression(split, algorithm=linear)", "linear", "model"),
+            ("uncertainty = linear", "linear", "uncertain"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, label, "keyword", modifier,
+            );
+        }
+        for (line, label) in [
+            ("propagate(Q_dist, method=linear)", "linear"),
+            ("regression(split, algorithm=linear)", "linear"),
+            ("uncertainty = linear", "linear"),
+        ] {
+            assert_no_semantic_token_on_line_with_empty_modifiers(
+                &snapshot, source, line, label, "keyword",
+            );
+        }
+        assert_no_conflicting_semantic_token_types(
+            &snapshot,
+            source,
+            "contextual_constant_literals.eng",
+        );
+    }
+
     #[test]
     fn snapshot_marks_declaration_keywords_as_declarations() {
         let source = r#"domain Thermal package "eng.std.domains.thermal" version "0.1.0" {

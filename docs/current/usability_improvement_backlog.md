@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 896: Marked contextual `linear` constant literals with uncertainty/model semantic modifiers so propagation methods, regression algorithms, and uncertainty options do not fall back to generic keyword colors.
 - Batch 895: Marked equation `eq` and TimeSeries `of` operator words with solver/timeseries semantic modifiers so checked-code highlighting no longer leaves equation and series type clauses as generic keywords.
 - Batch 894: Marked declaration keywords such as `schema`, `domain`, `component`, `system`, `class`, `fn`, `method`, `package`, and `version` with declaration semantic modifiers so checked-code highlighting preserves declaration colors instead of generic keyword colors.
 - Batch 893: Added role-aware fallback coloring for partial workflow/report clause keywords so `sort ... by`, `join ... with`, `summarize ... by`, repeated plot `and`, `show ... as`, and summary field `as/with` no longer fall back to generic keyword colors.
