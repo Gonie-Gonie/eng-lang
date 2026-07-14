@@ -5727,6 +5727,9 @@ fn keyword_modifiers_for_line(
     if is_report_clause_keyword(line, keyword, token_start) {
         return &["report"];
     }
+    if is_validation_condition_keyword(line, keyword, token_start) {
+        return &["validation"];
+    }
     keyword_modifiers(keyword)
 }
 
@@ -6806,6 +6809,23 @@ fn is_report_clause_keyword(line: &str, keyword: &str, token_start: usize) -> bo
                 || is_report_field_as_clause(line, token_start)
         }
         "with" => is_report_field_with_clause(line, token_start),
+        _ => false,
+    }
+}
+
+fn is_validation_condition_keyword(line: &str, keyword: &str, token_start: usize) -> bool {
+    match keyword {
+        "is" => matches!(
+            next_identifier_after(line, token_start + "is".len()),
+            Some("monotonic" | "none")
+        ),
+        "none" => previous_identifier_before(line, token_start) == Some("is"),
+        "or" => line
+            .get(..token_start)
+            .is_some_and(|prefix| prefix.contains(" is none")),
+        "and" => line
+            .get(..token_start)
+            .is_some_and(|prefix| prefix.contains(" between ")),
         _ => false,
     }
 }
@@ -13394,6 +13414,51 @@ Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW
             "equation_timeseries_operator_words.eng",
         );
     }
+    #[test]
+    fn snapshot_marks_validation_condition_keywords_role_aware() {
+        let source = r#"schema WeatherApiRecord {
+    time: DateTime index
+    dry_bulb_degC: AbsoluteTemperature [degC]
+
+    constraints {
+        time is monotonic
+        dry_bulb_degC between -50 degC and 60 degC
+    }
+}
+candidates = filter stations
+where {
+    valid_to is none or valid_to >= date(args.year, 12, 31)
+}
+"#;
+        let snapshot = snapshot_for_source(Path::new("validation_condition_keywords.eng"), source);
+
+        for (line, label) in [
+            ("time is monotonic", "is"),
+            ("dry_bulb_degC between", "between"),
+            ("dry_bulb_degC between", "and"),
+            ("valid_to is none or", "is"),
+            ("valid_to is none or", "none"),
+            ("valid_to is none or", "or"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                label,
+                "keyword",
+                "validation",
+            );
+            assert_no_semantic_token_on_line_with_empty_modifiers(
+                &snapshot, source, line, label, "keyword",
+            );
+        }
+        assert_no_conflicting_semantic_token_types(
+            &snapshot,
+            source,
+            "validation_condition_keywords.eng",
+        );
+    }
+
     #[test]
     fn snapshot_marks_import_keywords_as_import_declarations() {
         let source = r#"use "thermal.eng"

@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 898: Marked validation/filter condition words such as `is`, `none`, `or`, and range `and` with validation semantic modifiers so schema constraints and `where` filters no longer leave boolean condition syntax as generic keyword colors.
 - Batch 897: Marked `use` and `import` keywords with declaration/imported semantic modifiers so file and namespace imports use the same editor color family as imported namespace tokens.
 - Batch 896: Marked contextual `linear` constant literals with uncertainty/model semantic modifiers so propagation methods, regression algorithms, and uncertainty options do not fall back to generic keyword colors.
 - Batch 895: Marked equation `eq` and TimeSeries `of` operator words with solver/timeseries semantic modifiers so checked-code highlighting no longer leaves equation and series type clauses as generic keywords.
