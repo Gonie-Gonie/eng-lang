@@ -29,7 +29,7 @@ case row manifests with pending/succeeded/failed/skipped status, sample row
 hashes, collection manifest counts, case cache hit/miss counts, scheduler hook
 contracts, and process-output enrichment when external processes are used. The
 workflow examples now exercise native network/cache, sampling, template,
-model-prediction, DB-write, and generated-artifact paths with zero external
+model-prediction, sample-table standard-text export, DB-write, and generated-artifact paths with zero external
 processes in workflows 01, 02, and 03. Native network and cache records now
 cover pinned offline response boundaries, live HTTP(S) response
 materialization, and cache records; cache records now
@@ -211,8 +211,9 @@ native case_input artifacts plus template_render_manifest records
 preferred native `train regression` plus legacy-compatible `regression_table` model card/spec/diagnostic records with feature, target, metrics, training-hash, and model-hash metadata
 native prediction table and typed_payload.prediction_manifests[] records with output quantity/unit, case IDs, row count, and confidence column
 native SQLite db_manifests[] records with table names, modes, schemas, row counts, hashes, and committed transaction status
-output_manifest.json entries for case inputs, workflow_summary.csv, model artifacts, DB writes, and report artifacts
+output_manifest.json entries for case inputs, sample table standard-text files, workflow_summary.csv, model artifacts, DB writes, and report artifacts
 process_results.json with process_count = 0
+standard-text files for full training and prediction sample table rows
 ```
 
 `examples/workflows/03_uncertain_sensor_report` records:

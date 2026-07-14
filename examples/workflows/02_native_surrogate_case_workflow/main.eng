@@ -26,6 +26,12 @@ training_sample_count = training_designs.sample_count
 training_sample_parameters = training_designs.parameter_count
 training_sample_preview = training_designs.row_preview
 
+write standard_text training_designs
+with {
+    output = join(args.output, "training_designs_standard.txt")
+    overwrite = true
+}
+
 electricity_results = derive training_designs column annual_electricity = 10200 kWh + envelope_load_index * 2600 kWh + occupancy_schedule_index * 1600 kWh - cooling_cop * 750 kWh
 cooling_results = derive electricity_results column annual_cooling = 3200 kWh + envelope_load_index * 1700 kWh + occupancy_schedule_index * 450 kWh - cooling_cop * 280 kWh
 peak_cooling_results = derive cooling_results column peak_cooling = 7 kW + envelope_load_index * 7 kW + occupancy_schedule_index * 2 kW - cooling_cop * 0.6 kW
@@ -68,6 +74,12 @@ prediction_sample_seed = designs.seed
 prediction_sample_count = designs.sample_count
 prediction_sample_parameters = designs.parameter_count
 prediction_sample_preview = designs.row_preview
+
+write standard_text designs
+with {
+    output = join(args.output, "prediction_designs_standard.txt")
+    overwrite = true
+}
 
 surrogate_model = train regression training_results
 with {

@@ -20,7 +20,7 @@ eng.case      explicit `materialize cases` table, generated case manifests, and 
 eng.template  native `apply ... over cases` template rendering for per-case input files
 eng.model     train regression ... with { ... } and predict model using samples
 eng.db        native SQLite writes plus typed readback for persisted predictions
-eng.artifact  output manifest records for rendered inputs, DB, model, and report
+eng.artifact  output manifest records for rendered inputs, sample table standard-text files, DB, model, and report
 ```
 
 Expected saved-run properties:
@@ -28,6 +28,7 @@ Expected saved-run properties:
 ```text
 process_results.json has process_count = 0
 typed_payload.sample_tables includes training_designs and designs with row previews
+standard_text artifacts expose both generated LHS sample tables as reviewable files
 report entries include native sample method, seed, count, parameter-count, and row-preview bindings
 object_store.tables includes the explicit CaseTable binding `cases`
 object_store.tables includes the CaseOutput binding `case_inputs`
@@ -40,7 +41,7 @@ db.summary exposes the actual SQLite write summary, while db.tables_written, db.
 typed_payload.structured_reads includes sqlite readback for persisted_predictions
 typed args.database_target controls the SQLite output boundary
 typed args.output controls the sampling summary and workflow summary export paths
-output_manifest.json records case_input artifacts, sampling_summary.txt, and workflow_summary.csv
+output_manifest.json records case_input artifacts, training_designs_standard.txt, prediction_designs_standard.txt, sampling_summary.txt, and workflow_summary.csv
 workflow_summary.csv records values pulled from the selected native derived-result row, not fixed literals
 ```
 
@@ -50,7 +51,7 @@ case table, case-input apply step, model, CSV export, and SQLite write steps
 consume them. The workflow reads sampler metadata through
 `training_designs.method`, `training_designs.seed`,
 `training_designs.sample_count`, and `training_designs.row_preview`, so the
-native sampling contract is visible in normal bindings, output files, reports,
+native sampling contract is visible in normal bindings, standard-text sample table files, reports,
 and the result JSON. It also reads `cases.pending_count`, `case_inputs.expected_count`, `case_inputs.rendered_count`,
 `case_result_collection.collected_count`, and `case_result_collection.status`, so case materialization, case-input
 rendering, and native result collection are visible without digging through JSON

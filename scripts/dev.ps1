@@ -995,6 +995,16 @@ function Invoke-WorkflowsTest {
                     throw "Workflow 02 native result missing token $RequiredSurrogateResultToken"
                 }
             }
+            foreach ($RequiredWorkflowSourceToken in @(
+                'write standard_text training_designs',
+                'output = join(args.output, "training_designs_standard.txt")',
+                'write standard_text designs',
+                'output = join(args.output, "prediction_designs_standard.txt")'
+            )) {
+                if (-not $WorkflowSource.Contains($RequiredWorkflowSourceToken)) {
+                    throw "Workflow 02 source must write native sample table standard-text artifact token $RequiredWorkflowSourceToken"
+                }
+            }
             foreach ($RequiredSurrogateReviewToken in @(
                 '"model_cards"',
                 '"prediction_manifests"',
@@ -1011,6 +1021,8 @@ function Invoke-WorkflowsTest {
                 '"kind": "template_render_manifest"',
                 '"kind": "sqlite_database"',
                 '"kind": "db_write_manifest"',
+                '"path": "outputs/training_designs_standard.txt"',
+                '"path": "outputs/prediction_designs_standard.txt"',
                 '"path": "outputs/sampling_summary.txt"',
                 '"path": "model://surrogate_model"',
                 '"path": "model://predictions"',
