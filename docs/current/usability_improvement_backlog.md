@@ -1,3 +1,4 @@
+- Batch 924: Reworded VS Code README quick-fix merge and cache invalidation text away from fallback-repair/state wording toward local quick fixes and cached review/highlight data, with a contract guard.
 - Batch 923: Reworded VS Code README model source-chain quick-fix coverage from skeleton repairs to starter-code repairs and guarded against skeleton-repair wording returning.
 - Batch 922: Added theme fallback scope summary aliases to VS Code highlight inspector and Tooling Status probe payloads, keeping legacy fallback_scope_status fields for compatibility.
 - Batch 921: Reworded internal_planned stdlib module labels/details from Internal planned and target-surface wording to Internal target and explicit public stdlib API boundaries, then regenerated VS Code editor metadata.

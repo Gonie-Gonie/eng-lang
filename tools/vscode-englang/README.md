@@ -51,14 +51,14 @@ embedding compiler logic in JavaScript.
   process binding conflicts and command/env/cwd values, pinned
   response SHA-256 mismatches, sampling count/seed/range-unit values, missing repro-profile
   sampling seeds, simulation/solver option repairs, model source-chain
-  starter-code repairs, model option fallback repairs for invalid test splits, seeds, hidden layers, and epochs,
+  starter-code repairs, model option value repairs for invalid test splits, seeds, hidden layers, and epochs,
   unsupported regression algorithm repairs, unsupported command-style call conversions,
   legacy `select_first_row` migration edits,
   uncertainty constructor argument repairs, direct uncertainty comparison repairs,
   uncertainty propagation option/seed repairs, uncertainty source
   definition/conversion repairs, and golden test-block/expected path wrappers. Live
   editor quick fixes are shown first
-  and merged with local fallback repairs so partial live editor responses do
+  and merged with local quick fixes so partial live editor responses do
   not hide available fixes.
 - quick fixes for simple same-block `where` local ordering mistakes where a
   later local definition can be moved before its first use
@@ -170,8 +170,8 @@ back to `file` clears stale live Problems for an unsaved active buffer and
 refreshes saved-file Problems after the file is saved. Direct `settings.json`
 changes to diagnostics mode or lint toggles also refresh or clear the active
 EngLang editor so Problems match the selected settings. Editing an EngLang
-buffer clears cached review/highlight fallback state immediately, so hover,
-completion, and decoration fallbacks cannot reuse an older buffer snapshot while
+buffer clears cached review/highlight data immediately, so hover,
+completion, and decorations cannot reuse an older buffer snapshot while
 live editor data is unavailable. If an older workspace
 already has `englang.problemsSource` or
 `englang.diagnosticsBackend`, the extension still accepts it as a compatibility
