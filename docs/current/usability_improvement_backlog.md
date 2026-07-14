@@ -1,3 +1,4 @@
+- Batch 919: Reworded VS Code planned/internal stdlib import hover text away from workflow-surface/internal-boundary wording toward explicit public stdlib API status, with an ide-check guard.
 - Batch 918: Reworded VS Code highlight-inspector README coverage wording from mapped/missing fallback status to theme fallback coverage state, with an ide-check guard.
 - Batch 917: Reworded current docs away from raw JSON/source-diff phrasing toward manual JSON artifact and line-by-line source comparison wording, with docs-check guards.
 - Batch 916: Reworded the native IDE how-to Tooling Status summary from the old fallback-status phrase to configured-path/source status and guarded user docs against the old phrase.

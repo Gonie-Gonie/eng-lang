@@ -5401,6 +5401,12 @@ function Assert-VscodeExtensionContract {
     if (-not $DecorationsSource.Contains('config.get("semanticHighlighting.enabled", true)') -or -not $DecorationsSource.Contains("refreshVisibleSemanticSymbolDecorations")) {
         throw "VS Code semantic symbol decorations must follow the semantic highlighting setting"
     }
+    if (-not $DecorationsSource.Contains("planned stdlib import") -or -not $DecorationsSource.Contains("outside the public stdlib API")) {
+        throw "VS Code planned/internal symbol hover wording must name stdlib API status"
+    }
+    if ($DecorationsSource.Contains("planned workflow surface") -or $DecorationsSource.Contains("bundled stdlib boundary")) {
+        throw "VS Code planned/internal symbol hover wording should not use stale implementation-surface wording"
+    }
     if (-not $SemanticProviderSource.Contains('require("./lspSemanticTokens")') -or -not $LspSemanticTokensSource.Contains("semanticTokensFromSnapshot") -or -not $LspSemanticTokensSource.Contains("semanticTokenRange") -or -not $LspSemanticTokensSource.Contains("semanticTokenDebugSample") -or -not $LspSemanticTokensSource.Contains("semanticTokenSelectors") -or -not $LspSemanticTokensSource.Contains("semanticTokenFallbackScopes") -or -not $LspSemanticTokensSource.Contains("semanticTokenUnmappedSelectors")) {
         throw "VS Code extension must share LSP semantic token conversion through lspSemanticTokens.js"
     }

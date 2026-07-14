@@ -150,9 +150,9 @@ function semanticSymbolHoverMessage(kind) {
   const markdown = new vscode.MarkdownString();
   markdown.isTrusted = false;
   if (kind === "planned") {
-    markdown.appendMarkdown("**EngLang planned symbol**\n\nThis symbol is reserved for a planned workflow surface.");
+    markdown.appendMarkdown("**EngLang planned stdlib import**\n\nThis import names a documented EngLang module that is not yet executable as a public stdlib API.");
   } else {
-    markdown.appendMarkdown("**EngLang internal symbol**\n\nThis symbol belongs to an internal runtime or bundled stdlib boundary.");
+    markdown.appendMarkdown("**EngLang internal stdlib import**\n\nThis import names compiler/runtime vocabulary outside the public stdlib API.");
   }
   return markdown;
 }
