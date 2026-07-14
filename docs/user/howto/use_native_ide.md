@@ -198,7 +198,7 @@ installing into the normal user extension directory.
 
 After installing, run `EngLang: Show Tooling Status` in VS Code to open a
 summary-first JSON status view with the extension version, selected check/run
-and live editor tool paths, configured-path fallback status, diagnostics mode,
+and live editor tool paths, configured-path/source status, diagnostics mode,
 saved-file/live Problems diagnostics toggles, and role-aware highlighting setting.
 
 The VS Code extension defaults to quieter file checks for the Problems panel.

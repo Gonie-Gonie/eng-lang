@@ -2003,6 +2003,9 @@ function Test-UserDocsExecutionWording {
         if ($text.Contains("opening raw artifact files first")) {
             throw "user docs should name JSON artifact files instead of raw artifact files: $($docPath.FullName)"
         }
+        if ($text.Contains("configured-path fallback status")) {
+            throw "user docs should describe configured-path/source status instead of fallback status: $($docPath.FullName)"
+        }
     }
 
     Write-Host "User docs execution wording check passed."
