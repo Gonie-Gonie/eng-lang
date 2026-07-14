@@ -1975,6 +1975,9 @@ function renderModulesPanel() {
 
 function renderWorkflowPanel() {
   const plan = inspectorObject("runPlan");
+  const processResults = inspectorObject("processResults");
+  const processes = Array.isArray(processResults.processes) ? processResults.processes : [];
+  const processEvidence = workflowProcessEvidence(processResults, processes);
   if (!Object.keys(plan).length) {
     return `
       <div class="panel-title compact">Workflow</div>
@@ -1997,13 +2000,17 @@ function renderWorkflowPanel() {
       <span class="badge">Edges ${edges.length}</span>
       <span class="badge">Status ${escapeHtml(plan.status || "-")}</span>
       <span class="badge">Profile ${escapeHtml(plan.execution_profile || plan.executionProfile || "-")}</span>
+      <span class="badge">Processes ${escapeHtml(processEvidence.countLabel)}</span>
     </div>
     <div class="run-actions">
       <button data-open-artifact-kind="run_plan">Open run_plan.json</button>
+      <button data-open-artifact-kind="process_results">Open process_results.json</button>
     </div>
     <div class="scroll">
       <div class="panel-title compact">DAG</div>
       ${renderWorkflowDag(nodes, edges, selectedNode?.id)}
+      <div class="panel-title compact">Native Evidence</div>
+      ${renderWorkflowNativeEvidence(plan, processEvidence, nodes, edges)}
       <div class="panel-title compact">Node Detail</div>
       ${renderWorkflowNodeDetail(selectedNode, edges)}
       <div class="panel-title compact">Nodes</div>
@@ -2024,6 +2031,58 @@ function renderWorkflowPanel() {
   `;
 }
 
+function workflowProcessEvidence(processResults, processes) {
+  const hasArtifact = hasPayloadData(processResults);
+  const count = hasArtifact ? processResultCount(processResults, processes) : null;
+  const processListCount = hasArtifact ? processes.length : null;
+  const zeroExternal = hasArtifact && count === 0 && processListCount === 0;
+  return {
+    hasArtifact,
+    count,
+    countLabel: hasArtifact ? String(count) : "missing",
+    processListCount,
+    zeroExternal,
+    status: !hasArtifact
+      ? "missing"
+      : zeroExternal
+        ? "zero external processes"
+        : "external processes present",
+    profile: processResults.execution_profile || processResults.executionProfile || "-",
+    format: processResults.format || "-"
+  };
+}
+
+function renderWorkflowNativeEvidence(plan, processEvidence, nodes, edges) {
+  const graphStatus = Object.keys(plan).length ? "present" : "missing";
+  const hashes = plan.artifact_hashes || plan.artifactHashes || {};
+  const runPlanHash = hashes.run_plan || hashes.runPlan || "-";
+  const staticRunPlanHash = hashes.static_run_plan || hashes.staticRunPlan || "-";
+  const processDetail = processEvidence.hasArtifact
+    ? `process_count=${processEvidence.count}; processes=${processEvidence.processListCount}; profile=${processEvidence.profile}; format=${processEvidence.format}`
+    : "process_results.json missing";
+  return `
+    <table class="var-table compact-table">
+      <thead><tr><th>Evidence</th><th>Status</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Run graph</td>
+          <td>${escapeHtml(graphStatus)}</td>
+          <td>nodes=${escapeHtml(nodes.length)}; edges=${escapeHtml(edges.length)}; format=${escapeHtml(plan.format || "-")}</td>
+        </tr>
+        <tr>
+          <td>Process results</td>
+          <td>${escapeHtml(processEvidence.status)}</td>
+          <td>${escapeHtml(processDetail)}</td>
+        </tr>
+        <tr>
+          <td>Graph hashes</td>
+          <td>${escapeHtml(runPlanHash !== "-" || staticRunPlanHash !== "-" ? "recorded" : "missing")}</td>
+          <td><code>${escapeHtml(compactText(`run_plan=${runPlanHash}; static_run_plan=${staticRunPlanHash}`, 150))}</code></td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+}
 function renderReviewPanel() {
   const doc = inspectorObject("reviewDocument");
   const contract = doc.root_contract || doc.rootContract || {};

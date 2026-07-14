@@ -6587,6 +6587,19 @@ function Invoke-IdeCheck {
     if ($IdeUiSource.Contains('<div class="panel-title compact">External Process Results</div>')) {
         throw "Native IDE Effects panel must compute process result wording from process_count"
     }
+    foreach ($RequiredNativeIdeWorkflowEvidenceToken in @(
+        "function workflowProcessEvidence",
+        "function renderWorkflowNativeEvidence",
+        "Native Evidence",
+        'Processes ${escapeHtml(processEvidence.countLabel)}',
+        "Open process_results.json",
+        "zero external processes",
+        "Graph hashes"
+    )) {
+        if (-not $IdeUiSource.Contains($RequiredNativeIdeWorkflowEvidenceToken)) {
+            throw "Native IDE Workflow panel must expose native process/run-graph evidence token $RequiredNativeIdeWorkflowEvidenceToken"
+        }
+    }
     foreach ($ForbiddenIdeWording in @(
         "<th>Artifact Root</th>",
         "No DB write artifact data yet.",

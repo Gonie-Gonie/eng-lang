@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 853: Added native IDE Workflow panel evidence for zero external processes, process-results status, run graph counts, graph hashes, and direct process-results artifact access.
 - Batch 852: Added native workflow source/docs and latest zero-process artifact evidence to VS Code Tooling Status so workflow 01/02/03 native-only status is visible from the editor.
 - Batch 851: Added `dev.bat workflow-native-status` so workflow 01/02/03 native-only source/docs guards and latest zero-process artifact evidence are visible without rerunning the full workflow smoke gate.
 - Batch 850: Listed the VS Code Problems and Highlight copy commands in Tooling Status so the summary view exposes the full inspect/copy loop for linter and coloring reports.
