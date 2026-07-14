@@ -3573,7 +3573,7 @@ function Assert-VscodeExtensionContract {
     if (-not $VscodeReadmeSource.Contains("EngLang: Copy Highlight Token at Cursor") -or -not $VscodeReadmeSource.Contains("same-line role-aware highlight token payload") -or -not $VscodeReadmeSource.Contains("nearest same-line highlight token payload")) {
         throw "VS Code README must document the copy-ready highlight cursor command"
     }
-    if (-not $VscodeReadmeSource.Contains("cursor diagnostic inspection and") -or -not $VscodeReadmeSource.Contains("copy commands") -or -not $VscodeReadmeSource.Contains("highlight inspection and copy commands")) {
+    if (-not $VscodeReadmeSource.Contains("cursor diagnostic inspection and") -or -not $VscodeReadmeSource.Contains("copy commands") -or -not $VscodeReadmeSource.Contains("highlight inspection and copy commands") -or -not $VscodeReadmeSource.Contains("native workflow source/docs")) {
         throw "VS Code README must document copy commands in Tooling Status discoverability wording"
     }
     foreach ($ForbiddenPublicMemberCatalogWording in @("seed-only suggestions", "non-executable placeholder suggestions")) {
@@ -4495,6 +4495,7 @@ function Assert-VscodeExtensionContract {
         "function toolingStatusPayload",
         "const currentFileHighlightProbe = await toolingStatusHighlightProbe(context)",
         "const currentFileProblemsProbe = toolingStatusProblemsProbe()",
+        "const nativeWorkflowProbe = toolingStatusNativeWorkflowProbe(document)",
         "current_file_highlights: currentFileHighlightProbe?.summary",
         "current_file_problems: currentFileProblemsProbe?.summary",
         "current_file_probe: currentFileHighlightProbe",
@@ -4504,6 +4505,11 @@ function Assert-VscodeExtensionContract {
         'inspect_problem_at_cursor: "EngLang: Inspect Problem at Cursor"',
         'copy_problem_at_cursor: "EngLang: Copy Problem at Cursor"',
         "function toolingStatusProblemsProbe()",
+        "function toolingStatusNativeWorkflowProbe(document)",
+        "native_workflows: nativeWorkflowProbe",
+        "latest_process_artifact",
+        "latest_run_graph_artifacts",
+        "full_evidence_gate",
         "diagnosticsCollection.get(document.uri)",
         "function toolingStatusProblemRow(document, diagnostic, index)",
         "diagnostic_range_status",

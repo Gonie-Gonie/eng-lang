@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 852: Added native workflow source/docs and latest zero-process artifact evidence to VS Code Tooling Status so workflow 01/02/03 native-only status is visible from the editor.
 - Batch 851: Added `dev.bat workflow-native-status` so workflow 01/02/03 native-only source/docs guards and latest zero-process artifact evidence are visible without rerunning the full workflow smoke gate.
 - Batch 850: Listed the VS Code Problems and Highlight copy commands in Tooling Status so the summary view exposes the full inspect/copy loop for linter and coloring reports.
 - Batch 849: Added `EngLang: Copy Highlight Token at Cursor` so VS Code users can copy current or nearest same-line role-aware highlight token payloads directly from the editor context menu.

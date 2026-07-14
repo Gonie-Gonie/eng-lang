@@ -83,8 +83,7 @@ embedding compiler logic in JavaScript.
   diagnostics mode, the `eng/file` or `eng/live` Problems source label,
   current-file Problems counts and range status, cursor diagnostic inspection and
   copy commands, Problems diagnostics toggles, the TextMate-plus-semantic highlighting
-  model, highlight inspection and copy commands, fallback scope-map coverage, and
-  extension version
+  model, highlight inspection and copy commands, fallback scope-map coverage,`n  native workflow source/docs and latest zero-process artifact evidence, and`n  extension version
 - `EngLang: Switch Execution Profile...` for choosing the `normal`, `safe`, or
   `repro` profile used by `EngLang: Run Current File`
 
