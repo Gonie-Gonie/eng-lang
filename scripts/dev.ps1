@@ -4280,6 +4280,7 @@ function Assert-VscodeExtensionContract {
         )
         "keyword.model" = @(
             "support.function.builtin.englang",
+            "keyword.control.model.englang",
             "keyword.control.workflow.englang",
             "keyword.operator.word.englang",
             "constant.language.englang"

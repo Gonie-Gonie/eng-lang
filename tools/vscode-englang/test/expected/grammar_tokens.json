@@ -1479,6 +1479,36 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.declaration.class-object.englang",
+    "text": "zone = Zone {",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.other.definition.englang",
+    "text": "zone",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.declaration.class-object-copy.englang",
+    "text": "larger_zone = zone with {",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.other.model.englang",
+    "text": "zone",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.model.englang",
+    "text": "with",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
     "scope": "meta.declaration.function.englang",
     "text": "method label",
     "fullMatch": true

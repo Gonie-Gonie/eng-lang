@@ -1,3 +1,4 @@
+- Batch 906: Added TextMate first-paint coverage for class object construction and copy-with headers so object source names and `with` use model-colored scopes before semantic tokens arrive.
 # Usability Improvement Backlog
 
 - Batch 905: Added TextMate first-paint coverage for `rmse measured.T vs simulated.T` comparison phrases so the validation metric, `vs` operator, and dotted measured/simulated operands are colored consistently before semantic tokens arrive.

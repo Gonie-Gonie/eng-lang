@@ -81,6 +81,10 @@
       "settings": { "foreground": "#F7C56B" }
     },
     {
+      "scope": ["keyword.control.model.englang"],
+      "settings": { "foreground": "#C792EA" }
+    },
+    {
       "scope": ["keyword.control.report.englang"],
       "settings": { "foreground": "#C792EA" }
     },
@@ -147,6 +151,10 @@
     {
       "scope": ["variable.language.self.englang", "variable.other.input.englang", "variable.other.output.englang", "variable.other.state.englang"],
       "settings": { "foreground": "#9CDCFE" }
+    },
+    {
+      "scope": ["variable.other.model.englang"],
+      "settings": { "foreground": "#B388FF" }
     },
     {
       "scope": ["variable.other.member.englang"],

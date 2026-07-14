@@ -25,6 +25,15 @@ class Zone {
     method label() -> String = self.name
 }
 
+zone = Zone {
+    name = "Lab"
+    area = 25 m2
+}
+
+larger_zone = zone with {
+    area = 30 m2
+}
+
 fn coil_heat(m_dot: MassFlowRate [kg/s], dT: TemperatureDelta [K]) -> HeatRate [W] {
     Q = m_dot * cp_water * dT
     return Q

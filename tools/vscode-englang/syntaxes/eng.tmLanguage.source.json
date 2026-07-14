@@ -285,6 +285,27 @@
             }
           },
           {
+            "name": "meta.declaration.class-object-copy.englang",
+            "match": "^\\s*([A-Za-z_][A-Za-z0-9_]*)(\\s*=\\s*)([A-Za-z_][A-Za-z0-9_]*)(\\s+)(with)(\\s*)(\\{)",
+            "captures": {
+              "1": { "name": "variable.other.definition.englang" },
+              "2": { "name": "keyword.operator.englang" },
+              "3": { "name": "variable.other.model.englang" },
+              "5": { "name": "keyword.control.model.englang" },
+              "7": { "name": "punctuation.section.block.begin.englang" }
+            }
+          },
+          {
+            "name": "meta.declaration.class-object.englang",
+            "match": "^\\s*([A-Za-z_][A-Za-z0-9_]*)(\\s*=\\s*)([A-Z][A-Za-z0-9_]*)(\\s*)(\\{)",
+            "captures": {
+              "1": { "name": "variable.other.definition.englang" },
+              "2": { "name": "keyword.operator.englang" },
+              "3": { "name": "entity.name.type.englang" },
+              "5": { "name": "punctuation.section.block.begin.englang" }
+            }
+          },
+          {
             "name": "meta.declaration.args-block.englang",
             "begin": "^\\s*(args)\\s*(\\{)",
             "beginCaptures": {

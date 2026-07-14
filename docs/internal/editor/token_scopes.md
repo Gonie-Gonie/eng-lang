@@ -48,7 +48,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `comment.line.*.englang` | Line comments (`#`, `//`) and documentation comments (`///`). |
 | `string.quoted.double.englang` | Double-quoted string literals. |
 | `constant.character.escape.englang` | Escape sequences such as `\n`, `\"`, and `\\` inside strings. |
-| `keyword.control.*.englang` | Workflow, report, validation, solver, deprecated, side-effect, and external-boundary words, including `check coverage` clause words for validation-like review operations. |
+| `keyword.control.*.englang` | Workflow, report, validation, solver, model, deprecated, side-effect, and external-boundary words, including `check coverage` clause words for validation-like review operations. |
 | `keyword.operator*.englang` | Word and symbolic operators. |
 | `punctuation.section.*.englang` | Block, bracket, and parenthesis delimiters. |
 | `punctuation.separator.*.englang` | Separators such as commas and colons. |
@@ -70,7 +70,9 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `storage.modifier.operator.englang` | `operator` member keyword fallback coloring aligned with solver semantic colors. |
 | `storage.modifier.englang` | Generic modifier and constant keyword fallback coloring from semantic token mappings. |
 | `entity.name.type.declaration.englang` | Full type-like declaration phrases such as `schema SensorData`. |
-| `entity.name.type.englang` | Captured declaration names after `schema`, `system`, `domain`, `component`, and `class`. |
+| `entity.name.type.englang` | Captured declaration names after `schema`, `system`, `domain`, `component`, and `class`, plus class names in object construction headers. |
+| `meta.declaration.class-object.englang` | Full class object construction headers written as `object = Class {`. |
+| `meta.declaration.class-object-copy.englang` | Full class object copy-with headers written as `object = source with {`. |
 | `meta.declaration.function.englang` | Full `fn` and `method` declaration phrases. |
 | `entity.name.function.englang` | Captured `fn` and `method` names. |
 | `entity.name.function.call.englang` | User-defined function call names. |
@@ -113,6 +115,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `variable.other.public-member.englang` | Compiler-catalog public workflow API member segments such as `response_source`, `row_preview`, DB `summary`, case count fields, `model.rmse`, and `predictions.output_column`. |
 | `variable.parameter.property.member.englang` | Member segments after `args.` in dotted parameter paths. |
 | `variable.other.definition.englang` | Runtime binding names written with `name = ...`. |
+| `variable.other.model.englang` | Class object source names in copy-with headers. |
 | `meta.workflow.*.englang` | Phrase scopes for multi-token workflow operations. |
 | `meta.report.*.englang` | Report phrase scopes. |
 | `meta.quantity.literal.englang` | Unit-bearing numeric expressions. |
@@ -422,6 +425,7 @@ invalid.deprecated.englang
 keyword.control.deprecated.englang
 keyword.control.external-boundary.englang
 keyword.control.import.englang
+keyword.control.model.englang
 keyword.control.report.englang
 keyword.control.side-effect.englang
 keyword.control.solver.englang
@@ -449,6 +453,7 @@ support.function.builtin.englang
 support.namespace.module.englang
 support.type.englang
 variable.other.definition.englang
+variable.other.model.englang
 variable.other.state.englang
 variable.other.input.englang
 variable.other.output.englang

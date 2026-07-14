@@ -1257,6 +1257,7 @@ Assert-ScopeDoesNotMatchText -Scope "meta.workflow.print-message.englang" -Text 
 Assert-ScopeDoesNotMatchText -Scope "meta.workflow.log-message.englang" -Text 'bad_log = log info "ok"' -Description "unsupported bound log output"
 Assert-ScopeDoesNotMatchText -Scope "meta.block.header.englang" -Text 'bad_report = report {' -Description "unsupported bound report block"
 Assert-ScopeDoesNotMatchText -Scope "meta.declaration.args-block.englang" -Text 'bad_args = args {' -Description "unsupported bound args block"
+Assert-ScopeDoesNotMatchText -Scope "meta.declaration.class-object.englang" -Text 'bad_args = args {' -Description "unsupported bound args block as class object"
 Assert-ScopeDoesNotMatchText -Scope "entity.name.type.declaration.englang" -Text 'bad_schema = schema Row {' -Description "unsupported bound schema declaration"
 Assert-ScopeDoesNotMatchText -Scope "meta.declaration.function.englang" -Text 'bad_fn = fn helper {' -Description "unsupported bound function declaration"
 Assert-ScopeDoesNotMatchText -Scope "meta.declaration.constant.englang" -Text 'bad_const = const cp' -Description "unsupported bound const declaration"

@@ -638,6 +638,7 @@
           ],
           "variable.model": [
             "entity.name.function.englang",
+            "variable.other.model.englang",
             "variable.other.definition.englang"
           ],
           "function.model": [
@@ -645,6 +646,7 @@
             "entity.name.function.englang"
           ],
           "keyword.model": [
+            "keyword.control.model.englang",
             "keyword.control.workflow.englang",
             "keyword.operator.word.englang",
             "constant.language.englang",
