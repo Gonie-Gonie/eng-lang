@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 833: Added precise native IDE Problems ranges from the shared LSP diagnostic range mapper, including range display, column-aware row jumps, filtering, and copy payloads.
 - Batch 832: Added current-file highlight token and overlap probing to VS Code Tooling Status so the first diagnostic status view surfaces color-range conflicts without opening the raw highlight inspector first.
 - Batch 831: Added native IDE caret-line overlap status so the cursor summary and caret highlight table flag overlapping highlight ranges and jump directly to the Highlight panel.
 - Batch 830: Added VS Code highlight overlap status fields and status wording so file and caret inspectors call out overlapping ranges without requiring users to read the raw overlap arrays first.

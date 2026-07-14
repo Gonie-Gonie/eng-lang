@@ -641,7 +641,10 @@ function bind() {
   document.querySelectorAll("[data-problem-line]").forEach((row) => {
     row.onclick = (event) => {
       if (event.target.closest("button")) return;
-      selectSourceLine(Number(row.dataset.problemLine || 0));
+      selectSourceLine(
+        Number(row.dataset.problemLine || 0),
+        Number(row.dataset.problemColumn || 1)
+      );
     };
   });
   document.querySelectorAll("[data-copy-problem-index]").forEach((button) => {
@@ -6456,9 +6459,9 @@ function renderProblems() {
   const activeCode = activeProblemCode(diagnostics);
   const filtered = filteredProblems(activeCode);
   const rows = filtered.map((diag, index) => `
-    <tr class="problem-row" data-problem-line="${escapeAttr(diag.line || 0)}" title="Jump to source line ${escapeAttr(diag.line || "-")}">
+    <tr class="problem-row" data-problem-line="${escapeAttr(diag.line || 0)}" data-problem-column="${escapeAttr(diag.column || 1)}" title="Jump to ${escapeAttr(diag.rangeText || diag.range_text || `line ${diag.line || "-"}`)}">
       <td class="${diag.severity === "error" ? "error" : "warning"}">${escapeHtml(diag.severity)}</td>
-      <td>${sourceLineButton(diag)}</td>
+      <td>${problemRangeCell(diag)}</td>
       <td><code>${escapeHtml(diag.code)}</code></td>
       <td>
         <div class="problem-message">${escapeHtml(diag.message)}${diag.help ? `<div class="muted">help: ${escapeHtml(diag.help)}</div>` : ""}</div>
@@ -6480,19 +6483,26 @@ function renderProblems() {
           <option value="all">All codes</option>
           ${codes.map((code) => `<option value="${escapeAttr(code)}" ${activeCode === code ? "selected" : ""}>${escapeHtml(code)}</option>`).join("")}
         </select>
-        <input id="problemQueryInput" class="problem-query" value="${escapeAttr(state.problemQuery)}" placeholder="Filter diagnostics" title="Filter by code, message, help, or line" />
+        <input id="problemQueryInput" class="problem-query" value="${escapeAttr(state.problemQuery)}" placeholder="Filter diagnostics" title="Filter by code, message, help, line, or column" />
         <button id="clearProblemFilters">Clear</button>
         <button id="copyVisibleProblemsBtn" title="Copy filtered diagnostics" ${filtered.length ? "" : "disabled"}>Copy visible</button>
         <span class="muted">${filtered.length} of ${diagnostics.length}</span>
       </div>
       <div class="scroll problem-scroll">
       <table class="problems-table">
-        <thead><tr><th>Severity</th><th>Line</th><th>Code</th><th>Message</th></tr></thead>
+        <thead><tr><th>Severity</th><th>Range</th><th>Code</th><th>Message</th></tr></thead>
         <tbody>${rows || `<tr><td colspan="4" class="ok">${diagnostics.length ? "No diagnostics match the active filters" : "No diagnostics"}</td></tr>`}</tbody>
       </table>
       </div>
     </div>
   `;
+}
+
+function problemRangeCell(diag) {
+  const rangeText = diag?.rangeText || diag?.range_text || "";
+  const lineButton = sourceLineButton(diag);
+  if (!rangeText) return lineButton;
+  return `${lineButton}<div class="muted">${escapeHtml(rangeText)}</div>`;
 }
 
 function filteredProblems(activeCode = state.problemCode) {
@@ -6505,8 +6515,12 @@ function filteredProblems(activeCode = state.problemCode) {
       diag.code,
       diag.message,
       diag.help,
+      diag.rangeText,
+      diag.range_text,
       `line ${diag.line}`,
-      `l${diag.line}`
+      `l${diag.line}`,
+      `column ${diag.column}`,
+      `c${diag.column}`
     ].some((value) => String(value || "").toLowerCase().includes(query));
     return severityMatches && codeMatches && queryMatches;
   });
@@ -6559,6 +6573,8 @@ function problemCopyText(diag) {
   const lines = [
     `file: ${state.currentPath || "-"}`,
     `line: ${sourceLineValue(diag) || "-"}`,
+    `column: ${sourceColumnValue(diag) || "-"}`,
+    `range: ${diag?.rangeText || diag?.range_text || "-"}`,
     `severity: ${diag?.severity || "-"}`,
     `code: ${diag?.code || "-"}`,
     `message: ${diag?.message || "-"}`

@@ -66,6 +66,11 @@ struct DiagnosticView {
     severity: String,
     code: String,
     line: usize,
+    column: usize,
+    end_column: usize,
+    start_character: usize,
+    end_character: usize,
+    range_text: String,
     message: String,
     help: Option<String>,
 }
@@ -828,17 +833,7 @@ fn check_view(path: &Path, source: &str) -> CheckView {
 }
 
 fn check_view_from_report(report: &CheckReport, source: Option<&str>) -> CheckView {
-    let diagnostics: Vec<DiagnosticView> = report
-        .diagnostics
-        .iter()
-        .map(|diagnostic| DiagnosticView {
-            severity: diagnostic.severity.as_str().to_owned(),
-            code: diagnostic.code.clone(),
-            line: diagnostic.line,
-            message: diagnostic.message.clone(),
-            help: diagnostic.help.clone(),
-        })
-        .collect();
+    let diagnostics = diagnostic_views(report, source);
     let symbols = report
         .semantic_program
         .hover_hints
@@ -875,6 +870,69 @@ fn check_view_from_report(report: &CheckReport, source: Option<&str>) -> CheckVi
         status: format!("{errors} error(s), {warnings} warning(s)"),
         semantic_tokens,
         hovers,
+    }
+}
+
+fn diagnostic_views(report: &CheckReport, source: Option<&str>) -> Vec<DiagnosticView> {
+    let Some(source) = source else {
+        return report
+            .diagnostics
+            .iter()
+            .map(|diagnostic| {
+                diagnostic_view_from_parts(
+                    diagnostic.severity.as_str(),
+                    &diagnostic.code,
+                    diagnostic.line,
+                    0,
+                    1,
+                    &diagnostic.message,
+                    diagnostic.help.clone(),
+                )
+            })
+            .collect();
+    };
+    let snapshot = eng_lsp::snapshot_from_report_with_source(report, Some(source));
+    snapshot
+        .diagnostics
+        .iter()
+        .map(diagnostic_view_from_lsp)
+        .collect()
+}
+
+fn diagnostic_view_from_lsp(diagnostic: &eng_lsp::LspDiagnostic) -> DiagnosticView {
+    diagnostic_view_from_parts(
+        &diagnostic.severity,
+        &diagnostic.code,
+        diagnostic.line,
+        diagnostic.start_character,
+        diagnostic.end_character,
+        &diagnostic.message,
+        diagnostic.help.clone(),
+    )
+}
+
+fn diagnostic_view_from_parts(
+    severity: &str,
+    code: &str,
+    line: usize,
+    start_character: usize,
+    end_character: usize,
+    message: &str,
+    help: Option<String>,
+) -> DiagnosticView {
+    let column = start_character.saturating_add(1);
+    let end_column = end_character.max(start_character + 1).saturating_add(1);
+    DiagnosticView {
+        severity: severity.to_owned(),
+        code: code.to_owned(),
+        line,
+        column,
+        end_column,
+        start_character,
+        end_character,
+        range_text: format!("L{line}:C{column}-C{end_column}"),
+        message: message.to_owned(),
+        help,
     }
 }
 
@@ -2259,13 +2317,15 @@ fn terminal_command_error(command: &str) -> Option<CheckView> {
         )
     };
     Some(CheckView {
-        diagnostics: vec![DiagnosticView {
-            severity: "error".to_owned(),
-            code: "E-IDE-TERMINAL-SYNTAX".to_owned(),
-            line: 1,
-            message,
+        diagnostics: vec![diagnostic_view_from_parts(
+            "error",
+            "E-IDE-TERMINAL-SYNTAX",
+            1,
+            0,
+            command.encode_utf16().count().max(1),
+            &message,
             help,
-        }],
+        )],
         symbols: Vec::new(),
         status: "1 error(s), 0 warning(s)".to_owned(),
         semantic_tokens: empty_semantic_tokens_view(),
@@ -2283,13 +2343,15 @@ fn terminal_unrecognized_command_error(command: &str, run_dir: &Path) -> Option<
         return None;
     }
     Some(CheckView {
-        diagnostics: vec![DiagnosticView {
-            severity: "error".to_owned(),
-            code: "E-IDE-TERMINAL-SYNTAX".to_owned(),
-            line: 1,
-            message: "terminal command was not recognized.".to_owned(),
-            help: Some("Use `run`, `check`, `reset`, `clear`, `cd <dir>`, or a one-line EngLang statement such as `x = 3` or `print x`.".to_owned()),
-        }],
+        diagnostics: vec![diagnostic_view_from_parts(
+            "error",
+            "E-IDE-TERMINAL-SYNTAX",
+            1,
+            0,
+            command.encode_utf16().count().max(1),
+            "terminal command was not recognized.",
+            Some("Use `run`, `check`, `reset`, `clear`, `cd <dir>`, or a one-line EngLang statement such as `x = 3` or `print x`.".to_owned()),
+        )],
         symbols: Vec::new(),
         status: "1 error(s), 0 warning(s)".to_owned(),
         semantic_tokens: empty_semantic_tokens_view(),
@@ -3816,6 +3878,13 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
             .join("ui")
             .join("app.js"),
     )?;
+    let main_rs = read_utf8(
+        &root
+            .join("crates")
+            .join("eng_ide")
+            .join("src")
+            .join("main.rs"),
+    )?;
     for required in [
         "function statusLabel(status)",
         "if (module.status_label) return module.status_label;",
@@ -3894,6 +3963,12 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
         r#"byteOffsetToCodeUnit(String(lineText || ""), targetByte)"#,
         "data-source-column",
         "function sourceColumnValue(item)",
+        "data-problem-column",
+        "function problemRangeCell(diag)",
+        "diag.rangeText",
+        "diag.range_text",
+        r#"`column ${diag.column}`"#,
+        r#"`range: ${diag?.rangeText || diag?.range_text || "-"}`"#,
         "source_column",
         "sourceColumn",
         "function receiverLookupCandidates(receiver)",
@@ -3924,6 +3999,18 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
         if !app_js.contains(required) {
             return Err(format!(
                 "native IDE app.js should include UI behavior contract `{required}`"
+            ));
+        }
+    }
+    for required in [
+        "diagnostic_view_from_lsp",
+        "diagnostic_view_from_parts",
+        r#"range_text: format!("L{line}:C{column}-C{end_column}")"#,
+        "snapshot_from_report_with_source(report, Some(source))",
+    ] {
+        if !main_rs.contains(required) {
+            return Err(format!(
+                "native IDE main.rs should include diagnostic range contract `{required}`"
             ));
         }
     }
@@ -3998,6 +4085,23 @@ mod tests {
         assert_eq!(check.status, "1 error(s), 0 warning(s)");
         assert_eq!(check.diagnostics[0].code, "E-IDE-TERMINAL-SYNTAX");
         assert!(check.diagnostics[0].message.contains("string-template"));
+    }
+
+    #[test]
+    fn check_view_surfaces_lsp_diagnostic_ranges() {
+        let source = "  bad = 1 m + 2\n  power = 1 kW + 2\n";
+        let check = check_view(Path::new("diagnostic_ranges.eng"), source);
+        let diagnostic = check
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-DIM-ADD-001")
+            .expect("dimension diagnostic");
+        assert_eq!(diagnostic.line, 1);
+        assert!(diagnostic.column > 1);
+        assert!(diagnostic.end_column > diagnostic.column);
+        assert_eq!(diagnostic.column, diagnostic.start_character + 1);
+        assert_eq!(diagnostic.end_column, diagnostic.end_character + 1);
+        assert!(diagnostic.range_text.starts_with("L1:C"));
     }
 
     #[test]
