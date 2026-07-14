@@ -410,6 +410,10 @@
             "keyword.control.external-boundary.englang",
             "variable.parameter.property.englang"
           ],
+          "parameter.db": [
+            "keyword.control.external-boundary.englang",
+            "variable.parameter.property.englang"
+          ],
           "parameter.validation": [
             "keyword.control.validation.englang",
             "variable.parameter.property.englang"

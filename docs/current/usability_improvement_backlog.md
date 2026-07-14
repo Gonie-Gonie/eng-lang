@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 891: Made partial DB table read/write targets role-aware in LSP fallback highlighting so `write ... to args.database.table(...)`, `read sqlite ... as ...`, and copy/move `to` clauses keep DB/external colors before full type resolution.
 - Batch 890: Marked export-summary field connectors as report-aware semantic tokens so `as` and `with` in summary CSV field rows use report role colors instead of generic keyword coloring.
 - Batch 889: Clarified workflow 02 case status wording by separating initial CaseTable manifest state from final CaseResultCollection status in bindings, prints, and docs.
 - Batch 888: Made VS Code saved-file uncertainty argument diagnostics underline invalid named argument values such as `samples=many` instead of the uncertainty constructor name.

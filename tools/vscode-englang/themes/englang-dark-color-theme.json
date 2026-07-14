@@ -233,6 +233,7 @@
     "parameter.timeseries": "#8DD694",
     "parameter.sideEffect": "#FF8A8A",
     "parameter.external": "#FFB86B",
+    "parameter.db": "#4DD0E1",
     "parameter.validation": "#F7C56B",
     "parameter.report": "#C792EA",
     "parameter.solver": "#80CBC4",

@@ -2700,7 +2700,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             &["declaration", "db", "external"],
         );
         builder.push_keywords_on_line(declaration.line, &["read", "sqlite", "as"], modifiers);
-        builder.push_on_line(declaration.line, &read.connection, "variable", modifiers);
+        builder.push_identifier_path_on_line(declaration.line, &read.connection, modifiers);
         builder.push_on_line(declaration.line, "table", "method", modifiers);
         builder.push_on_line(declaration.line, &read.schema_name, "class", &[]);
     }
@@ -4878,12 +4878,14 @@ impl<'a> SemanticTokenBuilder<'a> {
                 if let Some(token_type) =
                     dotted_identifier_segment_token_type(line, token_start, index)
                 {
+                    let modifiers =
+                        dotted_identifier_segment_modifiers_for_line(line, token_start, index);
                     self.push_byte_range(
                         line_index,
                         token_start,
                         index - token_start,
                         token_type,
-                        &[],
+                        modifiers,
                     );
                     continue;
                 }
@@ -4916,7 +4918,7 @@ impl<'a> SemanticTokenBuilder<'a> {
                         token_start,
                         index - token_start,
                         "keyword",
-                        keyword_modifiers(token),
+                        keyword_modifiers_for_line(line, token, token_start),
                     );
                 } else if constant_keywords.contains(token) {
                     self.push_byte_range(
@@ -5697,6 +5699,27 @@ impl<'a> SemanticTokenBuilder<'a> {
     }
 }
 
+fn keyword_modifiers_for_line(
+    line: &str,
+    keyword: &str,
+    token_start: usize,
+) -> &'static [&'static str] {
+    if is_db_write_clause_keyword(line, keyword) {
+        return &["sideEffect", "external", "db"];
+    }
+    if is_db_read_clause_keyword(line, keyword, token_start) {
+        return match keyword {
+            "read" => &["workflowStep", "external", "db"],
+            "sqlite" => &["sideEffect", "external", "db"],
+            "as" => &["db", "external"],
+            _ => keyword_modifiers(keyword),
+        };
+    }
+    if is_file_operation_to_clause(line, keyword) {
+        return &["sideEffect", "external"];
+    }
+    keyword_modifiers(keyword)
+}
 fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
     match keyword {
         "open" | "sqlite" => &["sideEffect", "external", "db"],
@@ -6633,6 +6656,83 @@ fn dotted_identifier_segment_token_type(
     }
 }
 
+fn dotted_identifier_segment_modifiers_for_line(
+    line: &str,
+    start: usize,
+    end: usize,
+) -> &'static [&'static str] {
+    if is_db_table_target_segment(line, start, end) {
+        &["db", "external"]
+    } else {
+        &[]
+    }
+}
+
+fn is_db_write_clause_keyword(line: &str, keyword: &str) -> bool {
+    matches!(keyword, "write" | "to") && is_db_write_table_phrase(line)
+}
+
+fn is_db_read_clause_keyword(line: &str, keyword: &str, token_start: usize) -> bool {
+    if !matches!(keyword, "read" | "sqlite" | "as") || !is_db_read_sqlite_table_phrase(line) {
+        return false;
+    }
+    match keyword {
+        "read" => next_identifier_after(line, token_start + "read".len()) == Some("sqlite"),
+        "sqlite" => previous_identifier_before(line, token_start) == Some("read"),
+        "as" => line
+            .get(..token_start)
+            .is_some_and(|prefix| prefix.contains("read sqlite ") && prefix.contains(".table(")),
+        _ => false,
+    }
+}
+
+fn is_file_operation_to_clause(line: &str, keyword: &str) -> bool {
+    keyword == "to"
+        && (line.trim_start().starts_with("copy ") || line.trim_start().starts_with("move "))
+}
+
+fn is_db_table_target_segment(line: &str, start: usize, end: usize) -> bool {
+    if !is_db_write_table_phrase(line) && !is_db_read_sqlite_table_phrase(line) {
+        return false;
+    }
+    let bytes = line.as_bytes();
+    let mut search_start = 0usize;
+    while search_start < line.len() {
+        let Some(relative) = line[search_start..].find(".table(") else {
+            break;
+        };
+        let dot_start = search_start + relative;
+        let table_start = dot_start + 1;
+        let table_end = table_start + "table".len();
+        let mut target_start = dot_start;
+        while target_start > 0 {
+            let byte = bytes[target_start - 1];
+            if is_ident_byte(byte) || byte == b'.' {
+                target_start -= 1;
+            } else {
+                break;
+            }
+        }
+        if start >= target_start && end <= table_end {
+            return true;
+        }
+        search_start = table_end;
+    }
+    false
+}
+
+fn is_db_write_table_phrase(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    trimmed.starts_with("write ") && trimmed.contains(" to ") && trimmed.contains(".table(")
+}
+
+fn is_db_read_sqlite_table_phrase(line: &str) -> bool {
+    let Some(read_start) = line.find("read sqlite ") else {
+        return false;
+    };
+    let rest = &line[read_start..];
+    rest.contains(".table(") && rest.contains(" as ")
+}
 fn is_identifier_label_token(line: &str, end: usize) -> bool {
     let bytes = line.as_bytes();
     let mut index = end;
@@ -12950,6 +13050,94 @@ derived = derive designs column annual_electricity = cooling_cop * 100 kWh
         );
     }
 
+    #[test]
+    fn snapshot_marks_partial_db_table_targets_role_aware() {
+        let source = r#"write rows to args.database.table("runs")
+args_rows = read sqlite args.database.table("runs") as ProcessResult
+copy file("data/template.txt") to file("outputs/template.txt")
+"#;
+        let snapshot = snapshot_for_source(Path::new("partial_db_table_targets.eng"), source);
+
+        for (line, label, token_type, modifier) in [
+            (
+                "write rows to args.database.table",
+                "write",
+                "keyword",
+                "db",
+            ),
+            (
+                "write rows to args.database.table",
+                "write",
+                "keyword",
+                "external",
+            ),
+            ("write rows to args.database.table", "to", "keyword", "db"),
+            (
+                "write rows to args.database.table",
+                "args",
+                "parameter",
+                "db",
+            ),
+            (
+                "write rows to args.database.table",
+                "database",
+                "property",
+                "db",
+            ),
+            ("write rows to args.database.table", "table", "method", "db"),
+            (
+                "args_rows = read sqlite args.database.table",
+                "read",
+                "keyword",
+                "db",
+            ),
+            (
+                "args_rows = read sqlite args.database.table",
+                "read",
+                "keyword",
+                "external",
+            ),
+            (
+                "args_rows = read sqlite args.database.table",
+                "as",
+                "keyword",
+                "db",
+            ),
+            (
+                "args_rows = read sqlite args.database.table",
+                "args",
+                "parameter",
+                "db",
+            ),
+            (
+                "args_rows = read sqlite args.database.table",
+                "database",
+                "property",
+                "db",
+            ),
+            (
+                "args_rows = read sqlite args.database.table",
+                "table",
+                "method",
+                "db",
+            ),
+            (
+                "copy file(\"data/template.txt\") to file",
+                "to",
+                "keyword",
+                "external",
+            ),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, label, token_type, modifier,
+            );
+        }
+        assert_no_conflicting_semantic_token_types(
+            &snapshot,
+            source,
+            "partial_db_table_targets.eng",
+        );
+    }
     #[test]
     fn snapshot_keeps_export_summary_and_plot_and_as_keywords_not_variables() {
         let source = r#"Q: HeatRate [kW] = 1 kW
