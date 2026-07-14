@@ -638,6 +638,10 @@ function bind() {
   if (copyVisibleProblemsBtn) {
     copyVisibleProblemsBtn.onclick = copyVisibleProblems;
   }
+  const copyCursorProblemBtn = byId("copyCursorProblemBtn");
+  if (copyCursorProblemBtn) {
+    copyCursorProblemBtn.onclick = copyCursorProblem;
+  }
   document.querySelectorAll("[data-problem-line]").forEach((row) => {
     row.onclick = (event) => {
       if (event.target.closest("button")) return;
@@ -6821,6 +6825,7 @@ function renderProblems() {
         </select>
         <input id="problemQueryInput" class="problem-query" value="${escapeAttr(state.problemQuery)}" placeholder="Filter diagnostics" title="Filter by code, message, help, line, or column" />
         <button id="clearProblemFilters">Clear</button>
+        <button id="copyCursorProblemBtn" title="Copy current or nearest same-line diagnostic" ${diagnostics.length ? "" : "disabled"}>Copy at cursor</button>
         <button id="copyVisibleProblemsBtn" title="Copy filtered diagnostics" ${filtered.length ? "" : "disabled"}>Copy visible</button>
         <span class="muted">${filtered.length} of ${diagnostics.length}</span>
       </div>
@@ -6893,6 +6898,63 @@ async function copyProblemDiagnostic(index) {
   setStatus(copied ? `Copied problem ${label}` : "Copy failed");
 }
 
+async function copyCursorProblem() {
+  const match = problemAtCursor();
+  if (!match) {
+    setStatus("No same-line problem at the cursor");
+    return;
+  }
+  const copied = await copyTextToClipboard(problemCopyText(match.diag));
+  const label = `${match.diag.code || "diagnostic"} L${sourceLineValue(match.diag) || "-"}`;
+  const qualifier = match.distance === 0 ? "problem" : "nearest same-line problem";
+  setStatus(copied ? `Copied ${qualifier} ${label}` : "Copy failed");
+}
+
+function problemAtCursor() {
+  const diagnostics = state.check.diagnostics || [];
+  if (!diagnostics.length) return null;
+  const editor = byId("editor");
+  const source = editor?.value ?? state.source ?? "";
+  const position = editorCursorPosition(source, editor?.selectionStart ?? 0);
+  const line = position.line + 1;
+  return diagnostics
+    .map((diag, index) => ({
+      diag,
+      index,
+      distance: problemCaretDistance(diag, line, position.column)
+    }))
+    .filter((item) => Number.isFinite(item.distance))
+    .sort((left, right) => (
+      left.distance - right.distance
+      || problemSeverityRank(left.diag) - problemSeverityRank(right.diag)
+      || left.index - right.index
+    ))[0] || null;
+}
+
+function problemCaretDistance(diag, line, caretColumn) {
+  const diagnosticLine = Number(sourceLineValue(diag));
+  if (!Number.isFinite(diagnosticLine) || Math.trunc(diagnosticLine) !== line) return null;
+  const startCharacter = Number(diag?.startCharacter ?? diag?.start_character);
+  const endCharacter = Number(diag?.endCharacter ?? diag?.end_character);
+  if (Number.isFinite(startCharacter) && Number.isFinite(endCharacter) && endCharacter > startCharacter) {
+    const start = Math.max(0, Math.trunc(startCharacter));
+    const end = Math.max(start + 1, Math.trunc(endCharacter));
+    if (caretColumn >= start && caretColumn <= end) return 0;
+    return Math.min(Math.abs(caretColumn - start), Math.abs(caretColumn - end));
+  }
+  const column = Number(sourceColumnValue(diag));
+  if (Number.isFinite(column) && column > 0) {
+    return Math.abs(caretColumn - Math.max(0, Math.trunc(column) - 1));
+  }
+  return 0;
+}
+
+function problemSeverityRank(diag) {
+  if (diag?.severity === "error") return 0;
+  if (diag?.severity === "warning") return 1;
+  return 2;
+}
+
 async function copyVisibleProblems() {
   const diagnostics = state.check.diagnostics || [];
   const visible = filteredProblems(activeProblemCode(diagnostics));
@@ -6915,8 +6977,16 @@ function problemCopyText(diag) {
     `code: ${diag?.code || "-"}`,
     `message: ${diag?.message || "-"}`
   ];
+  const sourceLine = problemSourceLineText(diag);
+  if (sourceLine) lines.push(`source: ${sourceLine}`);
   if (diag?.help) lines.push(`help: ${diag.help}`);
   return lines.join("\n");
+}
+
+function problemSourceLineText(diag) {
+  const lineNumber = Number(sourceLineValue(diag));
+  if (!Number.isFinite(lineNumber) || lineNumber < 1) return "";
+  return sourceLineRange(state.source || "", Math.trunc(lineNumber) - 1).text.trimEnd();
 }
 
 function renderTerminal() {
