@@ -3923,7 +3923,7 @@ function Assert-VscodeExtensionContract {
         throw "VS Code lspPath description must describe the live editor tool"
     }
     $SemanticDescription = [string]$Properties."englang.semanticHighlighting.enabled".description
-    if ($SemanticDescription -match "eng-lsp|snapshot|semantic tokens") {
+    if ($SemanticDescription -match "eng-lsp|snapshot|semantic tokens|compiler-backed") {
         throw "VS Code semanticHighlighting description must avoid editor-service implementation details"
     }
     foreach ($ForbiddenEditorDocWording in @(
@@ -3959,6 +3959,8 @@ function Assert-VscodeExtensionContract {
         "LSP editor metadata",
         "LSP editor syntax catalog",
         "compiler-backed semantic tokens",
+        "compiler-backed role-aware colors",
+        "compiler-backed diagnostics",
         "token ranges",
         "lint toggles"
     )) {

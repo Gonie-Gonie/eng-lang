@@ -77,8 +77,8 @@ Editor
   module surfaces such as `eng.path`, `eng.io`, `eng.fs`, and `eng.process`.
   The base completion vocabulary comes from the same generated editor catalog
   used by the VS Code extension, with only larger native IDE snippets added on
-  top. Checked files use compiler-backed role-aware colors for keywords, units,
-  quantities, workflow operations, and review-risk highlighting. If the buffer
+  top. Checked files use role-aware colors for keywords, units, quantities,
+  workflow operations, and review-risk highlighting. If the buffer
   has changed since the last check, the editor falls back to the shared lexical
   color catalog until Check or Run refreshes the precise source ranges.
   Tab and Shift+Tab indent or outdent the current line or selected block,
@@ -208,7 +208,7 @@ editor immediately; switching back to `file` clears stale live Problems for an
 unsaved active buffer until the file is saved. Direct settings changes to
 diagnostics mode or Problems settings also refresh or clear the active EngLang editor.
 
-The extension shares the same compiler-backed diagnostics, hover, completion,
-and role-aware highlighting data as the native IDE. It is useful when you prefer
+The extension shares the same checked-code diagnostics, hover, completion, and
+role-aware highlighting data as the native IDE. It is useful when you prefer
 VS Code, while `eng-ide.exe` remains the primary no-install review path for the
 current release.
