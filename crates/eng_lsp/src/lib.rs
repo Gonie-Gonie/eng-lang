@@ -2664,7 +2664,6 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for command in &program.command_styles {
-        builder.push_on_line(command.line, &command.verb, "function", &["defaultLibrary"]);
         add_command_style_semantic_tokens(&mut builder, command);
     }
 
@@ -12105,6 +12104,38 @@ comparison = empty == missing
             "keyword",
         );
         assert_semantic_token_on_line_type(&snapshot, source, "comparison =", "empty", "keyword");
+    }
+
+    #[test]
+    fn snapshot_keeps_command_style_verbs_as_keywords_not_functions() {
+        let source = r#"E_call = integrate(Q_series, over=Time)
+E_cmd = integrate Q_series over Time
+report {
+    show Q_series
+    plot Q_series over Time
+}
+coverage = check coverage measured.T_zone
+filled_zone = fill missing measured.T_zone
+"#;
+        let snapshot = snapshot_for_source(Path::new("command_style_verbs.eng"), source);
+
+        assert_semantic_token_on_line_type(
+            &snapshot,
+            source,
+            "E_call = integrate",
+            "integrate",
+            "function",
+        );
+        for (line, label) in [
+            ("E_cmd = integrate", "integrate"),
+            ("    show Q_series", "show"),
+            ("    plot Q_series", "plot"),
+            ("coverage = check", "check"),
+            ("filled_zone = fill", "fill"),
+        ] {
+            assert_semantic_token_on_line_type(&snapshot, source, line, label, "keyword");
+            assert_no_semantic_token_on_line_type(&snapshot, source, line, label, "function");
+        }
     }
 
     #[test]
