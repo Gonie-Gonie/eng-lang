@@ -3565,12 +3565,12 @@ function Assert-VscodeExtensionContract {
         throw "VS Code README must document that Refresh Problems follows the selected diagnostics mode"
     }
     if (-not $VscodeReadmeSource.Contains("the underlined source") -or -not $VscodeReadmeSource.Contains("full source line") -or -not $VscodeReadmeSource.Contains("copy-ready reports")) {
-        throw "VS Code README must document problem inspector source text payloads"
+        throw "VS Code README must document problem inspector source text details"
     }
-    if (-not $VscodeReadmeSource.Contains("EngLang: Copy Problem at Cursor") -or -not $VscodeReadmeSource.Contains("nearest same-line diagnostic payload") -or -not $VscodeReadmeSource.Contains("clipboard")) {
+    if (-not $VscodeReadmeSource.Contains("EngLang: Copy Problem at Cursor") -or -not $VscodeReadmeSource.Contains("nearest same-line diagnostic details") -or -not $VscodeReadmeSource.Contains("clipboard")) {
         throw "VS Code README must document the copy-ready problem cursor command"
     }
-    if (-not $VscodeReadmeSource.Contains("EngLang: Copy Highlight Token at Cursor") -or -not $VscodeReadmeSource.Contains("same-line role-aware highlight token payload") -or -not $VscodeReadmeSource.Contains("nearest same-line highlight token payload")) {
+    if (-not $VscodeReadmeSource.Contains("EngLang: Copy Highlight Token at Cursor") -or -not $VscodeReadmeSource.Contains("same-line role-aware highlight token details") -or -not $VscodeReadmeSource.Contains("nearest same-line highlight token details")) {
         throw "VS Code README must document the copy-ready highlight cursor command"
     }
     if (-not $VscodeReadmeSource.Contains("cursor diagnostic inspection and") -or -not $VscodeReadmeSource.Contains("copy commands") -or -not $VscodeReadmeSource.Contains("highlight inspection and copy commands") -or -not $VscodeReadmeSource.Contains("native workflow source/docs")) {
@@ -3977,6 +3977,10 @@ function Assert-VscodeExtensionContract {
         "TextMate-plus-semantic highlighting",
         "TextMate-only",
         "raw semantic-token payload",
+        "diagnostic payload",
+        "highlight token payload",
+        "inspector JSON",
+        "raw highlight payload",
         "semantic-token mapping rules"
     )) {
         if ($VscodeReadmeSource.Contains($ForbiddenVscodeReadmeWording)) {

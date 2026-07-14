@@ -75,9 +75,9 @@ embedding compiler logic in JavaScript.
 - `EngLang: Refresh Problems` for rerunning the active-file linter from the
   Command Palette or `.eng` editor context menu
 - `EngLang: Copy Problem at Cursor` for copying the current or nearest same-line
-  diagnostic payload without opening the inspector JSON
+  diagnostic details without opening a separate inspector view
 - `EngLang: Copy Highlight Token at Cursor` for copying the current or nearest
-  same-line role-aware highlight token payload without opening the inspector JSON
+  same-line role-aware highlight token details without opening a separate inspector view
 - `EngLang: Show Tooling Status` for inspecting a summary-first JSON status view
   with the active check/run and live editor tool paths, fallback/source labels,
   diagnostics mode, the `eng/file` or `eng/live` Problems source label,
@@ -214,13 +214,13 @@ check the current unsaved buffer.
 Saved-file open/save diagnostics
 are controlled by `englang.lintOnSave`; live typing diagnostics are controlled by
 `englang.lintOnChange`. Use `EngLang: Inspect Problem at Cursor` to open a
-focused JSON view of diagnostics covering the caret, nearest same-line
+focused Problems view of diagnostics covering the caret, nearest same-line
 diagnostics, source labels, codes, severity, range text, the underlined source
 text, and the full source line for copy-ready reports. Use `EngLang: Copy Problem
-at Cursor` to copy that current or nearest same-line diagnostic payload directly
-to the clipboard. If diagnostics cannot parse editor JSON, run `EngLang: Show
+at Cursor` to copy that current or nearest same-line diagnostic details directly
+to the clipboard. If diagnostics cannot be read from the selected tool, run `EngLang: Show
 Tooling Status` to inspect the selected paths. When the selected
-tool exits without editor JSON, the Problems entry includes a short
+tool exits without current editor data, the Problems entry includes a short
 `Tool failure:` reason and the EngLang output channel keeps stderr/stdout
 details. Set `englang.lintOnChange = false` to disable live typing checks while
 keeping live open/save analysis.
@@ -274,7 +274,7 @@ samples,
 normalized highlight rows with primary selector, mapped/missing fallback status,
 direct selector coverage, status text that names both fallback-scope and
 direct-selector mapping gaps, inspector panel hints, overlapping highlight ranges,
-theme fallback scopes, and raw highlight payload for debugging theme or scope
+theme fallback scopes, and advanced highlight data for debugging theme or scope
 mismatches. If no highlight data is available, the warning can
 open
 `EngLang: Show Tooling Status` so the selected live editor tool path is visible.
@@ -283,8 +283,8 @@ token under the caret when one exists, the nearest highlight tokens, copy-ready
 text/range/selector fields plus panel hints for the selected token,
 line overlap rows, and the other highlight tokens on the same line. `EngLang:
 Copy Highlight Token at Cursor` copies the current or nearest same-line role-aware
-highlight token payload directly to the clipboard; when the caret is between
-tokens, the copied value is the nearest same-line highlight token payload.
+highlight token details directly to the clipboard; when the caret is between
+tokens, the copied value is the nearest same-line highlight token details.
 
 Review-risk decorations add a subtle left border and overview-ruler mark for
 high and medium review risks without changing source text. Set

@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 865: Reworded VS Code README copy/inspect guidance from implementation-detail copy wording to copy-ready diagnostic/highlight details and advanced highlight data.
 - Batch 864: Added role-aware highlighting aliases to VS Code highlight inspector payloads and reworded remaining highlight warnings/status summaries away from semantic-highlighting implementation terms.
 - Batch 863: Added native IDE status-label mappings for behavior graph not-connected solver states so advanced solver panels avoid leaking raw `*_not_integrated` artifact keys.
 - Batch 862: Reworded VS Code Tooling Status and current docs away from implementation-detail highlighting internals toward checked-code role-aware color wording, with a package guard against the older phrasing returning.
@@ -15,7 +16,7 @@
 - Batch 852: Added native workflow source/docs and latest zero-process artifact evidence to VS Code Tooling Status so workflow 01/02/03 native-only status is visible from the editor.
 - Batch 851: Added `dev.bat workflow-native-status` so workflow 01/02/03 native-only source/docs guards and latest zero-process artifact evidence are visible without rerunning the full workflow smoke gate.
 - Batch 850: Listed the VS Code Problems and Highlight copy commands in Tooling Status so the summary view exposes the full inspect/copy loop for linter and coloring reports.
-- Batch 849: Added `EngLang: Copy Highlight Token at Cursor` so VS Code users can copy current or nearest same-line role-aware highlight token payloads directly from the editor context menu.
+- Batch 849: Added `EngLang: Copy Highlight Token at Cursor` so VS Code users can copy current or nearest same-line role-aware highlight token details directly from the editor context menu.
 - Batch 848: Added `EngLang: Copy Problem at Cursor` so VS Code users can copy the current or nearest same-line Problems payload directly from the editor context menu.
 - Batch 847: Added underlined source text and full source-line fields to VS Code Problems inspector rows and copy-ready payloads so linter reports identify the exact token/range without manual reconstruction.
 - Batch 846: Made manual VS Code Problems refresh respect the selected diagnostics mode for dirty buffers, so file mode no longer switches to live-buffer diagnostics behind the user's back.
