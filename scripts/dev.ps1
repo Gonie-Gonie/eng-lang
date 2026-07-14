@@ -6735,7 +6735,13 @@ function Invoke-IdeCheck {
         "external_behavior_wrapper_pending_integration",
         "predictor_contract_metadata",
         "external_behavior_contract_metadata",
-        "safe_repro_profile_policy_metadata"
+        "safe_repro_profile_policy_metadata",
+        "behavior_graph_not_integrated",
+        "behavior_not_integrated",
+        "not_solved_behavior_not_integrated",
+        "behavior graph not connected to this language-level solve",
+        "behavior variable not connected to this language-level solve",
+        "not solved because behavior graph is not connected"
     )) {
         if (-not $IdeUiSource.Contains($RequiredBehaviorStatusToken)) {
             throw "Native IDE behavior status labels missing current artifact status $RequiredBehaviorStatusToken"

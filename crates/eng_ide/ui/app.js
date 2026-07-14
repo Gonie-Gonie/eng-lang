@@ -6400,6 +6400,10 @@ function statusLabel(status) {
       return "algebraic split preview";
     case "component_local_signal_resolved":
       return "component-local signal resolved";
+    case "behavior_graph_not_integrated":
+      return "behavior graph not connected to this language-level solve";
+    case "behavior_not_integrated":
+      return "behavior variable not connected to this language-level solve";
     case "dae_split_deferred":
       return "DAE split deferred";
     case "delay_call_runtime_buffer_pending_integration":
@@ -6422,6 +6426,8 @@ function statusLabel(status) {
       return "not a full DAE solve";
     case "not_general_nonlinear":
       return "not a general nonlinear solve";
+    case "not_solved_behavior_not_integrated":
+      return "not solved because behavior graph is not connected";
     case "not_production_multi_domain":
       return "not production multi-domain";
     case "predictor_call_contract_pending_integration":
