@@ -140,8 +140,10 @@ Editor
   modified. Choose Discard when closing a conflicted tab and reopen it to load
   the disk version, then reapply the intended edit. Runtime analysis is applied
   only while the complete saved tab snapshot remains current. The editor meta
-  bar shows the current caret line, column, bracket match location, highlight category,
-  and quantity/unit detail when the caret is on a checked token. Closing a
+  bar shows a clickable file/symbol breadcrumb for the caret's checked scope,
+  plus the current line, column, bracket match location, highlight category,
+  and quantity/unit detail. Symbol breadcrumbs disappear while analysis is
+  stale, so they cannot navigate by an older buffer shape. Closing a
   dirty tab offers Save, Discard, and Cancel. Closing the IDE with dirty tabs
   offers Save All, Discard All, and Cancel. The toolbar Save All action persists
   every modified tab without closing the IDE. When the caret is between

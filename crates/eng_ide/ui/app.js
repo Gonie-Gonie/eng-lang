@@ -542,7 +542,7 @@ function render() {
     <main class="editor-wrap">
       <div class="editor-tabs">${renderTabs()}</div>
       <div class="editor-meta">
-        <span>${escapeHtml(state.currentPath)}</span>
+        <nav id="editorBreadcrumbs" class="editor-breadcrumbs" aria-label="Current file and symbol path">${renderEditorBreadcrumbs()}</nav>
         <span id="cursorInsight" class="cursor-insight">${renderCursorInsight()}</span>
         <span id="editorLineCount">${lineCount(state.source)} lines</span>
       </div>
@@ -694,6 +694,126 @@ function documentSymbolCoordinate(value, fallback = 0) {
   return Number.isFinite(numeric) ? Math.max(0, Math.trunc(numeric)) : fallback;
 }
 
+function documentSymbolPosition(value) {
+  const line = Number(value?.line);
+  const character = Number(value?.character ?? value?.column);
+  if (!Number.isInteger(line) || !Number.isInteger(character) || line < 0 || character < 0) return null;
+  return { line, character };
+}
+
+function compareDocumentPositions(left, right) {
+  return left.line - right.line || left.character - right.character;
+}
+
+function documentSymbolRange(symbol, selectionOnly = false) {
+  const selection = symbol?.selectionRange ?? symbol?.selection_range;
+  const raw = selectionOnly ? (selection ?? symbol?.range) : (symbol?.range ?? selection);
+  const start = documentSymbolPosition(raw?.start);
+  const end = documentSymbolPosition(raw?.end);
+  if (!start || !end || compareDocumentPositions(start, end) > 0) return null;
+  return { start, end };
+}
+
+function documentSymbolRangeContains(range, position) {
+  return compareDocumentPositions(position, range.start) >= 0
+    && compareDocumentPositions(position, range.end) <= 0;
+}
+
+function documentSymbolOwnsScope(symbol) {
+  const kind = documentSymbolCoordinate(symbol?.kind, 0);
+  return arrayOrEmpty(symbol?.children).length > 0
+    || [2, 3, 4, 5, 6, 9, 10, 11, 12, 19, 23].includes(kind);
+}
+
+function documentSymbolBreadcrumbPath(symbols, position) {
+  const caret = documentSymbolPosition(position);
+  if (!caret) return [];
+  let best = [];
+  for (const symbol of arrayOrEmpty(symbols)) {
+    if (!symbol || typeof symbol !== "object") continue;
+    const name = String(symbol.name || "").trim();
+    const fullRange = documentSymbolRange(symbol);
+    const selectionRange = documentSymbolRange(symbol, true) ?? fullRange;
+    const scopeRange = documentSymbolOwnsScope(symbol) ? fullRange : selectionRange;
+    if (!name || !scopeRange || !selectionRange || !documentSymbolRangeContains(scopeRange, caret)) continue;
+    const item = {
+      name,
+      detail: String(symbol.detail || "").trim(),
+      kind: documentSymbolCoordinate(symbol.kind, 0),
+      line: selectionRange.start.line,
+      character: selectionRange.start.character,
+      endLine: selectionRange.end.line,
+      endCharacter: selectionRange.end.character,
+      scopeRange
+    };
+    const candidate = [item, ...documentSymbolBreadcrumbPath(symbol.children, caret)];
+    if (
+      candidate.length > best.length
+      || (candidate.length === best.length && documentSymbolPathIsNarrower(candidate, best))
+    ) {
+      best = candidate;
+    }
+  }
+  return best;
+}
+
+function documentSymbolPathIsNarrower(candidate, current) {
+  if (!current.length) return true;
+  const next = candidate[0].scopeRange;
+  const previous = current[0].scopeRange;
+  return compareDocumentPositions(next.start, previous.start) >= 0
+    && compareDocumentPositions(next.end, previous.end) <= 0;
+}
+
+function currentEditorDocumentPosition() {
+  const editor = byId("editor");
+  if (!editor || String(editor.value ?? "") !== String(state.source ?? "")) {
+    return { line: 0, character: 0 };
+  }
+  const position = editorCursorPosition(editor.value, editor.selectionStart ?? 0);
+  return { line: position.line, character: position.column };
+}
+
+function renderEditorBreadcrumbs(position = currentEditorDocumentPosition()) {
+  const file = fileName(state.currentPath) || state.currentPath || "Untitled";
+  const current = state.source === state.highlightSource;
+  const symbols = current ? documentSymbolBreadcrumbPath(state.check.documentSymbols, position) : [];
+  const fileCurrent = symbols.length ? "" : ' aria-current="location"';
+  const fileButton = `<button class="editor-breadcrumb-file" data-editor-breadcrumb-line="0" data-editor-breadcrumb-character="0" data-editor-breadcrumb-end-line="0" data-editor-breadcrumb-end-character="0" data-editor-breadcrumb-name="${escapeAttr(file)}" title="Go to the start of ${escapeAttr(state.currentPath || file)}"${fileCurrent}>${escapeHtml(file)}</button>`;
+  return [fileButton, ...symbols.map((symbol, index) => renderEditorSymbolBreadcrumb(symbol, index === symbols.length - 1))]
+    .join('<span class="editor-breadcrumb-separator" aria-hidden="true">&gt;</span>');
+}
+
+function renderEditorSymbolBreadcrumb(symbol, current) {
+  const kind = outlineKindMeta(symbol.kind);
+  const title = `${kind.label}: ${symbol.name}${symbol.detail ? ` - ${symbol.detail}` : ""} - line ${symbol.line + 1}`;
+  return `<button class="editor-breadcrumb-symbol" data-editor-breadcrumb-line="${symbol.line}" data-editor-breadcrumb-character="${symbol.character}" data-editor-breadcrumb-end-line="${symbol.endLine}" data-editor-breadcrumb-end-character="${symbol.endCharacter}" data-editor-breadcrumb-name="${escapeAttr(symbol.name)}" title="${escapeAttr(title)}"${current ? ' aria-current="location"' : ""}>${escapeHtml(symbol.name)}</button>`;
+}
+
+function bindEditorBreadcrumbs(root = byId("editorBreadcrumbs")) {
+  if (!root) return;
+  root.querySelectorAll("[data-editor-breadcrumb-line]").forEach((button) => {
+    button.onclick = () => navigateEditorBreadcrumb(button);
+  });
+}
+
+function navigateEditorBreadcrumb(button) {
+  const editor = byId("editor");
+  if (!editor || !button?.dataset) return false;
+  const selected = selectEditorUtf16Range(editor, {
+    line: Number(button.dataset.editorBreadcrumbLine),
+    character: Number(button.dataset.editorBreadcrumbCharacter),
+    endLine: Number(button.dataset.editorBreadcrumbEndLine),
+    endCharacter: Number(button.dataset.editorBreadcrumbEndCharacter)
+  });
+  if (!selected) return false;
+  syncEditorHighlightScroll();
+  updateEditorFindStatus();
+  updateCursorInsight();
+  setStatus(`Breadcrumb: ${button.dataset.editorBreadcrumbName || fileName(state.currentPath)}`);
+  return true;
+}
+
 function filteredOutlineItems(items, query = state.outlineQuery) {
   const needle = String(query || "").trim().toLowerCase();
   if (!needle) return items;
@@ -801,6 +921,7 @@ function bind() {
     updateCompletionOverlay();
     scheduleLiveCheck();
   });
+  bindEditorBreadcrumbs();
   byId("checkBtn").onclick = checkCurrent;
   byId("formatBtn").onclick = formatCurrent;
   byId("findBtn").onclick = openEditorFind;
@@ -7170,11 +7291,19 @@ function insertCompletion(item) {
   editor.focus();
 }
 function updateCursorInsight() {
+  updateEditorBreadcrumbs();
   const target = byId("cursorInsight");
   if (!target) return;
   target.outerHTML = `<span id="cursorInsight" class="cursor-insight">${renderCursorInsight()}</span>`;
   bindCursorInsightActions();
   updateCaretHighlightSummary();
+}
+
+function updateEditorBreadcrumbs() {
+  const target = byId("editorBreadcrumbs");
+  if (!target) return;
+  target.outerHTML = `<nav id="editorBreadcrumbs" class="editor-breadcrumbs" aria-label="Current file and symbol path">${renderEditorBreadcrumbs()}</nav>`;
+  bindEditorBreadcrumbs();
 }
 
 function bindCursorInsightActions() {

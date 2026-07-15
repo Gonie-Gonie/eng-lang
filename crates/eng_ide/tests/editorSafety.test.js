@@ -1277,6 +1277,113 @@ function documentSymbolsNormalizeAndFilter() {
   );
 }
 
+function documentBreadcrumbsTrackNestedSymbolsAndFreshness() {
+  run(`
+    state.currentPath = "models/main.eng";
+    state.source = "checked source";
+    state.highlightSource = "checked source";
+    state.check.documentSymbols = [{
+      name: "RoomThermal",
+      detail: "system",
+      kind: 5,
+      range: { start: { line: 1, character: 0 }, end: { line: 8, character: 1 } },
+      selectionRange: { start: { line: 1, character: 7 }, end: { line: 1, character: 18 } },
+      children: [{
+        name: "balance",
+        detail: "function",
+        kind: 12,
+        range: { start: { line: 3, character: 2 }, end: { line: 6, character: 3 } },
+        selectionRange: { start: { line: 3, character: 5 }, end: { line: 3, character: 12 } },
+        children: [{
+          name: "source",
+          detail: "parameter",
+          kind: 26,
+          range: { start: { line: 3, character: 2 }, end: { line: 6, character: 3 } },
+          selectionRange: { start: { line: 3, character: 13 }, end: { line: 3, character: 19 } },
+          children: []
+        }, {
+          name: "T_room",
+          detail: "local",
+          kind: 13,
+          range: { start: { line: 4, character: 4 }, end: { line: 4, character: 16 } },
+          selectionRange: { start: { line: 4, character: 4 }, end: { line: 4, character: 10 } },
+          children: []
+        }]
+      }]
+    }];
+  `);
+
+  assert.strictEqual(
+    run("JSON.stringify(documentSymbolBreadcrumbPath(state.check.documentSymbols, { line: 4, column: 6 }).map((item) => item.name))"),
+    '["RoomThermal","balance","T_room"]'
+  );
+  assert.strictEqual(
+    run("JSON.stringify(documentSymbolBreadcrumbPath(state.check.documentSymbols, { line: 7, character: 0 }).map((item) => item.name))"),
+    '["RoomThermal"]'
+  );
+  assert.strictEqual(
+    run("JSON.stringify(documentSymbolBreadcrumbPath(state.check.documentSymbols, { line: 5, character: 4 }).map((item) => item.name))"),
+    '["RoomThermal","balance"]'
+  );
+  assert.strictEqual(
+    run("JSON.stringify(documentSymbolBreadcrumbPath(state.check.documentSymbols, { line: 3, character: 15 }).map((item) => item.name))"),
+    '["RoomThermal","balance","source"]'
+  );
+  assert.strictEqual(
+    run("JSON.stringify(documentSymbolBreadcrumbPath(state.check.documentSymbols, { line: 10, character: 0 }))"),
+    "[]"
+  );
+  const markup = run("renderEditorBreadcrumbs({ line: 4, character: 6 })");
+  assert.match(markup, /main\.eng/);
+  assert.match(markup, /RoomThermal/);
+  assert.match(markup, /balance/);
+  assert.match(markup, /T_room/);
+  assert.match(markup, /aria-current="location">T_room/);
+
+  run('state.source = "changed source"');
+  const staleMarkup = run("renderEditorBreadcrumbs({ line: 4, character: 6 })");
+  assert.match(staleMarkup, /main\.eng/);
+  assert.doesNotMatch(staleMarkup, /RoomThermal|balance|T_room/);
+  run(`
+    state.currentPath = "";
+    state.source = "";
+    state.highlightSource = null;
+    state.check.documentSymbols = [];
+  `);
+}
+
+function documentBreadcrumbNavigationUsesUtf16Coordinates() {
+  run(`
+    globalThis.realByIdForBreadcrumb = byId;
+    globalThis.breadcrumbEditor = {
+      value: "head\\n  \\u{1F600}alpha = 1\\nlast",
+      selectionStart: 0,
+      selectionEnd: 0,
+      scrollTop: 40,
+      focused: false,
+      focus() {
+        this.focused = true;
+      }
+    };
+    byId = (id) => id === "editor" ? globalThis.breadcrumbEditor : null;
+    globalThis.breadcrumbNavigated = navigateEditorBreadcrumb({
+      dataset: {
+        editorBreadcrumbLine: "1",
+        editorBreadcrumbCharacter: "4",
+        editorBreadcrumbEndLine: "1",
+        editorBreadcrumbEndCharacter: "9",
+        editorBreadcrumbName: "alpha"
+      }
+    });
+  `);
+
+  assert.strictEqual(run("globalThis.breadcrumbNavigated"), true);
+  assert.strictEqual(run("globalThis.breadcrumbEditor.value.slice(globalThis.breadcrumbEditor.selectionStart, globalThis.breadcrumbEditor.selectionEnd)"), "alpha");
+  assert.strictEqual(run("globalThis.breadcrumbEditor.focused"), true);
+  assert.strictEqual(run("state.status"), "Breadcrumb: alpha");
+  run("byId = globalThis.realByIdForBreadcrumb");
+}
+
 function outlineSelectionUsesUtf16Coordinates() {
   run(`
     globalThis.outlineEditor = {
@@ -1721,6 +1828,8 @@ async function main() {
   await workspaceRenameStagesVerifiedUtf16Buffers();
   await compilerQuickFixAppliesUnsavedUtf16Edits();
   documentSymbolsNormalizeAndFilter();
+  documentBreadcrumbsTrackNestedSymbolsAndFreshness();
+  documentBreadcrumbNavigationUsesUtf16Coordinates();
   outlineSelectionUsesUtf16Coordinates();
   outlineRefreshPreservesFilterFocus();
   outlineShortcutFocusesCurrentFileSymbols();

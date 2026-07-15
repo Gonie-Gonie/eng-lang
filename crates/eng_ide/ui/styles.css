@@ -942,8 +942,58 @@ button:hover {
   white-space: nowrap;
 }
 
-.editor-meta > span:first-child {
+.editor-breadcrumbs {
   flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.editor-breadcrumb-file,
+.editor-breadcrumb-symbol {
+  min-width: 0;
+  max-width: 180px;
+  height: 24px;
+  overflow: hidden;
+  padding: 0 3px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  line-height: 24px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-breadcrumb-file {
+  flex: 0 1 40%;
+}
+
+.editor-breadcrumb-symbol {
+  flex: 0 1 180px;
+}
+
+.editor-breadcrumb-file:hover,
+.editor-breadcrumb-symbol:hover,
+.editor-breadcrumb-file:focus-visible,
+.editor-breadcrumb-symbol:focus-visible {
+  border: 0;
+  background: #e5eaf1;
+  color: var(--text);
+}
+
+.editor-breadcrumb-symbol[aria-current="location"],
+.editor-breadcrumb-file[aria-current="location"] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.editor-breadcrumb-separator {
+  flex: 0 0 auto;
+  padding: 0 2px;
+  color: #8793a5;
 }
 
 .cursor-insight {
