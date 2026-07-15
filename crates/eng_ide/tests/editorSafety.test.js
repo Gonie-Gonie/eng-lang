@@ -10,6 +10,7 @@ const source = fs.readFileSync(appPath, "utf8");
 const invokeCalls = [];
 const openFileSources = new Map();
 let saveFailurePath = null;
+let saveFilesPromise = null;
 let codeActionPayload = null;
 let definitionPromise = null;
 let prepareRenamePayload = null;
@@ -75,6 +76,7 @@ const context = vm.createContext({
             if (failed) {
               return Promise.reject(new Error(`Save conflict: ${failed.path}; no files were written`));
             }
+            if (saveFilesPromise) return saveFilesPromise;
             return Promise.resolve(args.files.map((file) => ({
               path: file.path,
               source: file.source
@@ -227,55 +229,126 @@ async function saveDecisionPersistsThenCloses() {
 async function runSafelySavesBeforeExecuting() {
   invokeCalls.length = 0;
   run(`
+    state.root = "C:/Repo";
     state.currentPath = "main.eng";
     state.source = "value = 2";
     state.savedSource = "value = 1";
     state.dirty = true;
-    state.tabs = [{
-      path: "main.eng",
-      source: "value = 2",
-      savedSource: "value = 1",
-      dirty: true
-    }];
+    state.tabs = [
+      { path: "main.eng", source: "value = 2", savedSource: "value = 1", dirty: true },
+      { path: "module.eng", source: "gain = 0.9", savedSource: "gain = 0.8", dirty: true },
+      { path: "data/input.csv", source: "x,y\\n1,2\\n", savedSource: "x,y\\n1,1\\n", dirty: true },
+      { path: "clean.eng", source: "clean = 1", savedSource: "clean = 1", dirty: false },
+      { path: "C:/Else/external.eng", source: "external = 2", savedSource: "external = 1", dirty: true }
+    ];
     state.profile = "normal";
   `);
 
   await run("runCurrent()");
-  assert.deepStrictEqual(invokeCalls.map((item) => item.command), ["ide_save_file", "ide_run"]);
-  assert.deepStrictEqual(
-    { ...invokeCalls[0].args },
-    { path: "main.eng", source: "value = 2", expectedSource: "value = 1" }
-  );
+  assert.deepStrictEqual(invokeCalls.map((item) => item.command), ["ide_save_files", "ide_run"]);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(invokeCalls[0].args.files)), [
+    { path: "main.eng", source: "value = 2", expectedSource: "value = 1" },
+    { path: "module.eng", source: "gain = 0.9", expectedSource: "gain = 0.8" },
+    { path: "data/input.csv", source: "x,y\n1,2\n", expectedSource: "x,y\n1,1\n" },
+    { path: "clean.eng", source: "clean = 1", expectedSource: "clean = 1" }
+  ]);
   assert.strictEqual(run("state.savedSource"), "value = 2");
   assert.strictEqual(run("state.dirty"), false);
+  assert.deepStrictEqual(
+    Array.from(run("state.tabs.slice(0, 4).map((tab) => tab.dirty)")),
+    [false, false, false, false]
+  );
+  assert.strictEqual(run("state.tabs[4].dirty"), true);
+  run('state.root = ""');
 }
 
 async function terminalRunSafelySavesBeforeExecuting() {
   invokeCalls.length = 0;
   run(`
+    state.root = "C:/Repo";
     state.currentPath = "main.eng";
     state.source = "value = 3";
     state.savedSource = "value = 2";
     state.dirty = true;
-    state.tabs = [{
-      path: "main.eng",
-      source: "value = 3",
-      savedSource: "value = 2",
-      dirty: true
-    }];
+    state.tabs = [
+      { path: "main.eng", source: "value = 3", savedSource: "value = 2", dirty: true },
+      { path: "module.eng", source: "gain = 1.0", savedSource: "gain = 0.9", dirty: true }
+    ];
     state.runDir = ".";
     state.profile = "normal";
   `);
 
   await run('sendTerminalCommand("run")');
-  assert.deepStrictEqual(invokeCalls.map((item) => item.command), ["ide_save_file", "ide_terminal"]);
-  assert.deepStrictEqual(
-    { ...invokeCalls[0].args },
-    { path: "main.eng", source: "value = 3", expectedSource: "value = 2" }
-  );
+  assert.deepStrictEqual(invokeCalls.map((item) => item.command), ["ide_save_files", "ide_terminal"]);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(invokeCalls[0].args.files)), [
+    { path: "main.eng", source: "value = 3", expectedSource: "value = 2" },
+    { path: "module.eng", source: "gain = 1.0", expectedSource: "gain = 0.9" }
+  ]);
   assert.strictEqual(invokeCalls[1].args.command, "run");
   assert.strictEqual(run("state.savedSource"), "value = 3");
   assert.strictEqual(run("state.dirty"), false);
+  run('state.root = ""');
+}
+
+async function runConflictKeepsEveryBufferUnsaved() {
+  invokeCalls.length = 0;
+  saveFailurePath = "module.eng";
+  run(`
+    state.root = "C:/Repo";
+    state.currentPath = "main.eng";
+    state.source = "value = 4";
+    state.savedSource = "value = 3";
+    state.dirty = true;
+    state.tabs = [
+      { path: "main.eng", source: "value = 4", savedSource: "value = 3", dirty: true },
+      { path: "module.eng", source: "gain = 1.1", savedSource: "gain = 1.0", dirty: true }
+    ];
+  `);
+
+  await run("runCurrent()");
+  saveFailurePath = null;
+  assert.deepStrictEqual(invokeCalls.map((item) => item.command), ["ide_save_files"]);
+  assert.deepStrictEqual(Array.from(run("state.tabs.map((tab) => tab.dirty)")), [true, true]);
+  assert.match(run("state.status"), /Run failed: (?:Error: )?Save conflict: module\.eng/);
+  run('state.root = ""');
+}
+
+async function runChangedImportDuringSaveCancelsExecution() {
+  invokeCalls.length = 0;
+  let resolveSave;
+  saveFilesPromise = new Promise((resolve) => {
+    resolveSave = resolve;
+  });
+  run(`
+    state.root = "C:/Repo";
+    state.currentPath = "main.eng";
+    state.source = "value = 5";
+    state.savedSource = "value = 4";
+    state.dirty = true;
+    state.tabs = [
+      { path: "main.eng", source: "value = 5", savedSource: "value = 4", dirty: true },
+      { path: "module.eng", source: "gain = 1.2", savedSource: "gain = 1.1", dirty: true }
+    ];
+  `);
+
+  const pending = run("runCurrent()");
+  run(`
+    state.tabs[1].source = "gain = 1.3";
+    state.tabs[1].dirty = true;
+  `);
+  resolveSave(invokeCalls[0].args.files.map((file) => ({
+    path: file.path,
+    source: file.source
+  })));
+  await pending;
+  saveFilesPromise = null;
+
+  assert.deepStrictEqual(invokeCalls.map((item) => item.command), ["ide_save_files"]);
+  assert.deepStrictEqual(Array.from(run("state.tabs.map((tab) => tab.dirty)")), [false, true]);
+  assert.strictEqual(run("state.tabs[1].savedSource"), "gain = 1.2");
+  assert.strictEqual(run("state.tabs[1].source"), "gain = 1.3");
+  assert.strictEqual(run("state.status"), "Run failed; buffer changed");
+  run('state.root = ""');
 }
 
 function saveShortcutUsesCurrentAction() {
@@ -1626,6 +1699,8 @@ async function main() {
   await saveDecisionPersistsThenCloses();
   await runSafelySavesBeforeExecuting();
   await terminalRunSafelySavesBeforeExecuting();
+  await runConflictKeepsEveryBufferUnsaved();
+  await runChangedImportDuringSaveCancelsExecution();
   saveShortcutUsesCurrentAction();
   definitionPathsNormalizeWorkspaceTargets();
   definitionRequestUsesUtf16Caret();

@@ -129,15 +129,18 @@ Editor
   and keeps the buffer dirty until you save or run. Opening a path that already
   has a tab reuses that tab without reading the file again, so explorer and path
   navigation cannot replace an unsaved buffer. Save, Save All, close-with-save,
-  toolbar Run, and terminal `run` compare each file with the disk content last
-  opened or successfully saved. Writes are limited to existing files inside the
-  workspace. If Git, a formatter, or another tool changed any Save All target,
-  the full batch stops before any file is written; every affected tab remains
+  toolbar Run, and terminal `run` compare their targets with the disk content
+  last opened or successfully saved. Writes are limited to existing files inside
+  the workspace. Run preflights every open workspace tab in one batch, writes
+  only changed buffers, and then executes the current file. This keeps dirty
+  EngLang imports and opened data files consistent with the source reviewed in
+  the editor; unrelated external tabs are not written. If Git, a formatter, or
+  another tool changed any Save All or Run target, the full batch stops before
+  any file is written and runtime does not start. Every affected tab remains
   modified. Choose Discard when closing a conflicted tab and reopen it to load
-  the disk version, then reapply the intended edit. Run performs the same safe
-  save first and executes only when the saved source still matches the requested
-  buffer. The editor meta bar shows
-  the current caret line, column, bracket match location, highlight category,
+  the disk version, then reapply the intended edit. Runtime analysis is applied
+  only while the complete saved tab snapshot remains current. The editor meta
+  bar shows the current caret line, column, bracket match location, highlight category,
   and quantity/unit detail when the caret is on a checked token. Closing a
   dirty tab offers Save, Discard, and Cancel. Closing the IDE with dirty tabs
   offers Save All, Discard All, and Cancel. The toolbar Save All action persists

@@ -477,7 +477,8 @@ fn persist_workspace_files(
         if disk_source != expected_source {
             conflicts.push(relative_to(&root, &canonical));
         }
-        validated.push((canonical, source));
+        let needs_write = disk_source != source;
+        validated.push((canonical, source, needs_write));
     }
     if !conflicts.is_empty() {
         let visible = conflicts
@@ -497,9 +498,12 @@ fn persist_workspace_files(
         ));
     }
     let mut saved = Vec::with_capacity(validated.len());
-    for (path, source) in validated {
-        fs::write(&path, source.as_bytes())
-            .map_err(|error| format!("Could not save {}: {error}", relative_to(&root, &path)))?;
+    for (path, source, needs_write) in validated {
+        if needs_write {
+            fs::write(&path, source.as_bytes()).map_err(|error| {
+                format!("Could not save {}: {error}", relative_to(&root, &path))
+            })?;
+        }
         saved.push(FileView {
             path: relative_to(&root, &path),
             source,
@@ -4878,7 +4882,10 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "expectedSource: tabSavedSource(tab)",
         "state.savedSource = file.source",
         "Saved previous revision of",
-        "Run cancelled; buffer changed while saving",
+        "function workspaceRunSaveRequests()",
+        "function workspaceRunBuffersAreSaved(request, saveRequests)",
+        "function workspaceRunBufferSourcesAreCurrent(request, saveRequests)",
+        "Run cancelled; an open workspace buffer changed while saving",
         "function openWorkspaceSymbolSearch()",
         "function requestWorkspaceSymbols(pending = state.pendingWorkspaceSymbols)",
         "function workspaceSymbolItemsFromPayload(payload, query = \"\")",
@@ -7063,6 +7070,33 @@ with {
         assert_eq!(saved[0].path, "main.eng");
         assert_eq!(saved[0].source, "value = 2\n");
         assert_eq!(fs::read_to_string(&path).unwrap(), "value = 2\n");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn native_ide_save_does_not_rewrite_matching_source() {
+        let root = unique_temp_root();
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("clean.eng");
+        fs::write(&path, "value = 1\n").unwrap();
+        let original_permissions = fs::metadata(&path).unwrap().permissions();
+        let mut read_only_permissions = original_permissions.clone();
+        read_only_permissions.set_readonly(true);
+        fs::set_permissions(&path, read_only_permissions).unwrap();
+
+        let saved = persist_workspace_files(
+            &root,
+            vec![SaveFileInput {
+                path: "clean.eng".to_owned(),
+                source: "value = 1\n".to_owned(),
+                expected_source: "value = 1\n".to_owned(),
+            }],
+        )
+        .unwrap();
+
+        assert_eq!(saved[0].source, "value = 1\n");
+        assert_eq!(fs::read_to_string(&path).unwrap(), "value = 1\n");
+        fs::set_permissions(&path, original_permissions).unwrap();
         fs::remove_dir_all(root).unwrap();
     }
 

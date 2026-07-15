@@ -1721,7 +1721,7 @@ async function saveAllDirtyTabs() {
     return true;
   }
   try {
-    await persistDirtyTabRequests(requests);
+    await persistTabSaveRequests(requests);
     state.status = `Saved ${requests.length} ${requests.length === 1 ? "file" : "files"}`;
     render();
     return true;
@@ -1734,11 +1734,11 @@ async function saveAllDirtyTabs() {
   }
 }
 
-async function persistDirtyTabRequests(requests) {
+async function persistTabSaveRequests(requests) {
   setStatus(`Saving ${requests.length} ${requests.length === 1 ? "file" : "files"}`);
   const files = await call("ide_save_files", { files: requests });
   if (!Array.isArray(files) || files.length !== requests.length) {
-    throw new Error("Save All returned an incomplete result");
+    throw new Error("Save batch returned an incomplete result");
   }
   files.forEach((file, index) => validateSavedFile(requests[index], file));
   const changed = [];
@@ -1748,6 +1748,62 @@ async function persistDirtyTabRequests(requests) {
   if (changed.length) {
     throw new Error(`Buffer changed while saving: ${changed.join(", ")}`);
   }
+}
+
+function workspaceRunSaveRequests() {
+  rememberCurrentTab();
+  const requests = [];
+  const seen = new Set();
+  for (const tab of state.tabs) {
+    const path = workspaceSymbolRelativePath(tab.path);
+    if (!path) continue;
+    const key = definitionPathKey(path);
+    if (seen.has(key)) throw new Error(`Run found the same open workspace file twice: ${path}`);
+    seen.add(key);
+    requests.push({ ...saveRequestForTab(tab), path });
+  }
+  if (!requests.some((request) => sameWorkspaceFilePath(request.path, state.currentPath))) {
+    throw new Error("Run requires the current file to be inside the EngLang workspace");
+  }
+  return requests;
+}
+
+function workspaceRunBuffersAreSaved(request, saveRequests) {
+  if (!workspaceRunBufferSourcesAreCurrent(request, saveRequests)) return false;
+  const current = new Map();
+  for (const tab of state.tabs) {
+    const path = workspaceSymbolRelativePath(tab.path);
+    if (path) current.set(definitionPathKey(path), tab);
+  }
+  return saveRequests.every((saved) => {
+    const tab = current.get(definitionPathKey(saved.path));
+    return tab && tabSavedSource(tab) === saved.source && !tab.dirty;
+  });
+}
+
+function workspaceRunBufferSourcesAreCurrent(request, saveRequests) {
+  if (
+    !request
+    || request.revision !== liveCheckRevision
+    || !bufferRequestIsCurrent(request)
+    || !Array.isArray(saveRequests)
+    || !saveRequests.length
+  ) {
+    return false;
+  }
+  const current = new Map();
+  for (const tab of state.tabs) {
+    const path = workspaceSymbolRelativePath(tab.path);
+    if (!path) continue;
+    const key = definitionPathKey(path);
+    if (current.has(key)) return false;
+    current.set(key, { tab, path });
+  }
+  if (current.size !== saveRequests.length) return false;
+  return saveRequests.every((saved) => {
+    const entry = current.get(definitionPathKey(saved.path));
+    return entry && entry.tab.source === saved.source;
+  });
 }
 
 async function formatCurrent() {
@@ -1811,20 +1867,19 @@ async function checkCurrent() {
 async function runCurrent() {
   rememberCurrentTab();
   const request = beginCheckRequest();
-  const tab = tabFor(request.path);
-  if (!tab) return;
-  const saveRequest = saveRequestForTab(tab);
+  let saveRequests = [];
   try {
     appendTerminal("command", `${terminalPrompt()}run ${fileName(request.path)}`);
-    setStatus(`Saving ${fileName(request.path)} before run`);
-    await persistSaveRequest(saveRequest);
-    if (!checkRequestIsCurrent(request)) {
-      state.status = "Run cancelled; buffer changed while saving";
+    saveRequests = workspaceRunSaveRequests();
+    setStatus(`Synchronizing ${saveRequests.length} open workspace ${saveRequests.length === 1 ? "file" : "files"} before run`);
+    await persistTabSaveRequests(saveRequests);
+    if (!workspaceRunBuffersAreSaved(request, saveRequests)) {
+      state.status = "Run cancelled; an open workspace buffer changed while saving";
       render();
       return;
     }
     const result = await call("ide_run", { path: request.path, source: request.source, profile: state.profile });
-    const requestCurrent = checkRequestIsCurrent(request);
+    const requestCurrent = workspaceRunBuffersAreSaved(request, saveRequests);
     applyRun(result, { mergeRuntime: false, applyCheck: requestCurrent, checkSource: request.source });
     appendRunResult(result, { ...runHistoryContext("run"), sourcePath: request.path });
     state.status = requestCurrent
@@ -1833,7 +1888,7 @@ async function runCurrent() {
     state.bottomTab = "terminal";
     render();
   } catch (error) {
-    const requestCurrent = checkRequestIsCurrent(request);
+    const requestCurrent = workspaceRunBufferSourcesAreCurrent(request, saveRequests);
     const message = `Run failed: ${compactText(String(error), 90)}`;
     appendTerminal("error", message);
     state.status = requestCurrent ? message : "Run failed; buffer changed";
@@ -1872,13 +1927,14 @@ async function sendTerminalCommand(command) {
   if (usesCurrentFile) rememberCurrentTab();
   const request = usesCurrentFile ? beginCheckRequest() : null;
   const runContext = runHistoryContext(command);
+  let saveRequests = [];
   try {
     if (String(command || "").trim().toLowerCase() === "run") {
-      const tab = tabFor(request.path);
-      if (!tab) throw new Error("Current tab is unavailable for run");
-      await persistSaveRequest(saveRequestForTab(tab));
-      if (!checkRequestIsCurrent(request)) {
-        state.status = "Terminal run cancelled; buffer changed while saving";
+      saveRequests = workspaceRunSaveRequests();
+      setStatus(`Synchronizing ${saveRequests.length} open workspace ${saveRequests.length === 1 ? "file" : "files"} before run`);
+      await persistTabSaveRequests(saveRequests);
+      if (!workspaceRunBuffersAreSaved(request, saveRequests)) {
+        state.status = "Terminal run cancelled; an open workspace buffer changed while saving";
         state.bottomTab = "terminal";
         render();
         return;
@@ -1891,7 +1947,9 @@ async function sendTerminalCommand(command) {
       runDir: state.runDir,
       profile: state.profile
     });
-    const requestCurrent = !request || checkRequestIsCurrent(request);
+    const requestCurrent = !request || (saveRequests.length
+      ? workspaceRunBuffersAreSaved(request, saveRequests)
+      : checkRequestIsCurrent(request));
     applyRun(result, {
       mergeRuntime: command.toLowerCase() !== "run",
       applyCheck: requestCurrent,
@@ -1904,7 +1962,9 @@ async function sendTerminalCommand(command) {
   } catch (error) {
     const message = compactText(String(error), 90);
     appendTerminal("error", message);
-    const requestCurrent = !request || checkRequestIsCurrent(request);
+    const requestCurrent = !request || (saveRequests.length
+      ? workspaceRunBufferSourcesAreCurrent(request, saveRequests)
+      : checkRequestIsCurrent(request));
     state.status = request && !requestCurrent
       ? "Terminal command failed; buffer changed"
       : `Terminal command failed: ${message}`;
@@ -2452,7 +2512,7 @@ async function saveAllDirtyTabsAndClose() {
   }
   setUnsavedWindowDialogBusy(true);
   try {
-    await persistDirtyTabRequests(requests);
+    await persistTabSaveRequests(requests);
   } catch (error) {
     const message = `Save failed: ${compactText(String(error), 90)}`;
     renderTabLabels();
