@@ -1,3 +1,4 @@
+- Batch 942: Colored builtin calls in args defaults, missing-policy options before their equals signs, and supported compound derivative units such as `K/s`, with actual TextMate role assertions across all examples.
 - Batch 941: Fixed `interpolate` first-paint coloring inside schema missing-policy rows and added an actual VS Code tokenizer audit across every example keyword occurrence and both bundled themes.
 - Batch 940: Protected native IDE edits with Ctrl+S, Save/Discard/Cancel for dirty tabs, native Tauri window-close interception with Save All/Discard All/Cancel, a browser unload fallback, and an executable editor safety smoke.
 - Batch 939: Isolated shared VS Code live-analysis work from individual provider cancellation, sequenced Problems checks per document so stale same-version results cannot overwrite current diagnostics, and added an executable race smoke.

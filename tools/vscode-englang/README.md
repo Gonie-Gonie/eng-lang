@@ -344,8 +344,10 @@ The grammar smoke writes token-check output under
 `build\editor-tests\textmate_tokens\grammar_smoke.json`.
 When VS Code's bundled tokenizer runtime is available, `ide-check` also tokenizes
 every `examples/**/*.eng` source and rejects catalog keywords that have no
-foreground scope in either bundled theme. This catches include-priority gaps
-that isolated regular-expression checks cannot reproduce.
+foreground scope in either bundled theme. It also verifies role-sensitive
+first-pass scopes for helpers in argument defaults, missing-policy options, and
+compound derivative units. This catches include-priority gaps that isolated
+regular-expression checks cannot reproduce.
 
 ## Editor Metadata
 

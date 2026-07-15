@@ -145,8 +145,8 @@ function escapeRegex(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function keywordPattern(keywords) {
-  const alternatives = keywords
+function labelPattern(labels) {
+  const alternatives = labels
     .slice()
     .sort((left, right) => right.length - left.length || left.localeCompare(right))
     .map(escapeRegex)
@@ -247,7 +247,27 @@ async function main() {
     throw new Error("no examples/**/*.eng files were found");
   }
 
-  const pattern = keywordPattern(keywords);
+  const keywordRegex = labelPattern(keywords);
+  const requiredScopes = [
+    {
+      count: 0,
+      description: "file helper call",
+      regex: /(^|[^A-Za-z0-9_])(file)(?=\s*\()/g,
+      scope: "support.function.external-boundary.englang"
+    },
+    {
+      count: 0,
+      description: "missing-policy option",
+      regex: /(^|[^A-Za-z0-9_])(max_gap)(?=\s*=)/g,
+      scope: "variable.parameter.property.englang"
+    },
+    {
+      count: 0,
+      description: "compound derivative unit",
+      regex: /(^|[^A-Za-z0-9_])(K\/s)(?![A-Za-z0-9_/])/g,
+      scope: "constant.other.unit.englang"
+    }
+  ];
   const failures = [];
   let checkedOccurrences = 0;
   let skippedLexicalOccurrences = 0;
@@ -260,8 +280,12 @@ async function main() {
       const line = lines[lineIndex];
       const tokenized = grammar.tokenizeLine(line, ruleStack);
       ruleStack = tokenized.ruleStack;
-      pattern.lastIndex = 0;
-      for (let match = pattern.exec(line); match; match = pattern.exec(line)) {
+      keywordRegex.lastIndex = 0;
+      for (
+        let match = keywordRegex.exec(line);
+        match;
+        match = keywordRegex.exec(line)
+      ) {
         const keyword = match[2];
         const startIndex = match.index + match[1].length;
         const endIndex = startIndex + keyword.length;
@@ -296,6 +320,33 @@ async function main() {
           });
         }
       }
+
+      for (const requirement of requiredScopes) {
+        requirement.regex.lastIndex = 0;
+        for (
+          let match = requirement.regex.exec(line);
+          match;
+          match = requirement.regex.exec(line)
+        ) {
+          const label = match[2];
+          const startIndex = match.index + match[1].length;
+          const endIndex = startIndex + label.length;
+          const scopes = overlappingScopes(tokenized.tokens, startIndex, endIndex);
+          if (isCommentOrString(scopes)) {
+            continue;
+          }
+          requirement.count += 1;
+          if (!scopes.includes(requirement.scope)) {
+            failures.push({
+              filePath,
+              keyword: label,
+              lineIndex,
+              scopes,
+              reason: `${requirement.description} is missing ${requirement.scope}`
+            });
+          }
+        }
+      }
     }
   }
 
@@ -304,6 +355,14 @@ async function main() {
   }
   if (interpolateOccurrences === 0) {
     throw new Error("examples must retain an interpolate policy highlighting fixture");
+  }
+  const missingRequiredFixtures = requiredScopes.filter((requirement) => requirement.count === 0);
+  if (missingRequiredFixtures.length > 0) {
+    throw new Error(
+      `examples are missing TextMate role fixture(s): ${missingRequiredFixtures
+        .map((requirement) => requirement.description)
+        .join(", ")}`
+    );
   }
   if (failures.length > 0) {
     const details = failures
@@ -322,7 +381,9 @@ async function main() {
 
   console.log(
     `VS Code TextMate example coverage passed. Checked ${checkedOccurrences} keyword occurrence(s) ` +
-      `across ${files.length} example file(s); skipped ${skippedLexicalOccurrences} string/comment occurrence(s).`
+      `and ${requiredScopes.reduce((total, requirement) => total + requirement.count, 0)} ` +
+      `role-sensitive occurrence(s) across ${files.length} example file(s); skipped ` +
+      `${skippedLexicalOccurrences} string/comment occurrence(s).`
   );
 }
 

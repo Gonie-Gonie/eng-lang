@@ -974,7 +974,7 @@ if ($null -eq $WorkflowBuiltinGroups) {
     throw "generated editor metadata syntax_catalog.workflow_builtin_groups is missing"
 }
 
-function Assert-TypedBindingKeywordFallback {
+function Assert-DeclarationFirstPaintFallbacks {
     $patterns = @($GrammarSource.grammar.repository.declarations.patterns | Where-Object {
         [string]$_.name -eq "meta.declaration.typed-binding.englang"
     })
@@ -994,6 +994,28 @@ function Assert-TypedBindingKeywordFallback {
     }
     if ($typesIndex -lt 0 -or $typesIndex -gt $keywordsIndex) {
         throw "TextMate typed bindings must match #types before the #keywords fallback"
+    }
+    $workflowOptionPatterns = @($patterns[0].patterns | Where-Object {
+        [string]$_.name -eq "variable.parameter.property.englang" -and
+        [string]$_.match -eq '\b({{WORKFLOW_OPTIONS}})\b(?=\s*=)'
+    })
+    if ($workflowOptionPatterns.Count -ne 1) {
+        throw "TextMate typed bindings must color compiler-owned workflow options before named-argument equals signs"
+    }
+
+    $argsBlocks = @($GrammarSource.grammar.repository.declarations.patterns | Where-Object {
+        [string]$_.name -eq "meta.declaration.args-block.englang"
+    })
+    if ($argsBlocks.Count -ne 1) {
+        throw "TextMate source grammar must define exactly one args block pattern"
+    }
+    $argsIncludes = @($argsBlocks[0].patterns | Where-Object {
+        $null -ne $_.include
+    } | ForEach-Object {
+        [string]$_.include
+    })
+    if ($argsIncludes -notcontains "#builtins") {
+        throw "TextMate args blocks must include #builtins for default-value helper calls"
     }
 }
 $WorkflowBuiltinGroupNames = @(
@@ -1449,7 +1471,7 @@ Assert-WorkflowPatternIncludes -Name "meta.workflow.summary-field.englang" -Incl
 Assert-BeginEndWorkflowPhrasesAreMemberAware
 Assert-WorkflowPropertyFallbacksAreMemberAware
 Assert-FunctionCallFallbacks
-Assert-TypedBindingKeywordFallback
+Assert-DeclarationFirstPaintFallbacks
 Assert-MemberPathFallbackOrder
 Assert-WorkflowStatusOptionPattern
 Assert-WithBlockExpressionFallbacks

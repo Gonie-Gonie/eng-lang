@@ -573,6 +573,9 @@
                                                                                       "include":  "#units"
                                                                                   },
                                                                                   {
+                                                                                      "include":  "#builtins"
+                                                                                  },
+                                                                                  {
                                                                                       "include":  "#constants"
                                                                                   },
                                                                                   {
@@ -601,6 +604,10 @@
                                                                  "patterns":  [
                                                                                   {
                                                                                       "include":  "#types"
+                                                                                  },
+                                                                                  {
+                                                                                      "name":  "variable.parameter.property.englang",
+                                                                                      "match":  "\\b(algebraic_initialization|finite_difference_step|consistency_tolerance|response_body_limit|initial_derivative|initial_algebraic|line_search_steps|expected_outputs|offline_response|body_size_limit|confidence_band|expected_sha256|residual_scales|variable_scales|relative_error|residual_scale|variable_scale|allow_failure|artifact_kind|expected_step|return_column|test_fraction|display_unit|tool_version|mass_matrix|output_root|status_code|transaction|uncertainty|relaxation|sensor_std|algorithm|cache_dir|cache_key|cache_ttl|overwrite|recursive|tolerance|duration|features|jacobian|max_iter|template|timestep|backend|case_id|confirm|damping|fixture|headers|initial|max_gap|missing|on_many|on_none|samples|timeout|epochs|hidden|inputs|layers|method|offset|output|resume|solver|status|target|unit\\ x|unit\\ y|values|cache|count|lower|query|retry|scale|sigma|split|start|title|upper|args|bias|body|gain|kind|mode|seed|step|test|type|year|cwd|end|env|key|mu|n|x|y)\\b(?=\\s*=)"
                                                                                   },
                                                                                   {
                                                                                       "include":  "#keywords"
@@ -3630,6 +3637,15 @@
                                      "patterns":  [
                                                       {
                                                           "name":  "meta.quantity.literal.englang",
+                                                          "match":  "\\b[0-9]+(?:\\.[0-9]+)?\\s+((?:1|gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?:/(?:gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?:\\^[0-9]+)?)+)(?![A-Za-z0-9_/])(?!\\s*\\()",
+                                                          "captures":  {
+                                                                           "1":  {
+                                                                                     "name":  "constant.other.unit.englang"
+                                                                                 }
+                                                                       }
+                                                      },
+                                                      {
+                                                          "name":  "meta.quantity.literal.englang",
                                                           "match":  "\\b[0-9]+(?:\\.[0-9]+)?\\s+(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?![A-Za-z0-9_/])(?!\\s*\\()",
                                                           "captures":  {
                                                                            "1":  {
@@ -3640,6 +3656,10 @@
                                                       {
                                                           "name":  "constant.other.unit.englang",
                                                           "match":  "(?\u003c=\\[)(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?=\\])"
+                                                      },
+                                                      {
+                                                          "name":  "constant.other.unit.englang",
+                                                          "match":  "(?\u003c![A-Za-z0-9_])((?:1|gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?:/(?:gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?:\\^[0-9]+)?)+)(?![A-Za-z0-9_/])(?!\\s*\\()"
                                                       },
                                                       {
                                                           "name":  "constant.other.unit.englang",

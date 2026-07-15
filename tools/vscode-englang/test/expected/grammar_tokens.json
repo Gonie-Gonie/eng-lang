@@ -5512,5 +5512,17 @@
     "scope": "support.function.validation.englang",
     "text": "fill_missing",
     "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.quantity.literal.englang",
+    "text": "10 K/s",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.other.unit.englang",
+    "text": "K/s",
+    "fullMatch": true
   }
 ]
