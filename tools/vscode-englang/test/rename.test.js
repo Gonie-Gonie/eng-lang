@@ -32,7 +32,7 @@ const vscodeMock = {
     }
   },
   WorkspaceEdit,
-  workspace: { workspaceFolders: [] }
+  workspace: { workspaceFolders: [], textDocuments: [] }
 };
 
 const originalLoad = Module._load;
@@ -78,6 +78,15 @@ const renamePayload = {
         },
         newText: "input_power"
       }
+    ],
+    "file:///C:/workspace/module.eng": [
+      {
+        range: {
+          start: { line: 0, character: 6 },
+          end: { line: 0, character: 16 }
+        },
+        newText: "input_power"
+      }
     ]
   }
 };
@@ -94,6 +103,7 @@ function documentFixture() {
   const source = "left_power = 5 kW\ntotal = left_power\n";
   return {
     languageId: "englang",
+    isDirty: true,
     version: 7,
     uri: {
       fsPath: "C:\\workspace\\main.eng",
@@ -109,8 +119,12 @@ function convertersAreStrict() {
   assert.deepStrictEqual(prepared.range.end, { line: 2, character: 38 });
 
   const workspaceEdit = workspaceEditFromLsp(renamePayload);
-  assert.strictEqual(workspaceEdit.replacements.length, 2);
+  assert.strictEqual(workspaceEdit.replacements.length, 3);
   assert.strictEqual(workspaceEdit.replacements[1].newText, "input_power");
+  assert.strictEqual(
+    workspaceEdit.replacements[2].uri.toString(),
+    "file:///C:/workspace/module.eng"
+  );
 
   const messages = [];
   const malformed = workspaceEditFromLsp(
@@ -147,7 +161,7 @@ async function providerUsesCurrentBufferRequests() {
   const prepared = await provider.prepareRename(document, position, {});
   assert.strictEqual(prepared.placeholder, "left_power");
   const edit = await provider.provideRenameEdits(document, position, "input_power", {});
-  assert.strictEqual(edit.replacements.length, 2);
+  assert.strictEqual(edit.replacements.length, 3);
   assert.deepStrictEqual(calls.map((call) => call.kind), ["prepare", "rename"]);
   assert.strictEqual(calls[1].newName, "input_power");
 }
@@ -210,9 +224,27 @@ async function requestsUseRenameStdinCommands() {
       document.uri.fsPath,
       "1",
       "15",
-      "input_power"
+      "input_power",
+      "C:\\workspace"
     ]);
+
+    vscodeMock.workspace.textDocuments = [
+      document,
+      {
+        languageId: "englang",
+        isDirty: true,
+        uri: {
+          fsPath: "C:\\workspace\\other.eng",
+          toString: () => "file:///C:/workspace/other.eng"
+        }
+      }
+    ];
+    const blocked = await requests.renameForPosition(document, position, "input_power", {});
+    assert.match(blocked.error, /Save other modified EngLang files/);
+    assert.match(blocked.error, /other\.eng/);
+    assert.strictEqual(calls.length, 2, "dirty-document preflight must not start the CLI");
   } finally {
+    vscodeMock.workspace.textDocuments = [];
     childProcess.execFile = originalExecFile;
   }
 }

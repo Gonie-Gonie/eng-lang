@@ -298,7 +298,7 @@ Use the stdio LSP server for:
 - go-to-definition for current-file, static-import, and bundled stdlib symbols
 - document symbols, workspace symbols, folding ranges, and semantic tokens
 - same-symbol document highlights and static-import-aware Find All References
-- safe current-file rename for compiler-resolved declarations
+- safe current-file and static-import-aware workspace rename
 
 `textDocument/references` always analyzes the current unsaved document and
 honors `context.includeDeclaration`. For an importable `const`, function,
@@ -314,5 +314,26 @@ The on-demand CLI form is
 `--references-stdin <file.eng> <line> <character> [true|false] [workspace-root]`.
 Without `workspace-root`, it returns current-buffer occurrences plus occurrences
 in the resolved declaration file; the wider saved-file scan is disabled.
+
+`textDocument/rename` keeps local variables and parameters document scoped. For
+an importable top-level `const`, function, schema, class, system, domain, or
+component, it can instead return one workspace edit covering the declaration
+and every open or saved `.eng` file whose static file-import chain resolves to
+that exact declaration. Unrelated same-name symbols are excluded, and open
+document text takes precedence over disk. The selected file and declaration
+must both be inside an initialized workspace root. The entire rename is rejected
+if the 500-file scan is truncated, a required source is unreadable, semantic
+occurrence coverage is incomplete, a name conflict is found in any affected
+file, or the edit would exceed 1,000 locations. Built-ins and members remain
+non-renameable.
+
+The on-demand rename form is
+`--rename-stdin <file.eng> <line> <character> <new-name> [workspace-root]`.
+Without `workspace-root`, declarations that are safe to rename in the current
+buffer remain current-file operations; selecting an imported symbol returns an
+actionable error instead of an incomplete edit. The CLI receives only the
+current unsaved buffer, so editor clients must save or otherwise account for
+other modified documents before requesting a workspace rename. Persistent LSP
+clients can supply all open document versions directly.
 
 This JSON contract is not a replacement for full LSP editor validation.

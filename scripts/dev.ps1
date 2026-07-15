@@ -3911,8 +3911,8 @@ function Assert-VscodeExtensionContract {
     if (-not $VscodeReadmeSource.Contains("completion_items") -or $VscodeReadmeSource.Contains("completion_seed") -or -not $VscodeReadmeSource.Contains("static completion fallback") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_unit_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_builtin_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_option_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.model_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.prediction_table_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.coverage_result_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.table_fields") -or -not $VscodeReadmeSource.Contains("public member API") -or -not $VscodeReadmeSource.Contains("runtime-backed public fields") -or -not $VscodeReadmeSource.Contains("editor-only placeholders") -or -not $VscodeReadmeSource.Contains("highlight-only compatibility aliases")) {
         throw "VS Code README must document completion_items as the editor metadata completion catalog, public member field catalogs, and legacy aliases as highlight-only metadata without completion_seed"
     }
-    if (-not $VscodeReadmeSource.Contains("safe current-file semantic rename") -or -not $VscodeReadmeSource.Contains("incomplete semantic occurrence coverage are rejected")) {
-        throw "VS Code README must document current-file semantic rename scope and incomplete-coverage rejection"
+    if (-not $VscodeReadmeSource.Contains("static-import-aware workspace rename") -or -not $VscodeReadmeSource.Contains("incomplete semantic coverage") -or -not $VscodeReadmeSource.Contains("Save other modified") -or -not $VscodeReadmeSource.Contains("EngLang documents before workspace rename")) {
+        throw "VS Code README must document static-import workspace rename safety and modified-document preflight"
     }
     if (-not $VscodeReadmeSource.Contains("overlapping highlight ranges") -or -not $VscodeReadmeSource.Contains("line overlap rows") -or -not $VscodeReadmeSource.Contains("domain coverage summary")) {
         throw "VS Code README must document highlight overlap rows and coverage summary in user-facing terms"
@@ -5952,7 +5952,9 @@ function Assert-VscodeExtensionContract {
         "--rename-stdin",
         "prepareRenameFromLsp",
         "workspaceEditFromLsp",
-        "new vscode.WorkspaceEdit"
+        "new vscode.WorkspaceEdit",
+        "dirtyOtherDocuments",
+        "Save other modified EngLang files before workspace rename"
     )) {
         if (-not $NavigationSource.Contains($RequiredRenameToken)) {
             throw "VS Code extension missing semantic rename token $RequiredRenameToken"
@@ -6452,7 +6454,10 @@ function Assert-VscodeExtensionContract {
         "--rename-stdin",
         "prepare_rename_for_request",
         "rename_for_request",
-        "semantic_rename_occurrences_are_complete"
+        "workspace_rename_for_symbol",
+        "WorkspaceSourceCollection",
+        "semantic_rename_occurrences_are_complete",
+        "MAX_WORKSPACE_INDEX_FILES"
     )) {
         if (-not $LspCliSource.Contains($RequiredLspRenameToken)) {
             throw "eng-lsp CLI missing semantic rename token $RequiredLspRenameToken"

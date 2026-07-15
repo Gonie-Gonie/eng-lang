@@ -59,7 +59,13 @@ fn main() -> std::process::ExitCode {
         return command_prepare_rename_stdin(args.get(1), args.get(2), args.get(3));
     }
     if args.first().map(String::as_str) == Some("--rename-stdin") {
-        return command_rename_stdin(args.get(1), args.get(2), args.get(3), args.get(4));
+        return command_rename_stdin(
+            args.get(1),
+            args.get(2),
+            args.get(3),
+            args.get(4),
+            args.get(5),
+        );
     }
     if args.first().map(String::as_str) == Some("--workspace-symbols") {
         return command_workspace_symbols(args.get(1), args.get(2));
@@ -471,17 +477,18 @@ fn command_rename_stdin(
     line: Option<&String>,
     character: Option<&String>,
     new_name: Option<&String>,
+    workspace_root: Option<&String>,
 ) -> std::process::ExitCode {
     let Some(path) = path else {
-        eprintln!("usage: eng-lsp --rename-stdin <file.eng> <line> <character> <new-name>");
+        eprintln!("usage: eng-lsp --rename-stdin <file.eng> <line> <character> <new-name> [workspace-root]");
         return std::process::ExitCode::from(2);
     };
     let Some((line, character)) = parse_position(line, character) else {
-        eprintln!("usage: eng-lsp --rename-stdin <file.eng> <line> <character> <new-name>");
+        eprintln!("usage: eng-lsp --rename-stdin <file.eng> <line> <character> <new-name> [workspace-root]");
         return std::process::ExitCode::from(2);
     };
     let Some(new_name) = new_name else {
-        eprintln!("usage: eng-lsp --rename-stdin <file.eng> <line> <character> <new-name>");
+        eprintln!("usage: eng-lsp --rename-stdin <file.eng> <line> <character> <new-name> [workspace-root]");
         return std::process::ExitCode::from(2);
     };
     let mut source = String::new();
@@ -499,7 +506,11 @@ fn command_rename_stdin(
     });
     let mut documents = Documents::new();
     documents.insert(uri, DocumentState::new(source, None));
-    match rename_for_request(&request, &documents) {
+    let workspace_roots = workspace_root
+        .map(PathBuf::from)
+        .into_iter()
+        .collect::<Vec<_>>();
+    match rename_for_request(&request, &documents, &workspace_roots) {
         Ok(edit) => println!("{edit}"),
         Err(message) => println!("{}", json!({ "error": message })),
     }
@@ -697,20 +708,22 @@ fn run_lsp() -> io::Result<()> {
                     json!({ "jsonrpc": "2.0", "id": id, "result": prepared }),
                 )?;
             }
-            "textDocument/rename" => match rename_for_request(&request, &documents) {
-                Ok(edit) => write_response(
-                    &mut output,
-                    json!({ "jsonrpc": "2.0", "id": id, "result": edit }),
-                )?,
-                Err(message) => write_response(
-                    &mut output,
-                    json!({
-                        "jsonrpc": "2.0",
-                        "id": id,
-                        "error": { "code": -32602, "message": message }
-                    }),
-                )?,
-            },
+            "textDocument/rename" => {
+                match rename_for_request(&request, &documents, &workspace_roots) {
+                    Ok(edit) => write_response(
+                        &mut output,
+                        json!({ "jsonrpc": "2.0", "id": id, "result": edit }),
+                    )?,
+                    Err(message) => write_response(
+                        &mut output,
+                        json!({
+                            "jsonrpc": "2.0",
+                            "id": id,
+                            "error": { "code": -32602, "message": message }
+                        }),
+                    )?,
+                }
+            }
             "textDocument/codeAction" => {
                 let actions = code_actions_for_request(&request, &documents);
                 write_response(
@@ -5245,6 +5258,19 @@ const MAX_WORKSPACE_INDEX_FILES: usize = 500;
 const MAX_WORKSPACE_SYMBOL_RESULTS: usize = 200;
 const MAX_WORKSPACE_REFERENCE_RESULTS: usize = 1_000;
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+struct WorkspaceWalkStatus {
+    truncated: bool,
+    unreadable: bool,
+}
+
+impl WorkspaceWalkStatus {
+    fn merge(&mut self, other: Self) {
+        self.truncated |= other.truncated;
+        self.unreadable |= other.unreadable;
+    }
+}
+
 fn workspace_roots_from_initialize(request: &Value) -> Vec<PathBuf> {
     let mut roots = Vec::new();
     if let Some(uri) = request.pointer("/params/rootUri").and_then(Value::as_str) {
@@ -5301,7 +5327,7 @@ fn workspace_symbols_for_request(
 
     let mut files = Vec::new();
     for root in workspace_roots {
-        collect_workspace_eng_files(root, &mut files, MAX_WORKSPACE_INDEX_FILES);
+        let _ = collect_workspace_eng_files(root, &mut files, MAX_WORKSPACE_INDEX_FILES);
         if files.len() >= MAX_WORKSPACE_INDEX_FILES {
             break;
         }
@@ -5390,31 +5416,45 @@ fn workspace_symbol_json(uri: &str, symbol: &eng_lsp::LspDocumentSymbol) -> Valu
     })
 }
 
-fn collect_workspace_eng_files(root: &Path, files: &mut Vec<PathBuf>, limit: usize) {
+fn collect_workspace_eng_files(
+    root: &Path,
+    files: &mut Vec<PathBuf>,
+    limit: usize,
+) -> WorkspaceWalkStatus {
+    let mut status = WorkspaceWalkStatus::default();
     if files.len() >= limit {
-        return;
+        status.truncated = true;
+        return status;
     }
     let Ok(metadata) = std::fs::metadata(root) else {
-        return;
+        status.unreadable = true;
+        return status;
     };
     if metadata.is_file() {
         if root.extension().is_some_and(|extension| extension == "eng") {
             files.push(root.to_path_buf());
         }
-        return;
+        return status;
     }
     if !metadata.is_dir() || skip_workspace_index_dir(root) {
-        return;
+        return status;
     }
     let Ok(entries) = std::fs::read_dir(root) else {
-        return;
+        status.unreadable = true;
+        return status;
     };
-    for entry in entries.flatten() {
+    for entry in entries {
+        let Ok(entry) = entry else {
+            status.unreadable = true;
+            continue;
+        };
         if files.len() >= limit {
+            status.truncated = true;
             break;
         }
-        collect_workspace_eng_files(&entry.path(), files, limit);
+        status.merge(collect_workspace_eng_files(&entry.path(), files, limit));
     }
+    status
 }
 
 fn skip_workspace_index_dir(path: &Path) -> bool {
@@ -5587,6 +5627,13 @@ struct WorkspaceSource {
     text: String,
 }
 
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+struct WorkspaceSourceCollection {
+    sources: Vec<WorkspaceSource>,
+    truncated: bool,
+    unreadable: bool,
+}
+
 fn references_for_request(
     request: &Value,
     documents: &Documents,
@@ -5740,63 +5787,10 @@ fn workspace_reference_locations(
     workspace_roots: &[PathBuf],
     identity: &WorkspaceReferenceIdentity,
 ) -> Vec<SemanticReferenceLocation> {
-    let selected_path = selected_path
-        .canonicalize()
-        .unwrap_or_else(|_| selected_path.to_path_buf());
-    let mut seen_paths = HashSet::from([selected_path]);
-    let mut sources = Vec::<WorkspaceSource>::new();
-
-    push_workspace_source_for_path(
-        &identity.definition_path,
-        documents,
-        &mut seen_paths,
-        &mut sources,
-    );
-    for (uri, state) in documents {
-        if sources.len() >= MAX_WORKSPACE_INDEX_FILES {
-            break;
-        }
-        let Some(path) = path_from_uri(uri) else {
-            continue;
-        };
-        let path = path.canonicalize().unwrap_or(path);
-        if !seen_paths.insert(path.clone()) {
-            continue;
-        }
-        sources.push(WorkspaceSource {
-            uri: uri.clone(),
-            path,
-            text: state.text.clone(),
-        });
-    }
-
-    let mut files = Vec::new();
-    for root in workspace_roots {
-        collect_workspace_eng_files(root, &mut files, MAX_WORKSPACE_INDEX_FILES);
-        if files.len() >= MAX_WORKSPACE_INDEX_FILES {
-            break;
-        }
-    }
-    for path in files {
-        if sources.len() >= MAX_WORKSPACE_INDEX_FILES {
-            break;
-        }
-        let path = path.canonicalize().unwrap_or(path);
-        if !seen_paths.insert(path.clone()) {
-            continue;
-        }
-        let Ok(text) = std::fs::read_to_string(&path) else {
-            continue;
-        };
-        sources.push(WorkspaceSource {
-            uri: file_uri_from_path(&path),
-            path,
-            text,
-        });
-    }
-
+    let collection =
+        workspace_sources_for_reference(selected_path, documents, workspace_roots, identity);
     let mut locations = Vec::new();
-    for source in sources {
+    for source in collection.sources {
         if locations.len() >= MAX_WORKSPACE_REFERENCE_RESULTS {
             break;
         }
@@ -5825,15 +5819,87 @@ fn workspace_reference_locations(
     locations
 }
 
+fn workspace_sources_for_reference(
+    selected_path: &Path,
+    documents: &Documents,
+    workspace_roots: &[PathBuf],
+    identity: &WorkspaceReferenceIdentity,
+) -> WorkspaceSourceCollection {
+    let workspace_roots = canonical_workspace_roots(workspace_roots);
+    let selected_path = selected_path
+        .canonicalize()
+        .unwrap_or_else(|_| selected_path.to_path_buf());
+    let mut seen_paths = HashSet::from([selected_path]);
+    let mut collection = WorkspaceSourceCollection::default();
+
+    collection.unreadable |= !push_workspace_source_for_path(
+        &identity.definition_path,
+        documents,
+        &mut seen_paths,
+        &mut collection.sources,
+    );
+    for (uri, state) in documents {
+        if collection.sources.len() >= MAX_WORKSPACE_INDEX_FILES {
+            collection.truncated = true;
+            break;
+        }
+        let Some(path) = path_from_uri(uri) else {
+            continue;
+        };
+        let path = path.canonicalize().unwrap_or(path);
+        if !workspace_roots.is_empty() && !path_is_in_workspace(&path, &workspace_roots) {
+            continue;
+        }
+        if !seen_paths.insert(path.clone()) {
+            continue;
+        }
+        collection.sources.push(WorkspaceSource {
+            uri: uri.clone(),
+            path,
+            text: state.text.clone(),
+        });
+    }
+
+    let mut files = Vec::new();
+    for root in &workspace_roots {
+        let status = collect_workspace_eng_files(root, &mut files, MAX_WORKSPACE_INDEX_FILES);
+        collection.truncated |= status.truncated;
+        collection.unreadable |= status.unreadable;
+        if status.truncated {
+            break;
+        }
+    }
+    for path in files {
+        if collection.sources.len() >= MAX_WORKSPACE_INDEX_FILES {
+            collection.truncated = true;
+            break;
+        }
+        let path = path.canonicalize().unwrap_or(path);
+        if !seen_paths.insert(path.clone()) {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            collection.unreadable = true;
+            continue;
+        };
+        collection.sources.push(WorkspaceSource {
+            uri: file_uri_from_path(&path),
+            path,
+            text,
+        });
+    }
+    collection
+}
+
 fn push_workspace_source_for_path(
     path: &Path,
     documents: &Documents,
     seen_paths: &mut HashSet<PathBuf>,
     sources: &mut Vec<WorkspaceSource>,
-) {
+) -> bool {
     let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
     if !seen_paths.insert(path.clone()) || sources.len() >= MAX_WORKSPACE_INDEX_FILES {
-        return;
+        return true;
     }
     if let Some((uri, state)) = documents.iter().find(|(uri, _)| {
         path_from_uri(uri)
@@ -5845,16 +5911,17 @@ fn push_workspace_source_for_path(
             path,
             text: state.text.clone(),
         });
-        return;
+        return true;
     }
     let Ok(text) = std::fs::read_to_string(&path) else {
-        return;
+        return false;
     };
     sources.push(WorkspaceSource {
         uri: file_uri_from_path(&path),
         path,
         text,
     });
+    true
 }
 
 fn source_resolves_workspace_reference(
@@ -5947,7 +6014,9 @@ fn prepare_rename_for_request(request: &Value, documents: &Documents) -> Option<
         line,
         character,
     )?;
-    semantic_symbol_is_renameable(&text, &symbol).then(|| {
+    let workspace_identity =
+        workspace_reference_identity(uri, &path, &text, &snapshot.hovers, &symbol);
+    (semantic_symbol_is_renameable(&text, &symbol) || workspace_identity.is_some()).then(|| {
         json!({
             "range": semantic_token_range_json(&symbol.selected),
             "placeholder": symbol.label
@@ -5955,7 +6024,11 @@ fn prepare_rename_for_request(request: &Value, documents: &Documents) -> Option<
     })
 }
 
-fn rename_for_request(request: &Value, documents: &Documents) -> Result<Value, String> {
+fn rename_for_request(
+    request: &Value,
+    documents: &Documents,
+    workspace_roots: &[PathBuf],
+) -> Result<Value, String> {
     let uri = request_uri(request)
         .ok_or_else(|| "Rename request is missing a document URI.".to_owned())?;
     let text = document_text_for_uri(uri, documents)
@@ -5977,12 +6050,9 @@ fn rename_for_request(request: &Value, documents: &Documents) -> Result<Value, S
         character,
     )
     .ok_or_else(|| "The selected token is not a renameable EngLang symbol.".to_owned())?;
-    if !semantic_symbol_is_renameable(&text, &symbol) {
-        return Err(
-            "Rename is limited to symbols declared in the current file; builtins, imports, and members are unchanged."
-                .to_owned(),
-        );
-    }
+    let current_file_renameable = semantic_symbol_is_renameable(&text, &symbol);
+    let workspace_identity =
+        workspace_reference_identity(uri, &path, &text, &snapshot.hovers, &symbol);
     if new_name == symbol.label {
         return Err("The new symbol name is unchanged.".to_owned());
     }
@@ -5991,6 +6061,32 @@ fn rename_for_request(request: &Value, documents: &Documents) -> Result<Value, S
     }
     if reserved_rename_identifier(new_name) {
         return Err(format!("`{new_name}` is reserved by EngLang."));
+    }
+
+    if let Some(identity) = workspace_identity {
+        if !workspace_roots.is_empty() {
+            return workspace_rename_for_symbol(
+                uri,
+                &path,
+                &text,
+                documents,
+                workspace_roots,
+                &identity,
+                new_name,
+            );
+        }
+        if !current_file_renameable {
+            return Err(
+                "Static-import rename needs an initialized workspace root so every affected EngLang file can be verified."
+                    .to_owned(),
+            );
+        }
+    }
+    if !current_file_renameable {
+        return Err(
+            "Rename supports current-file declarations and static file-import symbols; this selection has no editable declaration identity."
+                .to_owned(),
+        );
     }
     if semantic_rename_conflicts(&text, &snapshot.semantic_tokens.tokens, &symbol, new_name) {
         return Err(format!(
@@ -6011,6 +6107,190 @@ fn rename_for_request(request: &Value, documents: &Documents) -> Result<Value, S
     let mut changes = serde_json::Map::new();
     changes.insert(uri.to_owned(), Value::Array(edits));
     Ok(json!({ "changes": Value::Object(changes) }))
+}
+
+fn workspace_rename_for_symbol(
+    selected_uri: &str,
+    selected_path: &Path,
+    selected_text: &str,
+    documents: &Documents,
+    workspace_roots: &[PathBuf],
+    identity: &WorkspaceReferenceIdentity,
+    new_name: &str,
+) -> Result<Value, String> {
+    let workspace_roots = canonical_workspace_roots(workspace_roots);
+    let selected_path = selected_path
+        .canonicalize()
+        .unwrap_or_else(|_| selected_path.to_path_buf());
+    if !path_is_in_workspace(&selected_path, &workspace_roots) {
+        return Err(
+            "Workspace rename requires the selected EngLang file to be inside an initialized workspace root."
+                .to_owned(),
+        );
+    }
+    if !path_is_in_workspace(&identity.definition_path, &workspace_roots) {
+        return Err(
+            "Workspace rename cannot edit a static-import declaration outside the initialized workspace roots."
+                .to_owned(),
+        );
+    }
+
+    let collection =
+        workspace_sources_for_reference(&selected_path, documents, &workspace_roots, identity);
+    if collection.truncated {
+        return Err(format!(
+            "Workspace rename stopped because the EngLang index reached its {MAX_WORKSPACE_INDEX_FILES}-file safety limit. Narrow the workspace and retry."
+        ));
+    }
+    if collection.unreadable {
+        return Err(
+            "Workspace rename stopped because at least one required EngLang source could not be read."
+                .to_owned(),
+        );
+    }
+
+    let mut sources = Vec::with_capacity(collection.sources.len() + 1);
+    sources.push(WorkspaceSource {
+        uri: selected_uri.to_owned(),
+        path: selected_path,
+        text: selected_text.to_owned(),
+    });
+    sources.extend(collection.sources);
+
+    let mut changes = serde_json::Map::new();
+    let mut edit_count = 0usize;
+    let mut declaration_edited = false;
+    for source in sources {
+        if !path_is_in_workspace(&source.path, &workspace_roots)
+            || !source.text.contains(&identity.label)
+            || (source.uri != selected_uri
+                && !source_resolves_workspace_reference(&source, identity))
+        {
+            continue;
+        }
+        let snapshot = snapshot_for_source(&source.path, &source.text);
+        let Some(symbol) = semantic_symbol_occurrences_for_workspace_identity(
+            &source.text,
+            &snapshot.semantic_tokens.tokens,
+            identity,
+        ) else {
+            if source
+                .text
+                .lines()
+                .any(|line| !rename_identifier_ranges_on_line(line, &identity.label).is_empty())
+            {
+                return Err(format!(
+                    "Workspace rename cannot prove every `{}` occurrence in {} is semantic.",
+                    identity.label,
+                    source.path.display()
+                ));
+            }
+            continue;
+        };
+        if !semantic_rename_occurrences_are_complete(&source.text, &symbol) {
+            return Err(format!(
+                "Workspace rename cannot prove every `{}` occurrence in {} is semantic.",
+                identity.label,
+                source.path.display()
+            ));
+        }
+        if semantic_rename_conflicts(
+            &source.text,
+            &snapshot.semantic_tokens.tokens,
+            &symbol,
+            new_name,
+        ) {
+            return Err(format!(
+                "Workspace rename would conflict with the existing `{new_name}` symbol in {}.",
+                source.path.display()
+            ));
+        }
+        if edit_count + symbol.occurrences.len() > MAX_WORKSPACE_REFERENCE_RESULTS {
+            return Err(format!(
+                "Workspace rename stopped because it exceeded the {MAX_WORKSPACE_REFERENCE_RESULTS}-edit safety limit."
+            ));
+        }
+
+        if source.path == identity.definition_path
+            && symbol.occurrences.iter().any(|token| {
+                token.line == identity.definition_line && semantic_token_is_declaration(token)
+            })
+        {
+            declaration_edited = true;
+        }
+        let edits = symbol
+            .occurrences
+            .iter()
+            .map(|token| {
+                json!({
+                    "range": semantic_token_range_json(token),
+                    "newText": new_name
+                })
+            })
+            .collect::<Vec<_>>();
+        edit_count += edits.len();
+        if !edits.is_empty() {
+            changes.insert(source.uri, Value::Array(edits));
+        }
+    }
+
+    if !declaration_edited {
+        return Err(
+            "Workspace rename could not verify an edit for the static-import declaration."
+                .to_owned(),
+        );
+    }
+    Ok(json!({ "changes": Value::Object(changes) }))
+}
+
+fn canonical_workspace_roots(workspace_roots: &[PathBuf]) -> Vec<PathBuf> {
+    let mut roots = workspace_roots
+        .iter()
+        .map(|root| root.canonicalize().unwrap_or_else(|_| root.clone()))
+        .collect::<Vec<_>>();
+    roots.sort();
+    roots.dedup();
+    roots
+}
+
+fn path_is_in_workspace(path: &Path, workspace_roots: &[PathBuf]) -> bool {
+    let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    workspace_roots
+        .iter()
+        .any(|root| path == *root || path.starts_with(root))
+}
+
+fn semantic_symbol_occurrences_for_workspace_identity(
+    source: &str,
+    tokens: &[eng_lsp::LspSemanticToken],
+    identity: &WorkspaceReferenceIdentity,
+) -> Option<SemanticSymbolOccurrences> {
+    let mut occurrences = tokens
+        .iter()
+        .filter(|token| {
+            !has_semantic_modifier(token, "local")
+                && semantic_symbol_family(&token.token_type, &token.modifiers)
+                    == Some(identity.family.as_str())
+                && semantic_token_text(source, token).as_deref() == Some(identity.label.as_str())
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    occurrences.sort_by_key(|token| (token.line, token.start, token.length));
+    occurrences.dedup_by_key(|token| (token.line, token.start, token.length));
+    let selected = occurrences
+        .iter()
+        .find(|token| {
+            token.line == identity.definition_line && semantic_token_is_declaration(token)
+        })
+        .or_else(|| occurrences.first())?
+        .clone();
+    Some(SemanticSymbolOccurrences {
+        selected,
+        label: identity.label.clone(),
+        family: identity.family.clone(),
+        scope: None,
+        occurrences,
+    })
 }
 
 fn request_position(request: &Value) -> Option<(usize, usize)> {
@@ -6174,7 +6454,9 @@ fn semantic_rename_conflicts(
     symbol: &SemanticSymbolOccurrences,
     new_name: &str,
 ) -> bool {
-    let selected_is_local = has_semantic_modifier(&symbol.selected, "local");
+    let Some(selected_namespace) = semantic_rename_namespace(&symbol.family) else {
+        return true;
+    };
     let selected_ranges = symbol
         .occurrences
         .iter()
@@ -6186,7 +6468,6 @@ fn semantic_rename_conflicts(
             return false;
         };
         if selected_ranges.contains(&(token.line, token.start, token.length))
-            || has_semantic_modifier(token, "local") != selected_is_local
             || symbol
                 .scope
                 .is_some_and(|scope| token.line < scope.start_line || token.line > scope.end_line)
@@ -6194,8 +6475,17 @@ fn semantic_rename_conflicts(
         {
             return false;
         }
-        (symbol.family == "type") == (candidate_family == "type")
+        semantic_rename_namespace(candidate_family) == Some(selected_namespace)
     })
+}
+
+fn semantic_rename_namespace(family: &str) -> Option<&'static str> {
+    match family {
+        "type" => Some("type"),
+        "namespace" => Some("namespace"),
+        "parameter" | "variable" | "function" => Some("value"),
+        _ => None,
+    }
 }
 
 fn valid_rename_identifier(name: &str) -> bool {
@@ -7094,7 +7384,7 @@ mod tests {
         });
         let mut documents = Documents::new();
         documents.insert(uri, DocumentState::new(source.to_owned(), Some(1)));
-        rename_for_request(&request, &documents)
+        rename_for_request(&request, &documents, &[])
     }
 
     #[test]
@@ -7326,6 +7616,24 @@ fn second(x: Real) -> Real {
     }
 
     #[test]
+    fn semantic_rename_rejects_local_name_capture() {
+        let source = r#"source_value = 5
+fn combine(x: Real) -> Real {
+    local_value = x
+    return source_value + local_value
+}
+"#;
+        let character = source
+            .lines()
+            .nth(3)
+            .expect("return line should exist")
+            .find("source_value")
+            .expect("return line should use source_value");
+        let conflict = rename_request(source, 3, character, "local_value").unwrap_err();
+        assert!(conflict.contains("conflict"), "{conflict}");
+    }
+
+    #[test]
     fn semantic_rename_rejects_builtins_and_members() {
         let source = "Q = mean(sensor.m_dot, axis=Time)\n";
         let line = source.lines().next().unwrap();
@@ -7370,6 +7678,32 @@ fn second(x: Real) -> Real {
             prepare_rename_request(source, 1, character).expect("UTF-16 rename preparation");
         assert_eq!(prepared["range"]["start"]["character"], character);
         assert_eq!(prepared["range"]["end"]["character"], character + 1);
+    }
+
+    #[test]
+    fn workspace_walk_reports_truncation_and_unreadable_roots() {
+        let root =
+            std::env::temp_dir().join(format!("eng_lsp_workspace_walk_{}", std::process::id()));
+        if root.exists() {
+            std::fs::remove_dir_all(&root).expect("prior workspace walk fixture should be removed");
+        }
+        std::fs::create_dir_all(&root).expect("workspace walk fixture should be created");
+        std::fs::write(root.join("one.eng"), "one = 1\n")
+            .expect("first workspace source should be written");
+        std::fs::write(root.join("two.eng"), "two = 2\n")
+            .expect("second workspace source should be written");
+
+        let mut files = Vec::new();
+        let status = collect_workspace_eng_files(&root, &mut files, 1);
+        assert_eq!(files.len(), 1);
+        assert!(status.truncated);
+        assert!(!status.unreadable);
+
+        let missing = root.join("missing");
+        let mut missing_files = Vec::new();
+        let missing_status = collect_workspace_eng_files(&missing, &mut missing_files, 1);
+        assert!(missing_status.unreadable);
+        std::fs::remove_dir_all(&root).expect("workspace walk fixture should be removed");
     }
 
     #[test]

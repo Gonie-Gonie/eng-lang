@@ -234,7 +234,12 @@ The extension shares the same checked-code diagnostics, hover, completion, and
 role-aware highlighting data as the native IDE. VS Code Find All References
 uses the current unsaved file plus open or saved workspace files whose static
 file-import chain resolves the symbol to the same declaration. Unrelated
-same-name symbols are excluded; local variables, parameters, members, and rename
-remain current-file operations. The extension is useful when you prefer VS
-Code, while `eng-ide.exe` remains the primary no-install review path for the
-current release.
+same-name symbols are excluded. Rename follows the same workspace identity for
+importable top-level declarations and rejects the whole operation when any
+affected file has incomplete semantic coverage or a conflict. Local variables
+and parameters remain current-file operations, while built-ins and members are
+not renameable. Because the VS Code bridge runs an on-demand CLI process, save
+other modified EngLang documents before a workspace rename; the current buffer
+itself may remain unsaved. The extension is useful when you prefer VS Code,
+while `eng-ide.exe` remains the primary no-install review path for the current
+release.

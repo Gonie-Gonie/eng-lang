@@ -291,14 +291,35 @@ function createLspRequests(options = {}) {
   }
 
   function renameForPosition(document, position, newName, context, cancellationToken) {
+    const documentUri = document.uri.toString();
+    const dirtyOtherDocuments = (vscode.workspace.textDocuments ?? []).filter((candidate) =>
+      candidate.isDirty
+        && isEngDocument(candidate)
+        && candidate.uri.toString() !== documentUri
+    );
+    if (dirtyOtherDocuments.length > 0) {
+      const paths = dirtyOtherDocuments
+        .slice(0, 3)
+        .map((candidate) => candidate.uri.fsPath ?? candidate.fileName ?? candidate.uri.toString());
+      const remainder = dirtyOtherDocuments.length - paths.length;
+      const suffix = remainder > 0 ? ` and ${remainder} more` : "";
+      return Promise.resolve({
+        error: `Save other modified EngLang files before workspace rename: ${paths.join(", ")}${suffix}.`
+      });
+    }
+    const root = workspaceRoot(document);
+    const args = [
+      "--rename-stdin",
+      document.uri.fsPath,
+      String(position.line),
+      String(position.character),
+      newName
+    ];
+    if (root) {
+      args.push(root);
+    }
     return stdinJsonRequest(document, context, cancellationToken, {
-      args: [
-        "--rename-stdin",
-        document.uri.fsPath,
-        String(position.line),
-        String(position.character),
-        newName
-      ],
+      args,
       errorMessage: "Rename failed",
       parseMessage: "Unable to parse EngLang rename result"
     });

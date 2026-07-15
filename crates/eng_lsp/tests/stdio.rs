@@ -2957,6 +2957,165 @@ unrelated_result = SHARED_RATE
 }
 
 #[test]
+fn rename_stdin_updates_static_import_workspace_identity() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let workspace_root = repo_root().join("build/editor-tests/workspace_rename_cli");
+    if workspace_root.exists() {
+        std::fs::remove_dir_all(&workspace_root)
+            .expect("prior workspace rename fixture should be removable");
+    }
+    std::fs::create_dir_all(&workspace_root).expect("workspace root should be writable");
+
+    let module_path = workspace_root.join("module.eng");
+    let current_path = workspace_root.join("current.eng");
+    let other_path = workspace_root.join("other.eng");
+    let unrelated_path = workspace_root.join("unrelated.eng");
+    let module_source = r#"const SHARED_RATE: HeatRate [kW] = 5 kW
+
+fn shared_plus(value: HeatRate [kW]) -> HeatRate [kW] {
+    return value + SHARED_RATE
+}
+"#;
+    let current_source = r#"use "module.eng"
+current_result = shared_plus(SHARED_RATE)
+print "current={SHARED_RATE: .2 kW}"
+"#;
+    let other_source = r#"use "module.eng"
+other_result = shared_plus(SHARED_RATE)
+"#;
+    let unrelated_source = r#"const SHARED_RATE: HeatRate [kW] = 9 kW
+unrelated_result = SHARED_RATE
+"#;
+    for (path, source) in [
+        (&module_path, module_source),
+        (&current_path, current_source),
+        (&other_path, other_source),
+        (&unrelated_path, unrelated_source),
+    ] {
+        std::fs::write(path, source).expect("workspace rename source should be writable");
+    }
+
+    let current_path = current_path
+        .canonicalize()
+        .expect("current source should exist");
+    let selected_line = current_source
+        .lines()
+        .position(|line| line.contains("shared_plus(SHARED_RATE)"))
+        .expect("current source should use shared const");
+    let selected_character = current_source
+        .lines()
+        .nth(selected_line)
+        .expect("selected line should exist")
+        .find("SHARED_RATE")
+        .expect("selected line should contain shared const");
+
+    let mut prepare = Command::new(server)
+        .arg("--prepare-rename-stdin")
+        .arg(&current_path)
+        .arg(selected_line.to_string())
+        .arg(selected_character.to_string())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("eng-lsp prepare-rename-stdin should start");
+    prepare
+        .stdin
+        .take()
+        .expect("stdin should be piped")
+        .write_all(current_source.as_bytes())
+        .expect("current source should be written to stdin");
+    let prepare_output = prepare
+        .wait_with_output()
+        .expect("prepare-rename-stdin should exit");
+    assert!(
+        prepare_output.status.success(),
+        "prepare-rename-stdin failed: {}",
+        String::from_utf8_lossy(&prepare_output.stderr)
+    );
+    let prepared: Value = serde_json::from_slice(&prepare_output.stdout)
+        .expect("prepare rename stdout should be JSON");
+    assert_eq!(prepared["placeholder"], "SHARED_RATE");
+
+    let run_rename = || {
+        let mut child = Command::new(server)
+            .arg("--rename-stdin")
+            .arg(&current_path)
+            .arg(selected_line.to_string())
+            .arg(selected_character.to_string())
+            .arg("RENAMED_RATE")
+            .arg(&workspace_root)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("eng-lsp rename-stdin should start");
+        child
+            .stdin
+            .take()
+            .expect("stdin should be piped")
+            .write_all(current_source.as_bytes())
+            .expect("current source should be written to stdin");
+        child.wait_with_output().expect("rename-stdin should exit")
+    };
+
+    let output = run_rename();
+    assert!(
+        output.status.success(),
+        "rename-stdin failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let edit: Value = serde_json::from_slice(&output.stdout).expect("rename stdout should be JSON");
+    assert!(edit.get("error").is_none(), "rename should succeed: {edit}");
+    let changes = edit["changes"]
+        .as_object()
+        .expect("rename changes should be an object");
+    let current_uri = file_uri(&current_path);
+    let module_uri = file_uri(
+        &module_path
+            .canonicalize()
+            .expect("module source should exist"),
+    );
+    let other_uri = file_uri(
+        &other_path
+            .canonicalize()
+            .expect("other source should exist"),
+    );
+    let unrelated_uri = file_uri(
+        &unrelated_path
+            .canonicalize()
+            .expect("unrelated source should exist"),
+    );
+    for expected_uri in [&current_uri, &module_uri, &other_uri] {
+        let edits = changes
+            .get(expected_uri)
+            .and_then(Value::as_array)
+            .unwrap_or_else(|| panic!("rename should edit {expected_uri}: {changes:?}"));
+        assert!(edits.iter().all(|edit| edit["newText"] == "RENAMED_RATE"));
+    }
+    assert!(!changes.contains_key(&unrelated_uri));
+    assert!(changes[&module_uri].as_array().unwrap().iter().any(|edit| {
+        edit["range"]["start"]["line"] == 0 && edit["range"]["start"]["character"] == 6
+    }));
+
+    let conflicting_other_source = r#"use "module.eng"
+const RENAMED_RATE: HeatRate [kW] = 3 kW
+other_result = shared_plus(SHARED_RATE) + RENAMED_RATE
+"#;
+    std::fs::write(&other_path, conflicting_other_source)
+        .expect("conflicting workspace source should be writable");
+    let conflict_output = run_rename();
+    let conflict: Value = serde_json::from_slice(&conflict_output.stdout)
+        .expect("conflicting rename stdout should be JSON");
+    assert!(
+        conflict["error"]
+            .as_str()
+            .is_some_and(|message| message.contains("conflict")),
+        "workspace conflict should reject the complete rename: {conflict}"
+    );
+}
+
+#[test]
 fn stdio_references_use_workspace_roots_and_open_document_text() {
     let server = env!("CARGO_BIN_EXE_eng-lsp");
     let workspace_root = repo_root().join("build/editor-tests/workspace_references_stdio");
@@ -3081,6 +3240,156 @@ fn stdio_references_use_workspace_roots_and_open_document_text() {
     assert!(references.iter().any(|location| {
         location["uri"] == other_uri && location["range"]["start"]["line"] == 1
     }));
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "shutdown"
+        }),
+    );
+    assert!(read_message(&mut stdout)["result"].is_null());
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "exit"
+        }),
+    );
+    drop(stdin);
+    assert!(child.wait().expect("eng-lsp should exit").success());
+}
+
+#[test]
+fn stdio_rename_uses_workspace_roots_and_open_document_text() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let workspace_root = repo_root().join("build/editor-tests/workspace_rename_stdio");
+    if workspace_root.exists() {
+        std::fs::remove_dir_all(&workspace_root)
+            .expect("prior stdio rename fixture should be removable");
+    }
+    std::fs::create_dir_all(&workspace_root).expect("workspace root should be writable");
+
+    let module_path = workspace_root.join("module.eng");
+    let current_path = workspace_root.join("current.eng");
+    let other_path = workspace_root.join("other.eng");
+    let module_source = "const SHARED_GAIN: Ratio = 0.8\n";
+    let current_source = "use \"module.eng\"\ncurrent_gain = SHARED_GAIN\n";
+    let saved_other_source = "saved_other = 1\n";
+    let unsaved_other_source = "use \"module.eng\"\nunsaved_other = SHARED_GAIN\n";
+    for (path, source) in [
+        (&module_path, module_source),
+        (&current_path, current_source),
+        (&other_path, saved_other_source),
+    ] {
+        std::fs::write(path, source).expect("stdio rename source should be writable");
+    }
+
+    let root_uri = file_uri(
+        &workspace_root
+            .canonicalize()
+            .expect("workspace root should exist"),
+    );
+    let current_uri = file_uri(
+        &current_path
+            .canonicalize()
+            .expect("current source should exist"),
+    );
+    let other_uri = file_uri(
+        &other_path
+            .canonicalize()
+            .expect("other source should exist"),
+    );
+    let module_uri = file_uri(
+        &module_path
+            .canonicalize()
+            .expect("module source should exist"),
+    );
+    let selected_character = current_source
+        .lines()
+        .nth(1)
+        .expect("current use line should exist")
+        .find("SHARED_GAIN")
+        .expect("current source should use shared gain");
+
+    let mut child = Command::new(server)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("eng-lsp should start");
+    let mut stdin = child.stdin.take().expect("stdin should be piped");
+    let mut stdout = child.stdout.take().expect("stdout should be piped");
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": { "rootUri": root_uri }
+        }),
+    );
+    assert_eq!(read_message(&mut stdout)["id"], 1);
+
+    for (uri, version, text) in [
+        (&current_uri, 1, current_source),
+        (&other_uri, 4, unsaved_other_source),
+    ] {
+        write_message(
+            &mut stdin,
+            json!({
+                "jsonrpc": "2.0",
+                "method": "textDocument/didOpen",
+                "params": {
+                    "textDocument": {
+                        "uri": uri,
+                        "languageId": "englang",
+                        "version": version,
+                        "text": text
+                    }
+                }
+            }),
+        );
+        let diagnostics = read_message(&mut stdout);
+        assert_eq!(diagnostics["method"], "textDocument/publishDiagnostics");
+        assert_eq!(diagnostics["params"]["uri"], uri.as_str());
+    }
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "textDocument/rename",
+            "params": {
+                "textDocument": { "uri": current_uri },
+                "position": { "line": 1, "character": selected_character },
+                "newName": "RENAMED_GAIN"
+            }
+        }),
+    );
+    let response = read_message(&mut stdout);
+    assert_eq!(response["id"], 2);
+    assert!(
+        response.get("error").is_none(),
+        "rename should succeed: {response}"
+    );
+    let changes = response["result"]["changes"]
+        .as_object()
+        .expect("rename changes should be an object");
+    for expected_uri in [&current_uri, &module_uri, &other_uri] {
+        assert!(
+            changes.contains_key(expected_uri),
+            "rename should include {expected_uri}: {changes:?}"
+        );
+    }
+    assert!(changes[&other_uri]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|edit| { edit["range"]["start"]["line"] == 1 && edit["newText"] == "RENAMED_GAIN" }));
 
     write_message(
         &mut stdin,

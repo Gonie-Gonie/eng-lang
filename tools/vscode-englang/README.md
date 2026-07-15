@@ -33,8 +33,8 @@ embedding compiler logic in JavaScript.
 - hover from compiler review metadata
 - position-aware completion from compiler/editor metadata
 - current-file go-to-definition from document symbols
-- safe current-file semantic rename for compiler-resolved variables, parameters,
-  functions, and user-defined types
+- safe current-file semantic rename plus static-import-aware workspace rename
+  for importable declarations and verified references
 - compiler-backed same-symbol read/write highlighting in the current file, excluding
   strings, comments, literals, units, and same-named locals in other function scopes
 - standard Find All References results for compiler-resolved occurrences in the
@@ -171,10 +171,13 @@ static-import-aware references, semantic rename, and quick fixes. References
 use the current unsaved buffer and include other open or saved workspace files
 only when their static import chain resolves to the same declaration; unrelated
 same-name symbols are excluded. Local variables, parameters, and members remain
-current-file results. Rename is intentionally limited to symbols declared in
-the current file; built-ins, imports, member fields, conflicts, and any symbol
-with incomplete semantic occurrence coverage are rejected. This keeps VS Code behavior aligned with the compiler while
-the long-running editor protocol continues to evolve. The default diagnostics
+current-file results. Rename updates an importable declaration and every
+workspace file whose static import chain resolves to it. The operation is
+rejected as a whole for conflicts, incomplete semantic coverage, unreadable or
+truncated workspace scans, built-ins, and member fields. Save other modified
+EngLang documents before workspace rename because the on-demand CLI receives
+only the current unsaved buffer. This keeps VS Code behavior aligned with the
+compiler while the long-running editor protocol continues to evolve. The default diagnostics
 mode runs stable file checks on open/save and manual check. Set
 `englang.diagnosticsMode` to `live` to update Problems from the current unsaved
 buffer while typing, or run `EngLang: Switch Diagnostics Mode...` and choose
@@ -336,8 +339,9 @@ definition lookup is unavailable, the extension falls back to document symbols
 from the current buffer for top-level symbols and nested symbols such as schema
 fields, class fields, component ports, and object members. VS Code's workspace
 symbol search scans `.eng` files under each open workspace folder. Find All
-References uses the current unsaved buffer and returns semantically matched
-locations from that file; it does not claim cross-file reference indexing yet.
+References and rename use the current unsaved buffer plus static-import-resolved
+workspace files. Unrelated same-name symbols are excluded; broader package/index
+identity support is not claimed yet.
 
 ## Grammar Maintenance
 
