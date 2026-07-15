@@ -137,6 +137,10 @@ const state = {
   moduleCategory: "all",
   moduleQuery: "",
   highlightTokenQuery: "",
+  editorFindOpen: false,
+  editorFindQuery: "",
+  editorFindCaseSensitive: false,
+  editorFindMatchIndex: -1,
   pendingTabClose: null,
   pendingWindowClose: false,
   sideTab: "variables",
@@ -509,6 +513,7 @@ function render() {
         <span id="editorLineCount">${lineCount(state.source)} lines</span>
       </div>
       <div class="editor-shell">
+        ${renderEditorFindBar()}
         <pre id="editorHighlight" class="editor-highlight" aria-hidden="true">${renderHighlightedSource()}</pre>
         <textarea id="editor" class="editor" spellcheck="false" wrap="off">${escapeHtml(state.source)}</textarea>
         <div id="completionOverlay" class="completion-popover hidden"></div>
@@ -544,6 +549,7 @@ function renderToolbar() {
       ${toolButton("runBtn", "Run", "Run current file", "play", true)}
       ${toolButton("checkBtn", "Check", "Check diagnostics", "check")}
       ${toolButton("formatBtn", "Format", "Format current buffer", "format")}
+      ${toolButton("findBtn", "Find", "Find in current file", "search")}
       ${toolButton("saveBtn", "Save", "Save current file", "save")}
       <span class="toolbar-separator"></span>
       ${toolButton("reportBtn", "Report", "Open last report", "file")}
@@ -616,6 +622,7 @@ function icon(name) {
     play: '<path d="M7 5v14l11-7z"/>',
     check: '<path d="M5 12.5l4 4L19 6"/>',
     format: '<path d="M5 6h14"/><path d="M5 12h10"/><path d="M5 18h14"/>',
+    search: '<circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/>',
     save: '<path d="M5 5h12l2 2v12H5z"/><path d="M8 5v5h8V5"/><path d="M8 19v-5h8v5"/>',
     file: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v6h5"/>',
     folder: '<path d="M3 6h7l2 2h9v10H3z"/><path d="M3 8h18"/>',
@@ -630,15 +637,23 @@ function bind() {
   editor.addEventListener("scroll", syncEditorHighlightScroll);
   editor.addEventListener("keyup", (event) => {
     updateCursorInsight();
+    updateEditorFindStatus();
     if (["ArrowDown", "ArrowUp", "Enter", "Tab", "Escape"].includes(event.key)) return;
     updateCompletionOverlay();
   });
   editor.addEventListener("click", () => {
     updateCursorInsight();
+    updateEditorFindStatus();
     updateCompletionOverlay();
   });
-  editor.addEventListener("mouseup", updateCursorInsight);
-  editor.addEventListener("select", updateCursorInsight);
+  editor.addEventListener("mouseup", () => {
+    updateCursorInsight();
+    updateEditorFindStatus();
+  });
+  editor.addEventListener("select", () => {
+    updateCursorInsight();
+    updateEditorFindStatus();
+  });
   editor.addEventListener("input", (event) => {
     state.source = event.target.value;
     state.dirty = true;
@@ -650,12 +665,14 @@ function bind() {
     updateCheckSummaryUi();
     updateEditorHighlight();
     updateCursorInsight();
+    updateEditorFindStatus();
     if (checkChanged) refreshCheckPanels();
     updateCompletionOverlay();
     scheduleLiveCheck();
   });
   byId("checkBtn").onclick = checkCurrent;
   byId("formatBtn").onclick = formatCurrent;
+  byId("findBtn").onclick = openEditorFind;
   byId("saveBtn").onclick = saveCurrent;
   byId("runBtn").onclick = runCurrent;
   byId("reportBtn").onclick = () => openArtifact("report");
@@ -677,6 +694,7 @@ function bind() {
   byId("runDirInput").addEventListener("keydown", (event) => {
     if (event.key === "Enter") setRunDir(event.currentTarget.value);
   });
+  bindEditorFindControls();
   const collapseExplorerBtn = byId("collapseExplorerBtn");
   if (collapseExplorerBtn) {
     collapseExplorerBtn.onclick = () => {
@@ -2048,6 +2066,29 @@ function renderChecksPanel() {
       ${renderLinearOperators()}
       <div class="panel-title compact">System Dependency Graph</div>
       ${renderSystemDependencyGraph()}
+    </div>
+  `;
+}
+
+function renderEditorFindBar() {
+  const matches = editorFindRanges(
+    state.source,
+    state.editorFindQuery,
+    state.editorFindCaseSensitive
+  );
+  const activeIndex = state.editorFindMatchIndex >= 0
+    && state.editorFindMatchIndex < matches.length
+    ? state.editorFindMatchIndex
+    : -1;
+  const count = matches.length ? `${activeIndex + 1}/${matches.length}` : "0/0";
+  return `
+    <div id="editorFindBar" class="editor-find ${state.editorFindOpen ? "" : "hidden"}" role="search">
+      <input id="editorFindInput" value="${escapeAttr(state.editorFindQuery)}" placeholder="Find" aria-label="Find in current file" autocomplete="off" spellcheck="false" />
+      <span id="editorFindCount" class="editor-find-count" aria-live="polite">${count}</span>
+      <button id="editorFindPrevBtn" class="editor-find-action" title="Previous match" aria-label="Previous match">&#8593;</button>
+      <button id="editorFindNextBtn" class="editor-find-action" title="Next match" aria-label="Next match">&#8595;</button>
+      <button id="editorFindCaseBtn" class="editor-find-action case-toggle ${state.editorFindCaseSensitive ? "active" : ""}" title="Match case" aria-label="Match case" aria-pressed="${state.editorFindCaseSensitive}">Aa</button>
+      <button id="editorFindCloseBtn" class="editor-find-action" title="Close find" aria-label="Close find">&times;</button>
     </div>
   `;
 }
@@ -5107,6 +5148,171 @@ function renderTabLabels() {
   });
 }
 
+function bindEditorFindControls() {
+  const input = byId("editorFindInput");
+  if (!input) return;
+  input.oninput = (event) => {
+    state.editorFindQuery = event.target.value;
+    state.editorFindMatchIndex = -1;
+    findEditorMatch(1, true);
+  };
+  input.onkeydown = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      findEditorMatch(event.shiftKey ? -1 : 1);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeEditorFind();
+    }
+  };
+  byId("editorFindPrevBtn").onclick = () => {
+    findEditorMatch(-1);
+    input.focus();
+  };
+  byId("editorFindNextBtn").onclick = () => {
+    findEditorMatch(1);
+    input.focus();
+  };
+  byId("editorFindCaseBtn").onclick = () => {
+    state.editorFindCaseSensitive = !state.editorFindCaseSensitive;
+    state.editorFindMatchIndex = -1;
+    const button = byId("editorFindCaseBtn");
+    button.classList.toggle("active", state.editorFindCaseSensitive);
+    button.setAttribute("aria-pressed", String(state.editorFindCaseSensitive));
+    findEditorMatch(1, true);
+    input.focus();
+  };
+  byId("editorFindCloseBtn").onclick = closeEditorFind;
+  updateEditorFindStatus();
+}
+
+function openEditorFind() {
+  hideCompletions();
+  const editor = byId("editor");
+  const selectedQuery = selectedEditorFindQuery(editor);
+  if (selectedQuery) {
+    state.editorFindQuery = selectedQuery;
+    state.editorFindMatchIndex = -1;
+  }
+  state.editorFindOpen = true;
+  const bar = byId("editorFindBar");
+  const input = byId("editorFindInput");
+  if (!bar || !input) return;
+  bar.classList.remove("hidden");
+  input.value = state.editorFindQuery;
+  if (state.editorFindQuery) findEditorMatch(1, true);
+  else updateEditorFindStatus();
+  input.focus();
+  input.select();
+}
+
+function closeEditorFind() {
+  state.editorFindOpen = false;
+  byId("editorFindBar")?.classList.add("hidden");
+  byId("editor")?.focus();
+}
+
+function selectedEditorFindQuery(editor) {
+  if (!editor || editor.selectionStart === editor.selectionEnd) return "";
+  const selected = editor.value.slice(editor.selectionStart, editor.selectionEnd);
+  if (!selected.trim() || selected.length > 200 || /[\r\n]/.test(selected)) return "";
+  return selected;
+}
+
+function editorFindRanges(source, query, caseSensitive = false) {
+  const needle = String(query || "");
+  if (!needle) return [];
+  const original = String(source || "");
+  const haystack = caseSensitive ? original : original.toLowerCase();
+  const comparableNeedle = caseSensitive ? needle : needle.toLowerCase();
+  const ranges = [];
+  let offset = 0;
+  while (offset <= haystack.length - comparableNeedle.length) {
+    const start = haystack.indexOf(comparableNeedle, offset);
+    if (start < 0) break;
+    ranges.push({ start, end: start + needle.length });
+    offset = start + Math.max(1, comparableNeedle.length);
+  }
+  return ranges;
+}
+
+function findEditorMatch(direction = 1, fromSelection = false) {
+  const editor = byId("editor");
+  if (!editor) return false;
+  const ranges = editorFindRanges(
+    editor.value,
+    state.editorFindQuery,
+    state.editorFindCaseSensitive
+  );
+  if (!ranges.length) {
+    state.editorFindMatchIndex = -1;
+    updateEditorFindStatus();
+    return false;
+  }
+
+  let index = state.editorFindMatchIndex;
+  if (fromSelection || index < 0 || index >= ranges.length) {
+    const cursor = Math.min(editor.selectionStart, editor.selectionEnd);
+    if (direction < 0) {
+      index = ranges.length - 1;
+      for (let candidate = ranges.length - 1; candidate >= 0; candidate -= 1) {
+        if (ranges[candidate].start < cursor) {
+          index = candidate;
+          break;
+        }
+      }
+    } else {
+      index = ranges.findIndex((range) => range.start >= cursor);
+      if (index < 0) index = 0;
+    }
+  } else {
+    index = (index + (direction < 0 ? -1 : 1) + ranges.length) % ranges.length;
+  }
+
+  const match = ranges[index];
+  state.editorFindMatchIndex = index;
+  editor.selectionStart = match.start;
+  editor.selectionEnd = match.end;
+  revealEditorFindMatch(editor, match.start);
+  updateEditorFindStatus();
+  return true;
+}
+
+function revealEditorFindMatch(editor, offset) {
+  const line = editor.value.slice(0, offset).split("\n").length - 1;
+  const lineHeight = 19;
+  const lineTop = line * lineHeight;
+  const viewportHeight = Number(editor.clientHeight || 200);
+  const viewportBottom = Number(editor.scrollTop || 0) + viewportHeight - lineHeight;
+  if (lineTop < editor.scrollTop || lineTop > viewportBottom) {
+    editor.scrollTop = Math.max(0, lineTop - Math.floor(viewportHeight / 2));
+    syncEditorHighlightScroll();
+  }
+}
+
+function updateEditorFindStatus() {
+  const editor = byId("editor");
+  const ranges = editorFindRanges(
+    editor?.value ?? state.source,
+    state.editorFindQuery,
+    state.editorFindCaseSensitive
+  );
+  if (editor) {
+    state.editorFindMatchIndex = ranges.findIndex((range) =>
+      range.start === editor.selectionStart && range.end === editor.selectionEnd
+    );
+  } else if (state.editorFindMatchIndex >= ranges.length) {
+    state.editorFindMatchIndex = -1;
+  }
+  const count = byId("editorFindCount");
+  if (count) {
+    count.textContent = ranges.length
+      ? `${state.editorFindMatchIndex + 1}/${ranges.length}`
+      : "0/0";
+  }
+}
+
 function handleEditorKeyDown(event) {
   const editor = event.currentTarget;
   const overlayVisible = state.completionItems.length > 0;
@@ -5359,6 +5565,7 @@ function syncEditorManualEdit(editor) {
   updateCheckSummaryUi();
   updateEditorHighlight();
   updateCursorInsight();
+  updateEditorFindStatus();
   if (checkChanged) refreshCheckPanels();
   scheduleLiveCheck();
   editor.focus();
@@ -7830,6 +8037,14 @@ function bindSplitters() {
 }
 
 function handleGlobalKeyDown(event) {
+  const findShortcut = (event.ctrlKey || event.metaKey)
+    && !event.altKey
+    && String(event.key || "").toLowerCase() === "f";
+  if (findShortcut) {
+    event.preventDefault();
+    if (!state.pendingWindowClose && !state.pendingTabClose) openEditorFind();
+    return;
+  }
   const saveShortcut = (event.ctrlKey || event.metaKey)
     && !event.altKey
     && !event.shiftKey
@@ -7841,12 +8056,23 @@ function handleGlobalKeyDown(event) {
     else void saveCurrent();
     return;
   }
+  if (event.key === "F3" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    event.preventDefault();
+    if (!state.pendingWindowClose && !state.pendingTabClose) {
+      if (state.editorFindQuery) findEditorMatch(event.shiftKey ? -1 : 1);
+      else openEditorFind();
+    }
+    return;
+  }
   if (event.key === "Escape" && state.pendingWindowClose) {
     event.preventDefault();
     cancelPendingWindowClose();
   } else if (event.key === "Escape" && state.pendingTabClose) {
     event.preventDefault();
     cancelPendingTabClose();
+  } else if (event.key === "Escape" && state.editorFindOpen) {
+    event.preventDefault();
+    closeEditorFind();
   }
 }
 

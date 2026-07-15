@@ -164,6 +164,139 @@ function saveShortcutUsesCurrentAction() {
   assert.strictEqual(run("globalThis.saveShortcutCalls"), 1);
 }
 
+function findRangesRespectCaseMode() {
+  assert.strictEqual(
+    run(`JSON.stringify(editorFindRanges("Alpha alpha ALPHA", "alpha", false))`),
+    '[{"start":0,"end":5},{"start":6,"end":11},{"start":12,"end":17}]'
+  );
+  assert.strictEqual(
+    run(`JSON.stringify(editorFindRanges("Alpha alpha ALPHA", "alpha", true))`),
+    '[{"start":6,"end":11}]'
+  );
+  assert.strictEqual(
+    run(`JSON.stringify(editorFindRanges("aaaa", "aa", true))`),
+    '[{"start":0,"end":2},{"start":2,"end":4}]'
+  );
+}
+
+function findShortcutOpensCurrentFileSearch() {
+  run(`
+    state.pendingTabClose = null;
+    state.pendingWindowClose = false;
+    globalThis.findShortcutCalls = 0;
+    globalThis.realOpenEditorFind = openEditorFind;
+    openEditorFind = () => {
+      globalThis.findShortcutCalls += 1;
+    };
+    globalThis.findShortcutEvent = {
+      altKey: false,
+      ctrlKey: true,
+      key: "f",
+      metaKey: false,
+      prevented: false,
+      shiftKey: false,
+      preventDefault() {
+        this.prevented = true;
+      }
+    };
+    handleGlobalKeyDown(globalThis.findShortcutEvent);
+    openEditorFind = globalThis.realOpenEditorFind;
+  `);
+
+  assert.strictEqual(run("globalThis.findShortcutEvent.prevented"), true);
+  assert.strictEqual(run("globalThis.findShortcutCalls"), 1);
+}
+
+function openingFindDismissesCompletions() {
+  run(`
+    globalThis.realByIdForOpenFind = byId;
+    globalThis.openFindEditor = {
+      value: "alpha",
+      selectionStart: 0,
+      selectionEnd: 0,
+      focus() {}
+    };
+    globalThis.openFindBar = {
+      classList: {
+        remove() {}
+      }
+    };
+    globalThis.openFindInput = {
+      value: "",
+      focus() {},
+      select() {}
+    };
+    globalThis.openFindOverlay = {
+      hidden: false,
+      innerHTML: "completion",
+      classList: {
+        add(name) {
+          if (name === "hidden") globalThis.openFindOverlay.hidden = true;
+        }
+      }
+    };
+    byId = (id) => ({
+      editor: globalThis.openFindEditor,
+      editorFindBar: globalThis.openFindBar,
+      editorFindInput: globalThis.openFindInput,
+      completionOverlay: globalThis.openFindOverlay
+    })[id] || null;
+    state.completionItems = [{ label: "alpha" }];
+    state.editorFindOpen = false;
+    state.editorFindQuery = "";
+    openEditorFind();
+  `);
+
+  assert.strictEqual(run("state.completionItems.length"), 0);
+  assert.strictEqual(run("globalThis.openFindOverlay.hidden"), true);
+  assert.strictEqual(run("globalThis.openFindOverlay.innerHTML"), "");
+  assert.strictEqual(run("state.editorFindOpen"), true);
+  run("byId = globalThis.realByIdForOpenFind");
+}
+
+function findNavigationWrapsBothDirections() {
+  run(`
+    globalThis.realByIdForFind = byId;
+    globalThis.findEditor = {
+      value: "alpha beta alpha",
+      selectionStart: 0,
+      selectionEnd: 0,
+      scrollTop: 0,
+      scrollLeft: 0,
+      clientHeight: 100,
+      focus() {}
+    };
+    globalThis.findCount = { textContent: "" };
+    globalThis.findHighlight = { scrollTop: 0, scrollLeft: 0 };
+    byId = (id) => ({
+      editor: globalThis.findEditor,
+      editorFindCount: globalThis.findCount,
+      editorHighlight: globalThis.findHighlight
+    })[id] || null;
+    state.editorFindQuery = "alpha";
+    state.editorFindCaseSensitive = false;
+    state.editorFindMatchIndex = -1;
+  `);
+
+  assert.strictEqual(run("findEditorMatch(1, true)"), true);
+  assert.deepStrictEqual(
+    Array.from(run("[state.editorFindMatchIndex, globalThis.findEditor.selectionStart, globalThis.findEditor.selectionEnd]")),
+    [0, 0, 5]
+  );
+  assert.strictEqual(run("globalThis.findCount.textContent"), "1/2");
+
+  run("findEditorMatch(1)");
+  assert.deepStrictEqual(
+    Array.from(run("[state.editorFindMatchIndex, globalThis.findEditor.selectionStart, globalThis.findEditor.selectionEnd]")),
+    [1, 11, 16]
+  );
+  run("findEditorMatch(1)");
+  assert.strictEqual(run("state.editorFindMatchIndex"), 0);
+  run("findEditorMatch(-1)");
+  assert.strictEqual(run("state.editorFindMatchIndex"), 1);
+  run("byId = globalThis.realByIdForFind");
+}
+
 function dirtyWindowRequestsUnloadConfirmation() {
   run(`
     state.tabs = [{ path: "dirty.eng", source: "changed", dirty: true }];
@@ -310,6 +443,10 @@ async function main() {
   await dirtyTabRequiresDecision();
   await saveDecisionPersistsThenCloses();
   saveShortcutUsesCurrentAction();
+  findRangesRespectCaseMode();
+  findShortcutOpensCurrentFileSearch();
+  openingFindDismissesCompletions();
+  findNavigationWrapsBothDirections();
   dirtyWindowRequestsUnloadConfirmation();
   await nativeWindowCloseRequiresDecision();
   await saveAllDecisionPersistsThenDestroysWindow();

@@ -6837,6 +6837,16 @@ function Invoke-IdeCheck {
         "formatBtn",
         "formatCurrent",
         "Already formatter-clean",
+        "findBtn",
+        "renderEditorFindBar",
+        "bindEditorFindControls",
+        "openEditorFind",
+        "closeEditorFind",
+        "editorFindRanges",
+        "findEditorMatch",
+        "updateEditorFindStatus",
+        'String(event.key || "").toLowerCase() === "f"',
+        'event.key === "F3"',
         "editorHighlight",
         "renderHighlightedSource",
         "renderLexicalHighlightedLine",
@@ -7354,6 +7364,15 @@ function Invoke-IdeCheck {
         throw "Native IDE unit fallback must use syntax_catalog.units and syntax_catalog.legacy_unit_aliases instead of a hardcoded JS list"
     }
     $IdeUiStyles = Get-Content -LiteralPath $TauriUiStylesPath -Raw
+    foreach ($RequiredEditorFindStyle in @(
+        ".editor-find",
+        ".editor-find.hidden",
+        ".editor-find-action.active"
+    )) {
+        if (-not $IdeUiStyles.Contains($RequiredEditorFindStyle)) {
+            throw "Native IDE CSS missing editor find style $RequiredEditorFindStyle"
+        }
+    }
     foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "problem-message", "problem-actions", "problem-copy-button", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-interpolation", "hl-constant", "hl-punctuation", "hl-mod-unit", "hl-mod-solver", "hl-mod-validation", "hl-mod-report", "hl-mod-sideEffect", "hl-mod-external", "hl-mod-riskHigh", "semantic-token-table", "highlight-coverage-table", ".semantic-token-table th:last-child", "token-chip", "--token-role-color", "token-filter-chip", "token-missing", "token-range-button", "cursor-insight", "variable-source-line", "button.danger", "dialog-backdrop", "unsaved-dialog", "unsaved-file-list", "unsaved-dialog-actions")) {
         if (-not $IdeUiStyles.Contains($RequiredIdeStyle)) {
             throw "Native IDE UI missing contract style $RequiredIdeStyle"

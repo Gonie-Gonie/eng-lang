@@ -1,3 +1,4 @@
+- Batch 943: Added native IDE current-file search with toolbar and Ctrl+F entry, selected-text prefill, wraparound Enter/Shift+Enter and F3 navigation, case matching, live match counts, completion-popup dismissal, and executable range/shortcut/navigation coverage.
 - Batch 942: Colored builtin calls in args defaults, missing-policy options before their equals signs, and supported compound derivative units such as `K/s`, with actual TextMate role assertions across all examples.
 - Batch 941: Fixed `interpolate` first-paint coloring inside schema missing-policy rows and added an actual VS Code tokenizer audit across every example keyword occurrence and both bundled themes.
 - Batch 940: Protected native IDE edits with Ctrl+S, Save/Discard/Cancel for dirty tabs, native Tauri window-close interception with Save All/Discard All/Cancel, a browser unload fallback, and an executable editor safety smoke.

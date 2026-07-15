@@ -84,8 +84,12 @@ Editor
   precise colors and Problems diagnostics from the unsaved buffer after a
   short typing pause. Check and Run still force an immediate refresh.
   Tab and Shift+Tab indent or outdent the current line or selected block,
-  Ctrl+S saves the active buffer, Ctrl+/ toggles `#` line comments, Enter
-  preserves block indentation, and
+  Ctrl+S saves the active buffer, and Ctrl+/ toggles `#` line comments.
+  Find in the toolbar or Ctrl+F searches the current buffer, preloading a
+  single-line selection when available. Enter, Shift+Enter, F3, and Shift+F3
+  move through matches with wraparound; Match Case narrows the results and
+  Escape closes the search bar. Enter in the editor preserves block
+  indentation, and
   `{}`, `[]`, `()`, and `"` auto-close or wrap selections. Typing `}` on an
   indented blank line aligns the brace with its block, and Backspace removes an
   empty pair. Format applies the same compiler-owned formatter used by VS Code

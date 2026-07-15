@@ -595,6 +595,74 @@ button:hover {
   background: #fbfcfe;
 }
 
+.editor-find {
+  position: absolute;
+  z-index: 30;
+  top: 8px;
+  right: 18px;
+  width: min(440px, calc(100% - 24px));
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) 48px 30px 30px 34px 30px;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid #9aa8bb;
+  border-radius: 5px;
+  background: #ffffff;
+  box-shadow: 0 8px 22px rgba(20, 31, 48, 0.16);
+}
+
+.editor-find.hidden {
+  display: none;
+}
+
+.editor-find input {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  outline: none;
+  color: var(--text);
+  background: #fbfcfe;
+}
+
+.editor-find input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.editor-find-count {
+  overflow: hidden;
+  color: var(--muted);
+  font: 11px/1 Consolas, "Cascadia Mono", monospace;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.editor-find-action {
+  width: 30px;
+  height: 28px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  font-size: 14px;
+}
+
+.editor-find-action.case-toggle {
+  width: 34px;
+  font: 12px/1 "Segoe UI", system-ui, sans-serif;
+  font-weight: 600;
+}
+
+.editor-find-action.active {
+  border-color: #8bb8e8;
+  color: #174f8c;
+  background: var(--accent-soft);
+}
+
 .editor-highlight {
   position: absolute;
   inset: 0;
