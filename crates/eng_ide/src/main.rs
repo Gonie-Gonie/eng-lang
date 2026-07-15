@@ -3918,6 +3918,30 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
         r#"parts.push(`overlaps ${lineOverlaps.length}`)"#,
         "function renderSemanticOverlapSummary(overlaps)",
         "No overlapping semantic highlight ranges for the current check.",
+        "const LIVE_CHECK_DELAY_MS = 350;",
+        "function scheduleLiveCheck()",
+        "function runLiveCheck(request)",
+        "function checkRequestIsCurrent(request)",
+        "request.revision === liveCheckRevision",
+        "request.path === state.currentPath && request.source === state.source",
+        "function refreshLiveCheckUi()",
+        "function refreshCheckPanels()",
+        "function diagnosticCountLabel(label, count)",
+        "return state.highlightSource === null ? `${label} -` : `${label} ${count}`;",
+        "function bindProblemActions(root)",
+        "function bindHighlightPanelActions(root)",
+        "function captureCheckPanelInputFocus()",
+        "function restoreCheckPanelInputFocus(focus)",
+        "scheduleLiveCheck();",
+        "applyCheck: requestCurrent",
+        "Run complete; buffer changed",
+        "id=\"errorBadge\"",
+        "id=\"warningBadge\"",
+        "id=\"ideStatus\"",
+        "id=\"checkStatus\"",
+        "id=\"bottomBody\"",
+        "id=\"sideBody\"",
+        "Analyzing current buffer...",
         "function bindInspectorTabButtons(root)",
         "data-open-inspector-tab",
         "Open ${escapeAttr(item.label)} panel",
@@ -4066,6 +4090,16 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
         return Err(
             "native IDE module fallback label should stay short; use compiler status_label for full registry wording"
                 .to_owned(),
+        );
+    }
+    if app_js.contains(".statusbar .status") {
+        return Err(
+            "native IDE status updates must target the visible ideStatus element".to_owned(),
+        );
+    }
+    if app_js.contains("Check current file to refresh precise highlight ranges.") {
+        return Err(
+            "native IDE highlight status must reflect automatic buffer analysis".to_owned(),
         );
     }
     Ok(())
@@ -4230,7 +4264,7 @@ with {
             .get("tokens")
             .and_then(Value::as_array)
             .expect("rich semantic tokens");
-        for modifier in ["workflowStep", "uncertain", "model", "db", "sideEffect"] {
+        for modifier in ["workflowStep", "uncertain", "model", "db"] {
             assert!(
                 has_semantic_token_text_with_modifier(
                     rich_source,
@@ -4242,6 +4276,13 @@ with {
                 "native IDE semantic payload should surface `with` keyword modifier {modifier}"
             );
         }
+        assert!(has_semantic_token_text_with_modifier(
+            rich_source,
+            rich_tokens,
+            "write",
+            "keyword",
+            "sideEffect"
+        ));
     }
 
     #[test]

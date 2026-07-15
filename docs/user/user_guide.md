@@ -119,10 +119,11 @@ eng-ide.exe
 ```
 
 Open `examples/official/01_csv_plot/main.eng` from the Explorer, or create a
-scratch `.eng` file. Use `Check` for compiler diagnostics and `Run` to execute
-the current file. Successful runs update the terminal, Problems tab, Variables
-table, Schema panel, TimeSeries panel, PlotSpec preview, Runtime summary, and
-generated artifact paths.
+scratch `.eng` file. Diagnostics and role-aware colors refresh from the
+unsaved buffer after a short typing pause; use `Check` to force an immediate
+refresh and `Run` to execute the current file. Successful runs update the
+terminal, Problems tab, Variables table, Schema panel, TimeSeries panel,
+PlotSpec preview, Runtime summary, and generated artifact paths.
 
 The IDE uses the same compiler and runtime crates as `eng.exe`. Diagnostics,
 symbols, completions, run artifacts, and report generation therefore exercise

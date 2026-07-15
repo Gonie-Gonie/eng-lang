@@ -2,6 +2,7 @@ const invoke = window.__TAURI__?.core?.invoke;
 const listen = window.__TAURI__?.event?.listen;
 const RUN_HISTORY_LIMIT = 40;
 const RUN_HISTORY_STORAGE_PREFIX = "englang.nativeIde.runHistory.v1:";
+const LIVE_CHECK_DELAY_MS = 350;
 const EDITOR_INDENT = "    ";
 const EDITOR_PAIR_CLOSE = { "{": "}", "[": "]", "(": ")", "\"": "\"" };
 const EDITOR_PAIR_OPEN = { "}": "{", "]": "[", ")": "(", "\"": "\"" };
@@ -117,7 +118,7 @@ const state = {
   source: "",
   dirty: false,
   check: { diagnostics: [], symbols: [], status: "", semanticTokens: { legend: {}, tokens: [] }, hovers: [] },
-  highlightSource: "",
+  highlightSource: null,
   variables: [],
   args: [],
   artifacts: [],
@@ -143,6 +144,9 @@ const state = {
 };
 
 let dragDropBound = false;
+let liveCheckTimer = null;
+let liveCheckRevision = 0;
+let navigationRevision = 0;
 
 function byId(id) {
   return document.getElementById(id);
@@ -373,6 +377,78 @@ function applyCheck(check, source = state.source) {
   state.highlightSource = String(source ?? "");
 }
 
+function markCheckPending() {
+  if (state.highlightSource === null && state.check.status === "checking") return false;
+  state.check = normalizeCheck({ status: "checking" });
+  state.highlightSource = null;
+  return true;
+}
+
+function markCheckFailed() {
+  state.check = normalizeCheck({ status: "check failed" });
+  state.highlightSource = null;
+}
+
+function invalidateLiveCheck() {
+  if (liveCheckTimer !== null) {
+    clearTimeout(liveCheckTimer);
+    liveCheckTimer = null;
+  }
+  liveCheckRevision += 1;
+  return liveCheckRevision;
+}
+
+function beginCheckRequest() {
+  return {
+    revision: invalidateLiveCheck(),
+    path: state.currentPath,
+    source: state.source
+  };
+}
+
+function checkRequestIsCurrent(request) {
+  return request.revision === liveCheckRevision
+    && bufferRequestIsCurrent(request);
+}
+
+function bufferRequestIsCurrent(request) {
+  return request.path === state.currentPath && request.source === state.source;
+}
+
+function beginNavigation() {
+  navigationRevision += 1;
+  invalidateLiveCheck();
+  return navigationRevision;
+}
+
+function navigationIsCurrent(revision) {
+  return revision === navigationRevision;
+}
+
+function scheduleLiveCheck() {
+  if (!state.currentPath) return;
+  const request = beginCheckRequest();
+  liveCheckTimer = setTimeout(() => {
+    liveCheckTimer = null;
+    void runLiveCheck(request);
+  }, LIVE_CHECK_DELAY_MS);
+}
+
+async function runLiveCheck(request) {
+  try {
+    const check = await call("ide_check", { path: request.path, source: request.source });
+    if (!checkRequestIsCurrent(request)) return;
+    applyCheck(check, request.source);
+    state.status = `Analyzed: ${state.check.status}`;
+    refreshLiveCheckUi();
+  } catch (error) {
+    if (!checkRequestIsCurrent(request)) return;
+    markCheckFailed();
+    state.status = `Live check failed: ${compactText(String(error), 90)}`;
+    refreshLiveCheckUi();
+  }
+}
+
 function normalizeCheck(check) {
   const semanticTokens = check?.semanticTokens ?? check?.semantic_tokens ?? { legend: {}, tokens: [] };
   return {
@@ -426,7 +502,7 @@ function render() {
       <div class="editor-meta">
         <span>${escapeHtml(state.currentPath)}</span>
         <span id="cursorInsight" class="cursor-insight">${renderCursorInsight()}</span>
-        <span>${lineCount(state.source)} lines</span>
+        <span id="editorLineCount">${lineCount(state.source)} lines</span>
       </div>
       <div class="editor-shell">
         <pre id="editorHighlight" class="editor-highlight" aria-hidden="true">${renderHighlightedSource()}</pre>
@@ -442,10 +518,10 @@ function render() {
         <button class="bottom-tab ${state.bottomTab === "problems" ? "active" : ""}" data-tab="problems">Problems</button>
         <button class="bottom-tab ${state.bottomTab === "terminal" ? "active" : ""}" data-tab="terminal">Terminal</button>
       </div>
-      <div class="bottom-body">${state.bottomTab === "problems" ? renderProblems() : renderTerminal()}</div>
+      <div id="bottomBody" class="bottom-body">${state.bottomTab === "problems" ? renderProblems() : renderTerminal()}</div>
     </section>
     <footer class="statusbar">
-      <span>${escapeHtml(state.check.status || "ready")}</span>
+      <span id="checkStatus">${escapeHtml(state.check.status || "ready")}</span>
       <span>${escapeHtml(state.currentPath || "-")}</span>
       <span>Run Dir: ${escapeHtml(state.runDir || ".")}</span>
     </footer>
@@ -472,9 +548,9 @@ function renderToolbar() {
       <select id="profileSelect" class="profile-select" title="Execution profile">
         ${["normal", "safe", "repro"].map((profile) => `<option value="${profile}" ${state.profile === profile ? "selected" : ""}>${profile}</option>`).join("")}
       </select>
-      <span class="badge ${errorCount() ? "bad" : ""}">Errors ${errorCount()}</span>
-      <span class="badge ${warningCount() ? "warn" : ""}">Warnings ${warningCount()}</span>
-      <span class="status">${escapeHtml(state.status)}</span>
+      <span id="errorBadge" class="badge ${errorCount() ? "bad" : ""}">${escapeHtml(diagnosticCountLabel("Errors", errorCount()))}</span>
+      <span id="warningBadge" class="badge ${warningCount() ? "warn" : ""}">${escapeHtml(diagnosticCountLabel("Warnings", warningCount()))}</span>
+      <span id="ideStatus" class="status">${escapeHtml(state.status)}</span>
     </div>
   `;
 }
@@ -564,10 +640,15 @@ function bind() {
     state.dirty = true;
     rememberCurrentTab();
     state.status = "Modified";
+    const checkChanged = markCheckPending();
     renderTabLabels();
+    updateEditorLineCount();
+    updateCheckSummaryUi();
     updateEditorHighlight();
     updateCursorInsight();
+    if (checkChanged) refreshCheckPanels();
     updateCompletionOverlay();
+    scheduleLiveCheck();
   });
   byId("checkBtn").onclick = checkCurrent;
   byId("formatBtn").onclick = formatCurrent;
@@ -620,61 +701,7 @@ function bind() {
       render();
     };
   });
-  document.querySelectorAll("[data-problem-severity]").forEach((button) => {
-    button.onclick = () => {
-      state.problemSeverity = button.dataset.problemSeverity;
-      render();
-    };
-  });
-  const problemCodeFilter = byId("problemCodeFilter");
-  if (problemCodeFilter) {
-    problemCodeFilter.onchange = (event) => {
-      state.problemCode = event.target.value;
-      render();
-    };
-  }
-  const clearProblemFilters = byId("clearProblemFilters");
-  if (clearProblemFilters) {
-    clearProblemFilters.onclick = () => {
-      state.problemSeverity = "all";
-      state.problemCode = "all";
-      state.problemQuery = "";
-      render();
-    };
-  }
-  const problemQueryInput = byId("problemQueryInput");
-  if (problemQueryInput) {
-    problemQueryInput.oninput = (event) => {
-      const cursor = event.target.selectionStart ?? event.target.value.length;
-      state.problemQuery = event.target.value;
-      render();
-      const nextInput = byId("problemQueryInput");
-      if (nextInput) {
-        nextInput.focus();
-        nextInput.setSelectionRange(cursor, cursor);
-      }
-    };
-  }
-  const copyVisibleProblemsBtn = byId("copyVisibleProblemsBtn");
-  if (copyVisibleProblemsBtn) {
-    copyVisibleProblemsBtn.onclick = copyVisibleProblems;
-  }
-  const copyCursorProblemBtn = byId("copyCursorProblemBtn");
-  if (copyCursorProblemBtn) {
-    copyCursorProblemBtn.onclick = copyCursorProblem;
-  }
-  document.querySelectorAll("[data-problem-line]").forEach((row) => {
-    row.onclick = (event) => {
-      if (event.target.closest("button")) return;
-      selectProblemRange(row);
-    };
-  });
-  document.querySelectorAll("[data-copy-problem-index]").forEach((button) => {
-    button.onclick = (event) => {
-      event.stopPropagation();
-      copyProblemDiagnostic(Number(button.dataset.copyProblemIndex || -1));
-    };
-  });
+  bindProblemActions(document);
   document.querySelectorAll("[data-module-category]").forEach((button) => {
     button.onclick = () => {
       state.moduleCategory = button.dataset.moduleCategory;
@@ -702,47 +729,14 @@ function bind() {
       }
     };
   }
-  const clearHighlightTokenFilter = byId("clearHighlightTokenFilter");
-  if (clearHighlightTokenFilter) {
-    clearHighlightTokenFilter.onclick = () => {
-      state.highlightTokenQuery = "";
-      render();
-    };
-  }
-  const copyVisibleHighlightsBtn = byId("copyVisibleHighlightsBtn");
-  if (copyVisibleHighlightsBtn) {
-    copyVisibleHighlightsBtn.onclick = copyVisibleHighlights;
-  }
-  const copyHighlightSummaryBtn = byId("copyHighlightSummaryBtn");
-  if (copyHighlightSummaryBtn) {
-    copyHighlightSummaryBtn.onclick = copyHighlightSummary;
-  }
-  const highlightTokenQueryInput = byId("highlightTokenQueryInput");
-  if (highlightTokenQueryInput) {
-    highlightTokenQueryInput.oninput = (event) => {
-      const cursor = event.target.selectionStart ?? event.target.value.length;
-      state.highlightTokenQuery = event.target.value;
-      render();
-      const nextInput = byId("highlightTokenQueryInput");
-      if (nextInput) {
-        nextInput.focus();
-        nextInput.setSelectionRange(cursor, cursor);
-      }
-    };
-  }
+  bindHighlightPanelActions(document);
   document.querySelectorAll("[data-side-tab]").forEach((tab) => {
     tab.onclick = () => {
       state.sideTab = tab.dataset.sideTab;
       render();
     };
   });
-  document.querySelectorAll("[data-variable]").forEach((row) => {
-    row.onclick = (event) => {
-      if (event.target.closest("[data-source-line]")) return;
-      state.selectedVariable = state.selectedVariable === row.dataset.variable ? null : row.dataset.variable;
-      render();
-    };
-  });
+  bindVariableActions(document);
   document.querySelectorAll("[data-workflow-node-id]").forEach((node) => {
     node.onclick = (event) => {
       if (event.target.closest("[data-source-line]")) return;
@@ -761,22 +755,12 @@ function bind() {
   document.querySelectorAll("[data-open-path]").forEach((button) => {
     button.onclick = () => openWorkspacePath(button.dataset.openPath);
   });
-  document.querySelectorAll("[data-source-line]").forEach((button) => {
-    button.onclick = () => selectSourceLine(
-      Number(button.dataset.sourceLine || 0),
-      Number(button.dataset.sourceColumn || 1)
-    );
-  });
+  bindSourceLineButtons(document);
   bindSourceTokenRangeButtons(document);
   bindSourceTokenCopyButtons(document);
   bindHighlightTokenFilterButtons(document);
   bindInspectorTabButtons(document);
-  document.querySelectorAll("[data-show-highlight-panel]").forEach((button) => {
-    button.onclick = () => {
-      state.sideTab = "highlight";
-      render();
-    };
-  });
+  bindShowHighlightPanelButtons(document);
   const terminalInput = byId("terminalInput");
   if (terminalInput) {
     terminalInput.focus();
@@ -805,10 +789,194 @@ function bind() {
   bindSplitters();
 }
 
+function bindProblemActions(root) {
+  root.querySelectorAll("[data-problem-severity]").forEach((button) => {
+    button.onclick = () => {
+      state.problemSeverity = button.dataset.problemSeverity;
+      render();
+    };
+  });
+  const problemCodeFilter = root.querySelector("#problemCodeFilter");
+  if (problemCodeFilter) {
+    problemCodeFilter.onchange = (event) => {
+      state.problemCode = event.target.value;
+      render();
+    };
+  }
+  const clearProblemFilters = root.querySelector("#clearProblemFilters");
+  if (clearProblemFilters) {
+    clearProblemFilters.onclick = () => {
+      state.problemSeverity = "all";
+      state.problemCode = "all";
+      state.problemQuery = "";
+      render();
+    };
+  }
+  const problemQueryInput = root.querySelector("#problemQueryInput");
+  if (problemQueryInput) {
+    problemQueryInput.oninput = (event) => {
+      const cursor = event.target.selectionStart ?? event.target.value.length;
+      state.problemQuery = event.target.value;
+      render();
+      const nextInput = byId("problemQueryInput");
+      if (nextInput) {
+        nextInput.focus();
+        nextInput.setSelectionRange(cursor, cursor);
+      }
+    };
+  }
+  const copyVisibleProblemsBtn = root.querySelector("#copyVisibleProblemsBtn");
+  if (copyVisibleProblemsBtn) copyVisibleProblemsBtn.onclick = copyVisibleProblems;
+  const copyCursorProblemBtn = root.querySelector("#copyCursorProblemBtn");
+  if (copyCursorProblemBtn) copyCursorProblemBtn.onclick = copyCursorProblem;
+  root.querySelectorAll("[data-problem-line]").forEach((row) => {
+    row.onclick = (event) => {
+      if (event.target.closest("button")) return;
+      selectProblemRange(row);
+    };
+  });
+  root.querySelectorAll("[data-copy-problem-index]").forEach((button) => {
+    button.onclick = (event) => {
+      event.stopPropagation();
+      copyProblemDiagnostic(Number(button.dataset.copyProblemIndex || -1));
+    };
+  });
+}
+
+function bindHighlightPanelActions(root) {
+  const clearHighlightTokenFilter = root.querySelector("#clearHighlightTokenFilter");
+  if (clearHighlightTokenFilter) {
+    clearHighlightTokenFilter.onclick = () => {
+      state.highlightTokenQuery = "";
+      render();
+    };
+  }
+  const copyVisibleHighlightsBtn = root.querySelector("#copyVisibleHighlightsBtn");
+  if (copyVisibleHighlightsBtn) copyVisibleHighlightsBtn.onclick = copyVisibleHighlights;
+  const copyHighlightSummaryBtn = root.querySelector("#copyHighlightSummaryBtn");
+  if (copyHighlightSummaryBtn) copyHighlightSummaryBtn.onclick = copyHighlightSummary;
+  const highlightTokenQueryInput = root.querySelector("#highlightTokenQueryInput");
+  if (highlightTokenQueryInput) {
+    highlightTokenQueryInput.oninput = (event) => {
+      const cursor = event.target.selectionStart ?? event.target.value.length;
+      state.highlightTokenQuery = event.target.value;
+      render();
+      const nextInput = byId("highlightTokenQueryInput");
+      if (nextInput) {
+        nextInput.focus();
+        nextInput.setSelectionRange(cursor, cursor);
+      }
+    };
+  }
+}
+
+function bindVariableActions(root) {
+  root.querySelectorAll("[data-variable]").forEach((row) => {
+    row.onclick = (event) => {
+      if (event.target.closest("[data-source-line]")) return;
+      state.selectedVariable = state.selectedVariable === row.dataset.variable ? null : row.dataset.variable;
+      render();
+    };
+  });
+}
+
+function bindSourceLineButtons(root) {
+  root.querySelectorAll("[data-source-line]").forEach((button) => {
+    button.onclick = () => selectSourceLine(
+      Number(button.dataset.sourceLine || 0),
+      Number(button.dataset.sourceColumn || 1)
+    );
+  });
+}
+
+function bindShowHighlightPanelButtons(root) {
+  root.querySelectorAll("[data-show-highlight-panel]").forEach((button) => {
+    button.onclick = () => {
+      state.sideTab = "highlight";
+      render();
+    };
+  });
+}
+
+function updateEditorLineCount() {
+  const target = byId("editorLineCount");
+  if (target) target.textContent = `${lineCount(state.source)} lines`;
+}
+
+function updateCheckSummaryUi() {
+  const errors = errorCount();
+  const warnings = warningCount();
+  const errorBadge = byId("errorBadge");
+  if (errorBadge) {
+    errorBadge.className = `badge ${errors ? "bad" : ""}`;
+    errorBadge.textContent = diagnosticCountLabel("Errors", errors);
+  }
+  const warningBadge = byId("warningBadge");
+  if (warningBadge) {
+    warningBadge.className = `badge ${warnings ? "warn" : ""}`;
+    warningBadge.textContent = diagnosticCountLabel("Warnings", warnings);
+  }
+  const checkStatus = byId("checkStatus");
+  if (checkStatus) checkStatus.textContent = state.check.status || "ready";
+  const ideStatus = byId("ideStatus");
+  if (ideStatus) ideStatus.textContent = state.status;
+}
+
+function captureCheckPanelInputFocus() {
+  const active = document.activeElement;
+  if (!active || !["problemQueryInput", "highlightTokenQueryInput"].includes(active.id)) return null;
+  return {
+    id: active.id,
+    start: active.selectionStart ?? active.value.length,
+    end: active.selectionEnd ?? active.value.length
+  };
+}
+
+function restoreCheckPanelInputFocus(focus) {
+  if (!focus) return;
+  const target = byId(focus.id);
+  if (!target) return;
+  target.focus();
+  target.setSelectionRange(focus.start, focus.end);
+}
+
+function refreshCheckPanels() {
+  const focus = captureCheckPanelInputFocus();
+  const bottomBody = byId("bottomBody");
+  if (bottomBody && state.bottomTab === "problems") {
+    bottomBody.innerHTML = renderProblems();
+    bindProblemActions(bottomBody);
+  }
+  const sideBody = byId("sideBody");
+  if (sideBody && ["variables", "highlight"].includes(state.sideTab)) {
+    sideBody.innerHTML = renderSideBody();
+    bindVariableActions(sideBody);
+    bindHighlightPanelActions(sideBody);
+    bindSourceLineButtons(sideBody);
+    bindSourceTokenRangeButtons(sideBody);
+    bindSourceTokenCopyButtons(sideBody);
+    bindHighlightTokenFilterButtons(sideBody);
+    bindInspectorTabButtons(sideBody);
+    bindShowHighlightPanelButtons(sideBody);
+  }
+  restoreCheckPanelInputFocus(focus);
+}
+
+function refreshLiveCheckUi() {
+  updateCheckSummaryUi();
+  updateEditorLineCount();
+  updateEditorHighlight();
+  refreshCheckPanels();
+  updateCursorInsight();
+}
+
 async function openFile(path) {
+  const navigation = beginNavigation();
+  let request = null;
   try {
     rememberCurrentTab();
     const file = await call("ide_open_file", { path });
+    if (!navigationIsCurrent(navigation)) return;
     state.currentPath = file.path;
     state.runDir = directoryOf(file.path);
     openParentDirs(file.path);
@@ -830,10 +998,18 @@ async function openFile(path) {
     state.reportTitle = "";
     state.selectedWorkflowNodeId = null;
     state.status = `Loaded ${file.path}`;
-    const check = await call("ide_check", { path: state.currentPath, source: state.source });
-    applyCheck(check, state.source);
+    request = beginCheckRequest();
+    markCheckPending();
     render();
+    const check = await call("ide_check", { path: request.path, source: request.source });
+    if (!checkRequestIsCurrent(request)) return;
+    applyCheck(check, request.source);
+    state.status = `Loaded ${request.path}`;
+    refreshLiveCheckUi();
   } catch (error) {
+    if (!navigationIsCurrent(navigation)) return;
+    if (request && !checkRequestIsCurrent(request)) return;
+    if (request) markCheckFailed();
     state.status = String(error);
     appendTerminal("error", String(error));
     render();
@@ -841,8 +1017,14 @@ async function openFile(path) {
 }
 
 async function saveCurrent() {
+  const request = {
+    revision: liveCheckRevision,
+    path: state.currentPath,
+    source: state.source
+  };
   try {
-    const file = await call("ide_save_file", { path: state.currentPath, source: state.source });
+    const file = await call("ide_save_file", { path: request.path, source: request.source });
+    if (!bufferRequestIsCurrent(request)) return;
     state.currentPath = file.path;
     state.source = file.source;
     state.dirty = false;
@@ -854,18 +1036,23 @@ async function saveCurrent() {
     state.status = `Saved ${file.path}`;
     render();
   } catch (error) {
+    if (!bufferRequestIsCurrent(request)) return;
     state.status = String(error);
     appendTerminal("error", String(error));
+    if (state.source !== state.highlightSource) scheduleLiveCheck();
     render();
   }
 }
 
 async function formatCurrent() {
+  const request = beginCheckRequest();
   try {
     rememberCurrentTab();
-    const result = await call("ide_format", { path: state.currentPath, source: state.source });
+    const result = await call("ide_format", { path: request.path, source: request.source });
+    if (!bufferRequestIsCurrent(request)) return;
     if (!result.changed) {
       state.status = "Already formatter-clean";
+      if (state.source !== state.highlightSource) scheduleLiveCheck();
       render();
       return;
     }
@@ -877,23 +1064,34 @@ async function formatCurrent() {
       tab.dirty = true;
     }
     state.status = "Formatted current buffer";
+    markCheckPending();
+    scheduleLiveCheck();
     render();
   } catch (error) {
+    if (!bufferRequestIsCurrent(request)) return;
     state.status = String(error);
     appendTerminal("error", String(error));
+    if (state.source !== state.highlightSource) scheduleLiveCheck();
     render();
   }
 }
 
 async function checkCurrent() {
+  const request = beginCheckRequest();
   try {
     rememberCurrentTab();
-    const check = await call("ide_check", { path: state.currentPath, source: state.source });
-    applyCheck(check, state.source);
+    markCheckPending();
+    state.status = "Checking";
+    refreshLiveCheckUi();
+    const check = await call("ide_check", { path: request.path, source: request.source });
+    if (!checkRequestIsCurrent(request)) return;
+    applyCheck(check, request.source);
     state.status = `Checked: ${state.check.status}`;
     state.bottomTab = errorCount() ? "problems" : state.bottomTab;
     render();
   } catch (error) {
+    if (!checkRequestIsCurrent(request)) return;
+    markCheckFailed();
     state.status = String(error);
     appendTerminal("error", String(error));
     render();
@@ -901,21 +1099,29 @@ async function checkCurrent() {
 }
 
 async function runCurrent() {
+  const request = beginCheckRequest();
   try {
     rememberCurrentTab();
-    appendTerminal("command", `${terminalPrompt()}run ${fileName(state.currentPath)}`);
-    const result = await call("ide_run", { path: state.currentPath, source: state.source, profile: state.profile });
-    applyRun(result, { mergeRuntime: false });
-    appendRunResult(result, runHistoryContext("run"));
-    state.status = result.ok ? "Run complete" : "Run blocked";
+    appendTerminal("command", `${terminalPrompt()}run ${fileName(request.path)}`);
+    const result = await call("ide_run", { path: request.path, source: request.source, profile: state.profile });
+    const requestCurrent = checkRequestIsCurrent(request);
+    applyRun(result, { mergeRuntime: false, applyCheck: requestCurrent, checkSource: request.source });
+    appendRunResult(result, { ...runHistoryContext("run"), sourcePath: request.path });
+    state.status = requestCurrent
+      ? (result.ok ? "Run complete" : "Run blocked")
+      : (result.ok ? "Run complete; buffer changed" : "Run blocked; buffer changed");
     state.bottomTab = "terminal";
-    state.dirty = false;
-    const tab = tabFor(state.currentPath);
-    if (tab) tab.dirty = false;
+    if (requestCurrent) {
+      state.dirty = false;
+      const tab = tabFor(state.currentPath);
+      if (tab) tab.dirty = false;
+    }
     render();
   } catch (error) {
+    const requestCurrent = checkRequestIsCurrent(request);
     appendTerminal("error", `Run failed: ${String(error)}`);
-    state.status = "Run failed";
+    state.status = requestCurrent ? "Run failed" : "Run failed; buffer changed";
+    if (requestCurrent && state.source !== state.highlightSource) scheduleLiveCheck();
     state.bottomTab = "terminal";
     render();
   }
@@ -946,23 +1152,34 @@ async function sendTerminalCommand(command) {
     return;
   }
   appendTerminal("command", `${prompt}${command}`);
+  const usesCurrentFile = terminalCommandUsesCurrentFile(command);
+  const request = usesCurrentFile ? beginCheckRequest() : null;
+  const runContext = runHistoryContext(command);
   try {
     const result = await call("ide_terminal", {
-      path: state.currentPath,
-      source: state.source,
+      path: request?.path ?? state.currentPath,
+      source: request?.source ?? state.source,
       command,
       runDir: state.runDir,
       profile: state.profile
     });
+    const requestCurrent = !request || checkRequestIsCurrent(request);
     applyRun(result, {
       mergeRuntime: command.toLowerCase() !== "run",
-      checkSource: terminalCommandUsesCurrentFile(command) ? state.source : ""
+      applyCheck: requestCurrent,
+      checkSource: request?.source ?? ""
     });
-    appendRunResult(result, runHistoryContext(command));
-    state.status = result.ok ? "Terminal command complete" : "Terminal diagnostics";
+    appendRunResult(result, runContext);
+    state.status = requestCurrent
+      ? (result.ok ? "Terminal command complete" : "Terminal diagnostics")
+      : (result.ok ? "Terminal command complete; buffer changed" : "Terminal diagnostics; buffer changed");
   } catch (error) {
     appendTerminal("error", String(error));
-    state.status = "Terminal command failed";
+    const requestCurrent = !request || checkRequestIsCurrent(request);
+    state.status = request && !requestCurrent
+      ? "Terminal command failed; buffer changed"
+      : "Terminal command failed";
+    if (request && requestCurrent && state.source !== state.highlightSource) scheduleLiveCheck();
   }
   state.bottomTab = "terminal";
   render();
@@ -995,7 +1212,9 @@ async function openWorkspacePath(path) {
 }
 
 function applyRun(result, options = {}) {
-  if (result.check) applyCheck(result.check, options.checkSource ?? state.source);
+  if (result.check && options.applyCheck !== false) {
+    applyCheck(result.check, options.checkSource ?? state.source);
+  }
   if (result.runtimeUpdated) {
     state.variables = options.mergeRuntime
       ? mergeRuntimeRows(state.variables, result.variables ?? [])
@@ -1277,6 +1496,7 @@ async function switchTab(path) {
   rememberCurrentTab();
   const tab = tabFor(path);
   if (!tab) return;
+  const navigation = beginNavigation();
   state.currentPath = tab.path;
   state.runDir = directoryOf(tab.path);
   openParentDirs(tab.path);
@@ -1290,16 +1510,24 @@ async function switchTab(path) {
   state.plotSpec = null;
   state.reportTitle = "";
   state.status = `Loaded ${tab.path}`;
-  try {
-    const check = await call("ide_check", { path: state.currentPath, source: state.source });
-    applyCheck(check, state.source);
-  } catch (error) {
-    state.status = String(error);
-  }
+  const request = beginCheckRequest();
+  markCheckPending();
   render();
+  try {
+    const check = await call("ide_check", { path: request.path, source: request.source });
+    if (!navigationIsCurrent(navigation) || !checkRequestIsCurrent(request)) return;
+    applyCheck(check, request.source);
+    state.status = `Loaded ${request.path}`;
+    refreshLiveCheckUi();
+  } catch (error) {
+    if (!navigationIsCurrent(navigation) || !checkRequestIsCurrent(request)) return;
+    markCheckFailed();
+    state.status = String(error);
+    refreshLiveCheckUi();
+  }
 }
 
-function closeTab(path) {
+async function closeTab(path) {
   if (state.tabs.length <= 1) return;
   rememberCurrentTab();
   const index = state.tabs.findIndex((tab) => tab.path === path);
@@ -1310,6 +1538,7 @@ function closeTab(path) {
     render();
     return;
   }
+  const navigation = beginNavigation();
   const next = state.tabs[Math.max(0, index - 1)];
   state.currentPath = next.path;
   state.runDir = directoryOf(next.path);
@@ -1323,16 +1552,22 @@ function closeTab(path) {
   state.completionItems = [];
   state.plotSpec = null;
   state.reportTitle = "";
-  call("ide_check", { path: state.currentPath, source: state.source })
-    .then((check) => {
-      applyCheck(check, state.source);
-      state.status = `Loaded ${state.currentPath}`;
-      render();
-    })
-    .catch((error) => {
-      state.status = String(error);
-      render();
-    });
+  state.status = `Loaded ${next.path}`;
+  const request = beginCheckRequest();
+  markCheckPending();
+  render();
+  try {
+    const check = await call("ide_check", { path: request.path, source: request.source });
+    if (!navigationIsCurrent(navigation) || !checkRequestIsCurrent(request)) return;
+    applyCheck(check, request.source);
+    state.status = `Loaded ${request.path}`;
+    refreshLiveCheckUi();
+  } catch (error) {
+    if (!navigationIsCurrent(navigation) || !checkRequestIsCurrent(request)) return;
+    markCheckFailed();
+    state.status = String(error);
+    refreshLiveCheckUi();
+  }
 }
 
 function tabFor(path) {
@@ -1345,7 +1580,7 @@ function renderSidePanel() {
       <div class="side-tabs">
         ${SIDE_TABS.map((tab) => sideTabButton(tab.key, tab.label)).join("")}
       </div>
-      <div class="side-body">${renderSideBody()}</div>
+      <div id="sideBody" class="side-body">${renderSideBody()}</div>
     </aside>
   `;
 }
@@ -1575,6 +1810,11 @@ function renderChecksPanel() {
   `;
 }
 
+function checkFreshnessLabel() {
+  if (state.source === state.highlightSource) return "Current";
+  return state.check.status === "checking" ? "Analyzing" : "Unavailable";
+}
+
 function renderHighlightPanel() {
   const semantic = semanticTokenPayload();
   const legend = semantic.legend || {};
@@ -1595,7 +1835,7 @@ function renderHighlightPanel() {
       <span class="badge">Categories ${arrayOrEmpty(legend.token_types || legend.tokenTypes).length}</span>
       <span class="badge">Details ${arrayOrEmpty(legend.token_modifiers || legend.tokenModifiers).length}</span>
       <span class="badge ${overlaps.length ? "warn" : ""}">Overlaps ${overlaps.length}</span>
-      <span class="badge ${tokenCurrent ? "" : "warn"}">${tokenCurrent ? "Current" : "Check needed"}</span>
+      <span class="badge ${tokenCurrent ? "" : "warn"}">${escapeHtml(checkFreshnessLabel())}</span>
     </div>
     ${renderHighlightPanelStatus(tokens, filteredTokens, tokenCurrent)}
     <div class="scroll highlight-panel">
@@ -1627,7 +1867,10 @@ function renderHighlightPanel() {
 
 function renderHighlightPanelStatus(tokens, filteredTokens, tokenCurrent) {
   if (!tokenCurrent) {
-    return `<div class="empty-state">Check current file to refresh precise highlight ranges.</div>`;
+    const message = state.check.status === "checking"
+      ? "Analyzing current buffer..."
+      : "Current buffer analysis is unavailable. Use Check to retry.";
+    return `<div class="empty-state">${escapeHtml(message)}</div>`;
   }
   if (!tokens.length) {
     return `<div class="empty-state">No role-aware highlights were returned for the current check.</div>`;
@@ -1773,7 +2016,7 @@ function renderCoverageWordChips(words, kind, emptyText) {
 }
 function renderCaretHighlightSummary(caret, tokenCurrent) {
   if (!tokenCurrent) {
-    return `<div class="empty-state">Check current file to refresh highlight data.</div>`;
+    return `<div class="empty-state">${escapeHtml(state.check.status === "checking" ? "Analyzing current buffer..." : "Highlight data unavailable.")}</div>`;
   }
   const lineOverlapNotice = renderCaretLineOverlapNotice(caret?.lineOverlaps);
   if (!caret?.token) {
@@ -4866,10 +5109,16 @@ function syncEditorManualEdit(editor) {
   state.source = editor.value;
   state.dirty = true;
   rememberCurrentTab();
+  state.status = "Modified";
+  const checkChanged = markCheckPending();
   renderTabLabels();
   hideCompletions();
+  updateEditorLineCount();
+  updateCheckSummaryUi();
   updateEditorHighlight();
   updateCursorInsight();
+  if (checkChanged) refreshCheckPanels();
+  scheduleLiveCheck();
   editor.focus();
 }
 
@@ -5515,10 +5764,16 @@ function insertCompletion(item) {
   state.source = editor.value;
   state.dirty = true;
   rememberCurrentTab();
+  state.status = "Modified";
+  const checkChanged = markCheckPending();
   renderTabLabels();
+  updateEditorLineCount();
+  updateCheckSummaryUi();
   updateEditorHighlight();
   updateCursorInsight();
   hideCompletions();
+  if (checkChanged) refreshCheckPanels();
+  scheduleLiveCheck();
   editor.focus();
 }
 function updateCursorInsight() {
@@ -5602,7 +5857,7 @@ function renderCursorInsight() {
   const bracket = editor ? editorBracketMatch(source, editor.selectionStart) : null;
   const parts = [`L${position.line + 1}:C${position.column + 1}`];
   if (state.source !== state.highlightSource) {
-    parts.push("Check needed");
+    parts.push(checkFreshnessLabel());
   } else if (token) {
     parts.push(tokenLabel(token));
     if (hover?.quantity_kind || hover?.quantityKind) {
@@ -6654,7 +6909,7 @@ async function copyHighlightSummary() {
 }
 
 function highlightSummaryCopyText(rows) {
-  const current = state.source === state.highlightSource ? "current" : "check needed";
+  const current = checkFreshnessLabel().toLowerCase();
   const lines = [
     `file: ${state.currentPath || "-"}`,
     `highlight_data: ${current}`
@@ -6746,7 +7001,7 @@ async function copyTextToClipboard(text) {
 
 function setStatus(message) {
   state.status = String(message || "");
-  const target = document.querySelector(".statusbar .status");
+  const target = byId("ideStatus");
   if (target) target.textContent = state.status;
 }
 
@@ -6896,6 +7151,12 @@ function renderVariableDetail(variable) {
 }
 
 function renderProblems() {
+  if (state.highlightSource === null) {
+    const message = state.check.status === "checking"
+      ? "Analyzing current buffer..."
+      : "Diagnostics unavailable. Use Check to retry.";
+    return `<div class="problem-panel"><div class="empty-state">${escapeHtml(message)}</div></div>`;
+  }
   const diagnostics = state.check.diagnostics || [];
   const codes = problemCodeOptions(diagnostics);
   const activeCode = activeProblemCode(diagnostics);
@@ -7434,6 +7695,10 @@ function errorCount() {
 
 function warningCount() {
   return state.check.diagnostics.filter((d) => d.severity === "warning").length;
+}
+
+function diagnosticCountLabel(label, count) {
+  return state.highlightSource === null ? `${label} -` : `${label} ${count}`;
 }
 
 function lineCount(text) {

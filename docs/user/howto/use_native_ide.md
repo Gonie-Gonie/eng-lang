@@ -58,7 +58,8 @@ frontend is static, so setup does not install Node/npm.
 Top toolbar
   Compact icon-backed Run, Check, Save, Report, and Plot actions, diagnostic
   counts, execution profile selection for `normal`, `safe`, and `repro`, output
-  folder opening, and current status.
+  folder opening, and current status. Editing refreshes diagnostics after a
+  short pause; Check forces an immediate refresh.
 
 Workspace bar
   Shows the resolved workspace root, current file path, and Run Dir. Files
@@ -78,9 +79,10 @@ Editor
   The base completion vocabulary comes from the same generated editor catalog
   used by the VS Code extension, with only larger native IDE snippets added on
   top. Checked files use role-aware colors for keywords, units, quantities,
-  workflow operations, and review-risk highlighting. If the buffer
-  has changed since the last check, the editor falls back to the shared lexical
-  color catalog until Check or Run refreshes the precise source ranges.
+  workflow operations, and review-risk highlighting. As the buffer changes,
+  the editor keeps immediate shared syntax colors and automatically refreshes
+  precise colors and Problems diagnostics from the unsaved buffer after a
+  short typing pause. Check and Run still force an immediate refresh.
   Tab and Shift+Tab indent or outdent the current line or selected block,
   Ctrl+/ toggles `#` line comments, Enter preserves block indentation, and
   `{}`, `[]`, `()`, and `"` auto-close or wrap selections. Typing `}` on an
@@ -102,10 +104,10 @@ Right Sidebar
   source symbols, runtime variables, Args values, schema summaries, unit
   conversions, TimeSeries ranges/statistics, metrics, validations, uncertainty
   summaries/propagation metadata, time alignments, artifact paths, and JSON
-  artifact outlines are summarized in tables. The Highlight tab shows a current
-  or check-needed status, filtered count, color-coded domain coverage summary,
-  highlight categories, token counts, source ranges, and per-token copy actions
-  from the current check. The Network
+  artifact outlines are summarized in tables. The Highlight tab shows whether
+  analysis is current, in progress, or unavailable, plus filtered counts,
+  color-coded domain coverage, highlight categories, source ranges, and
+  per-highlight copy actions from the latest buffer analysis. The Network
   tab summarizes network boundaries, network events, cache events, hashes, and
   cache keys for workflows that use `eng.net` or `eng.cache`. Uncertain scalar
   bindings also appear in the variable view with their representation and
