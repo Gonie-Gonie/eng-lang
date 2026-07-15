@@ -58,6 +58,7 @@ with {
     on_none = error "No design row"
     on_many = error "Multiple design rows"
 }
+legacy_first_design = select_first_row(designs, return_column="people_density")
 
 cases = materialize cases designs
 with {

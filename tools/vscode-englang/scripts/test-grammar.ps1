@@ -1239,7 +1239,9 @@ $ModelWorkflowBuiltins = @("train_test_split", "regression", "train_regression",
 $UncertaintyWorkflowBuiltins = @("measured", "interval", "normal", "uniform", "distribution", "propagate", "ensemble", "probability")
 $TimeseriesWorkflowBuiltins = @("integrate", "mean", "min", "max", "median", "std", "sum", "time_weighted_mean", "duration_above", "p90", "p95")
 $SolverWorkflowBuiltins = @("der", "delay")
-$DomainScopedWorkflowBuiltins = @($PathWorkflowBuiltins + $ModelWorkflowBuiltins + $UncertaintyWorkflowBuiltins + $TimeseriesWorkflowBuiltins + $SolverWorkflowBuiltins)
+$ValidationWorkflowBuiltins = @("fill_missing")
+$DeprecatedWorkflowBuiltins = @("select_first_row")
+$DomainScopedWorkflowBuiltins = @($PathWorkflowBuiltins + $ModelWorkflowBuiltins + $UncertaintyWorkflowBuiltins + $TimeseriesWorkflowBuiltins + $SolverWorkflowBuiltins + $ValidationWorkflowBuiltins + $DeprecatedWorkflowBuiltins)
 $GenericWorkflowBuiltins = @($WorkflowBuiltins | Where-Object { $DomainScopedWorkflowBuiltins -notcontains $_ -and $_ -ne "exists" })
 Assert-ScopeMatchesLabels -Scope "support.function.builtin.englang" -Labels $GenericWorkflowBuiltins -Description "LSP workflow builtin"
 Assert-ScopeMatchesLabels -Scope "support.function.external-boundary.englang" -Labels @("exists") -Description "LSP path existence builtin"
@@ -1248,6 +1250,8 @@ Assert-ScopeMatchesLabels -Scope "support.function.model.englang" -Labels $Model
 Assert-ScopeMatchesLabels -Scope "support.function.uncertain.englang" -Labels $UncertaintyWorkflowBuiltins -Description "LSP uncertainty helper builtin" -Suffix "("
 Assert-ScopeMatchesLabels -Scope "support.function.timeseries.englang" -Labels $TimeseriesWorkflowBuiltins -Description "LSP TimeSeries helper builtin" -Suffix "("
 Assert-ScopeMatchesLabels -Scope "support.function.solver.englang" -Labels $SolverWorkflowBuiltins -Description "LSP solver helper builtin" -Suffix "("
+Assert-ScopeMatchesLabels -Scope "support.function.validation.englang" -Labels $ValidationWorkflowBuiltins -Description "LSP validation helper builtin" -Suffix "("
+Assert-ScopeMatchesLabels -Scope "support.function.deprecated.englang" -Labels $DeprecatedWorkflowBuiltins -Description "LSP deprecated helper builtin" -Suffix "("
 Assert-ScopeMatchesLabels -Scope "support.function.builtin.englang" -Labels $HyphenatedWorkflowBuiltins -Description "LSP hyphenated workflow builtin"
 Assert-ScopeDoesNotMatchLabels -Scope "entity.name.function.call.englang" -Labels ($WorkflowBuiltins + $HyphenatedWorkflowBuiltins) -Description "LSP workflow builtin call" -Suffix "("
 Assert-ScopeDoesNotMatchText -Scope "meta.workflow.read-structured.englang" -Text 'read csv file("data/input.csv")' -Description "unsupported raw CSV read"
@@ -1306,6 +1310,8 @@ Assert-ExpectedTokenTextsCoverLabels -Labels $HyphenatedWorkflowBuiltins -Descri
 Assert-ExpectedScopedTokenTextsCoverLabels -Scope "support.function.path.englang" -Labels $PathWorkflowBuiltins -Description "path workflow builtin"
 Assert-ExpectedScopedTokenTextsCoverLabels -Scope "support.function.timeseries.englang" -Labels $TimeseriesWorkflowBuiltins -Description "TimeSeries workflow builtin"
 Assert-ExpectedScopedTokenTextsCoverLabels -Scope "support.function.solver.englang" -Labels $SolverWorkflowBuiltins -Description "solver workflow builtin"
+Assert-ExpectedScopedTokenTextsCoverLabels -Scope "support.function.validation.englang" -Labels $ValidationWorkflowBuiltins -Description "validation workflow builtin"
+Assert-ExpectedScopedTokenTextsCoverLabels -Scope "support.function.deprecated.englang" -Labels $DeprecatedWorkflowBuiltins -Description "deprecated workflow builtin"
 Assert-ExpectedScopedTokenTextsCoverLabels -Scope "constant.language.englang" -Labels $LanguageConstants -Description "language constant"
 Assert-ExpectedScopedTokenTextsCoverLabels -Scope "keyword.operator.word.englang" -Labels $OperatorWords -Description "operator word"
 foreach ($KeywordGroupCheck in $KeywordGroupScopeChecks) {

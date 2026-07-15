@@ -57,6 +57,7 @@ with {
 }
 coverage = check coverage measured.T_zone
 filled_zone = fill missing measured.T_zone
+legacy_filled_zone = fill_missing(measured.T_zone)
 aligned_series = align measured.T_zone with simulated.T_zone
 aligned_to_series = align measured.T_zone to simulated.T_zone
 resampled_series = resample measured.T_zone to simulated.T_zone

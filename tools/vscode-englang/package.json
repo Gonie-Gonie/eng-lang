@@ -555,6 +555,7 @@
             "variable.other.property.englang"
           ],
           "function.validation": [
+            "support.function.validation.englang",
             "support.function.builtin.englang",
             "keyword.control.validation.englang"
           ],
@@ -595,6 +596,7 @@
             "keyword.control.deprecated.englang"
           ],
           "function.deprecated": [
+            "support.function.deprecated.englang",
             "keyword.control.deprecated.englang",
             "entity.name.function.call.englang",
             "entity.name.function.englang"

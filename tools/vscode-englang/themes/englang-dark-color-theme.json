@@ -61,6 +61,14 @@
       "settings": { "foreground": "#D6A3FF" }
     },
     {
+      "scope": ["support.function.validation.englang"],
+      "settings": { "foreground": "#FFD166" }
+    },
+    {
+      "scope": ["support.function.deprecated.englang"],
+      "settings": { "foreground": "#FF5C7A", "fontStyle": "strikethrough" }
+    },
+    {
       "scope": ["support.function.model.englang"],
       "settings": { "foreground": "#C3A6FF" }
     },

@@ -94,6 +94,14 @@
                     "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
                   },
                   {
+                    "name": "support.function.deprecated.englang",
+                    "match": "\\bselect_first_row\\b(?=\\s*\\()"
+                  },
+                  {
+                    "name": "support.function.validation.englang",
+                    "match": "\\bfill_missing\\b(?=\\s*\\()"
+                  },
+                  {
                     "name": "support.function.external-boundary.englang",
                     "match": "\\b(file|url|env|secret|exists)(?=\\s*\\()"
                   },
@@ -2233,6 +2241,14 @@
       },
       "builtins": {
         "patterns": [
+          {
+            "name": "support.function.deprecated.englang",
+            "match": "\\bselect_first_row\\b(?=\\s*\\()"
+          },
+          {
+            "name": "support.function.validation.englang",
+            "match": "\\bfill_missing\\b(?=\\s*\\()"
+          },
           {
             "name": "support.function.external-boundary.englang",
             "match": "\\b(file|url|env|secret|exists)\\b"

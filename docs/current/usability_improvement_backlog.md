@@ -1,3 +1,4 @@
+- Batch 934: Split `fill_missing(...)` and compatibility-only `select_first_row(...)` out of generic TextMate builtin coloring into validation and deprecated helper scopes, including dark/light theme colors, semantic fallback mappings, and grammar regression fixtures.
 - Batch 933: Replaced the misleading `fill_missing` editor completion with canonical `check coverage` and `fill missing` workflow snippets, so completion inserts public EngLang syntax and its explicit policy blocks instead of an internal strategy spelling.
 - Batch 932: Removed the compatibility-only CaseOutput planned_count member alias from compiler/runtime member lookup and guarded the public API on expected_count.
 - Batch 931: Split workflow docs between the implemented native materialize/apply/collect case-table path and the remaining general run-case scheduler work, and renamed internal case-manifest seed test labels to record labels.

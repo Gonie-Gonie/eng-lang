@@ -5494,5 +5494,17 @@
     "scope": "support.function.builtin.englang",
     "text": "date",
     "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "support.function.deprecated.englang",
+    "text": "select_first_row",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.validation.englang",
+    "text": "fill_missing",
+    "fullMatch": true
   }
 ]
