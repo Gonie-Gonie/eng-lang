@@ -1,9 +1,9 @@
 # module: eng.cache
 # status: native_preview
-# purpose: reproducible cache keys, pinned offline responses/downloads, and hit/miss artifacts.
+# purpose: reproducible cache keys, verified network/case replay, and hit/miss artifacts.
 #
 # Current implementation:
-#   net and process boundaries may declare:
+#   network, process, and model boundaries may declare:
 #     cache = true
 #     cache_key = [...]
 #     cache_dir = "cache"
@@ -11,19 +11,25 @@
 #   nondeterministic/secret-dependent cache keys. The runtime records cache
 #   store hit/miss lookup status in cache_manifest.json, run_log.cache_events[],
 #   review_document.caches[], and output_manifest.artifact_registry.caches[].
+#   Pinned network responses are materialized and replayed after hash checks.
+#   Native `run_case` with `resume = true` stores each successful result and
+#   manifest under a content-addressed `cache/case-results/<key>` entry. It
+#   reuses current outputs or replays that entry only when the calculation hash
+#   and newly expected result SHA-256 match, and repairs invalid entries after
+#   recalculation. Merely materializing a CaseTable creates no cache record.
+#   Process/model cache declarations currently record keys and hashes but do
+#   not skip execution or replay values.
 #
 # Planned helper vocabulary:
 #   cache key from ...
 #   cache get
 #   cache put
 #   require hash
-#   cache invalidate
 #
 # Review contract:
 #   owner boundary, cache key parts, cache key hash, cache path, expected hash,
 #   observed hash, hit/miss lookup status, runtime status, and source span.
 #
 # Non-goal:
-#   this module does not skip execution or replay cached values yet. Implicit
-#   caching is not acceptable for engineering review; cache use must be visible
-#   in review/runtime artifacts.
+#   A cache directory's existence alone never proves a hit. Cache use must be
+#   hash-verified and visible in review/runtime artifacts.

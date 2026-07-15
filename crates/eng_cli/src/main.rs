@@ -1630,7 +1630,7 @@ mod tests {
         std::fs::write(
             &manifest_path,
             format!(
-                "{{\n  \"cache_records\": [{{\n    \"owner_kind\": \"case\",\n    \"owner_name\": \"case_001\",\n    \"cache_key_hash\": \"def456\",\n    \"resolved_path\": \"{}\"\n  }}]\n}}\n",
+                "{{\n  \"cache_records\": [{{\n    \"owner_kind\": \"case_result\",\n    \"owner_name\": \"case_001\",\n    \"cache_key_hash\": \"def456\",\n    \"resolved_path\": \"{}\"\n  }}]\n}}\n",
                 target.display().to_string().replace('\\', "\\\\")
             ),
         )

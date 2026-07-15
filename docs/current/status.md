@@ -186,11 +186,12 @@ is not mistaken for public module support.
     `typed_payload.model_specs[]` and `typed_payload.model_cards[]`,
     native predict-table records and prediction manifests in `typed_payload.prediction_manifests[]`, model
     diagnostics in `typed_payload.model_diagnostics[]`, and native workflow
-    artifact evidence for weather/case/model/prediction/DB manifest contracts;
-    Planned broader cache invalidation/reuse APIs, general run-case
-scheduler/resume/cache policy beyond the current materialize/apply/collect
-case-table path, broad
-    DB query/engine support, and broader model train syntax.
+    artifact evidence for weather/case/model/prediction/DB manifest contracts.
+    Native case execution includes calculation-hash/result-SHA output resume
+    and verified local result-cache replay/repair. Planned work includes
+    process/model cache replay, cross-artifact invalidation, shared or remote
+    case caches, parallel case scheduling, automatic external-adapter dispatch,
+    broad DB query/engine support, and broader model train syntax.
   - Current native DB evidence includes schema diagnostics, transaction status,
     table names, modes, keys, row counts, source hashes, and report-visible
     DB table summaries. Current native model evidence includes preferred
@@ -208,10 +209,10 @@ case-table path, broad
 - Native composite workflow modules beyond the current pinned/live
   network/cache boundary,
   sampling, table-regression, prediction, template, and SQLite write/readback
-  support: broader cache invalidation/reuse APIs, general run-case
-scheduler/resume/cache policy beyond the current materialize/apply/collect
-case-table path, broad
-  database query/engine support, and public model train/predict workflows.
+  support: process/model cache replay, cross-artifact invalidation, shared or
+  remote case caches, parallel case scheduling, automatic external-adapter
+  dispatch, broad database query/engine support, and broader public model
+  train/predict workflows.
 - Broad nonlinear/DAE/adaptive/component solving beyond the documented narrow
   paths.
 - Production multi-domain component simulation and pressure-drop packages.

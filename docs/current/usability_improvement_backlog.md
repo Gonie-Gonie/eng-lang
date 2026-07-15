@@ -1,3 +1,5 @@
+- Batch 954: Replaced seed-only case cache hit metadata with content-addressed native CaseRunResult caching, calculation-hash and expected-result-SHA validation, output resume, cache replay, invalid-entry repair, truthful per-table hit/miss counts, `not_configured` runner/scheduler state for non-executed sample tables, and editor/module wording for the verified behavior.
+- Batch 953: Promoted `eng.stats` from a planned placeholder to its existing compiler/runtime-backed TimeSeries summary implementation, added an explicit official import and end-to-end regression evidence, separated TimeSeries/statistics API ownership, aligned IDE completion wording and current docs, and replaced workflow 03's stale metadata-only smoke expectation with its native p95 propagation contract.
 - Batch 952: Filled ordinary compiler-resolved expression references into role-aware semantic tokens, marked typed binding declarations explicitly, and added safe current-file semantic rename across LSP and VS Code with stale-buffer, conflict, reserved-name, member/import, and incomplete-coverage rejection.
 - Batch 951: Replaced workflow 03's remaining `p95` metadata-only uncertainty linkage with native nearest-rank percentile sensitivity propagation, including unit-aware runtime artifacts and workflow regression gates.
 - Batch 950: Added compiler-backed current-file document highlights to `eng-lsp`, VS Code, and the native IDE, including read/write ranges, unsaved-buffer requests, function-local scope isolation, string/comment/literal/unit exclusion, Shift+F12 and caret actions, exact UTF-16 rendering, and executable Rust/JavaScript/editor-contract coverage.
@@ -29,7 +31,6 @@
 - Batch 924: Reworded VS Code README quick-fix merge and cache invalidation text away from fallback-repair/state wording toward local quick fixes and cached review/highlight data, with a contract guard.
 - Batch 923: Reworded VS Code README model source-chain quick-fix coverage from skeleton repairs to starter-code repairs and guarded against skeleton-repair wording returning.
 - Batch 922: Added theme fallback scope summary aliases to VS Code highlight inspector and Tooling Status probe payloads, keeping legacy fallback_scope_status fields for compatibility.
-- Batch 953: Promoted `eng.stats` from a planned placeholder to its existing compiler/runtime-backed TimeSeries summary implementation, added an explicit official import and end-to-end regression evidence, separated TimeSeries/statistics API ownership, aligned IDE completion wording and current docs, and replaced workflow 03's stale metadata-only smoke expectation with its native p95 propagation contract.
 - Batch 921: Reworded internal_planned stdlib module labels/details from Internal planned and target-surface wording to Internal target and explicit public stdlib API boundaries, then regenerated VS Code editor metadata.
 - Batch 920: Added theme_coverage_status and theme_fallback_scope_count to VS Code highlight inspector/copy payloads while keeping fallback_status compatibility fields, with README and contract coverage.
 - Batch 919: Reworded VS Code planned/internal stdlib import hover text away from workflow-surface/internal-boundary wording toward explicit public stdlib API status, with an ide-check guard.
@@ -112,14 +113,16 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 
 ## Open Candidates
 
-- Cache replay and invalidation: network offline-response cache materialization/replay and `eng cache invalidate` manifest-path deletion are implemented with hash/path safety checks; broader process/model replay and cross-artifact invalidation design remain open.
+- Cache replay and invalidation: network offline-response replay, native case-result cache replay/repair, and `eng cache invalidate` manifest-path deletion are implemented with hash/path safety checks; broader process/model replay, shared/remote case caches, and cross-artifact invalidation design remain open.
 - Live network execution: live HTTP(S) GET/download and POST/PUT/PATCH string request bodies are implemented with timeout, retry, body limits, SHA-256 verification, body hashes, cache replay, and redacted Secret query/header records; broader live secret injection and auth schemes still need a public contract.
 - Model training surface: native `train regression <table>` feeds model-card, metrics, and prediction-table paths; broader algorithm coverage and clearer multi-model naming remain open.
 - Case orchestration: native `materialize cases`, template `apply`, sequential
   `apply run_case`, and `collect results` now materialize
   CaseTable/CaseOutput/CaseRunResult/CaseResultCollection records and per-case
-  result manifests. Parallel scheduling, automatic external-adapter dispatch,
-  and a real case-result cache remain open.
+  result manifests. Native results now use a calculation-hash/result-SHA
+  verified local cache with replay and invalid-entry repair. Parallel
+  scheduling, automatic external-adapter dispatch, and shared/remote cache
+  adapters remain open.
 - DB query support: typed SQLite table readback is implemented; arbitrary query APIs, parameter binding, and query transaction policy remain open.
 - Native IDE usability: keep improving token insight, source-range actions, and inspector flows for repeated debugging tasks.
 - VS Code linter/highlighting: continue expanding checked-code role-aware color coverage as more source spans become first-class metadata.

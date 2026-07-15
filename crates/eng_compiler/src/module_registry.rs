@@ -400,10 +400,23 @@ mod tests {
                     .iter()
                     .any(|test| test.contains("computes_heat_rate_statistics_and_integral"))
         }));
-        assert!(registry
-            .modules
-            .iter()
-            .any(|module| module.name == "eng.case" && !module.artifacts.is_empty()));
+        assert!(registry.modules.iter().any(|module| {
+            module.name == "eng.case"
+                && module.status == "native_preview"
+                && module.backing == "compiler_runtime_builtin"
+                && module
+                    .artifacts
+                    .iter()
+                    .any(|artifact| artifact == "object_store.CaseRunResult")
+                && module
+                    .artifacts
+                    .iter()
+                    .any(|artifact| artifact == "cache_manifest")
+                && module
+                    .tests
+                    .iter()
+                    .any(|test| test.contains("run_file_executes_and_collects_native_case_results"))
+        }));
         let net_module = registry
             .modules
             .iter()
@@ -421,6 +434,13 @@ mod tests {
             .find(|module| module.name == "eng.cache")
             .expect("eng.cache should be registered");
         assert!(cache_module.completion_detail().starts_with("Native:"));
+        assert!(cache_module
+            .completion_detail()
+            .contains("verified native case-result cache"));
+        assert!(cache_module
+            .examples
+            .iter()
+            .any(|example| example == "examples/workflows/02_native_surrogate_case_workflow"));
         assert!(!cache_module.completion_detail().contains("broader"));
         assert!(net_module
             .diagnostics

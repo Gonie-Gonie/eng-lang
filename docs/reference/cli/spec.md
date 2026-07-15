@@ -171,7 +171,6 @@ E-CASE-ID-DUPLICATE sample/case table contains a duplicate case_id
 E-CASE-DIR-COLLISION multiple case IDs resolve to the same case directory
 E-CASE-OUTPUT-MISSING case step did not create an expected case output
 E-CASE-STEP-FAILED case step reported a failed status
-W-CASE-SKIPPED-CACHE case was skipped from case cache
 E-DB-CONNECT          SQLite connection or table target cannot be resolved
 E-DB-SCHEMA-MISMATCH DB write source/table schema does not match
 E-DB-READ-001        SQLite read source cannot be lowered or resolved

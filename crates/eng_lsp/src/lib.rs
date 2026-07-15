@@ -770,7 +770,10 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     ),
     ("apply", "Apply a template or step across case rows"),
     ("collect", "Collect per-case outputs into a table"),
-    ("run_case", "Run one case with recorded inputs and outputs"),
+    (
+        "run_case",
+        "Evaluate typed native case results and record verified outputs",
+    ),
     ("measured", "eng.uncertainty measured value helper"),
     ("interval", "eng.uncertainty interval helper"),
     ("distribution", "eng.uncertainty distribution helper"),
@@ -889,7 +892,10 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("relative_error", "relative uncertainty error option"),
     ("residual_scale", "solver residual scale"),
     ("residual_scales", "solver residual scale list"),
-    ("resume", "case resume policy"),
+    (
+        "resume",
+        "Reuse hash-verified case outputs or replay the local result cache",
+    ),
     ("response_body_limit", "HTTP download body size limit"),
     ("result", "native calculated case result path"),
     ("results", "native case result expression map"),
@@ -8204,7 +8210,7 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         ),
         (
             "apply run_case",
-            "eng.case execute typed native result expressions over case rows",
+            "eng.case execute typed case results with verified resume and cache replay",
         ),
         (
             "collect results",
@@ -11198,6 +11204,18 @@ mod tests {
             apply_run_case_completion["insert_snippet"],
             "apply run_case over ${1:case_inputs}\nwith {\n    results = {\n        ${2:annual_energy} = ${3:load * 1 kWh}\n    }\n    result = \"{case_dir}/result.json\"\n    manifest = \"{case_dir}/case_run_manifest.json\"\n    on_error = fail\n    resume = true\n    overwrite = true\n}"
         );
+        assert_eq!(
+            apply_run_case_completion["detail"],
+            "eng.case execute typed case results with verified resume and cache replay"
+        );
+        let resume_completion = completions
+            .iter()
+            .find(|completion| completion["label"] == "resume")
+            .expect("editor metadata should include resume option completion");
+        assert_eq!(
+            resume_completion["detail"],
+            "Reuse hash-verified case outputs or replay the local result cache"
+        );
         let read_json_completion = completions
             .iter()
             .find(|completion| completion["label"] == "read json")
@@ -11261,8 +11279,15 @@ mod tests {
         assert!(
             cache_completion["detail"]
                 .as_str()
-                .is_some_and(|detail| detail.contains("pinned network response cache")),
-            "eng.cache completion detail should describe pinned network response cache, got {}",
+                .is_some_and(|detail| detail.contains("pinned network response")),
+            "eng.cache completion detail should describe pinned network response replay, got {}",
+            cache_completion["detail"]
+        );
+        assert!(
+            cache_completion["detail"]
+                .as_str()
+                .is_some_and(|detail| detail.contains("verified native case-result cache")),
+            "eng.cache completion detail should describe verified native case-result cache replay, got {}",
             cache_completion["detail"]
         );
         assert!(
@@ -11271,6 +11296,17 @@ mod tests {
             ),
             "eng.cache completion detail should hide planned-scope tail, got {}",
             cache_completion["detail"]
+        );
+        let case_completion = completions
+            .iter()
+            .find(|completion| completion["label"] == "eng.case")
+            .expect("editor metadata should include eng.case module completion");
+        assert!(
+            case_completion["detail"]
+                .as_str()
+                .is_some_and(|detail| detail.contains("verified local result-cache replay")),
+            "eng.case completion detail should describe verified local result-cache replay, got {}",
+            case_completion["detail"]
         );
     }
 

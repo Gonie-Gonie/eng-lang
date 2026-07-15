@@ -584,7 +584,7 @@ pub fn run_source(
         Some(&result_dir),
     );
     let native_case_run_output =
-        execute_native_case_runs(&check_report, &runtime_data, &result_dir)?;
+        execute_native_case_runs(&check_report, &runtime_data, &result_dir, build_root)?;
     runtime_data = runtime_data::materialize_runtime_data_with_result_dir(
         &check_report,
         source,
@@ -602,8 +602,13 @@ pub fn run_source(
     let process_results = execute_process_runs(&check_report)?;
     let mut db_manifest_records = db_manifest_records(&process_results);
     db_manifest_records.extend(native_db_write_output.records.clone());
-    let mut cache_manifest_records =
-        cache_manifest_records(&check_report, &runtime_data, &process_results, build_root);
+    let mut cache_manifest_records = cache_manifest_records(
+        &check_report,
+        &runtime_data,
+        &process_results,
+        &native_case_run_output.cache_records,
+        build_root,
+    );
     materialize_network_cache_entries(&check_report, &mut cache_manifest_records, build_root)?;
     ensure_cache_hashes_valid(&cache_manifest_records)?;
     ensure_cache_reproducible(&cache_manifest_records, &options.profile)?;
@@ -2649,6 +2654,7 @@ fn cache_manifest_records(
     report: &CheckReport,
     runtime_data: &RuntimeData,
     process_results: &[ProcessExecutionRecord],
+    native_case_cache_records: &[CacheManifestRecord],
     build_root: &Path,
 ) -> Vec<CacheManifestRecord> {
     let mut records = report
@@ -2657,7 +2663,7 @@ fn cache_manifest_records(
         .iter()
         .map(|record| cache_manifest_record(record, runtime_data, process_results, build_root))
         .collect::<Vec<_>>();
-    records.extend(case_cache_manifest_records(runtime_data, build_root));
+    records.extend(native_case_cache_records.iter().cloned());
     records
 }
 
@@ -2826,68 +2832,6 @@ fn cache_status(
     }
 }
 
-fn case_cache_manifest_records(
-    runtime_data: &RuntimeData,
-    build_root: &Path,
-) -> Vec<CacheManifestRecord> {
-    runtime_data
-        .case_manifests
-        .iter()
-        .filter(|manifest| !manifest.case_id.trim().is_empty())
-        .map(|manifest| case_cache_manifest_record(manifest, build_root))
-        .collect()
-}
-
-fn case_cache_manifest_record(
-    manifest: &RuntimeCaseManifest,
-    build_root: &Path,
-) -> CacheManifestRecord {
-    let cache_dir = "cache".to_owned();
-    let source_hash = manifest
-        .source_hash
-        .clone()
-        .unwrap_or_else(|| manifest.sample_row_hash.clone());
-    let cache_key_parts = vec![
-        "case".to_owned(),
-        format!("sample_table={}", manifest.sample_table),
-        format!("case_id={}", manifest.case_id),
-        format!("sample_row_hash={}", manifest.sample_row_hash),
-        format!("source_hash={source_hash}"),
-    ];
-    let cache_key = serialize_runtime_cache_key(&cache_key_parts);
-    let cache_key_hash = hash_text(&cache_key);
-    let cache_path = format!("{}/{}", cache_dir, cache_key_hash);
-    let resolved_path = resolve_cache_path(build_root, &cache_path);
-    let lookup_status = if resolved_path.exists() {
-        "hit"
-    } else {
-        "miss"
-    };
-    let status = cache_status(
-        Some(&manifest.sample_row_hash),
-        Some(&manifest.sample_row_hash),
-        lookup_status,
-        false,
-    );
-    CacheManifestRecord {
-        owner_kind: "case".to_owned(),
-        owner_name: manifest.case_id.clone(),
-        cache_key,
-        cache_key_parts,
-        cache_key_hash,
-        cache_path,
-        cache_dir,
-        cache_ttl: None,
-        resolved_path: resolved_path.display().to_string(),
-        source_hash,
-        expected_hash: Some(manifest.sample_row_hash.clone()),
-        observed_hash: Some(manifest.sample_row_hash.clone()),
-        lookup_status: lookup_status.to_owned(),
-        status,
-        line: manifest.line,
-    }
-}
-
 fn serialize_runtime_cache_key(parts: &[String]) -> String {
     parts
         .iter()
@@ -2895,6 +2839,13 @@ fn serialize_runtime_cache_key(parts: &[String]) -> String {
         .filter(|part| !part.is_empty())
         .collect::<Vec<_>>()
         .join("|")
+}
+
+fn cache_record_sample_table(record: &CacheManifestRecord) -> Option<&str> {
+    record
+        .cache_key_parts
+        .iter()
+        .find_map(|part| part.strip_prefix("sample_table="))
 }
 
 fn cache_stale_diagnostics(
@@ -4384,6 +4335,7 @@ struct TemplateRenderOutput {
 #[derive(Clone, Debug, Default)]
 struct NativeCaseRunOutput {
     artifacts: Vec<OutputArtifact>,
+    cache_records: Vec<CacheManifestRecord>,
 }
 
 fn process_expected_output_artifacts(records: &[ProcessExecutionRecord]) -> Vec<OutputArtifact> {
@@ -4821,8 +4773,10 @@ fn execute_native_case_runs(
     report: &CheckReport,
     runtime_data: &RuntimeData,
     result_dir: &Path,
+    build_root: &Path,
 ) -> Result<NativeCaseRunOutput, RuntimeError> {
     let mut artifacts = Vec::new();
+    let mut cache_records = Vec::new();
     for run in report
         .semantic_program
         .case_runs
@@ -4890,29 +4844,6 @@ fn execute_native_case_runs(
                         "native run-case manifest `{manifest_path_text}` is outside the output boundary"
                     ))
                 })?;
-
-            if run.resume
-                && native_case_run_artifacts_match(&result_path, &manifest_path, &calculation_hash)
-            {
-                let result_json = fs::read_to_string(&result_path)?;
-                let manifest_json = fs::read_to_string(&manifest_path)?;
-                artifacts.push(output_artifact_with_overwrite_policy(
-                    "native_case_result",
-                    relative_output_path(result_dir, &result_path),
-                    &result_json,
-                    result_path,
-                    "resume",
-                ));
-                artifacts.push(output_artifact_with_overwrite_policy(
-                    "native_case_run_manifest",
-                    relative_output_path(result_dir, &manifest_path),
-                    &manifest_json,
-                    manifest_path,
-                    "resume",
-                ));
-                continue;
-            }
-
             let outputs = native_case_run_outputs_json(run, table, row_index)?;
             let sample_row_hash =
                 case_table_text_value(table, "sample_row_hash", row_index).unwrap_or_default();
@@ -4950,6 +4881,160 @@ fn execute_native_case_runs(
             let manifest_json = serde_json::to_string_pretty(&manifest_value).map_err(|error| {
                 invalid_input(&format!("cannot serialize case run manifest: {error}"))
             })?;
+
+            if run.resume {
+                let sample_table = case_stage_sample_table(runtime_data, table)
+                    .unwrap_or_else(|| run.source_table.clone());
+                let cache_key_parts = native_case_result_cache_key_parts(
+                    run,
+                    &sample_table,
+                    &case_id,
+                    &calculation_hash,
+                    &result_path_text,
+                    &manifest_path_text,
+                );
+                let cache_key = serialize_runtime_cache_key(&cache_key_parts);
+                let cache_key_hash = hash_text(&cache_key);
+                let cache_dir = "cache/case-results";
+                let cache_path = format!("{cache_dir}/{cache_key_hash}");
+                let cache_entry_path = resolve_cache_path(build_root, &cache_path);
+                let cache_result_path = cache_entry_path.join("result.json");
+                let cache_manifest_path = cache_entry_path.join("manifest.json");
+                let output_matches = native_case_run_artifacts_match_expected(
+                    &result_path,
+                    &manifest_path,
+                    &calculation_hash,
+                    &result_sha256,
+                    &run.binding,
+                    &case_id,
+                    &result_path_text,
+                );
+                let cache_matches = native_case_run_artifacts_match_expected(
+                    &cache_result_path,
+                    &cache_manifest_path,
+                    &calculation_hash,
+                    &result_sha256,
+                    &run.binding,
+                    &case_id,
+                    &result_path_text,
+                );
+
+                if output_matches {
+                    let resumed_result_json = fs::read_to_string(&result_path)?;
+                    let resumed_manifest_json = fs::read_to_string(&manifest_path)?;
+                    artifacts.push(output_artifact_with_overwrite_policy(
+                        "native_case_result",
+                        relative_output_path(result_dir, &result_path),
+                        &resumed_result_json,
+                        result_path,
+                        "resume",
+                    ));
+                    artifacts.push(output_artifact_with_overwrite_policy(
+                        "native_case_run_manifest",
+                        relative_output_path(result_dir, &manifest_path),
+                        &resumed_manifest_json,
+                        manifest_path,
+                        "resume",
+                    ));
+                    let (lookup_status, cache_status) = if cache_matches {
+                        ("hit", "hit_output_resume")
+                    } else {
+                        write_native_case_cache_entry(
+                            &cache_entry_path,
+                            &resumed_result_json,
+                            &resumed_manifest_json,
+                        )?;
+                        ("miss", "miss_materialized_from_output")
+                    };
+                    cache_records.push(native_case_result_cache_record(
+                        run,
+                        &case_id,
+                        cache_key,
+                        cache_key_parts,
+                        cache_key_hash,
+                        cache_path,
+                        cache_entry_path,
+                        &calculation_hash,
+                        &result_sha256,
+                        lookup_status,
+                        cache_status,
+                    ));
+                    continue;
+                }
+
+                if cache_matches {
+                    let cached_result_json = fs::read_to_string(&cache_result_path)?;
+                    let cached_manifest_json = fs::read_to_string(&cache_manifest_path)?;
+                    write_output_file(&result_path, &cached_result_json, run.overwrite)?;
+                    write_output_file(&manifest_path, &cached_manifest_json, run.overwrite)?;
+                    artifacts.push(output_artifact_with_overwrite_policy(
+                        "native_case_result",
+                        relative_output_path(result_dir, &result_path),
+                        &cached_result_json,
+                        result_path,
+                        "cache_replay",
+                    ));
+                    artifacts.push(output_artifact_with_overwrite_policy(
+                        "native_case_run_manifest",
+                        relative_output_path(result_dir, &manifest_path),
+                        &cached_manifest_json,
+                        manifest_path,
+                        "cache_replay",
+                    ));
+                    cache_records.push(native_case_result_cache_record(
+                        run,
+                        &case_id,
+                        cache_key,
+                        cache_key_parts,
+                        cache_key_hash,
+                        cache_path,
+                        cache_entry_path,
+                        &calculation_hash,
+                        &result_sha256,
+                        "hit",
+                        "hit_replayed",
+                    ));
+                    continue;
+                }
+
+                let cache_entry_existed = cache_entry_path.exists();
+                write_output_file(&result_path, &result_json, run.overwrite)?;
+                write_output_file(&manifest_path, &manifest_json, run.overwrite)?;
+                write_native_case_cache_entry(&cache_entry_path, &result_json, &manifest_json)?;
+                cache_records.push(native_case_result_cache_record(
+                    run,
+                    &case_id,
+                    cache_key,
+                    cache_key_parts,
+                    cache_key_hash,
+                    cache_path,
+                    cache_entry_path,
+                    &calculation_hash,
+                    &result_sha256,
+                    "miss",
+                    if cache_entry_existed {
+                        "miss_repaired"
+                    } else {
+                        "miss_materialized"
+                    },
+                ));
+                artifacts.push(output_artifact_with_overwrite_policy(
+                    "native_case_result",
+                    relative_output_path(result_dir, &result_path),
+                    &result_json,
+                    result_path,
+                    if run.overwrite { "overwrite" } else { "error" },
+                ));
+                artifacts.push(output_artifact_with_overwrite_policy(
+                    "native_case_run_manifest",
+                    relative_output_path(result_dir, &manifest_path),
+                    &manifest_json,
+                    manifest_path,
+                    if run.overwrite { "overwrite" } else { "error" },
+                ));
+                continue;
+            }
+
             write_output_file(&result_path, &result_json, run.overwrite)?;
             write_output_file(&manifest_path, &manifest_json, run.overwrite)?;
             artifacts.push(output_artifact_with_overwrite_policy(
@@ -4968,7 +5053,74 @@ fn execute_native_case_runs(
             ));
         }
     }
-    Ok(NativeCaseRunOutput { artifacts })
+    Ok(NativeCaseRunOutput {
+        artifacts,
+        cache_records,
+    })
+}
+
+fn native_case_result_cache_key_parts(
+    run: &eng_compiler::CaseRunInfo,
+    sample_table: &str,
+    case_id: &str,
+    calculation_hash: &str,
+    result_path: &str,
+    manifest_path: &str,
+) -> Vec<String> {
+    vec![
+        "native_case_result_v1".to_owned(),
+        format!("binding={}", run.binding),
+        format!("sample_table={sample_table}"),
+        format!("source_table={}", run.source_table),
+        format!("case_id={case_id}"),
+        format!("calculation_hash={calculation_hash}"),
+        format!("result_path={}", runtime_path_text(result_path)),
+        format!("manifest_path={}", runtime_path_text(manifest_path)),
+    ]
+}
+
+#[allow(clippy::too_many_arguments)]
+fn native_case_result_cache_record(
+    run: &eng_compiler::CaseRunInfo,
+    case_id: &str,
+    cache_key: String,
+    cache_key_parts: Vec<String>,
+    cache_key_hash: String,
+    cache_path: String,
+    resolved_path: PathBuf,
+    calculation_hash: &str,
+    result_sha256: &str,
+    lookup_status: &str,
+    status: &str,
+) -> CacheManifestRecord {
+    CacheManifestRecord {
+        owner_kind: "case_result".to_owned(),
+        owner_name: case_id.to_owned(),
+        cache_key,
+        cache_key_parts,
+        cache_key_hash,
+        cache_path,
+        cache_dir: "cache/case-results".to_owned(),
+        cache_ttl: None,
+        resolved_path: resolved_path.display().to_string(),
+        source_hash: calculation_hash.to_owned(),
+        expected_hash: Some(result_sha256.to_owned()),
+        observed_hash: Some(result_sha256.to_owned()),
+        lookup_status: lookup_status.to_owned(),
+        status: status.to_owned(),
+        line: run.line,
+    }
+}
+
+fn write_native_case_cache_entry(
+    cache_entry_path: &Path,
+    result_json: &str,
+    manifest_json: &str,
+) -> Result<(), RuntimeError> {
+    fs::create_dir_all(cache_entry_path)?;
+    fs::write(cache_entry_path.join("result.json"), result_json)?;
+    fs::write(cache_entry_path.join("manifest.json"), manifest_json)?;
+    Ok(())
 }
 
 fn native_case_run_outputs_json(
@@ -5028,18 +5180,65 @@ fn native_case_run_artifacts_match(
     let Ok(manifest_source) = fs::read_to_string(manifest_path) else {
         return false;
     };
+    let Ok(result) = serde_json::from_str::<Value>(&result_source) else {
+        return false;
+    };
     let Ok(manifest) = serde_json::from_str::<Value>(&manifest_source) else {
         return false;
     };
-    manifest
-        .get("calculation_hash")
-        .and_then(Value::as_str)
-        .is_some_and(|hash| hash == calculation_hash)
+    result.get("schema").and_then(Value::as_str) == Some("eng.case.native_result/v1")
+        && result
+            .get("calculation_hash")
+            .and_then(Value::as_str)
+            .is_some_and(|hash| hash == calculation_hash)
+        && result.get("status").and_then(Value::as_str) == Some("succeeded")
+        && manifest.get("schema").and_then(Value::as_str) == Some("eng.case.native_run_manifest/v1")
+        && manifest
+            .get("calculation_hash")
+            .and_then(Value::as_str)
+            .is_some_and(|hash| hash == calculation_hash)
         && manifest
             .get("result_sha256")
             .and_then(Value::as_str)
             .is_some_and(|expected| expected == hash_text(&result_source))
         && manifest.get("status").and_then(Value::as_str) == Some("succeeded")
+}
+
+#[allow(clippy::too_many_arguments)]
+fn native_case_run_artifacts_match_expected(
+    result_path: &Path,
+    manifest_path: &Path,
+    calculation_hash: &str,
+    expected_result_sha256: &str,
+    binding: &str,
+    case_id: &str,
+    expected_result_path: &str,
+) -> bool {
+    if !native_case_run_artifacts_match(result_path, manifest_path, calculation_hash) {
+        return false;
+    }
+    let Ok(result_source) = fs::read_to_string(result_path) else {
+        return false;
+    };
+    if hash_text(&result_source) != expected_result_sha256 {
+        return false;
+    }
+    let Ok(result) = serde_json::from_str::<Value>(&result_source) else {
+        return false;
+    };
+    let Ok(manifest_source) = fs::read_to_string(manifest_path) else {
+        return false;
+    };
+    let Ok(manifest) = serde_json::from_str::<Value>(&manifest_source) else {
+        return false;
+    };
+    result.get("binding").and_then(Value::as_str) == Some(binding)
+        && result.get("case_id").and_then(Value::as_str) == Some(case_id)
+        && manifest.get("binding").and_then(Value::as_str) == Some(binding)
+        && manifest.get("case_id").and_then(Value::as_str) == Some(case_id)
+        && manifest.get("result_path").and_then(Value::as_str)
+            == Some(runtime_path_text(expected_result_path).as_str())
+        && manifest.get("result_sha256").and_then(Value::as_str) == Some(expected_result_sha256)
 }
 
 fn write_native_case_failure_manifest(
@@ -11267,9 +11466,9 @@ fn result_json(
     let timeseries_quality = timeseries_quality_json(runtime_data, "      ");
     let timeseries_fallbacks = timeseries_fallbacks_json(runtime_data, "      ");
     let sample_tables = sample_tables_json(runtime_data);
-    let case_manifests = case_manifests_json(runtime_data, process_results, cache_records);
+    let case_manifests = case_manifests_json(runtime_data, process_results);
     let case_tables = case_tables_json(runtime_data, process_results, cache_records);
-    let case_diagnostics = case_diagnostics_json(runtime_data, process_results, cache_records);
+    let case_diagnostics = case_diagnostics_json(runtime_data, process_results);
     let db_manifests = db_manifests_json(db_manifest_records);
     let render_manifests = template_render_records_json(template_render_records, "      ");
     let model_cards = model_cards_json(runtime_data, process_results);
@@ -12628,11 +12827,7 @@ fn runtime_review_json(
     json.push_str("\n  ],\n  \"timeseries_fallbacks\": [\n");
     json.push_str(&timeseries_fallbacks_json(runtime_data, "    "));
     json.push_str("\n  ],\n  \"case_manifests\": [\n");
-    json.push_str(&case_manifests_json(
-        runtime_data,
-        process_results,
-        cache_records,
-    ));
+    json.push_str(&case_manifests_json(runtime_data, process_results));
     json.push_str("\n  ],\n  \"case_tables\": [\n");
     json.push_str(&case_tables_json(
         runtime_data,
@@ -12640,11 +12835,7 @@ fn runtime_review_json(
         cache_records,
     ));
     json.push_str("\n  ],\n  \"case_diagnostics\": [\n");
-    json.push_str(&case_diagnostics_json(
-        runtime_data,
-        process_results,
-        cache_records,
-    ));
+    json.push_str(&case_diagnostics_json(runtime_data, process_results));
     json.push_str("\n  ],\n  \"db_manifests\": [\n");
     json.push_str(&db_manifests_json(db_manifest_records));
     json.push_str("\n  ],\n  \"model_cards\": [\n");
@@ -13962,9 +14153,8 @@ fn sample_tables_json(runtime_data: &RuntimeData) -> String {
 fn case_manifests_json(
     runtime_data: &RuntimeData,
     process_results: &[ProcessExecutionRecord],
-    cache_records: &[CacheManifestRecord],
 ) -> String {
-    let case_manifests = materialized_case_manifests(runtime_data, process_results, cache_records);
+    let case_manifests = materialized_case_manifests(runtime_data, process_results);
     let mut json = String::new();
     for (index, manifest) in case_manifests.iter().enumerate() {
         if index > 0 {
@@ -14171,9 +14361,8 @@ fn case_tables_json(
 fn case_diagnostics_json(
     runtime_data: &RuntimeData,
     process_results: &[ProcessExecutionRecord],
-    cache_records: &[CacheManifestRecord],
 ) -> String {
-    let diagnostics = materialized_case_diagnostics(runtime_data, process_results, cache_records);
+    let diagnostics = materialized_case_diagnostics(runtime_data, process_results);
     let mut json = String::new();
     for (index, diagnostic) in diagnostics.iter().enumerate() {
         if index > 0 {
@@ -14208,7 +14397,7 @@ fn materialized_case_tables(
     process_results: &[ProcessExecutionRecord],
     cache_records: &[CacheManifestRecord],
 ) -> Vec<RuntimeCaseTable> {
-    let manifests = materialized_case_manifests(runtime_data, process_results, cache_records);
+    let manifests = materialized_case_manifests(runtime_data, process_results);
     let collections = case_collection_records(process_results);
     let mut groups: Vec<(&RuntimeCaseManifest, Vec<&RuntimeCaseManifest>)> = Vec::new();
     for manifest in &manifests {
@@ -14231,7 +14420,12 @@ fn materialized_case_tables(
                 .map(|manifest| manifest.case_id.clone())
                 .collect::<HashSet<_>>();
             let (cache_hit_count, cache_miss_count) =
-                case_cache_counts_for_cases(&case_ids, cache_records);
+                case_result_cache_counts_for_cases(&first.sample_table, &case_ids, cache_records);
+            let uses_native_result_cache = cache_records.iter().any(|record| {
+                record.owner_kind == "case_result"
+                    && cache_record_sample_table(record) == Some(first.sample_table.as_str())
+                    && case_ids.contains(&record.owner_name)
+            });
             let collection = matching_case_collection(&case_ids, &collections);
             let duplicate_case_ids = duplicate_case_ids_for_manifests(&group);
             let pending_count = group
@@ -14281,6 +14475,14 @@ fn materialized_case_tables(
             let has_process = group
                 .iter()
                 .any(|manifest| !manifest.process_bindings.is_empty());
+            let has_native_template = runtime_data
+                .tables
+                .iter()
+                .filter(|table| table.schema_name == "CaseOutput")
+                .any(|table| {
+                    case_stage_sample_table(runtime_data, table).as_deref()
+                        == Some(first.sample_table.as_str())
+                });
             let has_native_run = group.iter().any(|manifest| {
                 manifest.process_statuses.iter().any(|step| {
                     step.name == "run_case" && step.command.starts_with("native_expression")
@@ -14327,21 +14529,40 @@ fn materialized_case_tables(
                     "sequential_process_runner".to_owned()
                 } else if has_native_run {
                     "native_expression_runner".to_owned()
-                } else {
+                } else if has_native_template {
                     "native_template_runner".to_owned()
-                },
-                scheduler: "sequential".to_owned(),
-                scheduler_hooks: vec![
-                    "case_id".to_owned(),
-                    "case_dir".to_owned(),
-                    "sample_row_hash".to_owned(),
-                    "case_cache_key".to_owned(),
-                ],
-                parallel_policy: "not_configured".to_owned(),
-                resume_policy: if cache_hit_count + cache_miss_count > 0 {
-                    "case_cache_key".to_owned()
                 } else {
-                    "sample_row_hash".to_owned()
+                    "not_configured".to_owned()
+                },
+                scheduler: if has_process || has_native_template || has_native_run {
+                    "sequential".to_owned()
+                } else {
+                    "not_configured".to_owned()
+                },
+                scheduler_hooks: if has_native_run {
+                    vec![
+                        "case_id".to_owned(),
+                        "case_dir".to_owned(),
+                        "sample_row_hash".to_owned(),
+                        "calculation_hash".to_owned(),
+                        "result_sha256".to_owned(),
+                    ]
+                } else if has_process || has_native_template {
+                    vec![
+                        "case_id".to_owned(),
+                        "case_dir".to_owned(),
+                        "sample_row_hash".to_owned(),
+                    ]
+                } else {
+                    Vec::new()
+                },
+                parallel_policy: "not_configured".to_owned(),
+                resume_policy: if uses_native_result_cache {
+                    "calculation_hash_and_result_sha256".to_owned()
+                } else if has_native_run {
+                    "disabled".to_owned()
+                } else {
+                    "not_configured".to_owned()
                 },
                 cache_hit_count,
                 cache_miss_count,
@@ -14355,9 +14576,8 @@ fn materialized_case_tables(
 fn materialized_case_diagnostics(
     runtime_data: &RuntimeData,
     process_results: &[ProcessExecutionRecord],
-    cache_records: &[CacheManifestRecord],
 ) -> Vec<RuntimeCaseDiagnostic> {
-    let manifests = materialized_case_manifests(runtime_data, process_results, cache_records);
+    let manifests = materialized_case_manifests(runtime_data, process_results);
     let mut diagnostics = Vec::new();
     push_duplicate_case_diagnostics(&mut diagnostics, &manifests);
     push_case_dir_collision_diagnostics(&mut diagnostics, &manifests);
@@ -14391,16 +14611,6 @@ fn materialized_case_diagnostics(
                 line: manifest.line,
             });
         }
-        if manifest.status == "skipped" {
-            diagnostics.push(RuntimeCaseDiagnostic {
-                severity: "warning".to_owned(),
-                code: "W-CASE-SKIPPED-CACHE".to_owned(),
-                message: format!("case `{}` was skipped from case cache", manifest.case_id),
-                case_id: Some(manifest.case_id.clone()),
-                sample_table: manifest.sample_table.clone(),
-                line: manifest.line,
-            });
-        }
     }
     diagnostics
 }
@@ -14408,7 +14618,6 @@ fn materialized_case_diagnostics(
 fn materialized_case_manifests(
     runtime_data: &RuntimeData,
     process_results: &[ProcessExecutionRecord],
-    cache_records: &[CacheManifestRecord],
 ) -> Vec<RuntimeCaseManifest> {
     let mut manifests = runtime_data.case_manifests.clone();
     if manifests.is_empty() {
@@ -14431,7 +14640,6 @@ fn materialized_case_manifests(
 
     apply_native_case_runs_to_manifests(runtime_data, &mut manifests);
 
-    apply_case_cache_statuses(&mut manifests, cache_records);
     for manifest in &mut manifests {
         finalize_case_manifest_status(manifest);
     }
@@ -14448,7 +14656,7 @@ fn apply_native_case_runs_to_manifests(
         .iter()
         .filter(|table| table.schema_name == "CaseRunResult")
     {
-        let Some(sample_table) = native_case_run_sample_table(runtime_data, run) else {
+        let Some(sample_table) = case_stage_sample_table(runtime_data, run) else {
             continue;
         };
         let output_names =
@@ -14545,10 +14753,7 @@ fn runtime_data_case_run_output_names(
     )
 }
 
-fn native_case_run_sample_table(
-    runtime_data: &RuntimeData,
-    run_table: &RuntimeTable,
-) -> Option<String> {
+fn case_stage_sample_table(runtime_data: &RuntimeData, run_table: &RuntimeTable) -> Option<String> {
     let mut binding = case_apply_over_binding(&run_table.source)?.to_owned();
     let mut seen = HashSet::new();
     loop {
@@ -14607,35 +14812,18 @@ fn runtime_numeric_column_value(
     values.get(row_index).and_then(|value| *value)
 }
 
-fn apply_case_cache_statuses(
-    manifests: &mut [RuntimeCaseManifest],
-    cache_records: &[CacheManifestRecord],
-) {
-    for record in cache_records
-        .iter()
-        .filter(|record| record.owner_kind == "case" && record.lookup_status == "hit")
-    {
-        for manifest in manifests
-            .iter_mut()
-            .filter(|manifest| manifest.case_id == record.owner_name)
-        {
-            if manifest.failure_reason.is_none() {
-                manifest.status = "skipped".to_owned();
-            }
-        }
-    }
-}
-
-fn case_cache_counts_for_cases(
+fn case_result_cache_counts_for_cases(
+    sample_table: &str,
     case_ids: &HashSet<String>,
     cache_records: &[CacheManifestRecord],
 ) -> (usize, usize) {
     let mut hit_count = 0usize;
     let mut miss_count = 0usize;
-    for record in cache_records
-        .iter()
-        .filter(|record| record.owner_kind == "case" && case_ids.contains(&record.owner_name))
-    {
+    for record in cache_records.iter().filter(|record| {
+        record.owner_kind == "case_result"
+            && cache_record_sample_table(record) == Some(sample_table)
+            && case_ids.contains(&record.owner_name)
+    }) {
         if record.lookup_status == "hit" {
             hit_count += 1;
         } else {
@@ -18168,6 +18356,32 @@ mod tests {
             Some("case_001")
         );
 
+        let training_case_table = json_array_item_by_field(
+            &surrogate_result_json,
+            "/typed_payload/case_tables",
+            "sample_table",
+            "training_designs",
+        )
+        .expect("training case table summary");
+        assert_eq!(training_case_table["cache_hit_count"], 0);
+        assert_eq!(training_case_table["cache_miss_count"], 8);
+        assert_eq!(
+            training_case_table["resume_policy"],
+            "calculation_hash_and_result_sha256"
+        );
+        let prediction_case_table = json_array_item_by_field(
+            &surrogate_result_json,
+            "/typed_payload/case_tables",
+            "sample_table",
+            "designs",
+        )
+        .expect("prediction sample case table summary");
+        assert_eq!(prediction_case_table["cache_hit_count"], 0);
+        assert_eq!(prediction_case_table["cache_miss_count"], 0);
+        assert_eq!(prediction_case_table["resume_policy"], "not_configured");
+        assert_eq!(prediction_case_table["runner"], "not_configured");
+        assert_eq!(prediction_case_table["scheduler"], "not_configured");
+
         assert!(surrogate_output
             .output_manifest_json
             .contains("outputs/case_001/input.txt"));
@@ -18217,6 +18431,18 @@ mod tests {
         assert!(surrogate_output
             .output_manifest_json
             .contains("\"kind\": \"native_case_run_manifest\""));
+        assert!(surrogate_output
+            .cache_manifest_json
+            .contains("\"owner_kind\": \"case_result\""));
+        assert!(surrogate_output
+            .cache_manifest_json
+            .contains("\"status\": \"miss_materialized\""));
+        assert!(surrogate_output
+            .result_json
+            .contains("\"resume_policy\": \"calculation_hash_and_result_sha256\""));
+        assert!(surrogate_output
+            .result_json
+            .contains("\"cache_miss_count\": 8"));
         assert!(surrogate_output
             .result_json
             .contains("\"schema_name\": \"PredictionResult\""));
@@ -18755,6 +18981,35 @@ mod tests {
         assert!(output
             .result_json
             .contains("\"runner\": \"native_expression_runner\""));
+        assert!(output
+            .result_json
+            .contains("\"resume_policy\": \"calculation_hash_and_result_sha256\""));
+        assert!(output.result_json.contains("\"cache_miss_count\": 2"));
+
+        let initial_cache_manifest: Value =
+            serde_json::from_str(&output.cache_manifest_json).expect("initial cache manifest");
+        let initial_case_cache = json_array_item_by_field(
+            &initial_cache_manifest,
+            "/cache_records",
+            "owner_name",
+            "case_001",
+        )
+        .expect("initial case result cache record");
+        assert_eq!(initial_case_cache["owner_kind"], "case_result");
+        assert_eq!(initial_case_cache["lookup_status"], "miss");
+        assert_eq!(initial_case_cache["status"], "miss_materialized");
+        assert_eq!(
+            initial_case_cache.get("expected_hash"),
+            initial_case_cache.get("observed_hash")
+        );
+        let case_cache_entry_path = PathBuf::from(
+            initial_case_cache
+                .get("resolved_path")
+                .and_then(Value::as_str)
+                .expect("case result cache path"),
+        );
+        assert!(case_cache_entry_path.join("result.json").is_file());
+        assert!(case_cache_entry_path.join("manifest.json").is_file());
 
         let case_result_path = build_root
             .join("result")
@@ -18825,6 +19080,18 @@ mod tests {
                     |artifact| artifact.get("overwrite_policy").and_then(Value::as_str)
                         == Some("resume")
                 )));
+        let resumed_cache_manifest: Value =
+            serde_json::from_str(&resumed.cache_manifest_json).expect("resumed cache manifest");
+        let resumed_case_cache = json_array_item_by_field(
+            &resumed_cache_manifest,
+            "/cache_records",
+            "owner_name",
+            "case_001",
+        )
+        .expect("resumed case result cache record");
+        assert_eq!(resumed_case_cache["lookup_status"], "hit");
+        assert_eq!(resumed_case_cache["status"], "hit_output_resume");
+        assert!(resumed.result_json.contains("\"cache_hit_count\": 2"));
 
         fs::write(&case_result_path, "{\"status\":\"tampered\"}\n").expect("tampered case result");
         assert!(!native_case_run_artifacts_match(
@@ -18849,8 +19116,20 @@ mod tests {
                 artifact.get("kind").and_then(Value::as_str) == Some("native_case_result")
                     && artifact.get("path").and_then(Value::as_str)
                         == Some("outputs/case_001/result.json")
-                    && artifact.get("overwrite_policy").and_then(Value::as_str) == Some("overwrite")
+                    && artifact.get("overwrite_policy").and_then(Value::as_str)
+                        == Some("cache_replay")
             })));
+        let repaired_cache_manifest: Value =
+            serde_json::from_str(&repaired.cache_manifest_json).expect("replayed cache manifest");
+        let repaired_case_cache = json_array_item_by_field(
+            &repaired_cache_manifest,
+            "/cache_records",
+            "owner_name",
+            "case_001",
+        )
+        .expect("replayed case result cache record");
+        assert_eq!(repaired_case_cache["lookup_status"], "hit");
+        assert_eq!(repaired_case_cache["status"], "hit_replayed");
         let repaired_result: Value = serde_json::from_str(
             &fs::read_to_string(&case_result_path).expect("repaired case result"),
         )
@@ -18859,6 +19138,50 @@ mod tests {
             repaired_result.get("schema").and_then(Value::as_str),
             Some("eng.case.native_result/v1")
         );
+
+        fs::write(&case_result_path, "{\"status\":\"tampered-output\"}\n")
+            .expect("tampered output before cache repair");
+        fs::write(
+            case_cache_entry_path.join("result.json"),
+            "{\"status\":\"tampered-cache\"}\n",
+        )
+        .expect("tampered case cache result");
+        let recomputed = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("invalid output and cache recompute");
+        let recomputed_manifest: Value = serde_json::from_str(&recomputed.output_manifest_json)
+            .expect("recomputed output manifest");
+        assert!(recomputed_manifest["artifacts"]
+            .as_array()
+            .is_some_and(|artifacts| artifacts.iter().any(|artifact| {
+                artifact.get("kind").and_then(Value::as_str) == Some("native_case_result")
+                    && artifact.get("path").and_then(Value::as_str)
+                        == Some("outputs/case_001/result.json")
+                    && artifact.get("overwrite_policy").and_then(Value::as_str) == Some("overwrite")
+            })));
+        let recomputed_cache_manifest: Value =
+            serde_json::from_str(&recomputed.cache_manifest_json)
+                .expect("recomputed cache manifest");
+        let recomputed_case_cache = json_array_item_by_field(
+            &recomputed_cache_manifest,
+            "/cache_records",
+            "owner_name",
+            "case_001",
+        )
+        .expect("recomputed case result cache record");
+        assert_eq!(recomputed_case_cache["lookup_status"], "miss");
+        assert_eq!(recomputed_case_cache["status"], "miss_repaired");
+        assert!(native_case_run_artifacts_match(
+            &case_cache_entry_path.join("result.json"),
+            &case_cache_entry_path.join("manifest.json"),
+            calculation_hash
+        ));
 
         let result: Value = serde_json::from_str(&output.result_json).expect("result json");
         let case_runs =
@@ -21042,6 +21365,17 @@ mod tests {
         assert!(output.result_json.contains("\"case_tables\""));
         assert!(output.result_json.contains("\"case_count\": 2"));
         assert!(output.result_json.contains("\"pending_count\": 2"));
+        assert!(output
+            .result_json
+            .contains("\"resume_policy\": \"not_configured\""));
+        assert!(output
+            .result_json
+            .contains("\"runner\": \"not_configured\""));
+        assert!(output
+            .result_json
+            .contains("\"scheduler\": \"not_configured\""));
+        assert!(output.result_json.contains("\"cache_hit_count\": 0"));
+        assert!(output.result_json.contains("\"cache_miss_count\": 0"));
         assert!(output.result_json.contains("\"case_diagnostics\""));
         assert!(output.review_json.contains("\"case_manifests\""));
         assert!(output.review_json.contains("\"case_id\": \"case_001\""));
@@ -21049,14 +21383,11 @@ mod tests {
         assert!(output.review_json.contains("\"case_tables\""));
         assert!(output
             .cache_manifest_json
+            .contains("\"cache_record_count\": 0"));
+        assert!(!output
+            .cache_manifest_json
             .contains("\"owner_kind\": \"case\""));
-        assert!(output
-            .cache_manifest_json
-            .contains("\"owner_name\": \"case_001\""));
-        assert!(output
-            .cache_manifest_json
-            .contains("\"status\": \"miss_observed\""));
-        assert!(output.run_log_json.contains("\"owner_kind\": \"case\""));
+        assert!(!output.run_log_json.contains("\"owner_kind\": \"case\""));
         assert!(!virtual_path.exists());
     }
 

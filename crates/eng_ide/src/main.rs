@@ -5663,9 +5663,9 @@ with {
                     "metric_count": 1,
                     "runner": "sequential_process_runner",
                     "scheduler": "sequential",
-                    "resume_policy": "case_cache_key",
+                    "resume_policy": "not_configured",
                     "cache_hit_count": 0,
-                    "cache_miss_count": 2,
+                    "cache_miss_count": 0,
                     "line": 14,
                     "status": "failed"
                   }

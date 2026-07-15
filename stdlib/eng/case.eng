@@ -16,7 +16,7 @@
 #   duplicate case metadata, plus result_collection_manifest.json collection
 #   status when a process declares artifact_kind = "result_collection".
 #   typed_payload.case_diagnostics[] records duplicate IDs, directory
-#   collisions, missing outputs, failed steps, and cache skips.
+#   collisions, missing outputs, and failed steps.
 #
 #   `materialize cases <table>` creates reviewable CaseTable and CaseManifest
 #   records. `apply case_input_template over cases` renders native per-case
@@ -26,9 +26,14 @@
 #   case_run_manifest.json, and records CaseRunResult rows. `collect results`
 #   accepts those rows and records the final CaseResultCollection table.
 #
-# The native expression runner supports hash- and result-SHA-verified resume,
-# explicit overwrite, and fail/continue error policy without starting an
-# external process. Result and manifest paths must be distinct per-case paths.
+# The native expression runner supports calculation-hash- and
+# result-SHA-verified resume, explicit overwrite, and fail/continue error
+# policy without starting an external process. With resume enabled, successful
+# result/manifest pairs are stored under a content-addressed local cache entry.
+# A missing or damaged output pair is replayed only when that cache entry still
+# matches the newly calculated expected result SHA; otherwise EngLang
+# recalculates the case and repairs the cache. Result and manifest paths must
+# be distinct per-case paths.
 #
 # Current CaseManifest fields:
 #   case_id
@@ -50,10 +55,14 @@
 #   sequential runner and scheduler contract
 #   cache hit/miss counts and resume policy
 #
+# Cache counters include only materialized native case-result cache entries.
+# A sample row hash or cache directory alone is not a hit, and a sample table
+# without an execution stage reports runner/scheduler/resume as not configured.
+#
 # Planned extensions:
 #   parallel scheduler implementation
 #   automatic external-adapter dispatch
-#   case-result cache policy
+#   shared or remote case-result cache adapters
 #
 # Non-goal:
 #   loops that mutate files without a case manifest should not become the

@@ -26,8 +26,9 @@ duplicate-case checks, deterministic generation settings, row-hash review
 metadata, and row-value previews, plus
 `typed_payload.case_tables[]` summaries and `typed_payload.case_manifests[]`
 case row manifests with pending/succeeded/failed/skipped status, sample row
-hashes, collection manifest counts, case cache hit/miss counts, scheduler hook
-contracts, and process-output enrichment when external processes are used. The
+hashes, collection manifest counts, verified native result-cache hit/miss
+counts, scheduler hook contracts, and process-output enrichment when external
+processes are used. The
 workflow examples now exercise native network/cache, sampling, template,
 model-prediction, sample-table standard-text export, DB-write, and generated-artifact paths with zero external
 processes in workflows 01, 02, and 03. Native network and cache records now
@@ -41,10 +42,12 @@ DB manifests, schema diagnostics, hash before/after records, and transaction
 status. Native `predict <model> using <table>` now materializes prediction
 tables and manifests. Native sequential `apply run_case over ...` evaluates
 typed result expressions per case, writes result and run-manifest artifacts,
-supports hash-based resume plus fail/continue and overwrite policies, and feeds
-`collect results`. Broader cache invalidation/reuse, parallel case scheduling,
-automatic external-adapter dispatch, broad DB support, and broader model train
-syntax remain planned or internal until concrete language/runtime/artifact slices land.
+supports calculation-hash/result-SHA output resume and content-addressed local
+cache replay/repair plus fail/continue and overwrite policies, and feeds
+`collect results`. Shared or remote case caches, cross-artifact cache
+invalidation, parallel case scheduling, automatic external-adapter dispatch,
+broad DB support, and broader model train syntax remain planned or internal
+until concrete language/runtime/artifact slices land.
 
 ## Purpose
 
@@ -83,14 +86,14 @@ below is generated from that registry and checked by `dev.bat docs-check`.
 | `eng.table` | Native workflow support | Compiler/runtime | `review.inputs`<br>`review_document.table_transforms`<br>`typed_payload.table_diagnostics`<br>`typed_payload.table_selections`<br>`typed_payload.table_transforms` | `E-TABLE-UNKNOWN-COLUMN`<br>`E-TABLE-PREDICATE-TYPE`<br>`E-TABLE-JOIN-KEY-MISMATCH`<br>`E-TABLE-SCHEMA-MISMATCH`<br>`W-TABLE-LEGACY-SELECT-FIRST-ROW` | `examples/workflows/01_weather_api_to_standard_file`<br>`examples/workflows/02_native_surrogate_case_workflow` | `cargo test -p eng_runtime table_`<br>`cargo test -p eng_compiler table_` |
 | `eng.timeseries` | Native workflow support | Compiler/runtime | `typed_payload.timeseries_coverage`<br>`typed_payload.timeseries_fill`<br>`typed_payload.timeseries_quality`<br>`typed_payload.quality_results`<br>`typed_payload.time_alignments`<br>`typed_payload.integrations`<br>`report_spec.computed_integrations`<br>`review.fallbacks` | `E-TIMESERIES-COVERAGE-GAP`<br>`W-FALLBACK-USED` | `examples/official/01_csv_plot`<br>`examples/workflows/01_weather_api_to_standard_file`<br>`examples/workflows/03_uncertain_sensor_report` | `cargo test -p eng_runtime computes_heat_rate_statistics_and_integral`<br>`cargo test -p eng_runtime run_file_records_timeseries_coverage_in_review`<br>`cargo test -p eng_runtime run_file_records_timeseries_fill_missing_in_artifacts`<br>`cargo test -p eng_runtime run_file_records_timeseries_alignment_and_resampling_hooks` |
 | `eng.sampling` | Native workflow support | Compiler/runtime | `typed_payload.sample_tables`<br>`case_manifest` | `E-SAMPLING-COUNT-INVALID`<br>`E-SAMPLING-RANGE-UNIT`<br>`E-SAMPLING-SEED-INVALID`<br>`E-SAMPLING-SEED-MISSING`<br>`E-CASE-ID-DUPLICATE` | `examples/workflows/02_native_surrogate_case_workflow` | `cargo test -p eng_compiler sample_generation`<br>`cargo test -p eng_runtime sample` |
-| `eng.case` | Native workflow support | Compiler/runtime | `typed_payload.case_tables`<br>`typed_payload.case_manifests`<br>`typed_payload.case_diagnostics`<br>`case_manifest`<br>`output_manifest` | `E-CASE-ID-DUPLICATE`<br>`E-CASE-DIR-COLLISION`<br>`E-CASE-OUTPUT-MISSING`<br>`E-CASE-STEP-FAILED`<br>`W-CASE-SKIPPED-CACHE` | `examples/workflows/02_native_surrogate_case_workflow` | `cargo test -p eng_runtime case_manifest` |
+| `eng.case` | Native workflow support | Compiler/runtime | `typed_payload.case_tables`<br>`typed_payload.case_manifests`<br>`typed_payload.case_diagnostics`<br>`object_store.CaseTable`<br>`object_store.CaseOutput`<br>`object_store.CaseRunResult`<br>`object_store.CaseResultCollection`<br>`native_case_result`<br>`native_case_run_manifest`<br>`cache_manifest`<br>`case_manifest`<br>`output_manifest` | `E-CASE-ID-DUPLICATE`<br>`E-CASE-DIR-COLLISION`<br>`E-CASE-OUTPUT-MISSING`<br>`E-CASE-STEP-FAILED` | `examples/workflows/02_native_surrogate_case_workflow` | `cargo test -p eng_compiler run_case_scheduler`<br>`cargo test -p eng_runtime run_file_executes_and_collects_native_case_results`<br>`cargo test -p eng_runtime case_manifest` |
 | `eng.artifact` | Native workflow support | Compiler/runtime | `output_manifest`<br>`review.side_effects`<br>`artifact_registry` | - | `examples/workflows/01_weather_api_to_standard_file`<br>`examples/workflows/02_native_surrogate_case_workflow` | `cargo test -p eng_runtime output_manifest`<br>`cargo test -p eng_runtime run_file_writes_standard_text_from_native_table` |
 | `eng.review` | Native workflow support | Compiler/runtime | `review` | - | `eng review examples/workflows/01_weather_api_to_standard_file/main.eng` | `cargo test -p eng_compiler review_json_exposes_normalized_review_document`<br>`cargo test -p eng_cli review_semantic_diff_compares_workflow_modules` |
 | `eng.model` | Native workflow support | Compiler/runtime | `typed_payload.model_specs`<br>`typed_payload.model_cards`<br>`typed_payload.prediction_manifests`<br>`typed_payload.model_diagnostics`<br>`model_card`<br>`model_metrics`<br>`output_manifest` | `E-MODEL-FEATURE-MISSING`<br>`E-MODEL-TARGET-MISSING`<br>`E-MODEL-CARD-MISSING`<br>`W-MODEL-EXTRAPOLATION` | `examples/workflows/02_native_surrogate_case_workflow`<br>`examples/internal/05_data_driven_modeling` | `cargo test -p eng_compiler records_data_driven_modeling_metadata`<br>`cargo test -p eng_runtime model`<br>`cargo test -p eng_runtime run_file_predicts_native_model_into_table_and_sqlite` |
 | `eng.db` | Native workflow support | Compiler/runtime | `typed_payload.db_manifests`<br>`typed_payload.structured_reads`<br>`db_write_manifest`<br>`sqlite_database`<br>`review.external_boundaries` | `E-DB-CONNECT`<br>`E-DB-SCHEMA-MISMATCH`<br>`E-DB-READ-001`<br>`E-DB-KEY-MISSING`<br>`E-DB-TRANSACTION-FAILED`<br>`E-DB-SAFE-PROFILE`<br>`W-PROFILE-REPRO-DB` | `examples/workflows/02_native_surrogate_case_workflow` | `cargo test -p eng_compiler lowers_native_db_write_records`<br>`cargo test -p eng_compiler lowers_native_db_read_binding`<br>`cargo test -p eng_runtime run_file_reads_sqlite_table_after_native_write`<br>`cargo test -p eng_runtime sqlite`<br>`cargo test -p eng_runtime run_file_safe_profile_rejects_native_db_write`<br>`cargo test -p eng_runtime run_file_repro_profile_records_native_db_write` |
 | `eng.config` | Supported narrow | Compiler/runtime | `typed_payload.config_promotions`<br>`review.config_promotions`<br>`output_manifest` | `E-CONFIG-SOURCE-001`<br>`E-CONFIG-MISSING-FIELD`<br>`E-CONFIG-UNKNOWN-FIELD`<br>`E-CONFIG-NULL-NOT-OPTIONAL`<br>`E-CONFIG-TYPE-MISMATCH` | `tests/runtime/config_optional_fields.eng` | `cargo test -p eng_compiler config_`<br>`cargo test -p eng_runtime config_` |
 | `eng.net` | Native workflow support | Compiler/runtime | `review.external_boundaries`<br>`typed_payload.network_boundaries`<br>`run_log.network_events`<br>`output_manifest` | `E-NET-INVALID-URL`<br>`E-NET-RETRY-POLICY`<br>`E-NET-TIMEOUT`<br>`E-NET-BODY-METHOD`<br>`E-NET-BODY-POLICY`<br>`E-NET-BODY-SIZE-LIMIT`<br>`E-NET-HASH-MISMATCH`<br>`E-NET-UNPINNED-REPRO`<br>`E-NET-SECRET-LIVE`<br>`W-NET-FIXTURE-ALIAS`<br>`W-NET-RESPONSE-HASH-ALIAS`<br>`W-NET-RESPONSE-STATUS-ALIAS` | `examples/workflows/01_weather_api_to_standard_file` | `cargo test -p eng_compiler net_`<br>`cargo test -p eng_runtime network`<br>`cargo test -p eng_runtime secret_arg`<br>`cargo test -p eng_runtime run_file_executes_live_http_response_body_json_source`<br>`cargo test -p eng_runtime run_file_sends_live_http_request_body` |
-| `eng.cache` | Native workflow support | Compiler/runtime | `cache_manifest`<br>`review.caches`<br>`run_log.cache_events`<br>`output_manifest` | `E-CACHE-KEY-NONDETERMINISTIC`<br>`E-CACHE-DIR`<br>`E-CACHE-TTL`<br>`E-CACHE-HASH-MISMATCH`<br>`E-CACHE-UNHASHED-REPRO`<br>`W-CACHE-STALE` | `examples/workflows/01_weather_api_to_standard_file` | `cargo test -p eng_compiler cache_`<br>`cargo test -p eng_runtime cache` |
+| `eng.cache` | Native workflow support | Compiler/runtime | `cache_manifest`<br>`review.caches`<br>`run_log.cache_events`<br>`output_manifest` | `E-CACHE-KEY-NONDETERMINISTIC`<br>`E-CACHE-DIR`<br>`E-CACHE-TTL`<br>`E-CACHE-HASH-MISMATCH`<br>`E-CACHE-UNHASHED-REPRO`<br>`W-CACHE-STALE` | `examples/workflows/01_weather_api_to_standard_file`<br>`examples/workflows/02_native_surrogate_case_workflow` | `cargo test -p eng_compiler cache_`<br>`cargo test -p eng_runtime cache`<br>`cargo test -p eng_runtime run_file_executes_and_collects_native_case_results` |
 | `eng.quality` | Native workflow support | Compiler/runtime | `typed_payload.expectation_suites`<br>`typed_payload.quality_results`<br>`typed_payload.validations`<br>`typed_payload.policy_results`<br>`review.expectation_suites`<br>`review.quality_results`<br>`review.validations`<br>`report_spec.quality_report`<br>`report_html.quality_report`<br>`ide.quality_inspector`<br>`output_manifest` | `E-TABLE-SCHEMA-MISMATCH`<br>`W-FALLBACK-USED` | `examples/diagnostics/data_quality` | `cargo test -p eng_compiler lowers_expectation_suite_records`<br>`cargo test -p eng_runtime run_file_records_common_quality_results_for_validation_and_schema_constraints` |
 | `eng.template` | Native workflow support | Compiler/runtime | `typed_payload.render_manifests`<br>`template_render_manifest`<br>`review.render_manifests`<br>`output_manifest` | `E-TEMPLATE-MISSING-VALUE` | `examples/workflows/02_native_surrogate_case_workflow` | `cargo test -p eng_compiler render_template_command_lowers_with_template_contract`<br>`cargo test -p eng_runtime template` |
 | `eng.workflow` | Native workflow support | Compiler/runtime | `run_plan`<br>`run_lock`<br>`output_manifest`<br>`run_log` | - | `examples/workflows/01_weather_api_to_standard_file`<br>`examples/workflows/02_native_surrogate_case_workflow` | `cargo test -p eng_runtime run_plan` |
@@ -176,9 +179,10 @@ files, `typed_payload.db_manifests[]` records generated and native SQLite DB
 write manifests, and current network/cache records capture pinned offline
 boundaries, live HTTP(S) response materialization, and cache hit/miss lookup
 records, including materialized/replayed pinned network response cache entries.
-Future broader cache invalidation/reuse, parallel case scheduling and automatic
-external-adapter dispatch, broad DB engines, and model modules should follow
-the same artifact pattern.
+Future process/model cache replay, cross-artifact invalidation, shared or
+remote case caches, parallel case scheduling and automatic external-adapter
+dispatch, broad DB engines, and model modules should follow the same artifact
+pattern.
 
 ## Native Artifact Evidence
 
@@ -211,6 +215,7 @@ sample table artifacts with case IDs, parameter ranges, duplicate checks, row-ha
 case manifest records for generated sample/case rows
 rendered CaseOutput rows from `apply case_input_template over cases`
 native CaseRunResult rows from sequential `apply run_case over case_inputs`, with typed output expressions and per-case result/run-manifest artifacts
+content-addressed local case-result cache records with calculation-hash/result-SHA output resume, verified replay, and invalid-entry repair
 sampled typed columns preserved through CaseTable and CaseOutput, then calculated result columns preserved through CaseRunResult and CaseResultCollection, with model training, case selection, and the
 simulation-results DB write consuming the final collection
 native case_input artifacts plus template_render_manifest records
@@ -293,8 +298,12 @@ with {
 expression engine for each source row. `result` and `manifest` must be distinct
 quoted paths containing `{case_dir}`, `{case_id}`, or `{row}`. `on_error`
 accepts `fail` or `continue`; `resume` reuses only a matching calculation hash
-whose result SHA-256 still matches the manifest. There is no case cache option
-until a real cache policy is implemented.
+whose result SHA-256 still matches the newly calculated expected result. It
+also materializes a content-addressed local result/manifest cache entry. When
+the output pair is missing or damaged, EngLang replays only a verified cache
+entry; if the cache is also invalid, it recalculates the case and repairs the
+entry. Cache manifest statuses distinguish output resume, replay,
+materialization, and repair.
 
 ## Native Surrogate Adapter Pattern
 
@@ -376,7 +385,6 @@ E-CASE-ID-DUPLICATE
 E-CASE-DIR-COLLISION
 E-CASE-OUTPUT-MISSING
 E-CASE-STEP-FAILED
-W-CASE-SKIPPED-CACHE
 E-DB-CONNECT
 E-DB-SCHEMA-MISMATCH
 E-DB-KEY-MISSING

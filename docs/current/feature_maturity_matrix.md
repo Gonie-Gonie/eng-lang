@@ -262,10 +262,11 @@ separate.
   with cache replay; native `materialize cases`, template `apply`, sequential
   `apply run_case`, and `collect results` materialize CaseTable, CaseOutput,
   CaseRunResult, and CaseResultCollection rows plus per-case result/run
-  manifests. Hash-based resume, overwrite, and fail/continue policies are
-  implemented for the native expression runner; parallel scheduling,
-  automatic external-adapter dispatch, broad DB support, and broader model
-  train syntax remain `Planned`.
+  manifests. Calculation-hash/result-SHA output resume, content-addressed local
+  cache replay/repair, overwrite, and fail/continue policies are implemented
+  for the native expression runner; shared or remote case caches, parallel
+  scheduling, automatic external-adapter dispatch, broad DB support, and
+  broader model train syntax remain `Planned`.
 - User-facing scope: generic module boundaries only. Domain-specific KMA, EPW,
   EnergyPlus, CFD, FEM, or database adapters are examples layered above the
   core, not core language identity.
@@ -302,9 +303,10 @@ separate.
   adapters, EPW writer, EnergyPlus IDF parser, broad DB engines/query
   APIs/migrations, or ML framework
   support.
-- Next cleanup action: grow `eng.cache` beyond network response
-  materialization/replay, then extend the existing native workflow artifact
-  snapshots to cover broader `eng.case` scheduling, `eng.db`
+- Next cleanup action: grow `eng.cache` beyond network and native case-result
+  materialization/replay into process/model and cross-artifact invalidation,
+  then extend the existing native workflow artifact snapshots to cover
+  broader `eng.case` scheduling, `eng.db`
   query/migration, and `eng.model` framework-adapter slices with artifacts and
   diagnostics.
 

@@ -1797,7 +1797,7 @@
                                                         "label":  "residual_scales"
                                                     },
                                                     {
-                                                        "detail":  "case resume policy",
+                                                        "detail":  "Reuse hash-verified case outputs or replay the local result cache",
                                                         "label":  "resume"
                                                     },
                                                     {

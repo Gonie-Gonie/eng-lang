@@ -16,7 +16,7 @@ The current executable workflow uses:
 ```text
 eng.sampling  deterministic LHS training-design and prediction sample tables
 eng.table     native filter and require_one transforms over completed case results
-eng.case      materialize, sequential run_case calculation, and collect stages with typed CaseRunResult rows
+eng.case      materialize, sequential run_case calculation, verified local cache replay, and collect stages with typed CaseRunResult rows
 eng.template  native `apply ... over cases` template rendering for per-case input files
 eng.model     train regression ... with { ... } and predict model using samples
 eng.db        native SQLite writes plus typed readback for persisted predictions
@@ -35,6 +35,7 @@ all four case-stage tables preserve sampled numeric columns; CaseRunResult and c
 the regression model, case_001 selection, and simulation_results SQLite write consume case_result_collection rather than bypassing the case pipeline
 report entries separate initial CaseTable state, rendered CaseOutput state, succeeded CaseRunResult state, and final CaseResultCollection state
 each training case has a native `result.json` and `case_run_manifest.json` with calculation hash, output fields, runner, scheduler, and success status
+cache_manifest.json records per-case result misses, verified hits, replays, and repairs using calculation hashes and expected result SHA-256 values
 typed_payload.model_cards/model_specs/prediction_manifests are native records
 typed_payload.db_manifests records committed writes to simulation_results and predictions
 db.summary exposes the actual SQLite write summary, while db.tables_written, db.table_count, db.row_count, and db.status keep the details available as EngLang bindings
@@ -62,6 +63,12 @@ artifacts. Future domain adapters can replace the native result expressions,
 but they should still enter EngLang through typed case results, model cards,
 prediction manifests, typed DB readback, DB connection summary bindings such as `db.summary`, and
 explicit side-effect records.
+
+With `resume = true`, each successful native result/manifest pair is also
+stored in a content-addressed local case-result cache. A later run reuses a
+current output only after calculation-hash and result-SHA verification; if the
+output is missing or damaged, EngLang replays a verified cache entry, and if
+both copies are invalid it recalculates the case and repairs the cache.
 
 Run:
 

@@ -32,7 +32,7 @@ is still future work.
 | `eng.artifact` | Generated artifact kinds, `write standard_text` table artifacts, hashes, manifests, and validation records. |
 | `eng.table` | Promoted table diagnostics and schema-aware filter/select/derive/sort/require_one/join transform records with row-level diagnostics. |
 | `eng.sampling` | Deterministic grid/random/LHS sample generation, promoted sample-table metadata, parameter ranges, duplicate case IDs, seeds, row hashes, and row-value previews. |
-| `eng.case` | CaseTable summaries, per-case manifests, collection status, scheduler hooks, cache hit/miss metadata, diagnostics, and process-output enrichment. |
+| `eng.case` | Native CaseTable/CaseOutput/CaseRunResult/CaseResultCollection stages, template and sequential calculation execution, verified local result-cache replay, manifests, diagnostics, and process-adapter enrichment. |
 | `eng.timeseries` | Axis, coverage, fill, quality, alignment/resampling, and integration metadata above core TimeSeries semantics. |
 | `eng.stats` | Compiler-checked TimeSeries summaries with native runtime values and report/review artifacts. |
 | `eng.review` | Review IR, risk/fallback, and semantic diff vocabulary. |
@@ -49,13 +49,13 @@ APIs unless a status document says so.
 | `eng.report` | Native workflow support | Report block projection to report, review, and output artifacts; broader helper vocabulary remains planned. |
 | `eng.config` | Supported narrow scope | Typed JSON/TOML file promotion with schema validation, optional field policy, source hashes, and config summaries. |
 | `eng.net` | Supported narrow scope | Live HTTP(S) GET/download execution plus POST/PUT/PATCH string request bodies and pinned offline/cache HTTP(S) boundary records with redacted secret query/header values, SHA-256 checks, body hashes, and artifact summaries. |
-| `eng.cache` | Supported narrow scope | Explicit cache keys, pinned network response cache materialization/replay, cache records, hit/miss lookup artifacts, stale diagnostics, and manifest-path cache invalidation; broader process/model replay policy remains planned. |
+| `eng.cache` | Supported narrow scope | Explicit cache keys, pinned network response replay, calculation-hash/result-SHA verified native case-result cache replay/repair, cache records, stale diagnostics, and manifest-path invalidation; process/model replay remains planned. |
 | `eng.quality` | Supported narrow scope | Common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection. |
 | `eng.template` | Supported narrow scope | Native text template rendering for generated inputs and adapter boundaries. |
 | `eng.db` | Supported SQLite write scope | Native SQLite append/upsert/replace writes for typed tables with schema metadata, DB manifests, hash before/after records, transaction status, and safe-profile rejection. |
 | `eng.table` | Planned broader APIs | Derived-value execution, fill operations, and richer schema-aware transforms. |
 | `eng.sampling` | Planned broader APIs | Additional design-of-experiments strategies and richer sample manifests. |
-| `eng.case` | Supported sequential native scope | CaseTable/CaseOutput/CaseRunResult/CaseResultCollection records, native template rendering, typed per-case result expressions, result/run manifests, hash-based resume, and fail/continue policy; parallel and automatic external-adapter dispatch remain planned. |
+| `eng.case` | Supported sequential native scope | Native template rendering and typed per-case calculations, result/run manifests, calculation-hash/result-SHA resume, content-addressed local cache replay and repair, and fail/continue policy; parallel scheduling and automatic external-adapter dispatch remain planned. |
 | `eng.model` | Supported model-spec and predict-table scope | ModelSpec, FeatureSpec, TargetSpec, model-card, native prediction table, prediction-manifest, confidence, metric, residual, and hash review vocabulary. |
 | `eng.uncertainty` | Native workflow support | Narrow uncertainty constructors, linear propagation metadata, sensor_std TimeSeries review metadata, probability/statistic validation, and report confidence-band artifacts; broad probabilistic propagation remains planned. |
 | `eng.building` | Planned | Building/Zone/Construction object vocabulary before simulation adapters. |
