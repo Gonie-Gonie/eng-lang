@@ -1,3 +1,4 @@
+- Batch 957: Extended standard Find All References from the current buffer to bounded workspace search for importable symbols, resolving each candidate's static import chain to the same declaration file, preferring open unsaved documents, excluding unrelated same-name symbols and generated directories, and passing the workspace root through the VS Code CLI client.
 - Batch 956: Bumped static run plans to `eng-static-run-plan-v2` and separated execution-state wording from module maturity: the pre-execution document is `ready`, nodes are `loaded`/`declared`/`resolved`, and pending reruns are `scheduled` instead of misleading `planned`/`executed` values; tightened schema and runtime evidence accordingly.
 - Batch 955: Added standard current-file Find All References across persistent LSP and VS Code, reusing compiler semantic occurrence scopes, honoring declaration inclusion, reading the unsaved buffer, rejecting stale responses, preserving UTF-16 ranges, and documenting the explicit no-cross-file-index limit.
 - Batch 954: Replaced seed-only case cache hit metadata with content-addressed native CaseRunResult caching, calculation-hash and expected-result-SHA validation, output resume, cache replay, invalid-entry repair, truthful per-table hit/miss counts, `not_configured` runner/scheduler state for non-executed sample tables, and editor/module wording for the verified behavior.
@@ -127,7 +128,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
   adapters remain open.
 - DB query support: typed SQLite table readback is implemented; arbitrary query APIs, parameter binding, and query transaction policy remain open.
 - Native IDE usability: keep improving token insight, source-range actions, and inspector flows for repeated debugging tasks.
-- VS Code navigation: current-file definition, highlights, references, and safe rename plus workspace symbol search are implemented; cross-file reference indexing and safe cross-file rename remain open.
+- VS Code navigation: current-file definition/highlights/safe rename, static-import-aware workspace references, and workspace symbol search are implemented; safe cross-file rename and broader package/index identities remain open.
 - VS Code linter/highlighting: continue expanding checked-code role-aware color coverage as more source spans become first-class metadata.
 
 ## Documentation Policy

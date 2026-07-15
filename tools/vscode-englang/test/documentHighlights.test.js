@@ -207,7 +207,8 @@ async function referenceRequestUsesUnsavedBufferAndDeclarationFlag() {
       "C:/workspace/main.eng",
       "1",
       "4",
-      "false"
+      "false",
+      "C:/workspace"
     ]);
     assert.strictEqual(stdinText, document.getText());
   } finally {

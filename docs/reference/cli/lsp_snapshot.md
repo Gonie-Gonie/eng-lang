@@ -297,11 +297,22 @@ Use the stdio LSP server for:
 - unsaved-buffer diagnostics, hover, completion, quick fixes, and formatting
 - go-to-definition for current-file, static-import, and bundled stdlib symbols
 - document symbols, workspace symbols, folding ranges, and semantic tokens
-- same-symbol document highlights and current-file Find All References results
+- same-symbol document highlights and static-import-aware Find All References
 - safe current-file rename for compiler-resolved declarations
 
-`textDocument/references` returns semantic occurrences from the current unsaved
-document and honors `context.includeDeclaration`. It does not provide a
-cross-file reference index yet.
+`textDocument/references` always analyzes the current unsaved document and
+honors `context.includeDeclaration`. For an importable `const`, function,
+schema, class, system, domain, or component, it also searches open documents and
+saved `.eng` files under the initialized workspace roots. A candidate file is
+included only when its static file-import chain resolves the name to the same
+declaration file; unrelated same-name symbols are excluded. Open document text
+takes precedence over its saved file. The scan is bounded to 500 files and
+1,000 locations. Local variables, parameters, and members remain document
+scoped.
+
+The on-demand CLI form is
+`--references-stdin <file.eng> <line> <character> [true|false] [workspace-root]`.
+Without `workspace-root`, it returns current-buffer occurrences plus occurrences
+in the resolved declaration file; the wider saved-file scan is disabled.
 
 This JSON contract is not a replacement for full LSP editor validation.

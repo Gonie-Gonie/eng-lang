@@ -258,14 +258,19 @@ function createLspRequests(options = {}) {
     context,
     cancellationToken
   ) {
+    const root = workspaceRoot(document);
+    const args = [
+      "--references-stdin",
+      document.uri.fsPath,
+      String(position.line),
+      String(position.character),
+      includeDeclaration ? "true" : "false"
+    ];
+    if (root) {
+      args.push(root);
+    }
     return stdinJsonRequest(document, context, cancellationToken, {
-      args: [
-        "--references-stdin",
-        document.uri.fsPath,
-        String(position.line),
-        String(position.character),
-        includeDeclaration ? "true" : "false"
-      ],
+      args,
       errorMessage: "Reference lookup failed",
       parseMessage: "Unable to parse EngLang reference data",
       normalize: (payload) => Array.isArray(payload) ? payload : []

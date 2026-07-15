@@ -6430,6 +6430,20 @@ function Assert-VscodeExtensionContract {
             throw "eng-lsp CLI missing semantic document highlight token $RequiredLspDocumentHighlightToken"
         }
     }
+    foreach ($RequiredLspReferenceToken in @(
+        '"referencesProvider": true',
+        "textDocument/references",
+        "--references-stdin",
+        "command_references_stdin",
+        "references_for_request",
+        "workspace_reference_identity",
+        "imported_definition_target_for_family",
+        "MAX_WORKSPACE_REFERENCE_RESULTS"
+    )) {
+        if (-not $LspCliSource.Contains($RequiredLspReferenceToken)) {
+            throw "eng-lsp CLI missing workspace reference token $RequiredLspReferenceToken"
+        }
+    }
     foreach ($RequiredLspRenameToken in @(
         '"renameProvider": { "prepareProvider": true }',
         "textDocument/prepareRename",
@@ -6461,7 +6475,7 @@ function Assert-VscodeExtensionContract {
         "--workspace-symbols",
         "command_workspace_symbols",
         "workspace_symbols_for_request",
-        "MAX_WORKSPACE_SYMBOL_FILES",
+        "MAX_WORKSPACE_INDEX_FILES",
         "MAX_WORKSPACE_SYMBOL_RESULTS"
     )) {
         if (-not $LspCliSource.Contains($RequiredLspWorkspaceSymbolToken)) {

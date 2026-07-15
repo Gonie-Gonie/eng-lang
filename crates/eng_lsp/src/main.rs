@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
-use eng_compiler::{bundled_module_registry, format_source, parse_source, AstItem};
+use eng_compiler::{bundled_module_registry, format_source, parse_source, AstItem, ParseContext};
 use eng_lsp::{
     completion_items_for_path_position, completion_items_for_source_position, completion_json,
     diagnostic_json, document_symbols_lsp_json, editor_metadata_json, editor_syntax_catalog_json,
@@ -47,7 +47,13 @@ fn main() -> std::process::ExitCode {
         return command_document_highlights_stdin(args.get(1), args.get(2), args.get(3));
     }
     if args.first().map(String::as_str) == Some("--references-stdin") {
-        return command_references_stdin(args.get(1), args.get(2), args.get(3), args.get(4));
+        return command_references_stdin(
+            args.get(1),
+            args.get(2),
+            args.get(3),
+            args.get(4),
+            args.get(5),
+        );
     }
     if args.first().map(String::as_str) == Some("--prepare-rename-stdin") {
         return command_prepare_rename_stdin(args.get(1), args.get(2), args.get(3));
@@ -380,13 +386,14 @@ fn command_references_stdin(
     line: Option<&String>,
     character: Option<&String>,
     include_declaration: Option<&String>,
+    workspace_root: Option<&String>,
 ) -> std::process::ExitCode {
     let Some(path) = path else {
-        eprintln!("usage: eng-lsp --references-stdin <file.eng> <line> <character> [true|false]");
+        eprintln!("usage: eng-lsp --references-stdin <file.eng> <line> <character> [true|false] [workspace-root]");
         return std::process::ExitCode::from(2);
     };
     let Some((line, character)) = parse_position(line, character) else {
-        eprintln!("usage: eng-lsp --references-stdin <file.eng> <line> <character> [true|false]");
+        eprintln!("usage: eng-lsp --references-stdin <file.eng> <line> <character> [true|false] [workspace-root]");
         return std::process::ExitCode::from(2);
     };
     let include_declaration = match include_declaration.map(String::as_str) {
@@ -394,7 +401,7 @@ fn command_references_stdin(
         Some("false") => false,
         Some(_) => {
             eprintln!(
-                "usage: eng-lsp --references-stdin <file.eng> <line> <character> [true|false]"
+                "usage: eng-lsp --references-stdin <file.eng> <line> <character> [true|false] [workspace-root]"
             );
             return std::process::ExitCode::from(2);
         }
@@ -414,7 +421,14 @@ fn command_references_stdin(
     });
     let mut documents = Documents::new();
     documents.insert(uri, DocumentState::new(source, None));
-    println!("{}", references_for_request(&request, &documents));
+    let workspace_roots = workspace_root
+        .map(PathBuf::from)
+        .into_iter()
+        .collect::<Vec<_>>();
+    println!(
+        "{}",
+        references_for_request(&request, &documents, &workspace_roots)
+    );
     std::process::ExitCode::SUCCESS
 }
 
@@ -669,7 +683,7 @@ fn run_lsp() -> io::Result<()> {
                 )?;
             }
             "textDocument/references" => {
-                let references = references_for_request(&request, &documents);
+                let references = references_for_request(&request, &documents, &workspace_roots);
                 write_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": references }),
@@ -5227,8 +5241,9 @@ fn snapshot_for_request(request: &Value, documents: &Documents) -> Option<eng_ls
     Some(snapshot_for_source(&path, &text))
 }
 
-const MAX_WORKSPACE_SYMBOL_FILES: usize = 500;
+const MAX_WORKSPACE_INDEX_FILES: usize = 500;
 const MAX_WORKSPACE_SYMBOL_RESULTS: usize = 200;
+const MAX_WORKSPACE_REFERENCE_RESULTS: usize = 1_000;
 
 fn workspace_roots_from_initialize(request: &Value) -> Vec<PathBuf> {
     let mut roots = Vec::new();
@@ -5286,8 +5301,8 @@ fn workspace_symbols_for_request(
 
     let mut files = Vec::new();
     for root in workspace_roots {
-        collect_workspace_eng_files(root, &mut files, MAX_WORKSPACE_SYMBOL_FILES);
-        if files.len() >= MAX_WORKSPACE_SYMBOL_FILES {
+        collect_workspace_eng_files(root, &mut files, MAX_WORKSPACE_INDEX_FILES);
+        if files.len() >= MAX_WORKSPACE_INDEX_FILES {
             break;
         }
     }
@@ -5388,7 +5403,7 @@ fn collect_workspace_eng_files(root: &Path, files: &mut Vec<PathBuf>, limit: usi
         }
         return;
     }
-    if !metadata.is_dir() || skip_workspace_symbol_dir(root) {
+    if !metadata.is_dir() || skip_workspace_index_dir(root) {
         return;
     }
     let Ok(entries) = std::fs::read_dir(root) else {
@@ -5402,13 +5417,13 @@ fn collect_workspace_eng_files(root: &Path, files: &mut Vec<PathBuf>, limit: usi
     }
 }
 
-fn skip_workspace_symbol_dir(path: &Path) -> bool {
+fn skip_workspace_index_dir(path: &Path) -> bool {
     let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
         return false;
     };
     matches!(
         name,
-        ".git" | ".vscode" | "target" | "dist" | "node_modules" | "__pycache__"
+        ".dev" | ".git" | ".vscode" | "build" | "target" | "dist" | "node_modules" | "__pycache__"
     )
 }
 
@@ -5548,7 +5563,35 @@ fn document_highlights_for_request(request: &Value, documents: &Documents) -> Va
         .collect::<Vec<_>>())
 }
 
-fn references_for_request(request: &Value, documents: &Documents) -> Value {
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct WorkspaceReferenceIdentity {
+    definition_path: PathBuf,
+    definition_line: usize,
+    label: String,
+    family: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct SemanticReferenceLocation {
+    uri: String,
+    line: usize,
+    start: usize,
+    length: usize,
+    declaration: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct WorkspaceSource {
+    uri: String,
+    path: PathBuf,
+    text: String,
+}
+
+fn references_for_request(
+    request: &Value,
+    documents: &Documents,
+    workspace_roots: &[PathBuf],
+) -> Value {
     let Some(uri) = request_uri(request) else {
         return json!([]);
     };
@@ -5573,15 +5616,277 @@ fn references_for_request(request: &Value, documents: &Documents) -> Value {
     ) else {
         return json!([]);
     };
-    json!(symbol
+    let mut locations = symbol
         .occurrences
         .iter()
-        .filter(|token| include_declaration || !semantic_token_is_declaration(token))
-        .map(|token| json!({
-            "uri": uri,
-            "range": semantic_token_range_json(token)
-        }))
+        .map(|token| semantic_reference_location(uri, token))
+        .collect::<Vec<_>>();
+
+    if let Some(identity) =
+        workspace_reference_identity(uri, &path, &text, &snapshot.hovers, &symbol)
+    {
+        let mut workspace_locations =
+            workspace_reference_locations(uri, &path, documents, workspace_roots, &identity);
+        workspace_locations
+            .truncate(MAX_WORKSPACE_REFERENCE_RESULTS.saturating_sub(locations.len()));
+        locations.extend(workspace_locations);
+    }
+
+    locations.retain(|location| include_declaration || !location.declaration);
+    locations.sort_by(|left, right| {
+        (&left.uri, left.line, left.start, left.length).cmp(&(
+            &right.uri,
+            right.line,
+            right.start,
+            right.length,
+        ))
+    });
+    locations.dedup_by(|left, right| {
+        left.uri == right.uri
+            && left.line == right.line
+            && left.start == right.start
+            && left.length == right.length
+    });
+    locations.truncate(MAX_WORKSPACE_REFERENCE_RESULTS);
+    json!(locations
+        .iter()
+        .map(semantic_reference_location_json)
         .collect::<Vec<_>>())
+}
+
+fn semantic_reference_location(
+    uri: &str,
+    token: &eng_lsp::LspSemanticToken,
+) -> SemanticReferenceLocation {
+    SemanticReferenceLocation {
+        uri: uri.to_owned(),
+        line: token.line,
+        start: token.start,
+        length: token.length,
+        declaration: semantic_token_is_declaration(token),
+    }
+}
+
+fn semantic_reference_location_json(location: &SemanticReferenceLocation) -> Value {
+    json!({
+        "uri": location.uri,
+        "range": {
+            "start": { "line": location.line, "character": location.start },
+            "end": {
+                "line": location.line,
+                "character": location.start + location.length
+            }
+        }
+    })
+}
+
+fn workspace_reference_identity(
+    uri: &str,
+    source_path: &Path,
+    source: &str,
+    hovers: &[eng_lsp::LspHover],
+    symbol: &SemanticSymbolOccurrences,
+) -> Option<WorkspaceReferenceIdentity> {
+    if symbol.scope.is_some()
+        || has_semantic_modifier(&symbol.selected, "local")
+        || has_semantic_modifier(&symbol.selected, "defaultLibrary")
+        || !matches!(symbol.family.as_str(), "type" | "variable" | "function")
+    {
+        return None;
+    }
+
+    let preferred_line = hover_for_symbol(hovers, &symbol.label)
+        .map(|hover| hover.line)
+        .unwrap_or(symbol.selected.line + 1);
+    let local_target = definition_target_for_family_in_source(
+        uri,
+        source,
+        &symbol.label,
+        &symbol.family,
+        preferred_line,
+    );
+    let target = if let Some(local_target) = local_target {
+        let importable_target = importable_definition_target_in_source(
+            uri,
+            source,
+            &symbol.label,
+            &symbol.family,
+            preferred_line,
+        )?;
+        (local_target.line == importable_target.line).then_some(importable_target)?
+    } else {
+        imported_definition_target_for_family(
+            source_path,
+            source,
+            &symbol.label,
+            &symbol.family,
+            preferred_line,
+        )?
+    };
+    let definition_path = path_from_uri(&target.uri)?;
+    let definition_path = definition_path.canonicalize().unwrap_or(definition_path);
+    Some(WorkspaceReferenceIdentity {
+        definition_path,
+        definition_line: target.line,
+        label: symbol.label.clone(),
+        family: symbol.family.clone(),
+    })
+}
+
+fn workspace_reference_locations(
+    selected_uri: &str,
+    selected_path: &Path,
+    documents: &Documents,
+    workspace_roots: &[PathBuf],
+    identity: &WorkspaceReferenceIdentity,
+) -> Vec<SemanticReferenceLocation> {
+    let selected_path = selected_path
+        .canonicalize()
+        .unwrap_or_else(|_| selected_path.to_path_buf());
+    let mut seen_paths = HashSet::from([selected_path]);
+    let mut sources = Vec::<WorkspaceSource>::new();
+
+    push_workspace_source_for_path(
+        &identity.definition_path,
+        documents,
+        &mut seen_paths,
+        &mut sources,
+    );
+    for (uri, state) in documents {
+        if sources.len() >= MAX_WORKSPACE_INDEX_FILES {
+            break;
+        }
+        let Some(path) = path_from_uri(uri) else {
+            continue;
+        };
+        let path = path.canonicalize().unwrap_or(path);
+        if !seen_paths.insert(path.clone()) {
+            continue;
+        }
+        sources.push(WorkspaceSource {
+            uri: uri.clone(),
+            path,
+            text: state.text.clone(),
+        });
+    }
+
+    let mut files = Vec::new();
+    for root in workspace_roots {
+        collect_workspace_eng_files(root, &mut files, MAX_WORKSPACE_INDEX_FILES);
+        if files.len() >= MAX_WORKSPACE_INDEX_FILES {
+            break;
+        }
+    }
+    for path in files {
+        if sources.len() >= MAX_WORKSPACE_INDEX_FILES {
+            break;
+        }
+        let path = path.canonicalize().unwrap_or(path);
+        if !seen_paths.insert(path.clone()) {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        sources.push(WorkspaceSource {
+            uri: file_uri_from_path(&path),
+            path,
+            text,
+        });
+    }
+
+    let mut locations = Vec::new();
+    for source in sources {
+        if locations.len() >= MAX_WORKSPACE_REFERENCE_RESULTS {
+            break;
+        }
+        if source.uri == selected_uri
+            || !source.text.contains(&identity.label)
+            || !source_resolves_workspace_reference(&source, identity)
+        {
+            continue;
+        }
+        let snapshot = snapshot_for_source(&source.path, &source.text);
+        locations.extend(
+            snapshot
+                .semantic_tokens
+                .tokens
+                .iter()
+                .filter(|token| {
+                    !has_semantic_modifier(token, "local")
+                        && semantic_symbol_family(&token.token_type, &token.modifiers)
+                            == Some(identity.family.as_str())
+                        && semantic_token_text(&source.text, token).as_deref()
+                            == Some(identity.label.as_str())
+                })
+                .map(|token| semantic_reference_location(&source.uri, token)),
+        );
+    }
+    locations
+}
+
+fn push_workspace_source_for_path(
+    path: &Path,
+    documents: &Documents,
+    seen_paths: &mut HashSet<PathBuf>,
+    sources: &mut Vec<WorkspaceSource>,
+) {
+    let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    if !seen_paths.insert(path.clone()) || sources.len() >= MAX_WORKSPACE_INDEX_FILES {
+        return;
+    }
+    if let Some((uri, state)) = documents.iter().find(|(uri, _)| {
+        path_from_uri(uri)
+            .map(|candidate| candidate.canonicalize().unwrap_or(candidate) == path)
+            .unwrap_or(false)
+    }) {
+        sources.push(WorkspaceSource {
+            uri: uri.clone(),
+            path,
+            text: state.text.clone(),
+        });
+        return;
+    }
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return;
+    };
+    sources.push(WorkspaceSource {
+        uri: file_uri_from_path(&path),
+        path,
+        text,
+    });
+}
+
+fn source_resolves_workspace_reference(
+    source: &WorkspaceSource,
+    identity: &WorkspaceReferenceIdentity,
+) -> bool {
+    if source.path == identity.definition_path {
+        return true;
+    }
+    if definition_target_for_family_in_source(
+        &source.uri,
+        &source.text,
+        &identity.label,
+        &identity.family,
+        identity.definition_line + 1,
+    )
+    .is_some()
+    {
+        return false;
+    }
+    let Some(target) = imported_definition_target_for_family(
+        &source.path,
+        &source.text,
+        &identity.label,
+        &identity.family,
+        identity.definition_line + 1,
+    ) else {
+        return false;
+    };
+    path_from_uri(&target.uri)
+        .map(|path| path.canonicalize().unwrap_or(path) == identity.definition_path)
+        .unwrap_or(false)
 }
 
 fn semantic_token_is_declaration(token: &eng_lsp::LspSemanticToken) -> bool {
@@ -6190,6 +6495,177 @@ fn definition_target_in_source(
     first_line.and_then(|line| definition_target_on_line(uri, source, line, label))
 }
 
+fn definition_target_for_family_in_source(
+    uri: &str,
+    source: &str,
+    label: &str,
+    family: &str,
+    preferred_line: usize,
+) -> Option<DefinitionTarget> {
+    let parsed = parse_source(source);
+    let mut first_line = None;
+    for item in &parsed.items {
+        let Some(line) = ast_definition_line_for_family(item, label, family) else {
+            continue;
+        };
+        first_line.get_or_insert(line);
+        if line == preferred_line {
+            return definition_target_on_line(uri, source, line, label);
+        }
+    }
+    first_line.and_then(|line| definition_target_on_line(uri, source, line, label))
+}
+
+fn importable_definition_target_in_source(
+    uri: &str,
+    source: &str,
+    label: &str,
+    family: &str,
+    preferred_line: usize,
+) -> Option<DefinitionTarget> {
+    let parsed = parse_source(source);
+    let mut first_line = None;
+    for item in &parsed.items {
+        let Some(line) = ast_importable_definition_line_for_family(item, label, family) else {
+            continue;
+        };
+        first_line.get_or_insert(line);
+        if line == preferred_line {
+            return definition_target_on_line(uri, source, line, label);
+        }
+    }
+    first_line.and_then(|line| definition_target_on_line(uri, source, line, label))
+}
+
+fn ast_definition_line_for_family(item: &AstItem, label: &str, family: &str) -> Option<usize> {
+    let line = ast_definition_line_for_label(item, label)?;
+    let matches_family = match family {
+        "function" => matches!(item, AstItem::Function(_)),
+        "type" => matches!(
+            item,
+            AstItem::Schema(_)
+                | AstItem::Struct(_)
+                | AstItem::Class(_)
+                | AstItem::System(_)
+                | AstItem::StateSpaceTypeBlock(_)
+                | AstItem::Domain(_)
+                | AstItem::Component(_)
+        ),
+        "variable" => matches!(
+            item,
+            AstItem::Const(_)
+                | AstItem::FastBinding(_)
+                | AstItem::ExplicitDecl(_)
+                | AstItem::ClassObject(_)
+                | AstItem::ClassObjectCopy(_)
+                | AstItem::StateSpaceVector(_)
+                | AstItem::Test(_)
+        ),
+        _ => false,
+    };
+    matches_family.then_some(line)
+}
+
+fn ast_importable_definition_line_for_family(
+    item: &AstItem,
+    label: &str,
+    family: &str,
+) -> Option<usize> {
+    match (family, item) {
+        ("function", AstItem::Function(function)) if function.name == label => {
+            Some(function.span.line)
+        }
+        ("variable", AstItem::Const(declaration))
+            if declaration.name == label && declaration.context == ParseContext::TopLevel =>
+        {
+            Some(declaration.line)
+        }
+        ("type", AstItem::Schema(schema)) if schema.name == label => Some(schema.span.line),
+        ("type", AstItem::Class(class_info)) if class_info.name == label => {
+            Some(class_info.span.line)
+        }
+        ("type", AstItem::System(system)) if system.name == label => Some(system.span.line),
+        ("type", AstItem::Domain(domain)) if domain.name == label => Some(domain.span.line),
+        ("type", AstItem::Component(component)) if component.name == label => {
+            Some(component.span.line)
+        }
+        _ => None,
+    }
+}
+
+fn imported_definition_target_for_family(
+    source_path: &Path,
+    source: &str,
+    label: &str,
+    family: &str,
+    preferred_line: usize,
+) -> Option<DefinitionTarget> {
+    let base_dir = source_path.parent()?;
+    let parsed = parse_source(source);
+    let mut visited = HashSet::new();
+    imported_definition_target_for_family_from_program(
+        &parsed,
+        base_dir,
+        label,
+        family,
+        preferred_line,
+        &mut visited,
+    )
+}
+
+fn imported_definition_target_for_family_from_program(
+    parsed: &eng_compiler::ParsedProgram,
+    base_dir: &Path,
+    label: &str,
+    family: &str,
+    preferred_line: usize,
+    visited: &mut HashSet<PathBuf>,
+) -> Option<DefinitionTarget> {
+    for item in &parsed.items {
+        let AstItem::Import(import) = item else {
+            continue;
+        };
+        if import.kind != "file" {
+            continue;
+        }
+        let Some(import_path) = resolve_static_import_path(base_dir, &import.target) else {
+            continue;
+        };
+        if !visited.insert(import_path.clone()) {
+            continue;
+        }
+        let Ok(imported_source) = std::fs::read_to_string(&import_path) else {
+            visited.remove(&import_path);
+            continue;
+        };
+        let imported_uri = file_uri_from_path(&import_path);
+        if let Some(target) = importable_definition_target_in_source(
+            &imported_uri,
+            &imported_source,
+            label,
+            family,
+            preferred_line,
+        ) {
+            return Some(target);
+        }
+        let imported = parse_source(&imported_source);
+        if let Some(import_base_dir) = import_path.parent() {
+            if let Some(target) = imported_definition_target_for_family_from_program(
+                &imported,
+                import_base_dir,
+                label,
+                family,
+                preferred_line,
+                visited,
+            ) {
+                return Some(target);
+            }
+        }
+        visited.remove(&import_path);
+    }
+    None
+}
+
 fn imported_definition_target(
     source_path: &Path,
     source: &str,
@@ -6586,7 +7062,7 @@ mod tests {
         });
         let mut documents = Documents::new();
         documents.insert(uri, DocumentState::new(source.to_owned(), Some(1)));
-        references_for_request(&request, &documents)
+        references_for_request(&request, &documents, &[])
     }
 
     fn prepare_rename_request(source: &str, line: usize, character: usize) -> Option<Value> {

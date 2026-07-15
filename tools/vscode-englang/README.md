@@ -38,7 +38,8 @@ embedding compiler logic in JavaScript.
 - compiler-backed same-symbol read/write highlighting in the current file, excluding
   strings, comments, literals, units, and same-named locals in other function scopes
 - standard Find All References results for compiler-resolved occurrences in the
-  current unsaved file, with declaration inclusion controlled by VS Code
+  current unsaved file and workspace files that resolve the same static-import
+  declaration, with declaration inclusion controlled by VS Code
 - workspace symbol search across `.eng` files in the open workspace
 - compiler-owned snippets from generated editor metadata, plus non-overlapping static snippets from `snippets/eng.json`
 - quick fixes for `:=`, boolean `==`, stale `struct Args`, removable `script` wrapper
@@ -166,11 +167,13 @@ englang.lspPath = C:\path\to\eng-lsp.exe
 The extension is a local editor client for the bundled EngLang tooling. It uses
 on-demand live editor checks for live Problems, hover, completion, document
 symbols, workspace symbols, folding, role-aware color data, same-symbol highlights, definition, formatting,
-current-file references, semantic rename, and quick fixes. References return
-semantic occurrences from the current file. Rename is intentionally limited to
-symbols declared in that file; built-ins, imports, member fields, conflicts,
-and any symbol with incomplete semantic occurrence coverage are rejected. This
-keeps VS Code behavior aligned with the compiler while
+static-import-aware references, semantic rename, and quick fixes. References
+use the current unsaved buffer and include other open or saved workspace files
+only when their static import chain resolves to the same declaration; unrelated
+same-name symbols are excluded. Local variables, parameters, and members remain
+current-file results. Rename is intentionally limited to symbols declared in
+the current file; built-ins, imports, member fields, conflicts, and any symbol
+with incomplete semantic occurrence coverage are rejected. This keeps VS Code behavior aligned with the compiler while
 the long-running editor protocol continues to evolve. The default diagnostics
 mode runs stable file checks on open/save and manual check. Set
 `englang.diagnosticsMode` to `live` to update Problems from the current unsaved
