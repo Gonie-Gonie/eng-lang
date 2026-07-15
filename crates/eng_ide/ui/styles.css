@@ -71,8 +71,76 @@ button.primary {
   font-weight: 600;
 }
 
+button.danger {
+  border-color: #d9a3a3;
+  color: var(--error);
+  background: #fff7f7;
+}
+
 button:hover {
   border-color: var(--accent);
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(31, 41, 55, 0.34);
+}
+
+.unsaved-dialog {
+  width: min(440px, calc(100vw - 40px));
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  box-shadow: 0 18px 50px rgba(31, 41, 55, 0.24);
+}
+
+.unsaved-dialog h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+.unsaved-dialog p {
+  margin: 0 0 8px;
+  line-height: 1.45;
+}
+
+.unsaved-dialog-path {
+  overflow: hidden;
+  margin-bottom: 18px;
+  color: var(--muted);
+  font: 12px/1.45 Consolas, "Cascadia Mono", monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unsaved-file-list {
+  max-height: 180px;
+  overflow: auto;
+  margin: 4px 0 18px;
+  padding: 8px 8px 8px 28px;
+  border: 1px solid var(--border);
+  background: var(--panel-alt);
+  color: var(--muted);
+  font: 12px/1.5 Consolas, "Cascadia Mono", monospace;
+}
+
+.unsaved-file-list li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.unsaved-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .shell {

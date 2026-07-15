@@ -84,14 +84,17 @@ Editor
   precise colors and Problems diagnostics from the unsaved buffer after a
   short typing pause. Check and Run still force an immediate refresh.
   Tab and Shift+Tab indent or outdent the current line or selected block,
-  Ctrl+/ toggles `#` line comments, Enter preserves block indentation, and
+  Ctrl+S saves the active buffer, Ctrl+/ toggles `#` line comments, Enter
+  preserves block indentation, and
   `{}`, `[]`, `()`, and `"` auto-close or wrap selections. Typing `}` on an
   indented blank line aligns the brace with its block, and Backspace removes an
   empty pair. Format applies the same compiler-owned formatter used by VS Code
   and keeps the buffer dirty until you save or run. The editor meta bar shows
   the current caret line, column, bracket match location, highlight category,
-  and quantity/unit detail when the caret is on a checked token; when the caret
-  is between checked tokens, it names the nearest highlight on the same line.
+  and quantity/unit detail when the caret is on a checked token. Closing a
+  dirty tab offers Save, Discard, and Cancel. Closing the IDE with dirty tabs
+  offers Save All, Discard All, and Cancel. When the caret is between checked
+  tokens, it names the nearest highlight on the same line.
   Checked-token actions can jump directly to related sidebar panels such as
   Schema, Time, Checks, Effects, Network, Model, DB, Units, or Variables.
   Hover titles and the Highlight panel use role and status labels such as

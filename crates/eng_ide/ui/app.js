@@ -137,6 +137,8 @@ const state = {
   moduleCategory: "all",
   moduleQuery: "",
   highlightTokenQuery: "",
+  pendingTabClose: null,
+  pendingWindowClose: false,
   sideTab: "variables",
   selectedVariable: null,
   selectedWorkflowNodeId: null,
@@ -147,6 +149,8 @@ let dragDropBound = false;
 let liveCheckTimer = null;
 let liveCheckRevision = 0;
 let navigationRevision = 0;
+let nativeAppWindow = null;
+let nativeCloseListenerBound = false;
 
 function byId(id) {
   return document.getElementById(id);
@@ -1527,11 +1531,249 @@ async function switchTab(path) {
   }
 }
 
-async function closeTab(path) {
+function syncDialogInert() {
+  const app = byId("app");
+  if (app) app.inert = Boolean(state.pendingTabClose || state.pendingWindowClose);
+}
+
+function openUnsavedChangesDialog(path) {
+  const tab = tabFor(path);
+  if (!tab?.dirty) {
+    void closeTab(path, true);
+    return;
+  }
+  closeUnsavedChangesDialog();
+  state.pendingTabClose = path;
+  const backdrop = document.createElement("div");
+  backdrop.id = "unsavedChangesBackdrop";
+  backdrop.className = "dialog-backdrop";
+  backdrop.innerHTML = `
+    <div class="unsaved-dialog" role="dialog" aria-modal="true" aria-labelledby="unsavedChangesTitle" aria-describedby="unsavedChangesDescription">
+      <h2 id="unsavedChangesTitle">Save changes?</h2>
+      <p id="unsavedChangesDescription"><strong>${escapeHtml(fileName(path))}</strong> has unsaved changes.</p>
+      <div class="unsaved-dialog-path" title="${escapeAttr(path)}">${escapeHtml(path)}</div>
+      <div class="unsaved-dialog-actions">
+        <button id="unsavedCancelBtn">Cancel</button>
+        <button id="unsavedDiscardBtn" class="danger">Discard</button>
+        <button id="unsavedSaveBtn" class="primary">Save</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  syncDialogInert();
+  byId("unsavedCancelBtn").onclick = cancelPendingTabClose;
+  byId("unsavedDiscardBtn").onclick = () => void discardPendingTabClose();
+  byId("unsavedSaveBtn").onclick = () => void savePendingTabAndClose();
+  backdrop.onclick = (event) => {
+    if (event.target === backdrop) cancelPendingTabClose();
+  };
+  byId("unsavedSaveBtn").focus();
+  setStatus(`Unsaved changes in ${fileName(path)}`);
+}
+
+function closeUnsavedChangesDialog() {
+  byId("unsavedChangesBackdrop")?.remove();
+  state.pendingTabClose = null;
+  syncDialogInert();
+}
+
+function cancelPendingTabClose() {
+  const path = state.pendingTabClose;
+  if (!path) return;
+  closeUnsavedChangesDialog();
+  setStatus(`Kept ${fileName(path)} open`);
+  byId("editor")?.focus();
+}
+
+async function discardPendingTabClose() {
+  const path = state.pendingTabClose;
+  if (!path) return;
+  closeUnsavedChangesDialog();
+  await closeTab(path, true);
+}
+
+function setUnsavedChangesDialogBusy(busy) {
+  for (const id of ["unsavedCancelBtn", "unsavedDiscardBtn", "unsavedSaveBtn"]) {
+    const button = byId(id);
+    if (button) button.disabled = busy;
+  }
+  const saveButton = byId("unsavedSaveBtn");
+  if (saveButton) saveButton.textContent = busy ? "Saving..." : "Save";
+}
+
+async function savePendingTabAndClose() {
+  const path = state.pendingTabClose;
+  const tab = tabFor(path);
+  if (!path || !tab) {
+    closeUnsavedChangesDialog();
+    return;
+  }
+  const request = { path: tab.path, source: tab.source };
+  setUnsavedChangesDialogBusy(true);
+  setStatus(`Saving ${fileName(request.path)}`);
+  try {
+    const file = await call("ide_save_file", { path: request.path, source: request.source });
+    const currentTab = tabFor(request.path);
+    if (!currentTab || currentTab.source !== request.source) {
+      setStatus("Buffer changed while saving; close cancelled");
+      setUnsavedChangesDialogBusy(false);
+      return;
+    }
+    currentTab.source = file.source;
+    currentTab.dirty = false;
+    if (state.currentPath === request.path) {
+      state.source = file.source;
+      state.dirty = false;
+    }
+    state.status = `Saved ${file.path}`;
+    closeUnsavedChangesDialog();
+    await closeTab(request.path, true);
+  } catch (error) {
+    setStatus(`Save failed: ${compactText(String(error), 90)}`);
+    setUnsavedChangesDialogBusy(false);
+  }
+}
+
+function dirtyTabs() {
+  return state.tabs.filter((tab) => tab.dirty);
+}
+
+function openUnsavedWindowDialog() {
+  const tabs = dirtyTabs();
+  if (tabs.length === 0) {
+    void destroyNativeWindow();
+    return;
+  }
+  closeUnsavedChangesDialog();
+  closeUnsavedWindowDialog();
+  state.pendingWindowClose = true;
+  const backdrop = document.createElement("div");
+  backdrop.id = "unsavedWindowBackdrop";
+  backdrop.className = "dialog-backdrop";
+  const fileItems = tabs
+    .map((tab) => `<li title="${escapeAttr(tab.path)}">${escapeHtml(tab.path)}</li>`)
+    .join("");
+  const fileLabel = tabs.length === 1 ? "file has" : "files have";
+  backdrop.innerHTML = `
+    <div class="unsaved-dialog" role="dialog" aria-modal="true" aria-labelledby="unsavedWindowTitle" aria-describedby="unsavedWindowDescription">
+      <h2 id="unsavedWindowTitle">Save changes before closing?</h2>
+      <p id="unsavedWindowDescription"><strong>${tabs.length}</strong> ${fileLabel} unsaved changes.</p>
+      <ul class="unsaved-file-list">${fileItems}</ul>
+      <div class="unsaved-dialog-actions">
+        <button id="unsavedWindowCancelBtn">Cancel</button>
+        <button id="unsavedWindowDiscardBtn" class="danger">Discard All</button>
+        <button id="unsavedWindowSaveBtn" class="primary">Save All</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  syncDialogInert();
+  byId("unsavedWindowCancelBtn").onclick = cancelPendingWindowClose;
+  byId("unsavedWindowDiscardBtn").onclick = () => void discardAllDirtyTabsAndClose();
+  byId("unsavedWindowSaveBtn").onclick = () => void saveAllDirtyTabsAndClose();
+  backdrop.onclick = (event) => {
+    if (event.target === backdrop) cancelPendingWindowClose();
+  };
+  byId("unsavedWindowSaveBtn").focus();
+  setStatus(`${tabs.length} unsaved ${tabs.length === 1 ? "file" : "files"}`);
+}
+
+function closeUnsavedWindowDialog() {
+  byId("unsavedWindowBackdrop")?.remove();
+  state.pendingWindowClose = false;
+  syncDialogInert();
+}
+
+function cancelPendingWindowClose() {
+  if (!state.pendingWindowClose) return;
+  closeUnsavedWindowDialog();
+  setStatus("Window close cancelled");
+  byId("editor")?.focus();
+}
+
+function setUnsavedWindowDialogBusy(busy, activeAction = "save") {
+  for (const id of ["unsavedWindowCancelBtn", "unsavedWindowDiscardBtn", "unsavedWindowSaveBtn"]) {
+    const button = byId(id);
+    if (button) button.disabled = busy;
+  }
+  const saveButton = byId("unsavedWindowSaveBtn");
+  if (saveButton) saveButton.textContent = busy && activeAction === "save" ? "Saving..." : "Save All";
+  const discardButton = byId("unsavedWindowDiscardBtn");
+  if (discardButton) discardButton.textContent = busy && activeAction === "discard" ? "Closing..." : "Discard All";
+}
+
+async function saveAllDirtyTabsAndClose() {
+  const requests = dirtyTabs().map((tab) => ({ path: tab.path, source: tab.source }));
+  if (requests.length === 0) {
+    closeUnsavedWindowDialog();
+    await destroyNativeWindow();
+    return;
+  }
+  setUnsavedWindowDialogBusy(true);
+  try {
+    for (const request of requests) {
+      setStatus(`Saving ${fileName(request.path)}`);
+      const file = await call("ide_save_file", { path: request.path, source: request.source });
+      const currentTab = tabFor(request.path);
+      if (!currentTab || currentTab.source !== request.source) {
+        throw new Error(`Buffer changed while saving ${fileName(request.path)}; close cancelled`);
+      }
+      currentTab.source = file.source;
+      currentTab.dirty = false;
+      if (state.currentPath === request.path) {
+        state.source = file.source;
+        state.dirty = false;
+      }
+    }
+  } catch (error) {
+    const message = `Save failed: ${compactText(String(error), 90)}`;
+    renderTabLabels();
+    closeUnsavedWindowDialog();
+    if (hasDirtyTabs()) openUnsavedWindowDialog();
+    setStatus(message);
+    return;
+  }
+  state.status = `Saved ${requests.length} ${requests.length === 1 ? "file" : "files"}`;
+  renderTabLabels();
+  try {
+    await destroyNativeWindow();
+  } catch (error) {
+    closeUnsavedWindowDialog();
+    setStatus(`Close failed after saving: ${compactText(String(error), 90)}`);
+  }
+}
+
+async function discardAllDirtyTabsAndClose() {
+  setUnsavedWindowDialogBusy(true, "discard");
+  setStatus("Discarding unsaved changes and closing");
+  try {
+    await destroyNativeWindow();
+  } catch (error) {
+    setStatus(`Close failed: ${compactText(String(error), 90)}`);
+    setUnsavedWindowDialogBusy(false);
+  }
+}
+
+async function destroyNativeWindow() {
+  const getCurrentWindow = window.__TAURI__?.window?.getCurrentWindow;
+  const appWindow = nativeAppWindow || (typeof getCurrentWindow === "function" ? getCurrentWindow() : null);
+  if (!appWindow || typeof appWindow.destroy !== "function") {
+    throw new Error("Native window control is unavailable");
+  }
+  await appWindow.destroy();
+}
+
+async function closeTab(path, force = false) {
   if (state.tabs.length <= 1) return;
   rememberCurrentTab();
   const index = state.tabs.findIndex((tab) => tab.path === path);
   if (index < 0) return;
+  const tab = state.tabs[index];
+  if (tab.dirty && !force) {
+    openUnsavedChangesDialog(path);
+    return;
+  }
+  if (state.pendingTabClose === path) closeUnsavedChangesDialog();
   const wasCurrent = state.currentPath === path;
   state.tabs.splice(index, 1);
   if (!wasCurrent) {
@@ -7587,6 +7829,61 @@ function bindSplitters() {
   });
 }
 
+function handleGlobalKeyDown(event) {
+  const saveShortcut = (event.ctrlKey || event.metaKey)
+    && !event.altKey
+    && !event.shiftKey
+    && String(event.key || "").toLowerCase() === "s";
+  if (saveShortcut) {
+    event.preventDefault();
+    if (state.pendingWindowClose) void saveAllDirtyTabsAndClose();
+    else if (state.pendingTabClose) void savePendingTabAndClose();
+    else void saveCurrent();
+    return;
+  }
+  if (event.key === "Escape" && state.pendingWindowClose) {
+    event.preventDefault();
+    cancelPendingWindowClose();
+  } else if (event.key === "Escape" && state.pendingTabClose) {
+    event.preventDefault();
+    cancelPendingTabClose();
+  }
+}
+
+function hasDirtyTabs() {
+  return dirtyTabs().length > 0;
+}
+
+function handleBeforeUnload(event) {
+  if (!hasDirtyTabs()) return undefined;
+  event.preventDefault();
+  event.returnValue = "";
+  return "";
+}
+
+function handleNativeWindowClose(event) {
+  if (!hasDirtyTabs()) return;
+  event.preventDefault();
+  openUnsavedWindowDialog();
+}
+
+async function bindNativeWindowClose() {
+  if (nativeCloseListenerBound) return;
+  const getCurrentWindow = window.__TAURI__?.window?.getCurrentWindow;
+  if (typeof getCurrentWindow !== "function") return;
+  const appWindow = getCurrentWindow();
+  if (!appWindow || typeof appWindow.onCloseRequested !== "function") return;
+  nativeAppWindow = appWindow;
+  nativeCloseListenerBound = true;
+  try {
+    await appWindow.onCloseRequested(handleNativeWindowClose);
+  } catch (error) {
+    nativeCloseListenerBound = false;
+    nativeAppWindow = null;
+    setStatus(`Window close protection unavailable: ${compactText(String(error), 70)}`);
+  }
+}
+
 function bindGlobalEvents() {
   if (dragDropBound) return;
   dragDropBound = true;
@@ -7611,6 +7908,9 @@ function bindGlobalEvents() {
     const path = file?.path || file?.name;
     if (path) openFile(path);
   });
+  window.addEventListener("keydown", handleGlobalKeyDown);
+  window.addEventListener("beforeunload", handleBeforeUnload);
+  void bindNativeWindowClose();
 }
 
 function terminalPrompt() {

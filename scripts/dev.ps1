@@ -3557,7 +3557,15 @@ function Invoke-JavaScriptProgram {
         $PreviousElectronRunAsNode = $env:ELECTRON_RUN_AS_NODE
         try {
             $env:ELECTRON_RUN_AS_NODE = "1"
-            Invoke-Native $CodeExecutable "-e" "require(process.argv[1])" $Path
+            $Process = Start-Process `
+                -FilePath $CodeExecutable `
+                -ArgumentList @("-e", "require(process.argv[1])", "`"$Path`"") `
+                -NoNewWindow `
+                -Wait `
+                -PassThru
+            if ($Process.ExitCode -ne 0) {
+                throw "$CodeExecutable failed with exit code $($Process.ExitCode)"
+            }
             return
         } finally {
             if ($null -eq $PreviousElectronRunAsNode) {
@@ -4188,6 +4196,18 @@ function Assert-VscodeExtensionContract {
     }
     if (-not $NativeIdeHowtoSource.Contains("saved-file/live Problems diagnostics toggles")) {
         throw "Native IDE user how-to must describe VS Code diagnostics toggles with Problems wording"
+    }
+    foreach ($RequiredNativeIdeSafetyDocToken in @(
+        "Ctrl+S saves the active buffer",
+        "dirty tab offers Save, Discard, and Cancel",
+        "offers Save All, Discard All, and Cancel"
+    )) {
+        if (-not $NativeIdeHowtoSource.Contains($RequiredNativeIdeSafetyDocToken)) {
+            throw "Native IDE user how-to missing editor safety contract: $RequiredNativeIdeSafetyDocToken"
+        }
+    }
+    if ($NativeIdeHowtoSource -notmatch "Closing the IDE with dirty tabs\s+offers Save All, Discard All, and Cancel") {
+        throw "Native IDE user how-to must document the native dirty-window close choices"
     }
     foreach ($ForbiddenVscodeReadmeWording in @(
         "semantic token modifier and TextMate fallback scope metadata",
@@ -6696,6 +6716,8 @@ function Invoke-IdeCheck {
     $TauriUiIndexPath = Join-Path $RepoRoot "crates\eng_ide\ui\index.html"
     $TauriUiAppPath = Join-Path $RepoRoot "crates\eng_ide\ui\app.js"
     $TauriUiStylesPath = Join-Path $RepoRoot "crates\eng_ide\ui\styles.css"
+    $TauriCapabilityPath = Join-Path $RepoRoot "crates\eng_ide\capabilities\main.json"
+    $TauriEditorSafetyTestPath = Join-Path $RepoRoot "crates\eng_ide\tests\editorSafety.test.js"
     $CompilerSemanticSourcePath = Join-Path $RepoRoot "crates\eng_compiler\src\semantic.rs"
     $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
     if (-not (Test-Path $TauriConfigPath)) {
@@ -6713,11 +6735,34 @@ function Invoke-IdeCheck {
     if (-not (Test-Path $TauriUiStylesPath)) {
         throw "missing portable native IDE frontend styles at $TauriUiStylesPath"
     }
+    if (-not (Test-Path $TauriCapabilityPath)) {
+        throw "missing native IDE main-window capability at $TauriCapabilityPath"
+    }
+    if (-not (Test-Path $TauriEditorSafetyTestPath)) {
+        throw "missing native IDE editor safety smoke at $TauriEditorSafetyTestPath"
+    }
     if (-not (Test-Path $CompilerSemanticSourcePath)) {
         throw "missing compiler semantic source at $CompilerSemanticSourcePath"
     }
     if (-not (Test-Path $LspSourcePath)) {
         throw "missing LSP source at $LspSourcePath"
+    }
+    $TauriCapability = Get-Content -LiteralPath $TauriCapabilityPath -Raw | ConvertFrom-Json
+    $RequiredTauriCapabilityPermissions = @(
+        "core:event:allow-listen",
+        "core:event:allow-unlisten",
+        "core:window:allow-destroy"
+    )
+    if ($TauriCapability.identifier -ne "main-window" -or $TauriCapability.windows -notcontains "main") {
+        throw "native IDE close protection capability must target the main window"
+    }
+    if (@($TauriCapability.permissions).Count -ne $RequiredTauriCapabilityPermissions.Count) {
+        throw "native IDE close protection capability must remain limited to event listen/unlisten and window destroy"
+    }
+    foreach ($RequiredTauriCapabilityPermission in $RequiredTauriCapabilityPermissions) {
+        if ($TauriCapability.permissions -notcontains $RequiredTauriCapabilityPermission) {
+            throw "native IDE close protection capability missing $RequiredTauriCapabilityPermission"
+        }
     }
     $IdeUiSource = Get-Content -LiteralPath $TauriUiAppPath -Raw
     foreach ($RequiredIdeToken in @(
@@ -6837,6 +6882,41 @@ function Invoke-IdeCheck {
         "isLineCommented",
         'rest.startsWith("//")',
         '\/\/(?!\/)',
+        "pendingTabClose",
+        "pendingWindowClose",
+        "openUnsavedChangesDialog",
+        "closeUnsavedChangesDialog",
+        "savePendingTabAndClose",
+        "discardPendingTabClose",
+        "cancelPendingTabClose",
+        "setUnsavedChangesDialogBusy",
+        "openUnsavedWindowDialog",
+        "closeUnsavedWindowDialog",
+        "saveAllDirtyTabsAndClose",
+        "discardAllDirtyTabsAndClose",
+        "cancelPendingWindowClose",
+        "setUnsavedWindowDialogBusy",
+        "dirtyTabs",
+        "destroyNativeWindow",
+        "handleGlobalKeyDown",
+        "handleBeforeUnload",
+        "handleNativeWindowClose",
+        "bindNativeWindowClose",
+        "hasDirtyTabs",
+        "closeTab(path, force = false)",
+        "tab.dirty && !force",
+        'String(event.key || "").toLowerCase() === "s"',
+        'window.addEventListener("beforeunload", handleBeforeUnload)',
+        'window.__TAURI__?.window?.getCurrentWindow',
+        "appWindow.onCloseRequested(handleNativeWindowClose)",
+        "await appWindow.destroy()",
+        "void bindNativeWindowClose()",
+        "Save changes?",
+        "Save changes before closing?",
+        "Save All",
+        "Discard All",
+        "has unsaved changes.",
+        "Buffer changed while saving; close cancelled",
         "indentEditorSelection",
         "outdentEditorSelection",
         "insertEditorNewlineWithIndent",
@@ -7268,7 +7348,7 @@ function Invoke-IdeCheck {
         throw "Native IDE unit fallback must use syntax_catalog.units and syntax_catalog.legacy_unit_aliases instead of a hardcoded JS list"
     }
     $IdeUiStyles = Get-Content -LiteralPath $TauriUiStylesPath -Raw
-    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "problem-message", "problem-actions", "problem-copy-button", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-interpolation", "hl-constant", "hl-punctuation", "hl-mod-unit", "hl-mod-solver", "hl-mod-validation", "hl-mod-report", "hl-mod-sideEffect", "hl-mod-external", "hl-mod-riskHigh", "semantic-token-table", "highlight-coverage-table", ".semantic-token-table th:last-child", "token-chip", "--token-role-color", "token-filter-chip", "token-missing", "token-range-button", "cursor-insight", "variable-source-line")) {
+    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "problem-message", "problem-actions", "problem-copy-button", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-interpolation", "hl-constant", "hl-punctuation", "hl-mod-unit", "hl-mod-solver", "hl-mod-validation", "hl-mod-report", "hl-mod-sideEffect", "hl-mod-external", "hl-mod-riskHigh", "semantic-token-table", "highlight-coverage-table", ".semantic-token-table th:last-child", "token-chip", "--token-role-color", "token-filter-chip", "token-missing", "token-range-button", "cursor-insight", "variable-source-line", "button.danger", "dialog-backdrop", "unsaved-dialog", "unsaved-file-list", "unsaved-dialog-actions")) {
         if (-not $IdeUiStyles.Contains($RequiredIdeStyle)) {
             throw "Native IDE UI missing contract style $RequiredIdeStyle"
         }
@@ -7322,7 +7402,8 @@ function Invoke-IdeCheck {
             throw "Native IDE backend fixture must not expose legacy Python workflow marker $ForbiddenNativeIdeFixtureToken"
         }
     }
-    Invoke-JavaScriptSyntaxCheck -Paths @($TauriUiAppPath) -Label "Native IDE app"
+    Invoke-JavaScriptSyntaxCheck -Paths @($TauriUiAppPath, $TauriEditorSafetyTestPath) -Label "Native IDE app"
+    Invoke-JavaScriptProgram -Path $TauriEditorSafetyTestPath -Label "Native IDE editor safety smoke"
     Invoke-Native $cargo "check" "-p" "eng_ide"
     Invoke-Native $cargo "run" "-p" "eng_ide" "--" "--smoke"
     Assert-VscodeExtensionContract
