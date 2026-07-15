@@ -3608,6 +3608,7 @@ function Assert-VscodeExtensionContract {
     $RuntimeDiscoveryPath = Join-Path $ExtensionRoot "runtimeDiscovery.js"
     $ReviewPanelRendererPath = Join-Path $ExtensionRoot "reviewPanelRenderer.js"
     $EditorRequestRaceTestPath = Join-Path $ExtensionRoot "test\editorRequestRace.test.js"
+    $TextMateExampleCoverageTestPath = Join-Path $ExtensionRoot "test\textmateExampleCoverage.test.js"
     $SnippetsPath = Join-Path $ExtensionRoot "snippets\eng.json"
     $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
     $LspCliSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\main.rs"
@@ -3708,6 +3709,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $EditorRequestRaceTestPath)) {
         throw "missing VS Code editor request race smoke at $EditorRequestRaceTestPath"
+    }
+    if (-not (Test-Path $TextMateExampleCoverageTestPath)) {
+        throw "missing VS Code TextMate example coverage smoke at $TextMateExampleCoverageTestPath"
     }
     if (-not (Test-Path $SnippetsPath)) {
         throw "missing VS Code snippets at $SnippetsPath"
@@ -6695,10 +6699,12 @@ function Assert-VscodeExtensionContract {
         $ModuleStatusPath,
         $RuntimeDiscoveryPath,
         $ReviewPanelRendererPath,
-        $EditorRequestRaceTestPath
+        $EditorRequestRaceTestPath,
+        $TextMateExampleCoverageTestPath
     )
     Invoke-JavaScriptSyntaxCheck -Paths $VscodeJavaScriptPaths -Label "VS Code extension"
     Invoke-JavaScriptProgram -Path $EditorRequestRaceTestPath -Label "VS Code editor request race smoke"
+    Invoke-JavaScriptProgram -Path $TextMateExampleCoverageTestPath -Label "VS Code TextMate example coverage smoke"
 
     Write-Host "VS Code extension contract check passed."
 }

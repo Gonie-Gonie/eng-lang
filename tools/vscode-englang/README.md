@@ -342,6 +342,10 @@ those placeholders from `generated/editor/englang-editor-metadata.json`.
 
 The grammar smoke writes token-check output under
 `build\editor-tests\textmate_tokens\grammar_smoke.json`.
+When VS Code's bundled tokenizer runtime is available, `ide-check` also tokenizes
+every `examples/**/*.eng` source and rejects catalog keywords that have no
+foreground scope in either bundled theme. This catches include-priority gaps
+that isolated regular-expression checks cannot reproduce.
 
 ## Editor Metadata
 

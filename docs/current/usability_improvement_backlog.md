@@ -1,3 +1,4 @@
+- Batch 941: Fixed `interpolate` first-paint coloring inside schema missing-policy rows and added an actual VS Code tokenizer audit across every example keyword occurrence and both bundled themes.
 - Batch 940: Protected native IDE edits with Ctrl+S, Save/Discard/Cancel for dirty tabs, native Tauri window-close interception with Save All/Discard All/Cancel, a browser unload fallback, and an executable editor safety smoke.
 - Batch 939: Isolated shared VS Code live-analysis work from individual provider cancellation, sequenced Problems checks per document so stale same-version results cannot overwrite current diagnostics, and added an executable race smoke.
 - Batch 938: Repaired dev-current packaging after the docs/tutorials removal by copying current user and workflow Markdown with source-relative structure, excluding documentation build scripts, and making portable IDE smoke use compile-time UI contracts instead of repository source paths.

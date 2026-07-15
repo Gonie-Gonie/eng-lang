@@ -390,6 +390,7 @@
             "end": "(?=\\s*=|#|$)",
             "patterns": [
               { "include": "#types" },
+              { "include": "#keywords" },
               { "include": "#units" },
               { "include": "#operators" },
               { "include": "#punctuation" }

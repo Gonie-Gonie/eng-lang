@@ -973,6 +973,29 @@ $WorkflowBuiltinGroups = $SyntaxCatalog.workflow_builtin_groups
 if ($null -eq $WorkflowBuiltinGroups) {
     throw "generated editor metadata syntax_catalog.workflow_builtin_groups is missing"
 }
+
+function Assert-TypedBindingKeywordFallback {
+    $patterns = @($GrammarSource.grammar.repository.declarations.patterns | Where-Object {
+        [string]$_.name -eq "meta.declaration.typed-binding.englang"
+    })
+    if ($patterns.Count -ne 1) {
+        throw "TextMate source grammar must define exactly one typed binding pattern"
+    }
+
+    $includes = @($patterns[0].patterns | Where-Object {
+        $null -ne $_.include
+    } | ForEach-Object {
+        [string]$_.include
+    })
+    $typesIndex = [array]::IndexOf($includes, "#types")
+    $keywordsIndex = [array]::IndexOf($includes, "#keywords")
+    if ($keywordsIndex -lt 0) {
+        throw "TextMate typed bindings must include #keywords for policy words before named arguments"
+    }
+    if ($typesIndex -lt 0 -or $typesIndex -gt $keywordsIndex) {
+        throw "TextMate typed bindings must match #types before the #keywords fallback"
+    }
+}
 $WorkflowBuiltinGroupNames = @(
     "deprecated", "validation", "external", "path", "temporal",
     "model", "uncertain", "timeseries", "solver", "workflow_step"
@@ -1426,6 +1449,7 @@ Assert-WorkflowPatternIncludes -Name "meta.workflow.summary-field.englang" -Incl
 Assert-BeginEndWorkflowPhrasesAreMemberAware
 Assert-WorkflowPropertyFallbacksAreMemberAware
 Assert-FunctionCallFallbacks
+Assert-TypedBindingKeywordFallback
 Assert-MemberPathFallbackOrder
 Assert-WorkflowStatusOptionPattern
 Assert-WithBlockExpressionFallbacks
