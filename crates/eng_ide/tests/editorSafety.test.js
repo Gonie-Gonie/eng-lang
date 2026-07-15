@@ -320,6 +320,76 @@ function semanticTokenAndReferenceRangesUseUtf16Coordinates() {
   assert.strictEqual(run("currentDocumentHighlights().length"), 0);
 }
 
+function workspaceReferencesRespectOpenBuffersAndDirtyPreflight() {
+  run(`
+    state.root = "C:/Repo";
+    state.currentPath = "main.eng";
+    state.source = "shared = SHARED_GAIN";
+    state.tabs = [
+      { path: "main.eng", source: state.source, dirty: true },
+      { path: "other.eng", source: "other = SHARED_GAIN", dirty: true }
+    ];
+    state.documentHighlights = {
+      path: "main.eng",
+      source: state.source,
+      items: [{
+        range: {
+          start: { line: 0, character: 9 },
+          end: { line: 0, character: 20 }
+        },
+        kind: 2
+      }]
+    };
+    state.workspaceReferences = {
+      path: "main.eng",
+      source: state.source,
+      label: "SHARED_GAIN",
+      notice: "",
+      items: [
+        {
+          uri: "file:///C:/Repo/main.eng",
+          range: {
+            start: { line: 0, character: 9 },
+            end: { line: 0, character: 20 }
+          }
+        },
+        {
+          uri: "file:///C:/Repo/module.eng",
+          range: {
+            start: { line: 0, character: 6 },
+            end: { line: 0, character: 17 }
+          }
+        }
+      ]
+    };
+  `);
+
+  assert.strictEqual(run("dirtyWorkspaceReferenceTabs('main.eng').length"), 1);
+  assert.strictEqual(run("currentWorkspaceReferences().length"), 2);
+  assert.strictEqual(
+    run("documentHighlightForWorkspaceReference(state.workspaceReferences.items[0]).kind"),
+    2
+  );
+  assert.strictEqual(
+    run("JSON.stringify(workspaceReferenceRange(state.workspaceReferences.items[1]))"),
+    '{"start":{"line":0,"character":6},"end":{"line":0,"character":17}}'
+  );
+  assert.strictEqual(
+    run("workspaceReferenceRange({ range: { start: { line: 1, character: 4 }, end: { line: 1, character: 4 } } })"),
+    null
+  );
+
+  run(`
+    state.currentPath = "other.eng";
+    state.source = state.tabs[1].source;
+  `);
+  assert.strictEqual(run("currentWorkspaceReferences().length"), 2);
+  run("state.tabs[0].source = 'changed after lookup'");
+  assert.strictEqual(run("currentWorkspaceReferences().length"), 0);
+  run("clearReferenceResults(); state.root = ''");
+  assert.strictEqual(run("state.workspaceReferences.items.length"), 0);
+}
+
 function documentSymbolsNormalizeAndFilter() {
   const flattened = run(`JSON.stringify(flattenDocumentSymbols(normalizeCheck({
     document_symbols: [{
@@ -746,6 +816,7 @@ async function main() {
   definitionShortcutUsesCurrentAction();
   documentHighlightShortcutUsesCurrentAction();
   semanticTokenAndReferenceRangesUseUtf16Coordinates();
+  workspaceReferencesRespectOpenBuffersAndDirtyPreflight();
   documentSymbolsNormalizeAndFilter();
   outlineSelectionUsesUtf16Coordinates();
   outlineRefreshPreservesFilterFocus();

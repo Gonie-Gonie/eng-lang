@@ -431,6 +431,27 @@ fn ide_document_highlights(
     parse_document_highlights_output(&output)
 }
 
+#[tauri::command]
+fn ide_references(
+    path: String,
+    source: String,
+    line: usize,
+    character: usize,
+) -> Result<Value, String> {
+    let root = workspace_root();
+    let extra_arguments = vec!["true".to_owned(), root.to_string_lossy().into_owned()];
+    let output = run_lsp_position_query_with_args(
+        &path,
+        &source,
+        line,
+        character,
+        "--references-stdin",
+        "Workspace reference lookup",
+        &extra_arguments,
+    )?;
+    parse_references_output(&output)
+}
+
 fn run_lsp_position_query(
     path: &str,
     source: &str,
@@ -438,6 +459,18 @@ fn run_lsp_position_query(
     character: usize,
     command: &str,
     operation: &str,
+) -> Result<Vec<u8>, String> {
+    run_lsp_position_query_with_args(path, source, line, character, command, operation, &[])
+}
+
+fn run_lsp_position_query_with_args(
+    path: &str,
+    source: &str,
+    line: usize,
+    character: usize,
+    command: &str,
+    operation: &str,
+    extra_arguments: &[String],
 ) -> Result<Vec<u8>, String> {
     let root = workspace_root();
     let source_path = resolve_path(&root, path);
@@ -447,6 +480,7 @@ fn run_lsp_position_query(
         .arg(&source_path)
         .arg(line.to_string())
         .arg(character.to_string())
+        .args(extra_arguments)
         .current_dir(&root)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -767,6 +801,7 @@ fn main() {
             ide_check,
             ide_definition,
             ide_document_highlights,
+            ide_references,
             ide_format,
             ide_run,
             ide_terminal,
@@ -2551,7 +2586,7 @@ fn bundled_lsp_executable() -> Result<PathBuf, String> {
         Ok(candidate)
     } else {
         Err(format!(
-            "Definition lookup requires {file_name} next to eng-ide."
+            "Editor navigation requires {file_name} next to eng-ide."
         ))
     }
 }
@@ -2600,6 +2635,28 @@ fn parse_document_highlights_output(output: &[u8]) -> Result<Value, String> {
             return Err(
                 "Document highlight lookup returned an incomplete range or kind.".to_owned(),
             );
+        }
+    }
+    Ok(value)
+}
+
+fn parse_references_output(output: &[u8]) -> Result<Value, String> {
+    let value = serde_json::from_slice::<Value>(output)
+        .map_err(|error| format!("Could not read workspace reference result: {error}"))?;
+    let references = value
+        .as_array()
+        .ok_or_else(|| "Workspace reference lookup returned a non-array result.".to_owned())?;
+    for reference in references {
+        let complete_range = [
+            "/range/start/line",
+            "/range/start/character",
+            "/range/end/line",
+            "/range/end/character",
+        ]
+        .iter()
+        .all(|pointer| reference.pointer(pointer).and_then(Value::as_u64).is_some());
+        if reference.get("uri").and_then(Value::as_str).is_none() || !complete_range {
+            return Err("Workspace reference lookup returned an incomplete location.".to_owned());
         }
     }
     Ok(value)
@@ -4074,9 +4131,15 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "No overlapping semantic highlight ranges for the current check.",
         "function showDocumentHighlightsAtCaret()",
         "function renderDocumentHighlightReferences()",
+        "function currentWorkspaceReferences()",
+        "function bindWorkspaceReferenceButtons(root)",
+        "function openWorkspaceReferenceLocation(reference)",
         "function documentHighlightKindForToken(token, lineIndex)",
         r#"call("ide_document_highlights", request)"#,
+        r#"call("ide_references", request)"#,
         "data-show-document-highlights",
+        "data-workspace-reference-uri",
+        "Save other modified EngLang files before workspace reference search",
         r#"event.key === "F12" && event.shiftKey"#,
         "const LIVE_CHECK_DELAY_MS = 350;",
         "function scheduleLiveCheck()",
@@ -4206,6 +4269,9 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "ide_document_highlights",
         "--document-highlights-stdin",
         "parse_document_highlights_output",
+        "ide_references",
+        "--references-stdin",
+        "parse_references_output",
     ] {
         if !main_rs.contains(required) {
             return Err(format!(
@@ -4524,6 +4590,39 @@ with {
         )
         .unwrap_err();
         assert!(error.contains("incomplete range or kind"));
+    }
+
+    #[test]
+    fn workspace_reference_output_accepts_complete_locations() {
+        let references = json!([
+            {
+                "uri": "file:///C:/workspace/main.eng",
+                "range": {
+                    "start": { "line": 1, "character": 4 },
+                    "end": { "line": 1, "character": 10 }
+                }
+            },
+            {
+                "uri": "file:///C:/workspace/module.eng",
+                "range": {
+                    "start": { "line": 0, "character": 6 },
+                    "end": { "line": 0, "character": 12 }
+                }
+            }
+        ]);
+        assert_eq!(
+            parse_references_output(references.to_string().as_bytes()).unwrap(),
+            references
+        );
+    }
+
+    #[test]
+    fn workspace_reference_output_rejects_incomplete_locations() {
+        let error = parse_references_output(
+            br#"[{"range":{"start":{"line":1,"character":2},"end":{"line":1,"character":4}}}]"#,
+        )
+        .unwrap_err();
+        assert!(error.contains("incomplete location"));
     }
 
     #[test]

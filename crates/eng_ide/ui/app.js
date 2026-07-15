@@ -120,6 +120,7 @@ const state = {
   check: { diagnostics: [], symbols: [], status: "", semanticTokens: { legend: {}, tokens: [] }, hovers: [], documentSymbols: [] },
   highlightSource: null,
   documentHighlights: { path: "", source: "", items: [] },
+  workspaceReferences: { path: "", source: "", label: "", items: [], notice: "" },
   variables: [],
   args: [],
   artifacts: [],
@@ -764,6 +765,7 @@ function bind() {
   editor.addEventListener("input", (event) => {
     state.source = event.target.value;
     state.dirty = true;
+    clearReferenceResults();
     rememberCurrentTab();
     state.status = "Modified";
     const checkChanged = markCheckPending();
@@ -889,6 +891,7 @@ function bind() {
   bindSourceTokenRangeButtons(document);
   bindSourceTokenCopyButtons(document);
   bindHighlightTokenFilterButtons(document);
+  bindWorkspaceReferenceButtons(document);
   bindInspectorTabButtons(document);
   bindShowHighlightPanelButtons(document);
   const terminalInput = byId("terminalInput");
@@ -1190,6 +1193,7 @@ function refreshCheckPanels() {
     bindSourceTokenRangeButtons(sideBody);
     bindSourceTokenCopyButtons(sideBody);
     bindHighlightTokenFilterButtons(sideBody);
+    bindWorkspaceReferenceButtons(sideBody);
     bindInspectorTabButtons(sideBody);
     bindShowHighlightPanelButtons(sideBody);
   }
@@ -5369,9 +5373,50 @@ function renderTabLabels() {
 }
 
 function renderDocumentHighlightReferences() {
+  const references = currentWorkspaceReferences();
+  const payload = state.workspaceReferences || {};
+  if (references.length) {
+    const files = new Set(references.map((reference) => reference?.uri).filter(Boolean));
+    const rows = references.slice(0, 200).map((reference) => {
+      const range = workspaceReferenceRange(reference);
+      if (!range) return "";
+      const absolutePath = definitionPathFromUri(reference.uri);
+      const workspacePath = absolutePath ? definitionWorkspacePath(absolutePath) : String(reference.uri || "");
+      const folder = directoryOf(workspacePath);
+      const highlight = documentHighlightForWorkspaceReference(reference);
+      const kind = Number(highlight?.kind) === 3
+        ? "Write"
+        : Number(highlight?.kind) === 2
+          ? "Read"
+          : "Reference";
+      const locationLabel = `${fileName(workspacePath)}:${range.start.line + 1}`;
+      return `
+        <tr>
+          <td>
+            ${absolutePath ? `<button class="link-button token-range-button" data-workspace-reference-uri="${escapeAttr(reference.uri)}" data-workspace-reference-line="${range.start.line}" data-workspace-reference-character="${range.start.character}" data-workspace-reference-end-line="${range.end.line}" data-workspace-reference-end-character="${range.end.character}" title="Open ${escapeAttr(workspacePath)}">${escapeHtml(locationLabel)}</button>` : escapeHtml(locationLabel)}
+            <div class="muted">${escapeHtml(folder)}</div>
+          </td>
+          <td><span class="status-pill">${escapeHtml(kind)}</span></td>
+          <td><code>${escapeHtml(payload.label || "symbol")}</code></td>
+        </tr>
+      `;
+    }).filter(Boolean).join("");
+    return `
+      <div class="badges">
+        <span class="badge">References ${references.length}</span>
+        <span class="badge">Files ${files.size}</span>
+      </div>
+      ${payload.notice ? `<div class="empty-state compact">${escapeHtml(payload.notice)}</div>` : ""}
+      <table class="var-table semantic-reference-table">
+        <thead><tr><th>Location</th><th>Access</th><th>Symbol</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+  }
   const highlights = currentDocumentHighlights();
   if (!highlights.length) {
-    return '<div class="empty-state">Place the caret on a symbol and use References or Shift+F12.</div>';
+    const notice = String(payload.notice || "");
+    return `<div class="empty-state">${escapeHtml(notice || "Place the caret on a symbol and use References or Shift+F12.")}</div>`;
   }
   const rows = highlights.slice(0, 100).map((highlight) => {
     const token = documentHighlightToken(highlight);
@@ -5387,6 +5432,7 @@ function renderDocumentHighlightReferences() {
   }).filter(Boolean).join("");
   return `
     <div class="badges"><span class="badge">References ${highlights.length}</span></div>
+    ${payload.notice ? `<div class="empty-state compact">${escapeHtml(payload.notice)}</div>` : ""}
     <table class="var-table semantic-reference-table">
       <thead><tr><th>Range</th><th>Access</th><th>Symbol</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -5411,6 +5457,51 @@ function documentHighlightToken(highlight) {
     return null;
   }
   return { line, start: startCharacter, length: endCharacter - startCharacter };
+}
+
+function workspaceReferenceRange(reference) {
+  const start = reference?.range?.start;
+  const end = reference?.range?.end;
+  const range = {
+    start: { line: Number(start?.line), character: Number(start?.character) },
+    end: { line: Number(end?.line), character: Number(end?.character) }
+  };
+  if (
+    !Number.isInteger(range.start.line)
+    || !Number.isInteger(range.start.character)
+    || !Number.isInteger(range.end.line)
+    || !Number.isInteger(range.end.character)
+    || range.start.line < 0
+    || range.start.character < 0
+    || range.end.line < range.start.line
+    || (range.end.line === range.start.line && range.end.character <= range.start.character)
+  ) {
+    return null;
+  }
+  return range;
+}
+
+function documentHighlightForWorkspaceReference(reference) {
+  const referencePath = definitionPathFromUri(reference?.uri);
+  const payload = state.documentHighlights || {};
+  const workspacePayload = state.workspaceReferences || {};
+  if (
+    !referencePath
+    || payload.path !== workspacePayload.path
+    || payload.source !== workspacePayload.source
+    || !sameDefinitionPath(definitionWorkspacePath(referencePath), payload.path)
+  ) {
+    return null;
+  }
+  const range = workspaceReferenceRange(reference);
+  if (!range || range.start.line !== range.end.line) return null;
+  return arrayOrEmpty(payload.items).find((item) => {
+    const token = documentHighlightToken(item);
+    return token
+      && token.line === range.start.line
+      && token.start === range.start.character
+      && token.length === range.end.character - range.start.character;
+  }) || null;
 }
 
 function bindEditorFindControls() {
@@ -6554,6 +6645,24 @@ function bindDocumentHighlightActions(root) {
   });
 }
 
+function bindWorkspaceReferenceButtons(root) {
+  root.querySelectorAll("[data-workspace-reference-uri]").forEach((button) => {
+    button.onclick = () => void openWorkspaceReferenceLocation({
+      uri: button.dataset.workspaceReferenceUri,
+      range: {
+        start: {
+          line: Number(button.dataset.workspaceReferenceLine),
+          character: Number(button.dataset.workspaceReferenceCharacter)
+        },
+        end: {
+          line: Number(button.dataset.workspaceReferenceEndLine),
+          character: Number(button.dataset.workspaceReferenceEndCharacter)
+        }
+      }
+    });
+  });
+}
+
 function bindInspectorTabButtons(root) {
   root.querySelectorAll("[data-open-inspector-tab]").forEach((button) => {
     button.onclick = () => {
@@ -6732,34 +6841,120 @@ function currentDocumentHighlights() {
   return arrayOrEmpty(payload.items);
 }
 
+function currentWorkspaceReferences() {
+  const payload = state.workspaceReferences || {};
+  if (!payload.path || !payload.source) return [];
+  const origin = sameDefinitionPath(payload.path, state.currentPath)
+    ? { source: state.source }
+    : state.tabs.find((tab) => sameDefinitionPath(tab.path, payload.path));
+  if (!origin || origin.source !== payload.source) return [];
+  return arrayOrEmpty(payload.items);
+}
+
+function dirtyWorkspaceReferenceTabs(originPath) {
+  return state.tabs.filter((tab) => tab.dirty && !sameDefinitionPath(tab.path, originPath));
+}
+
+function clearReferenceResults() {
+  state.documentHighlights = { path: "", source: "", items: [] };
+  state.workspaceReferences = { path: "", source: "", label: "", items: [], notice: "" };
+}
+
 async function showDocumentHighlightsAtCaret() {
   const editor = byId("editor");
   const request = editorDefinitionRequest(editor);
   if (!request) return false;
+  const selectedToken = semanticTokenAtCaret(editor, {
+    line: request.line,
+    column: request.character
+  });
+  const label = selectedToken ? semanticTokenText(selectedToken) : "";
+  const dirtyOtherTabs = dirtyWorkspaceReferenceTabs(request.path);
   const revision = ++documentHighlightRequestRevision;
   hideCompletions();
   setStatus("Finding references...");
   try {
-    const highlights = await call("ide_document_highlights", request);
+    let workspaceError = "";
+    const referencesPromise = dirtyOtherTabs.length
+      ? Promise.resolve([])
+      : call("ide_references", request).catch((error) => {
+        workspaceError = String(error);
+        return [];
+      });
+    const [highlights, references] = await Promise.all([
+      call("ide_document_highlights", request),
+      referencesPromise
+    ]);
     if (revision !== documentHighlightRequestRevision) return false;
     if (!bufferRequestIsCurrent(request)) {
       setStatus("References cancelled; buffer changed");
       return false;
     }
     const items = Array.isArray(highlights) ? highlights : [];
+    const workspaceItems = Array.isArray(references) ? references : [];
+    const dirtyNames = dirtyOtherTabs.slice(0, 3).map((tab) => fileName(tab.path));
+    const dirtyRemainder = dirtyOtherTabs.length - dirtyNames.length;
+    const notice = dirtyOtherTabs.length
+      ? `Save other modified EngLang files before workspace reference search: ${dirtyNames.join(", ")}${dirtyRemainder > 0 ? ` and ${dirtyRemainder} more` : ""}. Current-file references are shown.`
+      : workspaceError
+        ? `Workspace reference search was unavailable. Current-file references are shown.`
+        : "";
     state.documentHighlights = {
       path: request.path,
       source: request.source,
       items
     };
+    state.workspaceReferences = {
+      path: request.path,
+      source: request.source,
+      label,
+      items: workspaceItems,
+      notice
+    };
     state.sideTab = "highlight";
-    state.status = items.length
-      ? `References: ${items.length} in current file`
-      : "No semantic references found";
+    const fileCount = new Set(workspaceItems.map((item) => item?.uri).filter(Boolean)).size;
+    state.status = workspaceItems.length
+      ? `References: ${workspaceItems.length} across ${fileCount} file${fileCount === 1 ? "" : "s"}`
+      : items.length
+        ? `References: ${items.length} in current file`
+        : "No semantic references found";
+    if (workspaceError) appendTerminal("error", workspaceError);
     render();
-    return items.length > 0;
+    return workspaceItems.length > 0 || items.length > 0;
   } catch (error) {
     if (revision !== documentHighlightRequestRevision) return false;
+    const message = String(error);
+    setStatus(message);
+    appendTerminal("error", message);
+    return false;
+  }
+}
+
+async function openWorkspaceReferenceLocation(reference) {
+  const range = workspaceReferenceRange(reference);
+  const absolutePath = definitionPathFromUri(reference?.uri);
+  if (!range || !absolutePath) {
+    setStatus("Reference location is not a valid local source range");
+    return false;
+  }
+  try {
+    if (!await openDefinitionTarget(absolutePath)) {
+      throw new Error(`Could not open reference file: ${absolutePath}`);
+    }
+    const editor = byId("editor");
+    if (!editor) return false;
+    selectEditorUtf16Range(editor, {
+      line: range.start.line,
+      character: range.start.character,
+      endLine: range.end.line,
+      endCharacter: range.end.character
+    });
+    syncEditorHighlightScroll();
+    updateEditorFindStatus();
+    updateCursorInsight();
+    setStatus(`Reference: ${fileName(state.currentPath)}:${range.start.line + 1}`);
+    return true;
+  } catch (error) {
     const message = String(error);
     setStatus(message);
     appendTerminal("error", message);
