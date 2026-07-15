@@ -532,6 +532,7 @@ async function boot() {
 }
 
 function render() {
+  rememberCurrentEditorView();
   const app = byId("app");
   app.className = "shell";
   app.innerHTML = `
@@ -571,6 +572,7 @@ function render() {
   `;
   bind();
   bindGlobalEvents();
+  restoreCurrentEditorView();
   syncEditorHighlightScroll();
   updateCursorInsight();
   if (state.sideTab === "plot" && state.plotSpec) drawPlot("sidePlotCanvas");
@@ -2393,15 +2395,73 @@ function recallTerminalCommand(direction) {
   input.selectionEnd = input.value.length;
 }
 
+function normalizedTabEditorView(tab) {
+  const sourceLength = String(tab?.source ?? "").length;
+  const startValue = Number(tab?.selectionStart);
+  const endValue = Number(tab?.selectionEnd);
+  const start = Math.max(0, Math.min(sourceLength, Number.isFinite(startValue) ? Math.trunc(startValue) : 0));
+  const end = Math.max(start, Math.min(sourceLength, Number.isFinite(endValue) ? Math.trunc(endValue) : start));
+  const direction = ["forward", "backward", "none"].includes(tab?.selectionDirection)
+    ? tab.selectionDirection
+    : "none";
+  const scrollTop = Number(tab?.scrollTop);
+  const scrollLeft = Number(tab?.scrollLeft);
+  return {
+    selectionStart: start,
+    selectionEnd: end,
+    selectionDirection: direction,
+    scrollTop: Number.isFinite(scrollTop) ? Math.max(0, scrollTop) : 0,
+    scrollLeft: Number.isFinite(scrollLeft) ? Math.max(0, scrollLeft) : 0
+  };
+}
+
+function currentEditorViewSnapshot(editor = byId("editor")) {
+  if (!editor || String(editor.value ?? "") !== String(state.source ?? "")) return null;
+  return normalizedTabEditorView({
+    source: editor.value,
+    selectionStart: editor.selectionStart,
+    selectionEnd: editor.selectionEnd,
+    selectionDirection: editor.selectionDirection,
+    scrollTop: editor.scrollTop,
+    scrollLeft: editor.scrollLeft
+  });
+}
+
+function rememberCurrentEditorView(editor = byId("editor")) {
+  const tab = tabFor(state.currentPath);
+  const view = currentEditorViewSnapshot(editor);
+  if (!tab || !view) return false;
+  Object.assign(tab, view);
+  return true;
+}
+
+function restoreCurrentEditorView(editor = byId("editor")) {
+  const tab = tabFor(state.currentPath);
+  if (!tab || !editor || String(editor.value ?? "") !== String(state.source ?? "")) return false;
+  const view = normalizedTabEditorView(tab);
+  if (typeof editor.setSelectionRange === "function") {
+    editor.setSelectionRange(view.selectionStart, view.selectionEnd, view.selectionDirection);
+  } else {
+    editor.selectionStart = view.selectionStart;
+    editor.selectionEnd = view.selectionEnd;
+    editor.selectionDirection = view.selectionDirection;
+  }
+  editor.scrollTop = view.scrollTop;
+  editor.scrollLeft = view.scrollLeft;
+  return true;
+}
+
 function rememberCurrentTab() {
   if (!state.currentPath) return;
+  const view = currentEditorViewSnapshot();
   const tab = tabFor(state.currentPath);
   if (!tab) {
     state.tabs.push({
       path: state.currentPath,
       source: state.source,
       savedSource: state.savedSource,
-      dirty: state.dirty
+      dirty: state.dirty,
+      ...(view || {})
     });
     return;
   }
@@ -2410,6 +2470,7 @@ function rememberCurrentTab() {
   }
   tab.source = state.source;
   tab.dirty = state.dirty;
+  if (view) Object.assign(tab, view);
 }
 
 async function switchTab(path) {

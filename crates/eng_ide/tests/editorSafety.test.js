@@ -1384,6 +1384,83 @@ function documentBreadcrumbNavigationUsesUtf16Coordinates() {
   run("byId = globalThis.realByIdForBreadcrumb");
 }
 
+function editorViewStatePersistsAcrossRendersAndTabs() {
+  run(`
+    globalThis.realByIdForEditorView = byId;
+    state.currentPath = "main.eng";
+    state.source = "head\\n  \\u{1F600}alpha = 1\\nlast";
+    state.tabs = [
+      { path: "main.eng", source: state.source, dirty: false },
+      {
+        path: "short.eng",
+        source: "short",
+        dirty: false,
+        selectionStart: 99,
+        selectionEnd: 120,
+        selectionDirection: "sideways",
+        scrollTop: 33,
+        scrollLeft: 17
+      }
+    ];
+    globalThis.editorViewControl = {
+      value: state.source,
+      selectionStart: 9,
+      selectionEnd: 14,
+      selectionDirection: "backward",
+      scrollTop: 240,
+      scrollLeft: 31
+    };
+    byId = (id) => id === "editor" ? globalThis.editorViewControl : null;
+    globalThis.editorViewRemembered = rememberCurrentEditorView();
+  `);
+
+  assert.strictEqual(run("globalThis.editorViewRemembered"), true);
+  assert.deepStrictEqual(
+    JSON.parse(run("JSON.stringify({ selectionStart: state.tabs[0].selectionStart, selectionEnd: state.tabs[0].selectionEnd, selectionDirection: state.tabs[0].selectionDirection, scrollTop: state.tabs[0].scrollTop, scrollLeft: state.tabs[0].scrollLeft })")),
+    { selectionStart: 9, selectionEnd: 14, selectionDirection: "backward", scrollTop: 240, scrollLeft: 31 }
+  );
+
+  run(`
+    globalThis.editorViewControl = {
+      value: state.source,
+      selectionStart: 0,
+      selectionEnd: 0,
+      selectionDirection: "none",
+      scrollTop: 0,
+      scrollLeft: 0,
+      setSelectionRange(start, end, direction) {
+        this.selectionStart = start;
+        this.selectionEnd = end;
+        this.selectionDirection = direction;
+      }
+    };
+    globalThis.editorViewRestored = restoreCurrentEditorView();
+  `);
+  assert.strictEqual(run("globalThis.editorViewRestored"), true);
+  assert.deepStrictEqual(
+    Array.from(run("[globalThis.editorViewControl.selectionStart, globalThis.editorViewControl.selectionEnd, globalThis.editorViewControl.selectionDirection, globalThis.editorViewControl.scrollTop, globalThis.editorViewControl.scrollLeft]")),
+    [9, 14, "backward", 240, 31]
+  );
+
+  run(`
+    state.currentPath = "short.eng";
+    state.source = "short";
+    globalThis.editorViewControl.value = state.source;
+    globalThis.editorViewClamped = restoreCurrentEditorView();
+  `);
+  assert.strictEqual(run("globalThis.editorViewClamped"), true);
+  assert.deepStrictEqual(
+    Array.from(run("[globalThis.editorViewControl.selectionStart, globalThis.editorViewControl.selectionEnd, globalThis.editorViewControl.selectionDirection, globalThis.editorViewControl.scrollTop, globalThis.editorViewControl.scrollLeft]")),
+    [5, 5, "none", 33, 17]
+  );
+  run(`
+    byId = globalThis.realByIdForEditorView;
+    state.currentPath = "";
+    state.source = "";
+    state.tabs = [];
+  `);
+}
+
 function outlineSelectionUsesUtf16Coordinates() {
   run(`
     globalThis.outlineEditor = {
@@ -1830,6 +1907,7 @@ async function main() {
   documentSymbolsNormalizeAndFilter();
   documentBreadcrumbsTrackNestedSymbolsAndFreshness();
   documentBreadcrumbNavigationUsesUtf16Coordinates();
+  editorViewStatePersistsAcrossRendersAndTabs();
   outlineSelectionUsesUtf16Coordinates();
   outlineRefreshPreservesFilterFocus();
   outlineShortcutFocusesCurrentFileSymbols();

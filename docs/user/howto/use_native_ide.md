@@ -146,7 +146,9 @@ Editor
   stale, so they cannot navigate by an older buffer shape. Closing a
   dirty tab offers Save, Discard, and Cancel. Closing the IDE with dirty tabs
   offers Save All, Discard All, and Cancel. The toolbar Save All action persists
-  every modified tab without closing the IDE. When the caret is between
+  every modified tab without closing the IDE. Each open tab retains its caret,
+  selection, and horizontal/vertical editor position across tab switches and
+  inspector rerenders. When the caret is between
   checked tokens, it names the nearest highlight on the same line.
   Checked-token actions can jump directly to related sidebar panels such as
   Schema, Time, Checks, Effects, Network, Model, DB, Units, or Variables.
