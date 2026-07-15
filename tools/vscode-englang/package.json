@@ -139,6 +139,14 @@
       {
         "id": "workflowStep",
         "description": "Case orchestration and workflow step symbols."
+      },
+      {
+        "id": "path",
+        "description": "Path construction and path inspection helpers."
+      },
+      {
+        "id": "temporal",
+        "description": "Supported calendar date construction helpers."
       }
     ],
     "semanticTokenScopes": [
@@ -521,6 +529,14 @@
           "function.external": [
             "support.function.external-boundary.englang",
             "keyword.control.external-boundary.englang"
+          ],
+          "function.path": [
+            "support.function.path.englang",
+            "support.function.builtin.englang"
+          ],
+          "function.temporal": [
+            "support.function.temporal.englang",
+            "support.function.builtin.englang"
           ],
           "keyword.external": [
             "keyword.control.external-boundary.englang",

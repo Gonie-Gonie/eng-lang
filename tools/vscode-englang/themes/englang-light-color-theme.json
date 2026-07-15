@@ -97,6 +97,10 @@
       "settings": { "foreground": "#007C91" }
     },
     {
+      "scope": ["support.function.temporal.englang"],
+      "settings": { "foreground": "#00796B" }
+    },
+    {
       "scope": ["entity.name.function.solver.englang"],
       "settings": { "foreground": "#00796B" }
     },
@@ -316,6 +320,8 @@
     "method.external": "#D97706",
     "variable.external": "#A16207",
     "property.external": "#CA6702",
+    "function.path": "#007C91",
+    "function.temporal": "#00796B",
     "keyword.solver": "#00796B",
     "function.solver": "#00897B",
     "variable.solver": "#00695C",

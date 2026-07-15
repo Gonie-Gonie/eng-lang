@@ -4131,7 +4131,7 @@ function Assert-VscodeExtensionContract {
         "unit", "quantity", "axis", "timeseries", "uncertain",
         "sideEffect", "external", "validation", "report", "solver",
         "planned", "internal", "riskHigh", "riskMedium", "state", "input", "output",
-        "model", "db", "cache", "workflowStep"
+        "model", "db", "cache", "workflowStep", "path", "temporal"
     )) {
         if ($SemanticModifiers -notcontains $RequiredSemanticModifier) {
             throw "VS Code extension missing semantic token modifier $RequiredSemanticModifier"
@@ -4185,7 +4185,8 @@ function Assert-VscodeExtensionContract {
         "function.model", "keyword.model", "function.defaultLibrary", "function.timeseries", "function.uncertain", "namespace.defaultLibrary",
         "namespace.imported", "namespace.internal", "namespace.planned", "type.axis",
         "variable.cache", "keyword.cache", "function.cache", "method.cache", "property.cache",
-        "keyword.uncertain", "keyword.workflowStep", "function.workflowStep"
+        "keyword.uncertain", "keyword.workflowStep", "function.workflowStep",
+        "function.path", "function.temporal"
     )) {
         $ScopeProperty = $SemanticScopeRule.scopes.PSObject.Properties[$RequiredTokenScope]
         if ($null -eq $ScopeProperty -or @($ScopeProperty.Value).Count -eq 0) {
@@ -4243,6 +4244,14 @@ function Assert-VscodeExtensionContract {
         "function.external" = @(
             "support.function.external-boundary.englang",
             "keyword.control.external-boundary.englang"
+        )
+        "function.path" = @(
+            "support.function.path.englang",
+            "support.function.builtin.englang"
+        )
+        "function.temporal" = @(
+            "support.function.temporal.englang",
+            "support.function.builtin.englang"
         )
         "function.solver" = @(
             "support.function.solver.englang",
@@ -4523,12 +4532,12 @@ function Assert-VscodeExtensionContract {
                 throw "VS Code extension theme $($RequiredTheme.Label) must keep $($RoleColorFamily.Label) semantic role colors visually distinct"
             }
         }
-        $FirstPaintScopes = @("entity.name.function.englang", "entity.name.function.call.englang", "support.function.builtin.englang", "support.function.model.englang", "support.function.uncertain.englang", "support.function.timeseries.englang", "support.function.external-boundary.englang", "support.function.workflow-step.englang", "support.function.solver.englang", "support.function.path.englang", "variable.other.member.englang", "variable.other.public-member.englang")
+        $FirstPaintScopes = @("entity.name.function.englang", "entity.name.function.call.englang", "support.function.builtin.englang", "support.function.model.englang", "support.function.uncertain.englang", "support.function.timeseries.englang", "support.function.external-boundary.englang", "support.function.workflow-step.englang", "support.function.solver.englang", "support.function.path.englang", "support.function.temporal.englang", "variable.other.member.englang", "variable.other.public-member.englang")
         $FirstPaintColorKeys = @($FirstPaintScopes | ForEach-Object {
             Get-TextMateThemeColorKey $RequiredTheme.Theme $_
         } | Sort-Object -Unique)
-        if ($FirstPaintColorKeys.Count -lt 12 -or $FirstPaintColorKeys -contains "") {
-            throw "VS Code extension theme $($RequiredTheme.Label) must keep first-paint function, call, builtin, model-function, uncertain-function, timeseries-function, external-function, workflow-function, solver-function, path-function, member, and public-member colors visually distinct"
+        if ($FirstPaintColorKeys.Count -lt 13 -or $FirstPaintColorKeys -contains "") {
+            throw "VS Code extension theme $($RequiredTheme.Label) must keep first-paint function, call, builtin, model-function, uncertain-function, timeseries-function, external-function, workflow-function, solver-function, path-function, temporal-function, member, and public-member colors visually distinct"
         }
     }
     if (-not $TokenScopesDoc.Contains("EngLang Dark") -or -not $TokenScopesDoc.Contains("EngLang Light") -or -not $VscodeReadmeSource.Contains("EngLang Dark") -or -not $VscodeReadmeSource.Contains("EngLang Light")) {
@@ -7300,7 +7309,7 @@ function Invoke-LspCheck {
             throw "eng-lsp --editor-metadata missing completion item $RequiredCompletion"
         }
     }
-    foreach ($RequiredModifier in @("workflowStep", "unit", "quantity", "solver")) {
+    foreach ($RequiredModifier in @("workflowStep", "unit", "quantity", "solver", "path", "temporal")) {
         if (@($EditorMetadata.semantic_token_legend.token_modifiers) -notcontains $RequiredModifier) {
             throw "eng-lsp --editor-metadata missing semantic token modifier $RequiredModifier"
         }

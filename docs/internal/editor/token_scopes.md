@@ -91,16 +91,17 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `meta.type.generic.englang` | Generic type expressions such as `Array[Record]`, `List[String]`, `Table[T]`, `Optional[DirectoryPath]`, and `TimeSeries[Time]`. |
 | `meta.type.array-suffix.englang` | Array suffix type expressions such as `Bool[]` and `String[]`. |
 | `variable.parameter.type.englang` | Generic type arguments inside bracketed type expressions. |
-| `support.function.builtin.englang` | Built-in functions and helpers. |
+| `support.function.builtin.englang` | Error-tolerant fallback for incomplete or not-yet-classified builtin editor states; public helper fixtures should use a role-specific scope. |
 | `support.function.validation.englang` | Validation and data-quality compatibility helper calls such as `fill_missing(...)`; current authoring uses the `fill missing ...` workflow phrase. |
 | `support.function.deprecated.englang` | Deprecated helper calls such as `select_first_row(...)`, which should be migrated to `filter` plus `require_one`. |
 | `support.function.model.englang` | Model-training and model-summary helper calls such as `regression(...)`, `train_test_split(...)`, `regression_table(...)`, `train_regression(...)`, `mlp(...)`, `ann(...)`, `evaluate(...)`, `model_card(...)`, and `leakage_lint(...)`. |
 | `support.function.uncertain.englang` | Uncertainty helper calls such as `measured(...)`, `interval(...)`, `normal(...)`, `uniform(...)`, `distribution(...)`, `propagate(...)`, `ensemble(...)`, and `probability(...)`. |
 | `support.function.timeseries.englang` | TimeSeries/statistic helper calls such as `integrate(...)`, `mean(...)`, `min(...)`, `max(...)`, `median(...)`, `std(...)`, `sum(...)`, `time_weighted_mean(...)`, `duration_above(...)`, and `p90(...)`. |
-| `support.function.external-boundary.englang` | External boundary constructors/checks such as `file(...)`, `url(...)`, `env(...)`, `secret env(...)`, and `exists(...)`. |
+| `support.function.external-boundary.englang` | External boundary constructors/checks such as `file(...)`, `dir(...)`, `url(...)`, `env(...)`, `secret env(...)`, and `exists(...)`. |
 | `support.function.workflow-step.englang` | Workflow-step helper calls such as `apply(...)` and step values such as `run_case`. |
 | `support.function.solver.englang` | Solver helper calls such as `der(...)` and `delay(...)`. |
 | `support.function.path.englang` | Path helper calls such as `join(...)`, `parent(...)`, `stem(...)`, and `extension(...)`. |
+| `support.function.temporal.englang` | Supported temporal helper calls such as `date(year, month, day)`. |
 | `support.namespace.module.englang` | Module namespaces such as `eng.table`. |
 | `constant.numeric*.englang` | Numeric literals and format precision fragments. |
 | `constant.other.unit*.englang` | Unit literals. |
@@ -135,7 +136,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `invalid.deprecated.englang` | High-risk fallback mapping. |
 | `markup.warning.englang` | Medium-risk fallback mapping. |
 
-Command-style workflow and review verbs such as `sample`, `filter`, `derive`, `require_one`, `integrate`, and `mean` use `keyword.control.*.englang`; model workflow phrases such as `predict ... using ...` and `train regression ...` use `keyword.control.model.englang`; model helper calls such as `regression(...)`, `train_test_split(...)`, `regression_table(...)`, `train_regression(...)`, `mlp(...)`, `ann(...)`, `evaluate(...)`, `model_card(...)`, and `leakage_lint(...)` use `support.function.model.englang`; uncertainty helper calls such as `measured(...)`, `interval(...)`, `normal(...)`, `uniform(...)`, `distribution(...)`, `propagate(...)`, `ensemble(...)`, and `probability(...)` use `support.function.uncertain.englang`; TimeSeries/statistic helper calls such as `integrate(...)`, `mean(...)`, `min(...)`, `max(...)`, `median(...)`, `std(...)`, `sum(...)`, `time_weighted_mean(...)`, `duration_above(...)`, and `p90(...)` use `support.function.timeseries.englang`; `fill_missing(...)` uses `support.function.validation.englang` while current authoring uses the `fill missing ...` phrase; `select_first_row(...)` uses `support.function.deprecated.englang`; external boundary constructors/checks such as `file(...)`, `url(...)`, `env(...)`, `secret env(...)`, and `exists(...)` use `support.function.external-boundary.englang`; workflow-step helpers such as `apply(...)` and `run_case` use `support.function.workflow-step.englang`; solver helpers such as `der(...)` and `delay(...)` use `support.function.solver.englang`; path helpers such as `join(...)`, `parent(...)`, `stem(...)`, and `extension(...)` use `support.function.path.englang`; TimeSeries quality verbs such as `fill`, `align`, and `resample` use validation-colored fallback scopes to match their phrase scopes. String interpolation mirrors the helper-call scopes before falling back to generic builtin coloring. Other generic call-style helpers stay under `support.function.builtin.englang`.
+Command-style workflow and review verbs such as `sample`, `filter`, `derive`, `require_one`, `integrate`, and `mean` use `keyword.control.*.englang`; model workflow phrases such as `predict ... using ...` and `train regression ...` use `keyword.control.model.englang`; model helper calls such as `regression(...)`, `train_test_split(...)`, `regression_table(...)`, `train_regression(...)`, `mlp(...)`, `ann(...)`, `evaluate(...)`, `model_card(...)`, and `leakage_lint(...)` use `support.function.model.englang`; uncertainty helper calls such as `measured(...)`, `interval(...)`, `normal(...)`, `uniform(...)`, `distribution(...)`, `propagate(...)`, `ensemble(...)`, and `probability(...)` use `support.function.uncertain.englang`; TimeSeries/statistic helper calls such as `integrate(...)`, `mean(...)`, `min(...)`, `max(...)`, `median(...)`, `std(...)`, `sum(...)`, `time_weighted_mean(...)`, `duration_above(...)`, and `p90(...)` use `support.function.timeseries.englang`; `fill_missing(...)` uses `support.function.validation.englang` while current authoring uses the `fill missing ...` phrase; `select_first_row(...)` uses `support.function.deprecated.englang`; external boundary constructors/checks such as `file(...)`, `dir(...)`, `url(...)`, `env(...)`, `secret env(...)`, and `exists(...)` use `support.function.external-boundary.englang`; path helpers such as `join(...)`, `parent(...)`, `stem(...)`, and `extension(...)` use `support.function.path.englang`; `date(...)` uses `support.function.temporal.englang`; workflow-step helpers such as `apply(...)` and `run_case` use `support.function.workflow-step.englang`; solver helpers such as `der(...)` and `delay(...)` use `support.function.solver.englang`; TimeSeries quality verbs such as `fill`, `align`, and `resample` use validation-colored fallback scopes to match their phrase scopes. String interpolation mirrors the helper-call scopes before falling back to generic builtin coloring. `support.function.builtin.englang` remains only as an error-tolerant fallback for incomplete editor states, not as evidence that an additional public call-style API is implemented.
 
 `#members` must appear before generic `args.*` and dotted-path fallbacks inside expression contexts so TextMate first-paint tokenization can split roots, dots, and member segments before broad property regexes match the whole path. Grammar smoke also requires begin/end workflow phrase scopes to include `#members`, so operand-oriented phrases cannot regress to uncolored dotted paths.
 
@@ -276,7 +277,7 @@ The current semantic modifiers are:
 declaration, definition, readonly, static, local, imported, defaultLibrary,
 deprecated, documentation, unit, quantity, axis, timeseries, uncertain, sideEffect, external,
 validation, report, solver, planned, internal, riskHigh, riskMedium, state,
-input, output, model, db, cache, workflowStep
+input, output, model, db, cache, workflowStep, path, temporal
 ```
 
 Modifier meanings:
@@ -305,6 +306,8 @@ Modifier meanings:
 | `db` | SQLite connections, table writes, and DB boundary records. |
 | `cache` | Cache declarations, keys, and cache-backed workflow records. |
 | `workflowStep` | Case orchestration, sampling, prediction, and workflow-step symbols. |
+| `path` | Path construction and path inspection helper calls. |
+| `temporal` | Supported calendar date construction helper calls. |
 
 Core semantic role expectations:
 
@@ -370,6 +373,8 @@ from generic fallback colors. Important pairings:
 | `keyword.imported`, `namespace.imported` | Import statement keywords and user-imported module namespaces. |
 | `function.sideEffect`, `keyword.sideEffect`, `variable.sideEffect` | Side-effect operations and bindings. |
 | `function.external`, `keyword.external`, `variable.external` | External boundaries and bindings. |
+| `function.path` | Path construction and inspection helpers. |
+| `function.temporal` | Supported calendar date construction helpers. |
 | `keyword.validation`, `variable.validation`, `function.validation` | Validation and coverage operations. |
 | `keyword.report`, `variable.report`, `property.report` | Report and plot operations. |
 | `function.solver`, `keyword.solver`, `variable.solver` | Solver and equation operations. |
@@ -410,8 +415,8 @@ color themes. Those themes define both TextMate fallback colors and direct
 `semanticTokenColors` for every EngLang selector contributed in `package.json`,
 including base selectors, standard modifiers, domain roles, and review-risk
 roles. Domain role families such as units, quantities, TimeSeries, workflow
-steps, validation, reporting, side effects, external boundaries, solver, model,
-DB, and cache keep a recognizable role hue while varying keyword,
+steps, validation, reporting, side effects, external boundaries, path and
+temporal helpers, solver, model, DB, and cache keep a recognizable role hue while varying keyword,
 function/method, variable, and property selectors so role-aware highlighting
 does not collapse an entire workflow role into one flat color. Keep theme
 selectors aligned with this fallback map; package validation
@@ -469,6 +474,7 @@ support.function.external-boundary.englang
 support.function.workflow-step.englang
 support.function.solver.englang
 support.function.path.englang
+support.function.temporal.englang
 support.namespace.module.englang
 support.type.englang
 variable.other.definition.englang

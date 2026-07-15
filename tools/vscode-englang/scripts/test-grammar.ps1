@@ -515,11 +515,15 @@ function Assert-ExpectedWorkflowScopesCoverGrammar {
 
 function Assert-ExpectedLeafScopesCoverGrammar {
     $RootGrammarName = [string]$Grammar.name
+    # Generic builtin coloring is an error-tolerant fallback for incomplete
+    # editor states. Public helper fixtures must use a role-specific scope.
+    $SyntheticFallbackScopes = @("support.function.builtin.englang")
     $GrammarLeafScopes = @($PatternsByScope.Keys | Where-Object {
         $scope = [string]$_
         -not [string]::IsNullOrWhiteSpace($scope) -and
             $scope -ne $RootGrammarName -and
-            $scope -notlike "meta.*"
+            $scope -notlike "meta.*" -and
+            $SyntheticFallbackScopes -notcontains $scope
     } | Sort-Object -Unique)
     $ExpectedLeafScopes = @($Expected | ForEach-Object {
         [string]$_.scope
@@ -1235,17 +1239,20 @@ $KeywordFallbackScopes = @(
 )
 Assert-AnyScopeMatchesLabels -Scopes $KeywordFallbackScopes -Labels $CompletionKeywords -Description "LSP completion keyword" -FixtureText $CompletionKeywordFixture
 $PathWorkflowBuiltins = @("join", "parent", "stem", "extension")
+$ExternalWorkflowBuiltins = @("file", "dir", "url", "env", "secret", "exists")
+$TemporalWorkflowBuiltins = @("date")
 $ModelWorkflowBuiltins = @("train_test_split", "regression", "train_regression", "mlp", "ann", "regression_table", "evaluate", "model_card", "leakage_lint")
 $UncertaintyWorkflowBuiltins = @("measured", "interval", "normal", "uniform", "distribution", "propagate", "ensemble", "probability")
 $TimeseriesWorkflowBuiltins = @("integrate", "mean", "min", "max", "median", "std", "sum", "time_weighted_mean", "duration_above", "p90", "p95")
 $SolverWorkflowBuiltins = @("der", "delay")
 $ValidationWorkflowBuiltins = @("fill_missing")
 $DeprecatedWorkflowBuiltins = @("select_first_row")
-$DomainScopedWorkflowBuiltins = @($PathWorkflowBuiltins + $ModelWorkflowBuiltins + $UncertaintyWorkflowBuiltins + $TimeseriesWorkflowBuiltins + $SolverWorkflowBuiltins + $ValidationWorkflowBuiltins + $DeprecatedWorkflowBuiltins)
-$GenericWorkflowBuiltins = @($WorkflowBuiltins | Where-Object { $DomainScopedWorkflowBuiltins -notcontains $_ -and $_ -ne "exists" })
+$DomainScopedWorkflowBuiltins = @($PathWorkflowBuiltins + $ExternalWorkflowBuiltins + $TemporalWorkflowBuiltins + $ModelWorkflowBuiltins + $UncertaintyWorkflowBuiltins + $TimeseriesWorkflowBuiltins + $SolverWorkflowBuiltins + $ValidationWorkflowBuiltins + $DeprecatedWorkflowBuiltins)
+$GenericWorkflowBuiltins = @($WorkflowBuiltins | Where-Object { $DomainScopedWorkflowBuiltins -notcontains $_ })
 Assert-ScopeMatchesLabels -Scope "support.function.builtin.englang" -Labels $GenericWorkflowBuiltins -Description "LSP workflow builtin"
-Assert-ScopeMatchesLabels -Scope "support.function.external-boundary.englang" -Labels @("exists") -Description "LSP path existence builtin"
+Assert-ScopeMatchesLabels -Scope "support.function.external-boundary.englang" -Labels $ExternalWorkflowBuiltins -Description "LSP external boundary builtin" -Suffix "("
 Assert-ScopeMatchesLabels -Scope "support.function.path.englang" -Labels $PathWorkflowBuiltins -Description "LSP path helper builtin" -Suffix "("
+Assert-ScopeMatchesLabels -Scope "support.function.temporal.englang" -Labels $TemporalWorkflowBuiltins -Description "LSP temporal helper builtin" -Suffix "("
 Assert-ScopeMatchesLabels -Scope "support.function.model.englang" -Labels $ModelWorkflowBuiltins -Description "LSP model helper builtin" -Suffix "("
 Assert-ScopeMatchesLabels -Scope "support.function.uncertain.englang" -Labels $UncertaintyWorkflowBuiltins -Description "LSP uncertainty helper builtin" -Suffix "("
 Assert-ScopeMatchesLabels -Scope "support.function.timeseries.englang" -Labels $TimeseriesWorkflowBuiltins -Description "LSP TimeSeries helper builtin" -Suffix "("
@@ -1308,6 +1315,8 @@ Assert-ScopeMatchesLabels -Scope "variable.parameter.function.englang" -Labels (
 Assert-ExpectedTokenTextsCoverLabels -Labels $CompletionKeywords -Description "generated keyword"
 Assert-ExpectedTokenTextsCoverLabels -Labels $HyphenatedWorkflowBuiltins -Description "hyphenated workflow builtin"
 Assert-ExpectedScopedTokenTextsCoverLabels -Scope "support.function.path.englang" -Labels $PathWorkflowBuiltins -Description "path workflow builtin"
+Assert-ExpectedScopedTokenTextsCoverLabels -Scope "support.function.external-boundary.englang" -Labels $ExternalWorkflowBuiltins -Description "external boundary workflow builtin"
+Assert-ExpectedScopedTokenTextsCoverLabels -Scope "support.function.temporal.englang" -Labels $TemporalWorkflowBuiltins -Description "temporal workflow builtin"
 Assert-ExpectedScopedTokenTextsCoverLabels -Scope "support.function.timeseries.englang" -Labels $TimeseriesWorkflowBuiltins -Description "TimeSeries workflow builtin"
 Assert-ExpectedScopedTokenTextsCoverLabels -Scope "support.function.solver.englang" -Labels $SolverWorkflowBuiltins -Description "solver workflow builtin"
 Assert-ExpectedScopedTokenTextsCoverLabels -Scope "support.function.validation.englang" -Labels $ValidationWorkflowBuiltins -Description "validation workflow builtin"

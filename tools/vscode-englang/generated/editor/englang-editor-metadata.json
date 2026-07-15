@@ -239,12 +239,6 @@
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "timestamp constructor",
-                                 "kind":  "function",
-                                 "label":  "datetime",
-                                 "lsp_kind":  3
-                             },
-                             {
                                  "detail":  "eng.path directory path helper",
                                  "kind":  "function",
                                  "label":  "dir",
@@ -2638,7 +2632,7 @@
                                  "lsp_kind":  11
                              }
                          ],
-    "completion_items_count":  424,
+    "completion_items_count":  423,
     "format":  "eng-lsp-editor-metadata-v2",
     "semantic_token_legend":  {
                                   "token_modifiers":  [
@@ -2671,7 +2665,9 @@
                                                           "model",
                                                           "db",
                                                           "cache",
-                                                          "workflowStep"
+                                                          "workflowStep",
+                                                          "path",
+                                                          "temporal"
                                                       ],
                                   "token_types":  [
                                                       "namespace",
@@ -4047,7 +4043,6 @@
                                                      "secret",
                                                      "env",
                                                      "date",
-                                                     "datetime",
                                                      "select_first_row",
                                                      "filter",
                                                      "select",

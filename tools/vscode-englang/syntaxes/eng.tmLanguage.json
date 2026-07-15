@@ -147,11 +147,15 @@
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.external-boundary.englang",
-                                                                                                      "match":  "\\b(file|url|env|secret|exists)(?=\\s*\\()"
+                                                                                                      "match":  "\\b(file|dir|url|env|secret|exists)(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.path.englang",
                                                                                                       "match":  "\\b(join|parent|stem|extension)\\b(?=\\s*\\()"
+                                                                                                  },
+                                                                                                  {
+                                                                                                      "name":  "support.function.temporal.englang",
+                                                                                                      "match":  "\\bdate\\b(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.model.englang",
@@ -171,11 +175,11 @@
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.builtin.englang",
-                                                                                                      "match":  "\\b(time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|propagate|coverage|datetime|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|date|file|fill|grid|join|mean|rmse|sort|stem|ann|der|dir|env|lhs|max|min|mlp|p90|p95|std|sum|url)(?=\\s*\\()"
+                                                                                                      "match":  "\\b(time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|propagate|coverage|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|date|file|fill|grid|join|mean|rmse|sort|stem|ann|der|dir|env|lhs|max|min|mlp|p90|p95|std|sum|url)(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "entity.name.function.call.englang",
-                                                                                                      "match":  "\\b(?!(?:time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|propagate|coverage|datetime|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|date|file|fill|grid|join|mean|rmse|sort|stem|ann|der|dir|env|lhs|max|min|mlp|p90|p95|std|sum|url)\\s*\\()[A-Za-z_][A-Za-z0-9_]*(?=\\s*\\()"
+                                                                                                      "match":  "\\b(?!(?:time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|propagate|coverage|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|date|file|fill|grid|join|mean|rmse|sort|stem|ann|der|dir|env|lhs|max|min|mlp|p90|p95|std|sum|url)\\s*\\()[A-Za-z_][A-Za-z0-9_]*(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
                                                                                                       "include":  "#units"
@@ -3261,11 +3265,15 @@
                                                          },
                                                          {
                                                              "name":  "support.function.external-boundary.englang",
-                                                             "match":  "\\b(file|url|env|secret|exists)\\b"
+                                                             "match":  "\\b(file|dir|url|env|secret|exists)\\b"
                                                          },
                                                          {
                                                              "name":  "support.function.path.englang",
                                                              "match":  "\\b(join|parent|stem|extension)\\b(?=\\s*\\()"
+                                                         },
+                                                         {
+                                                             "name":  "support.function.temporal.englang",
+                                                             "match":  "\\bdate\\b(?=\\s*\\()"
                                                          },
                                                          {
                                                              "name":  "support.function.solver.englang",
@@ -3277,7 +3285,7 @@
                                                          },
                                                          {
                                                              "name":  "support.function.builtin.englang",
-                                                             "match":  "\\b(time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|propagate|coverage|datetime|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|date|file|fill|grid|join|mean|rmse|sort|stem|ann|der|dir|env|lhs|max|min|mlp|p90|p95|std|sum|url)\\b"
+                                                             "match":  "\\b(time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|propagate|coverage|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|date|file|fill|grid|join|mean|rmse|sort|stem|ann|der|dir|env|lhs|max|min|mlp|p90|p95|std|sum|url)\\b"
                                                          }
                                                      ]
                                     },
@@ -3285,7 +3293,7 @@
                                              "patterns":  [
                                                               {
                                                                   "name":  "meta.function-call.englang",
-                                                                  "begin":  "\\b(?!(?:time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|propagate|coverage|datetime|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|date|file|fill|grid|join|mean|rmse|sort|stem|ann|der|dir|env|lhs|max|min|mlp|p90|p95|std|sum|url)\\s*\\()([A-Za-z_][A-Za-z0-9_]*)(\\s*\\()",
+                                                                  "begin":  "\\b(?!(?:time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|propagate|coverage|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|date|file|fill|grid|join|mean|rmse|sort|stem|ann|der|dir|env|lhs|max|min|mlp|p90|p95|std|sum|url)\\s*\\()([A-Za-z_][A-Za-z0-9_]*)(\\s*\\()",
                                                                   "beginCaptures":  {
                                                                                         "1":  {
                                                                                                   "name":  "entity.name.function.call.englang"

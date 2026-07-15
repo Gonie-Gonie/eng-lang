@@ -31,7 +31,9 @@
                                                           "model",
                                                           "db",
                                                           "cache",
-                                                          "workflowStep"
+                                                          "workflowStep",
+                                                          "path",
+                                                          "temporal"
                                                       ],
                                   "token_types":  [
                                                       "namespace",

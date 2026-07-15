@@ -234,6 +234,12 @@
   },
   {
     "fixture": "01_core_workflow.eng",
+    "scope": "support.function.external-boundary.englang",
+    "text": "dir",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
     "scope": "string.quoted.double.englang",
     "text": "\"Q = {sensor.T_supply: .2 degC}\""
   },
@@ -5491,7 +5497,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.temporal.englang",
     "text": "date",
     "fullMatch": true
   },

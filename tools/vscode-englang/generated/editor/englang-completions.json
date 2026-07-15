@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v2",
-    "completion_items_count":  424,
+    "completion_items_count":  423,
     "completion_items":  [
                              {
                                  "detail":  "Schema array value",
@@ -238,12 +238,6 @@
                                  "detail":  "calendar date constructor",
                                  "kind":  "function",
                                  "label":  "date",
-                                 "lsp_kind":  3
-                             },
-                             {
-                                 "detail":  "timestamp constructor",
-                                 "kind":  "function",
-                                 "label":  "datetime",
                                  "lsp_kind":  3
                              },
                              {

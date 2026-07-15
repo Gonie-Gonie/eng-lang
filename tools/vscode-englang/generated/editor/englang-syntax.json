@@ -1356,7 +1356,6 @@
                                                      "secret",
                                                      "env",
                                                      "date",
-                                                     "datetime",
                                                      "select_first_row",
                                                      "filter",
                                                      "select",

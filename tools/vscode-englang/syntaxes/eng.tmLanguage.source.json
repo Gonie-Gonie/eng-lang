@@ -103,11 +103,15 @@
                   },
                   {
                     "name": "support.function.external-boundary.englang",
-                    "match": "\\b(file|url|env|secret|exists)(?=\\s*\\()"
+                    "match": "\\b(file|dir|url|env|secret|exists)(?=\\s*\\()"
                   },
                   {
                     "name": "support.function.path.englang",
                     "match": "\\b(join|parent|stem|extension)\\b(?=\\s*\\()"
+                  },
+                  {
+                    "name": "support.function.temporal.englang",
+                    "match": "\\bdate\\b(?=\\s*\\()"
                   },
                   {
                     "name": "support.function.model.englang",
@@ -2251,11 +2255,15 @@
           },
           {
             "name": "support.function.external-boundary.englang",
-            "match": "\\b(file|url|env|secret|exists)\\b"
+            "match": "\\b(file|dir|url|env|secret|exists)\\b"
           },
           {
             "name": "support.function.path.englang",
             "match": "\\b(join|parent|stem|extension)\\b(?=\\s*\\()"
+          },
+          {
+            "name": "support.function.temporal.englang",
+            "match": "\\bdate\\b(?=\\s*\\()"
           },
           {
             "name": "support.function.solver.englang",

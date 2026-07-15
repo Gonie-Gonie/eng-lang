@@ -154,6 +154,8 @@ pub const SEMANTIC_TOKEN_MODIFIERS: &[&str] = &[
     "db",
     "cache",
     "workflowStep",
+    "path",
+    "temporal",
 ];
 
 const COMPLETION_KEYWORDS: &[&str] = &[
@@ -323,7 +325,6 @@ const WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &[
     "secret",
     "env",
     "date",
-    "datetime",
     "select_first_row",
     "filter",
     "select",
@@ -666,7 +667,6 @@ const EDITOR_LEGACY_WORKFLOW_OPTION_ALIASES: &[&str] =
 
 const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     ("date", "calendar date constructor"),
-    ("datetime", "timestamp constructor"),
     ("dir", "eng.path directory path helper"),
     ("env", "environment variable lookup"),
     ("exists", "eng.path existence check"),
@@ -5933,6 +5933,9 @@ fn http_request_method_keyword(method: &str) -> &'static str {
 
 fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
     match keyword {
+        "file" | "dir" | "url" | "env" | "secret" | "exists" => &["defaultLibrary", "external"],
+        "join" | "parent" | "stem" | "extension" => &["defaultLibrary", "path"],
+        "date" => &["defaultLibrary", "temporal"],
         "sample" | "grid" | "random" | "lhs" | "latin_hypercube" | "latin-hypercube" => {
             &["defaultLibrary", "workflowStep"]
         }
@@ -10427,6 +10430,18 @@ mod tests {
             metadata["semantic_token_legend"]["token_modifiers"][0],
             SEMANTIC_TOKEN_MODIFIERS[0]
         );
+        let completion_items = metadata["completion_items"]
+            .as_array()
+            .expect("editor completion items should be an array");
+        assert!(completion_items
+            .iter()
+            .any(|completion| completion["label"] == "date"));
+        assert!(
+            !completion_items
+                .iter()
+                .any(|completion| completion["label"] == "datetime"),
+            "unsupported datetime constructor must not be advertised"
+        );
         let syntax_catalog = &metadata["syntax_catalog"];
         assert_eq!(syntax_catalog["keywords"][0], COMPLETION_KEYWORDS[0]);
         let syntax_keywords = syntax_catalog["keywords"]
@@ -14076,6 +14091,70 @@ report {
             "E_cmd = integrate",
             "integrate",
             "keyword",
+        );
+    }
+
+    #[test]
+    fn snapshot_assigns_external_path_and_temporal_roles_to_supported_helpers() {
+        let source = r#"source_file = file("data/input.csv")
+output_dir = dir("outputs")
+endpoint = url("https://example.org/data")
+api_key = secret env("API_KEY")
+output_exists = exists(output_dir)
+output_file = join(output_dir, "result.csv")
+output_parent = parent(output_file)
+output_stem = stem(output_file)
+output_extension = extension(output_file)
+deadline = date(2026, 12, 31)
+joined_rows = join left_rows with right_rows
+"#;
+        let snapshot = snapshot_for_source(Path::new("builtin_roles.eng"), source);
+
+        for (line, label) in [
+            ("source_file = file", "file"),
+            ("output_dir = dir", "dir"),
+            ("endpoint = url", "url"),
+            ("api_key = secret", "secret"),
+            ("api_key = secret", "env"),
+            ("output_exists = exists", "exists"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, label, "function", "external",
+            );
+        }
+        for (line, label) in [
+            ("output_file = join", "join"),
+            ("output_parent = parent", "parent"),
+            ("output_stem = stem", "stem"),
+            ("output_extension = extension", "extension"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, label, "function", "path",
+            );
+        }
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "deadline = date",
+            "date",
+            "function",
+            "temporal",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "joined_rows = join",
+            "join",
+            "keyword",
+            "workflowStep",
+        );
+        assert_semantic_token_on_line_without_modifier(
+            &snapshot,
+            source,
+            "joined_rows = join",
+            "join",
+            "keyword",
+            "path",
         );
     }
 
