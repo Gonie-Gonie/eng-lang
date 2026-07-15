@@ -147,6 +147,7 @@ const state = {
   editorFindQuery: "",
   editorFindCaseSensitive: false,
   editorFindMatchIndex: -1,
+  pendingGoToLine: null,
   pendingQuickFix: null,
   pendingRename: null,
   pendingWorkspaceSymbols: null,
@@ -1176,9 +1177,168 @@ function selectEditorUtf16Range(editor, range) {
   return { start: editor.selectionStart, end: editor.selectionEnd };
 }
 
+function parseEditorLocation(value, source = state.source) {
+  const sourceText = String(source ?? "");
+  const totalLines = lineCount(sourceText);
+  const match = String(value ?? "").match(/^\s*(\d+)(?:\s*:\s*(\d+))?\s*$/);
+  if (!match) {
+    return { error: `Enter a line from 1 to ${totalLines}, optionally followed by :column.` };
+  }
+  const line = Number(match[1]);
+  if (!Number.isSafeInteger(line) || line < 1 || line > totalLines) {
+    return { error: `Line must be between 1 and ${totalLines}.` };
+  }
+  const lineRange = sourceLineRange(sourceText, line - 1);
+  const column = match[2] === undefined ? 1 : Number(match[2]);
+  const maxColumn = lineRange.text.length + 1;
+  if (!Number.isSafeInteger(column) || column < 1 || column > maxColumn) {
+    return { error: `Column must be between 1 and ${maxColumn} on line ${line}.` };
+  }
+  return {
+    line,
+    column,
+    lineIndex: line - 1,
+    columnIndex: column - 1,
+    offset: lineRange.start + column - 1
+  };
+}
+
+function openGoToLine() {
+  if (
+    state.pendingGoToLine
+    || state.pendingQuickFix
+    || state.pendingRename
+    || state.pendingWorkspaceSymbols
+    || state.pendingTabClose
+    || state.pendingWindowClose
+  ) {
+    return false;
+  }
+  const editor = byId("editor");
+  if (!editor || String(editor.value ?? "") !== String(state.source ?? "")) return false;
+  const position = editorCursorPosition(editor.value, editor.selectionStart ?? 0);
+  const pending = {
+    path: state.currentPath,
+    source: state.source
+  };
+  state.pendingGoToLine = pending;
+  hideCompletions();
+  const backdrop = document.createElement("div");
+  backdrop.id = "goToLineBackdrop";
+  backdrop.className = "dialog-backdrop";
+  backdrop.innerHTML = `
+    <div class="unsaved-dialog go-to-line-dialog" role="dialog" aria-modal="true" aria-labelledby="goToLineTitle">
+      <h2 id="goToLineTitle">Go to Line / Column</h2>
+      <div class="go-to-line-range">1-${lineCount(state.source)} lines</div>
+      <label class="rename-dialog-label" for="goToLineInput">Line or Line : Column</label>
+      <input id="goToLineInput" class="rename-dialog-input" value="${position.line + 1}:${position.column + 1}" autocomplete="off" spellcheck="false" aria-describedby="goToLineError" />
+      <div id="goToLineError" class="rename-dialog-error" role="alert" hidden></div>
+      <div class="unsaved-dialog-actions">
+        <button id="goToLineCancelBtn">Cancel</button>
+        <button id="goToLineApplyBtn" class="primary">Go</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  syncDialogInert();
+  const input = byId("goToLineInput");
+  byId("goToLineCancelBtn").onclick = cancelGoToLine;
+  byId("goToLineApplyBtn").onclick = submitGoToLine;
+  input.oninput = () => setGoToLineError("");
+  input.onkeydown = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      event.stopPropagation();
+      submitGoToLine();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      cancelGoToLine();
+    }
+  };
+  backdrop.onclick = (event) => {
+    if (event.target === backdrop) cancelGoToLine();
+  };
+  input.focus();
+  input.setSelectionRange(0, input.value.length);
+  setStatus("Go to line / column");
+  return true;
+}
+
+function setGoToLineError(message) {
+  const target = byId("goToLineError");
+  if (!target) return;
+  target.textContent = String(message || "");
+  target.hidden = !message;
+}
+
+function revealEditorLocation(editor, location) {
+  const lineHeight = 19;
+  const charWidth = 8.2;
+  const viewportHeight = Math.max(lineHeight, Number(editor.clientHeight) || 200);
+  const viewportWidth = Math.max(40, (Number(editor.clientWidth) || 600) - 28);
+  editor.scrollTop = Math.max(0, location.lineIndex * lineHeight - Math.min(3 * lineHeight, Math.floor(viewportHeight / 3)));
+  const columnLeft = location.columnIndex * charWidth;
+  const currentLeft = Math.max(0, Number(editor.scrollLeft) || 0);
+  if (columnLeft < currentLeft + 8 || columnLeft > currentLeft + viewportWidth - 16) {
+    editor.scrollLeft = Math.max(0, columnLeft - Math.floor(viewportWidth / 2));
+  }
+  syncEditorHighlightScroll();
+}
+
+function submitGoToLine() {
+  const pending = state.pendingGoToLine;
+  const input = byId("goToLineInput");
+  const editor = byId("editor");
+  if (!pending || !input || !editor) return false;
+  if (
+    pending.path !== state.currentPath
+    || pending.source !== state.source
+    || String(editor.value ?? "") !== String(state.source ?? "")
+  ) {
+    setGoToLineError("The editor changed. Close this dialog and try again.");
+    return false;
+  }
+  const location = parseEditorLocation(input.value, pending.source);
+  if (location.error) {
+    setGoToLineError(location.error);
+    return false;
+  }
+  closeGoToLineDialog(pending);
+  editor.focus();
+  if (typeof editor.setSelectionRange === "function") {
+    editor.setSelectionRange(location.offset, location.offset, "none");
+  } else {
+    editor.selectionStart = location.offset;
+    editor.selectionEnd = location.offset;
+  }
+  revealEditorLocation(editor, location);
+  rememberCurrentEditorView(editor);
+  updateEditorFindStatus();
+  updateCursorInsight();
+  setStatus(`Line ${location.line}, column ${location.column}`);
+  return true;
+}
+
+function closeGoToLineDialog(pending = state.pendingGoToLine) {
+  if (!pending || state.pendingGoToLine !== pending) return false;
+  byId("goToLineBackdrop")?.remove();
+  state.pendingGoToLine = null;
+  syncDialogInert();
+  return true;
+}
+
+function cancelGoToLine() {
+  if (!closeGoToLineDialog()) return false;
+  setStatus("Go to line cancelled");
+  byId("editor")?.focus();
+  return true;
+}
+
 function openWorkspaceSymbolSearch() {
   if (
-    state.pendingWorkspaceSymbols
+    state.pendingGoToLine
+    || state.pendingWorkspaceSymbols
     || state.pendingQuickFix
     || state.pendingRename
     || state.pendingTabClose
@@ -2571,7 +2731,8 @@ async function switchTab(path) {
 function syncDialogInert() {
   const app = byId("app");
   if (app) app.inert = Boolean(
-    state.pendingQuickFix
+    state.pendingGoToLine
+      || state.pendingQuickFix
       || state.pendingRename
       || state.pendingWorkspaceSymbols
       || state.pendingTabClose
@@ -7424,6 +7585,8 @@ function updateEditorBreadcrumbs() {
 function bindCursorInsightActions() {
   const target = byId("cursorInsight");
   if (!target) return;
+  const locationButton = target.querySelector("[data-go-to-line]");
+  if (locationButton) locationButton.onclick = openGoToLine;
   bindSourceTokenRangeButtons(target);
   bindSourceTokenCopyButtons(target);
   target.querySelectorAll("[data-show-highlight-panel]").forEach((button) => {
@@ -7527,7 +7690,8 @@ function renderCursorInsight() {
   const hover = token ? hoverForSemanticToken(token, position.line) : null;
   const lineOverlaps = editor && state.source === state.highlightSource ? semanticTokenLineOverlaps(position.line) : [];
   const bracket = editor ? editorBracketMatch(source, editor.selectionStart) : null;
-  const parts = [`L${position.line + 1}:C${position.column + 1}`];
+  const locationLabel = `L${position.line + 1}:C${position.column + 1}`;
+  const parts = [locationLabel];
   if (state.source !== state.highlightSource) {
     parts.push(checkFreshnessLabel());
   } else if (token) {
@@ -7551,8 +7715,10 @@ function renderCursorInsight() {
     parts.push(`unmatched ${bracket.char}`);
   }
   const title = hover ? hoverTitle(hover) : parts.join(" / ");
+  const details = parts.slice(1);
   return `
-    <span title="${escapeAttr(title)}">${escapeHtml(parts.join(" / "))}</span>
+    <button class="editor-location-button" data-go-to-line title="Go to line / column (Ctrl+G)" aria-label="Go to line ${position.line + 1}, column ${position.column + 1}">${escapeHtml(locationLabel)}</button>
+    <span title="${escapeAttr(title)}">${details.length ? escapeHtml(` / ${details.join(" / ")}`) : ""}</span>
     ${token ? renderCursorInsightActions(token, "Select", hover, true) : nearestToken ? renderCursorInsightActions(nearestToken, "Select Nearby") : ""}
   `;
 }
@@ -7776,7 +7942,7 @@ async function openWorkspaceReferenceLocation(reference) {
 }
 
 async function startSemanticRename() {
-  if (state.pendingQuickFix || state.pendingRename || state.pendingWorkspaceSymbols) return false;
+  if (state.pendingGoToLine || state.pendingQuickFix || state.pendingRename || state.pendingWorkspaceSymbols) return false;
   const editor = byId("editor");
   const request = editorDefinitionRequest(editor);
   if (!request) return false;
@@ -9742,7 +9908,7 @@ async function requestCursorProblemQuickFix() {
 }
 
 async function requestProblemQuickFix(diag) {
-  if (state.pendingQuickFix || state.pendingRename || state.pendingWorkspaceSymbols) return false;
+  if (state.pendingGoToLine || state.pendingQuickFix || state.pendingRename || state.pendingWorkspaceSymbols) return false;
   if (state.highlightSource !== state.source) {
     setStatus("Analyze the current buffer before requesting a quick fix");
     scheduleLiveCheck();
@@ -10346,7 +10512,8 @@ function bindSplitters() {
 
 function handleGlobalKeyDown(event) {
   const editorModalOpen = Boolean(
-    state.pendingQuickFix
+    state.pendingGoToLine
+      || state.pendingQuickFix
       || state.pendingRename
       || state.pendingWorkspaceSymbols
       || state.pendingWindowClose
@@ -10368,6 +10535,16 @@ function handleGlobalKeyDown(event) {
   if (outlineShortcut) {
     event.preventDefault();
     if (!editorModalOpen) focusOutline();
+    return;
+  }
+  const goToLineShortcut = (event.ctrlKey || event.metaKey)
+    && !event.altKey
+    && !event.shiftKey
+    && String(event.key || "").toLowerCase() === "g";
+  if (goToLineShortcut) {
+    event.preventDefault();
+    if (state.pendingGoToLine) byId("goToLineInput")?.focus();
+    else if (!editorModalOpen) openGoToLine();
     return;
   }
   const workspaceSymbolShortcut = (event.ctrlKey || event.metaKey)
@@ -10394,7 +10571,7 @@ function handleGlobalKeyDown(event) {
     && String(event.key || "").toLowerCase() === "s";
   if (saveShortcut) {
     event.preventDefault();
-    if (state.pendingQuickFix || state.pendingRename || state.pendingWorkspaceSymbols) return;
+    if (state.pendingGoToLine || state.pendingQuickFix || state.pendingRename || state.pendingWorkspaceSymbols) return;
     if (state.pendingWindowClose) void saveAllDirtyTabsAndClose();
     else if (state.pendingTabClose) void savePendingTabAndClose();
     else void saveCurrent();
@@ -10434,7 +10611,10 @@ function handleGlobalKeyDown(event) {
     }
     return;
   }
-  if (event.key === "Escape" && state.pendingWorkspaceSymbols) {
+  if (event.key === "Escape" && state.pendingGoToLine) {
+    event.preventDefault();
+    cancelGoToLine();
+  } else if (event.key === "Escape" && state.pendingWorkspaceSymbols) {
     event.preventDefault();
     cancelWorkspaceSymbolSearch();
   } else if (event.key === "Escape" && state.pendingQuickFix) {
@@ -10473,6 +10653,7 @@ function handleNativeWindowClose(event) {
   }
   if (!hasDirtyTabs()) return;
   event.preventDefault();
+  if (state.pendingGoToLine) closeGoToLineDialog();
   if (state.pendingWorkspaceSymbols) closeWorkspaceSymbolSearch();
   openUnsavedWindowDialog();
 }

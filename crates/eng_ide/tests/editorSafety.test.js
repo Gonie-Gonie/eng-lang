@@ -1696,6 +1696,162 @@ function editorLineNumbersTrackSourceAndScroll() {
   `);
 }
 
+function editorLocationNavigationUsesValidatedUtf16Coordinates() {
+  assert.deepStrictEqual(
+    JSON.parse(run('JSON.stringify(parseEditorLocation("2:3", "alpha\\n\\u{1F600}beta\\n"))')),
+    { line: 2, column: 3, lineIndex: 1, columnIndex: 2, offset: 8 }
+  );
+  assert.deepStrictEqual(
+    JSON.parse(run('JSON.stringify(parseEditorLocation("3", "alpha\\n\\u{1F600}beta\\n"))')),
+    { line: 3, column: 1, lineIndex: 2, columnIndex: 0, offset: 13 }
+  );
+  assert.strictEqual(
+    run('parseEditorLocation("2:8", "alpha\\n\\u{1F600}beta\\n").error'),
+    "Column must be between 1 and 7 on line 2."
+  );
+  assert.strictEqual(
+    run('parseEditorLocation("4", "alpha\\n\\u{1F600}beta\\n").error'),
+    "Line must be between 1 and 3."
+  );
+  assert.match(run('parseEditorLocation("line two", "alpha\\nbeta").error'), /optionally followed by :column/);
+
+  run(`
+    globalThis.realByIdForEditorLocation = byId;
+    state.currentPath = "main.eng";
+    state.source = "alpha\\n\\u{1F600}beta\\nlast";
+    state.highlightSource = null;
+    state.tabs = [{ path: "main.eng", source: state.source, dirty: false }];
+    state.pendingGoToLine = { path: state.currentPath, source: state.source };
+    globalThis.editorLocationInput = { value: "2:3" };
+    globalThis.editorLocationError = { textContent: "", hidden: true };
+    globalThis.editorLocationBackdrop = {
+      removed: false,
+      remove() {
+        this.removed = true;
+      }
+    };
+    globalThis.editorLocationApp = { inert: true };
+    globalThis.editorLocationControl = {
+      value: state.source,
+      selectionStart: 0,
+      selectionEnd: 0,
+      selectionDirection: "none",
+      scrollTop: 200,
+      scrollLeft: 150,
+      clientHeight: 100,
+      clientWidth: 100,
+      focused: false,
+      focus() {
+        this.focused = true;
+      },
+      setSelectionRange(start, end, direction) {
+        this.selectionStart = start;
+        this.selectionEnd = end;
+        this.selectionDirection = direction;
+      }
+    };
+    byId = (id) => ({
+      app: globalThis.editorLocationApp,
+      editor: globalThis.editorLocationControl,
+      goToLineBackdrop: globalThis.editorLocationBackdrop,
+      goToLineError: globalThis.editorLocationError,
+      goToLineInput: globalThis.editorLocationInput
+    })[id] || null;
+    globalThis.editorLocationMarkup = renderCursorInsight();
+    globalThis.editorLocationSubmitted = submitGoToLine();
+  `);
+
+  assert.match(run("globalThis.editorLocationMarkup"), /data-go-to-line/);
+  assert.match(run("globalThis.editorLocationMarkup"), /L1:C1/);
+  assert.strictEqual(run("globalThis.editorLocationSubmitted"), true);
+  assert.strictEqual(run("state.pendingGoToLine"), null);
+  assert.strictEqual(run("globalThis.editorLocationBackdrop.removed"), true);
+  assert.strictEqual(run("globalThis.editorLocationApp.inert"), false);
+  assert.strictEqual(run("globalThis.editorLocationControl.focused"), true);
+  assert.deepStrictEqual(
+    Array.from(run("[globalThis.editorLocationControl.selectionStart, globalThis.editorLocationControl.selectionEnd, globalThis.editorLocationControl.selectionDirection, globalThis.editorLocationControl.scrollTop, globalThis.editorLocationControl.scrollLeft]")),
+    [8, 8, "none", 0, 0]
+  );
+  assert.strictEqual(run("state.status"), "Line 2, column 3");
+  assert.deepStrictEqual(
+    Array.from(run("[state.tabs[0].selectionStart, state.tabs[0].selectionEnd, state.tabs[0].scrollTop, state.tabs[0].scrollLeft]")),
+    [8, 8, 0, 0]
+  );
+
+  run(`
+    globalThis.editorLocationControl.clientHeight = 100;
+    globalThis.editorLocationControl.clientWidth = 100;
+    globalThis.editorLocationControl.scrollTop = 0;
+    globalThis.editorLocationControl.scrollLeft = 0;
+    revealEditorLocation(globalThis.editorLocationControl, { lineIndex: 20, columnIndex: 80 });
+  `);
+  assert.deepStrictEqual(
+    Array.from(run("[globalThis.editorLocationControl.scrollTop, globalThis.editorLocationControl.scrollLeft]")),
+    [347, 620]
+  );
+
+  run(`
+    state.pendingGoToLine = { path: state.currentPath, source: state.source };
+    globalThis.editorLocationInput.value = "2:8";
+    globalThis.editorLocationError.hidden = true;
+    globalThis.editorLocationError.textContent = "";
+    globalThis.invalidEditorLocationSubmitted = submitGoToLine();
+  `);
+  assert.strictEqual(run("globalThis.invalidEditorLocationSubmitted"), false);
+  assert.strictEqual(run("globalThis.editorLocationError.hidden"), false);
+  assert.strictEqual(run("globalThis.editorLocationError.textContent"), "Column must be between 1 and 7 on line 2.");
+  assert.notStrictEqual(run("state.pendingGoToLine"), null);
+  run("cancelGoToLine()");
+
+  run(`
+    globalThis.editorLocationOriginalSource = state.source;
+    state.pendingGoToLine = { path: state.currentPath, source: state.source };
+    globalThis.editorLocationInput.value = "1";
+    state.source += "\\nchanged";
+    globalThis.editorLocationControl.value = state.source;
+    globalThis.editorLocationError.hidden = true;
+    globalThis.editorLocationError.textContent = "";
+    globalThis.staleEditorLocationSubmitted = submitGoToLine();
+  `);
+  assert.strictEqual(run("globalThis.staleEditorLocationSubmitted"), false);
+  assert.strictEqual(run("globalThis.editorLocationError.textContent"), "The editor changed. Close this dialog and try again.");
+  run(`
+    state.source = globalThis.editorLocationOriginalSource;
+    globalThis.editorLocationControl.value = state.source;
+    cancelGoToLine();
+  `);
+
+  run(`
+    globalThis.realOpenGoToLine = openGoToLine;
+    globalThis.openGoToLineCalls = 0;
+    openGoToLine = () => {
+      globalThis.openGoToLineCalls += 1;
+      return true;
+    };
+    globalThis.goToLineShortcutEvent = {
+      altKey: false,
+      ctrlKey: true,
+      key: "g",
+      metaKey: false,
+      prevented: false,
+      shiftKey: false,
+      preventDefault() {
+        this.prevented = true;
+      }
+    };
+    handleGlobalKeyDown(globalThis.goToLineShortcutEvent);
+    openGoToLine = globalThis.realOpenGoToLine;
+  `);
+  assert.strictEqual(run("globalThis.goToLineShortcutEvent.prevented"), true);
+  assert.strictEqual(run("globalThis.openGoToLineCalls"), 1);
+  run(`
+    byId = globalThis.realByIdForEditorLocation;
+    state.currentPath = "";
+    state.source = "";
+    state.tabs = [];
+  `);
+}
+
 function outlineSelectionUsesUtf16Coordinates() {
   run(`
     globalThis.outlineEditor = {
@@ -2146,6 +2302,7 @@ async function main() {
   documentBreadcrumbNavigationUsesUtf16Coordinates();
   editorViewStatePersistsAcrossRendersAndTabs();
   editorLineNumbersTrackSourceAndScroll();
+  editorLocationNavigationUsesValidatedUtf16Coordinates();
   outlineSelectionUsesUtf16Coordinates();
   outlineRefreshPreservesFilterFocus();
   outlineShortcutFocusesCurrentFileSymbols();

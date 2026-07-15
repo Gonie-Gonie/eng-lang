@@ -96,7 +96,10 @@ Editor
   any participating tab changes during the check. Check and Run still force an
   immediate refresh. A fixed line-number gutter stays aligned with the editable
   and highlighted source while scrolling, updates as lines are added or
-  removed, and widens automatically for long files.
+  removed, and widens automatically for long files. Ctrl+G or the clickable
+  `L141:C444`-style location opens exact line/column navigation. The input accepts
+  a 1-based line or `line:column`, validates it against the current buffer, and
+  reveals long lines horizontally as well as vertically.
   Tab and Shift+Tab indent or outdent the current line or selected block,
   Ctrl+S saves the active buffer, and Ctrl+/ toggles `#` line comments.
   Find in the toolbar or Ctrl+F searches the current buffer, preloading a

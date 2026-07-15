@@ -185,6 +185,16 @@ button:hover {
   visibility: hidden;
 }
 
+.go-to-line-dialog {
+  width: min(340px, calc(100vw - 40px));
+}
+
+.go-to-line-range {
+  margin: -2px 0 12px;
+  color: var(--muted);
+  font: 12px/1.4 Consolas, "Cascadia Mono", monospace;
+}
+
 .quick-fix-dialog {
   width: min(560px, calc(100vw - 40px));
 }
@@ -1001,6 +1011,25 @@ button:hover {
   text-align: center;
   color: #344054;
   font-family: Consolas, "Cascadia Mono", monospace;
+}
+
+.editor-location-button {
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.editor-location-button:hover,
+.editor-location-button:focus-visible {
+  border: 0;
+  color: var(--accent);
+  outline: none;
+  text-decoration: underline;
 }
 
 .editor-shell {
