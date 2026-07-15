@@ -267,9 +267,12 @@ rename pass the current file plus every modified open EngLang file in the
 workspace to the compiler. Recursive static imports use open text before disk,
 and results are discarded if the participating document set, dirty state, or
 version changes. Problems, role-aware colors, and review decorations in other
-open editors refresh after a modified import changes or closes. Saved workspace
-files are added when their static file-import
-chain resolves the symbol to the same declaration;
+open editors refresh after a modified import changes or closes. Saving an open
+import also refreshes its open dependents. When Git, a formatter, or another
+tool creates, changes, or deletes a closed workspace `.eng` import, VS Code
+refreshes those dependents automatically; generated `build`, `target`, and
+`dist` trees are ignored. Saved workspace files are added when their static
+file-import chain resolves the symbol to the same declaration;
 unrelated same-name symbols are excluded. Rename rejects the whole operation
 when a participating buffer changes, any affected file has incomplete semantic
 coverage, or a conflict is found. Local variables and parameters remain

@@ -5425,6 +5425,42 @@ function Assert-VscodeExtensionContract {
             throw "VS Code imported-buffer diagnostics must refresh open EngLang documents in the same workspace: $RequiredWorkspaceDiagnosticRefreshToken"
         }
     }
+    foreach ($RequiredDiskImportRefreshToken in @(
+        'vscode.workspace.createFileSystemWatcher("**/*.eng")',
+        "engSourceWatcher.onDidCreate(refreshWorkspaceAfterClosedEngSourceChange)",
+        "engSourceWatcher.onDidChange(refreshWorkspaceAfterClosedEngSourceChange)",
+        "engSourceWatcher.onDidDelete(refreshWorkspaceAfterClosedEngSourceChange)",
+        "isWorkspaceEngSourceUri(uri)",
+        "refreshWorkspaceAfterEngSourceSave(document)",
+        "diagnosticController.scheduleWorkspaceFileChangedChecks(document)",
+        "scheduleWorkspaceFileChangedChecks(document)",
+        "this.scheduleDependencyFileCheck(candidate)",
+        "dependencyFileCheckKind(document)",
+        'document.isDirty ? "lintOnChange" : "lintOnSave"',
+        'runtimeMode === "eng-cli" && !document.isDirty',
+        "this.checkDebounceMs",
+        "diagnosticController,",
+        "dispose()",
+        "this.changeTimers.clear()"
+    )) {
+        if (-not ($ExtensionSource + "`n" + $DiagnosticsProviderSource).Contains($RequiredDiskImportRefreshToken)) {
+            throw "VS Code closed-import disk changes must invalidate and recheck open same-workspace editors: $RequiredDiskImportRefreshToken"
+        }
+    }
+    foreach ($RequiredWorkspaceSourceFilterToken in @(
+        "WORKSPACE_INDEX_IGNORED_DIRECTORIES",
+        "isWorkspaceEngSourceUri(uri)",
+        'vscode.workspace.getWorkspaceFolder(uri)',
+        'process.platform === "win32"',
+        '".git"',
+        '"build"',
+        '"dist"',
+        '"target"'
+    )) {
+        if (-not $RuntimeDiscoverySource.Contains($RequiredWorkspaceSourceFilterToken)) {
+            throw "VS Code EngLang source watcher must use bounded workspace paths and ignore generated trees: $RequiredWorkspaceSourceFilterToken"
+        }
+    }
     $StdinJsonRequestIndex = $LspRequestsSource.IndexOf("function stdinJsonRequest")
     if ($StdinJsonRequestIndex -lt 0) {
         throw "VS Code extension missing shared stdin JSON request helper"
@@ -5895,6 +5931,11 @@ function Assert-VscodeExtensionContract {
         "staleFailureDoesNotReplaceProblems",
         "clearingProblemsInvalidatesInFlightCheck",
         "callerCancellationDoesNotKillSharedSnapshot",
+        "diskImportChangeUsesSelectedDiagnosticsMode",
+        "workspaceSourceWatcherIgnoresGeneratedTrees",
+        "file:file-saved.eng",
+        "source:live-dirty.eng",
+        "disposing diagnostics must cancel pending dependency checks",
         "same-version callers must share one snapshot process",
         "one caller must not kill a shared snapshot process"
     )) {

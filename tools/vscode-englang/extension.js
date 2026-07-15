@@ -25,7 +25,9 @@ const {
   findLspRuntime,
   findLspRuntimeForRoot,
   findRuntime,
-  workspaceRoot
+  isWorkspaceEngSourceUri,
+  workspaceRoot,
+  workspaceRootKey
 } = require("./runtimeDiscovery");
 const { createSemanticLegend } = require("./lspSemanticTokens");
 
@@ -101,6 +103,7 @@ function activate(context) {
     findRuntime,
     snapshotDocumentSource: lspRequests.snapshotDocumentSource,
     workspaceRoot,
+    workspaceRootKey,
     cacheReview: (document, review) => reviewCache.set(document.uri.fsPath, review),
     clearCachedReview: (document) => reviewCache.delete(document.uri.fsPath),
     updateReviewRiskDecorations: decorationController.updateReviewRiskDecorations,
@@ -115,6 +118,7 @@ function activate(context) {
     semanticTokenTypes: SEMANTIC_TOKEN_TYPES,
     semanticTokenModifiers: SEMANTIC_TOKEN_MODIFIERS
   });
+  const engSourceWatcher = vscode.workspace.createFileSystemWatcher("**/*.eng");
   function refreshActiveDiagnosticsForSettings(reason = "diagnostics settings changed") {
     const document = vscode.window.activeTextEditor?.document;
     if (!document || !isEngDocument(document)) {
@@ -170,14 +174,14 @@ function activate(context) {
     if (!document || !isEngDocument(document)) {
       return;
     }
-    const changedRoot = String(workspaceRoot(document) ?? "").toLowerCase();
+    const changedRoot = workspaceRootKey(workspaceRoot(document));
     const candidates = [document, ...(vscode.workspace.textDocuments ?? [])];
     const seen = new Set();
     for (const candidate of candidates) {
       if (!isEngDocument(candidate)) {
         continue;
       }
-      const candidateRoot = String(workspaceRoot(candidate) ?? "").toLowerCase();
+      const candidateRoot = workspaceRootKey(workspaceRoot(candidate));
       const candidateUri = candidate.uri.toString();
       if (candidateRoot !== changedRoot || seen.has(candidateUri)) {
         continue;
@@ -187,6 +191,33 @@ function activate(context) {
       decorationController.updateReviewRiskDecorations(candidate, undefined);
       decorationController.updateSemanticSymbolDecorations(candidate, undefined);
     }
+  }
+
+  function refreshWorkspaceAfterEngSourceSave(document) {
+    if (!isEngDocument(document)) {
+      return;
+    }
+    lspRequests.clearSnapshotCache(document);
+    clearCachedWorkspaceEditorSnapshots(document);
+    semanticTokensProvider.scheduleRefresh();
+    diagnosticController.scheduleWorkspaceFileChangedChecks(document);
+  }
+
+  function refreshWorkspaceAfterClosedEngSourceChange(uri) {
+    if (!isWorkspaceEngSourceUri(uri)) {
+      return;
+    }
+    const openDocument = (vscode.workspace.textDocuments ?? []).some(
+      (document) => document.uri.toString() === uri.toString()
+    );
+    if (openDocument) {
+      return;
+    }
+    refreshWorkspaceAfterEngSourceSave({
+      fileName: uri.fsPath,
+      languageId: LANGUAGE_ID,
+      uri
+    });
   }
 
   function updateDiagnosticsStatusBar(document = vscode.window.activeTextEditor?.document) {
@@ -221,7 +252,14 @@ function activate(context) {
     updateDiagnosticsStatusBar(document);
   }
 
-  context.subscriptions.push(output, diagnostics, diagnosticsStatusBar, semanticTokensProvider);
+  context.subscriptions.push(
+    output,
+    diagnostics,
+    diagnosticsStatusBar,
+    diagnosticController,
+    semanticTokensProvider,
+    engSourceWatcher
+  );
   context.subscriptions.push(...decorationController.disposables);
 
   context.subscriptions.push(
@@ -236,9 +274,13 @@ function activate(context) {
       updateDiagnosticsStatusBarForDocument(event.document);
     }),
     vscode.workspace.onDidSaveTextDocument((document) => {
+      refreshWorkspaceAfterEngSourceSave(document);
       diagnosticController.maybeCheck(document);
       updateDiagnosticsStatusBarForDocument(document);
     }),
+    engSourceWatcher.onDidCreate(refreshWorkspaceAfterClosedEngSourceChange),
+    engSourceWatcher.onDidChange(refreshWorkspaceAfterClosedEngSourceChange),
+    engSourceWatcher.onDidDelete(refreshWorkspaceAfterClosedEngSourceChange),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (
         event.affectsConfiguration("englang.diagnosticsMode") ||

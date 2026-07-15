@@ -3,6 +3,7 @@
 const assert = require("assert");
 const childProcess = require("child_process");
 const Module = require("module");
+const path = require("path");
 
 class Range {
   constructor(startLine, startCharacter, endLine, endCharacter) {
@@ -49,12 +50,15 @@ const vscodeMock = {
   },
   workspace: {
     textDocuments: [],
-    getConfiguration() {
+    getConfiguration(_section, uri) {
       return {
-        get(_name, fallback) {
-          return fallback;
+        get(name, fallback) {
+          return uri?.configuration?.[name] ?? fallback;
         }
       };
+    },
+    getWorkspaceFolder() {
+      return undefined;
     },
     workspaceFolders: []
   }
@@ -64,6 +68,8 @@ const originalLoad = Module._load;
 let EngDiagnosticsController;
 let EngSemanticTokensProvider;
 let createLspRequests;
+let isWorkspaceEngSourceUri;
+let workspaceRootKey;
 try {
   Module._load = function loadWithVscodeMock(request, parent, isMain) {
     if (request === "vscode") {
@@ -74,6 +80,7 @@ try {
   ({ EngDiagnosticsController } = require("../diagnosticsProvider"));
   ({ EngSemanticTokensProvider } = require("../semanticTokensProvider"));
   ({ createLspRequests } = require("../lspRequests"));
+  ({ isWorkspaceEngSourceUri, workspaceRootKey } = require("../runtimeDiscovery"));
 } finally {
   Module._load = originalLoad;
 }
@@ -387,6 +394,101 @@ function changedImportSchedulesOpenWorkspaceDiagnostics() {
   vscodeMock.workspace.textDocuments = [];
 }
 
+async function diskImportChangeUsesSelectedDiagnosticsMode() {
+  const checks = [];
+  const root = path.resolve("workspace-disk-refresh");
+  function dependencyDocument(name, options = {}) {
+    const fsPath = path.join(options.root ?? root, `${name}.eng`);
+    return {
+      fileName: fsPath,
+      isDirty: options.isDirty ?? false,
+      languageId: "englang",
+      mode: options.mode ?? "lsp-snapshot",
+      root: options.root ?? root,
+      uri: {
+        configuration: options.configuration ?? {},
+        fsPath,
+        scheme: "file",
+        toString() {
+          return `file://${fsPath.replace(/\\/g, "/")}`;
+        }
+      },
+      version: 1
+    };
+  }
+
+  const changed = dependencyDocument("module");
+  const liveSaved = dependencyDocument("live-saved");
+  const liveDirty = dependencyDocument("live-dirty", { isDirty: true });
+  const fileSaved = dependencyDocument("file-saved", { mode: "eng-cli" });
+  const fileDirty = dependencyDocument("file-dirty", { isDirty: true, mode: "eng-cli" });
+  const disabled = dependencyDocument("disabled", {
+    configuration: { lintOnSave: false }
+  });
+  const otherRoot = dependencyDocument("other", {
+    root: path.resolve("other-workspace")
+  });
+  vscodeMock.workspace.textDocuments = [
+    changed,
+    liveSaved,
+    liveDirty,
+    fileSaved,
+    fileDirty,
+    disabled,
+    otherRoot
+  ];
+  const controller = new EngDiagnosticsController({}, {}, {
+    checkDebounceMs: 5,
+    diagnosticsRuntime: (document) => document.mode,
+    isEngDocument: (document) => document.languageId === "englang",
+    workspaceRoot: (document) => document.root,
+    workspaceRootKey
+  });
+  controller.checkDocumentSource = (document) => checks.push(`source:${path.basename(document.fileName)}`);
+  controller.checkDocument = (document) => checks.push(`file:${path.basename(document.fileName)}`);
+
+  controller.scheduleWorkspaceFileChangedChecks(changed);
+  await wait(20);
+  assert.deepStrictEqual(checks.sort(), [
+    "file:file-saved.eng",
+    "source:live-dirty.eng",
+    "source:live-saved.eng"
+  ]);
+
+  checks.length = 0;
+  controller.checkDebounceMs = 20;
+  controller.scheduleDependencyFileCheck(liveSaved);
+  controller.dispose();
+  await wait(30);
+  assert.deepStrictEqual(checks, [], "disposing diagnostics must cancel pending dependency checks");
+  vscodeMock.workspace.textDocuments = [];
+}
+
+function workspaceSourceWatcherIgnoresGeneratedTrees() {
+  const root = path.resolve("workspace-source-watcher");
+  const originalGetWorkspaceFolder = vscodeMock.workspace.getWorkspaceFolder;
+  vscodeMock.workspace.getWorkspaceFolder = (uri) => {
+    const relative = path.relative(root, uri.fsPath);
+    if (path.isAbsolute(relative) || relative === ".." || relative.startsWith(`..${path.sep}`)) {
+      return undefined;
+    }
+    return { uri: { fsPath: root } };
+  };
+  const uri = (relativePath, scheme = "file") => ({
+    fsPath: path.join(root, relativePath),
+    scheme
+  });
+  try {
+    assert.strictEqual(isWorkspaceEngSourceUri(uri(path.join("src", "model.eng"))), true);
+    assert.strictEqual(isWorkspaceEngSourceUri(uri(path.join("build", "copy.eng"))), false);
+    assert.strictEqual(isWorkspaceEngSourceUri(uri(path.join("nested", "target", "copy.eng"))), false);
+    assert.strictEqual(isWorkspaceEngSourceUri(uri(path.join("src", "notes.txt"))), false);
+    assert.strictEqual(isWorkspaceEngSourceUri(uri(path.join("src", "model.eng"), "untitled")), false);
+  } finally {
+    vscodeMock.workspace.getWorkspaceFolder = originalGetWorkspaceFolder;
+  }
+}
+
 async function semanticRefreshIsDebouncedAndDisposed() {
   const provider = new EngSemanticTokensProvider({}, {});
   let refreshCount = 0;
@@ -411,6 +513,8 @@ async function main() {
   await clearingProblemsInvalidatesInFlightCheck();
   await callerCancellationDoesNotKillSharedSnapshot();
   changedImportSchedulesOpenWorkspaceDiagnostics();
+  await diskImportChangeUsesSelectedDiagnosticsMode();
+  workspaceSourceWatcherIgnoresGeneratedTrees();
   await semanticRefreshIsDebouncedAndDisposed();
   process.stdout.write("VS Code editor request race smoke passed.\n");
 }

@@ -17,6 +17,9 @@ embedding compiler logic in JavaScript.
   including open dependent EngLang files when an imported buffer changes
 - debounced role-aware color refresh and stale decoration clearing across open
   editors when a modified EngLang import changes or closes
+- automatic dependent Problems and color refresh when an open import is saved
+  or a closed workspace `.eng` import is created, changed, or deleted by Git,
+  formatters, or other disk tools; generated trees are ignored
 - a clickable EngLang Problems status bar item showing file/live mode,
   current error/warning/info/hint counts, and a Tooling Status shortcut
 - role-aware highlighting for unsaved buffers, covering roles such as

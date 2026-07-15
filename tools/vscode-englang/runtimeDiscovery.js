@@ -2,8 +2,51 @@ const fs = require("fs");
 const path = require("path");
 const vscode = require("vscode");
 
+const WORKSPACE_INDEX_IGNORED_DIRECTORIES = new Set([
+  ".dev",
+  ".git",
+  ".vscode",
+  "build",
+  "dist",
+  "node_modules",
+  "target",
+  "__pycache__"
+]);
+
 function workspaceRoot(document) {
   return vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath ?? path.dirname(document.uri.fsPath);
+}
+
+function workspaceRootKey(root) {
+  if (!root) {
+    return "";
+  }
+  const resolved = path.resolve(root);
+  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+}
+
+function isWorkspaceEngSourceUri(uri) {
+  if (!uri?.fsPath || uri.scheme !== "file" || path.extname(uri.fsPath).toLowerCase() !== ".eng") {
+    return false;
+  }
+  const folderRoot = vscode.workspace.getWorkspaceFolder(uri)?.uri.fsPath;
+  if (!folderRoot) {
+    return false;
+  }
+  const relative = path.relative(path.resolve(folderRoot), path.resolve(uri.fsPath));
+  if (
+    relative === ""
+    || path.isAbsolute(relative)
+    || relative === ".."
+    || relative.startsWith(`..${path.sep}`)
+  ) {
+    return false;
+  }
+  const directories = relative.split(path.sep).slice(0, -1);
+  return !directories.some((directory) => {
+    const key = process.platform === "win32" ? directory.toLowerCase() : directory;
+    return WORKSPACE_INDEX_IGNORED_DIRECTORIES.has(key);
+  });
 }
 
 function currentWorkspaceRoot() {
@@ -87,5 +130,7 @@ module.exports = {
   findLspRuntime,
   findLspRuntimeForRoot,
   findRuntime,
-  workspaceRoot
+  isWorkspaceEngSourceUri,
+  workspaceRoot,
+  workspaceRootKey
 };

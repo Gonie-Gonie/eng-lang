@@ -26,11 +26,13 @@ class EngDiagnosticsController {
     this.findRuntime = options.findRuntime;
     this.snapshotDocumentSource = options.snapshotDocumentSource;
     this.workspaceRoot = options.workspaceRoot;
+    this.workspaceRootKey = options.workspaceRootKey ?? ((root) => String(root ?? ""));
     this.cacheReview = options.cacheReview ?? (() => undefined);
     this.clearCachedReview = options.clearCachedReview ?? (() => undefined);
     this.updateReviewRiskDecorations = options.updateReviewRiskDecorations ?? (() => undefined);
     this.updateSemanticSymbolDecorations = options.updateSemanticSymbolDecorations ?? (() => undefined);
     this.changeTimers = new Map();
+    this.checkDebounceMs = options.checkDebounceMs ?? CHECK_DEBOUNCE_MS;
     this.checkSequence = 0;
     this.activeDocumentChecks = new WeakMap();
   }
@@ -60,17 +62,11 @@ class EngDiagnosticsController {
     if (!config.get("lintOnChange", true)) {
       return;
     }
-    this.clearPendingCheck(document);
-    const key = document.uri.toString();
-    const timer = setTimeout(() => {
-      this.changeTimers.delete(key);
-      this.checkDocumentSource(document);
-    }, CHECK_DEBOUNCE_MS);
-    this.changeTimers.set(key, timer);
+    this.scheduleDebouncedCheck(document, () => this.checkDocumentSource(document));
   }
 
   scheduleWorkspaceChangedChecks(document, includeChangedDocument = true) {
-    const changedRoot = String(this.workspaceRoot(document) ?? "").toLowerCase();
+    const changedRoot = this.workspaceRootKey(this.workspaceRoot(document));
     const changedUri = document?.uri?.toString?.();
     const candidates = vscode.workspace.textDocuments ?? [];
     let changedDocumentScheduled = false;
@@ -78,7 +74,7 @@ class EngDiagnosticsController {
       if (!this.isEngDocument(candidate)) {
         continue;
       }
-      const candidateRoot = String(this.workspaceRoot(candidate) ?? "").toLowerCase();
+      const candidateRoot = this.workspaceRootKey(this.workspaceRoot(candidate));
       if (candidateRoot !== changedRoot) {
         continue;
       }
@@ -95,6 +91,64 @@ class EngDiagnosticsController {
     }
   }
 
+  scheduleWorkspaceFileChangedChecks(document) {
+    const changedRoot = this.workspaceRootKey(this.workspaceRoot(document));
+    const changedUri = document?.uri?.toString?.();
+    for (const candidate of vscode.workspace.textDocuments ?? []) {
+      if (!this.isEngDocument(candidate)) {
+        continue;
+      }
+      const candidateRoot = this.workspaceRootKey(this.workspaceRoot(candidate));
+      if (candidateRoot !== changedRoot || candidate.uri.toString() === changedUri) {
+        continue;
+      }
+      this.scheduleDependencyFileCheck(candidate);
+    }
+  }
+
+  scheduleDependencyFileCheck(document) {
+    if (!this.isEngDocument(document)) {
+      return;
+    }
+    this.clearSnapshotCache(document);
+    this.invalidateDocumentCheck(document);
+    if (!this.dependencyFileCheckKind(document)) {
+      this.clearPendingCheck(document);
+      return;
+    }
+    this.scheduleDebouncedCheck(document, () => {
+      const kind = this.dependencyFileCheckKind(document);
+      if (kind === "source") {
+        this.checkDocumentSource(document);
+      } else if (kind === "file") {
+        this.checkDocument(document);
+      }
+    });
+  }
+
+  dependencyFileCheckKind(document) {
+    const config = vscode.workspace.getConfiguration("englang", document.uri);
+    const runtimeMode = this.diagnosticsRuntime?.(document);
+    if (runtimeMode === "lsp-snapshot") {
+      const setting = document.isDirty ? "lintOnChange" : "lintOnSave";
+      return config.get(setting, true) ? "source" : undefined;
+    }
+    if (runtimeMode === "eng-cli" && !document.isDirty && config.get("lintOnSave", true)) {
+      return "file";
+    }
+    return undefined;
+  }
+
+  scheduleDebouncedCheck(document, check) {
+    this.clearPendingCheck(document);
+    const key = document.uri.toString();
+    const timer = setTimeout(() => {
+      this.changeTimers.delete(key);
+      check();
+    }, this.checkDebounceMs);
+    this.changeTimers.set(key, timer);
+  }
+
   clearPendingCheck(document) {
     const key = document.uri.toString();
     const timer = this.changeTimers.get(key);
@@ -102,6 +156,13 @@ class EngDiagnosticsController {
       clearTimeout(timer);
       this.changeTimers.delete(key);
     }
+  }
+
+  dispose() {
+    for (const timer of this.changeTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.changeTimers.clear();
   }
 
   beginDocumentCheck(document) {
