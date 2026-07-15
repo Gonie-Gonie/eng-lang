@@ -464,6 +464,8 @@ system_ir
 
 Current artifact schemas require the preferred `solver_plan.jacobian_sparsity`
 field and allow `solver_plan.jacobian_seed` only as a compatibility alias.
+Sparsity entries use `status = sparsity_metadata`; compatibility seed entries
+retain `status = symbolic_seed` for existing consumers.
 
 For `eng run`, `report_spec.json` and `result.engres` can upgrade that runtime
 boundary to `computed` when a supported one-state thermal ODE pattern or

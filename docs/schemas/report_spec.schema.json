@@ -1678,7 +1678,7 @@
         },
         "jacobian_seed": {
           "type": "array",
-          "items": { "$ref": "#/$defs/jacobianSparsityEntry" }
+          "items": { "$ref": "#/$defs/jacobianSeed" }
         }
       }
     },
@@ -1846,11 +1846,24 @@
           "type": "array",
           "items": { "type": "string" }
         },
-        "status": { "const": "symbolic_seed" }
+        "status": { "const": "sparsity_metadata" }
       }
     },
     "jacobianSeed": {
-      "$ref": "#/$defs/jacobianSparsityEntry"
+      "type": "object",
+      "required": ["residual", "with_respect_to", "derivative_states", "status"],
+      "properties": {
+        "residual": { "type": "string" },
+        "with_respect_to": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "derivative_states": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "status": { "const": "symbolic_seed" }
+      }
     },
     "equationIr": {
       "type": "object",

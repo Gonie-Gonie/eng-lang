@@ -2,7 +2,7 @@
 
 The current supported surface includes a minimal physical `system` form. It validates
 equation dimensions, writes residual metadata, records a small system IR, makes
-the solver boundary explicit, records solve_order and Jacobian seed columns,
+the solver boundary explicit, records solve_order and Jacobian sparsity dependencies,
 then runs a fixed-step ODE path for the official one-state thermal system in
 `eng run` artifacts. It does not run a full multi-state or nonlinear ODE solver
 yet.

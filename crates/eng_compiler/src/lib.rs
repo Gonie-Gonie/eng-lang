@@ -75,11 +75,11 @@ pub use semantic::{
     DomainTypeParameterInfo, DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo,
     EquationInfo, EquationIrInfo, ExpectationInfo, ExpectationSuiteInfo, FileOperationInfo,
     FormatExpressionInfo, FunctionInfo, FunctionLocalInfo, FunctionParamInfo, GoldenInfo,
-    ImportInfo, JacobianSeedInfo, LinearOperatorEntryInfo, LinearOperatorInfo, OdeRunnerInfo,
-    PortInfo, PrintInfo, ProcessRunInfo, ResidualInfo, SampleDistributionInfo,
-    SampleGenerationInfo, SemanticProgram, SemanticType, SolverPlanInfo, StateSpaceVectorInfo,
-    SystemInfo, SystemVariableInfo, TestInfo, TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo,
-    WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
+    ImportInfo, JacobianSeedInfo, JacobianSparsityInfo, LinearOperatorEntryInfo,
+    LinearOperatorInfo, OdeRunnerInfo, PortInfo, PrintInfo, ProcessRunInfo, ResidualInfo,
+    SampleDistributionInfo, SampleGenerationInfo, SemanticProgram, SemanticType, SolverPlanInfo,
+    StateSpaceVectorInfo, SystemInfo, SystemVariableInfo, TestInfo, TimeSeriesKernelInfo,
+    TypedBinding, WhereBindingInfo, WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -12093,9 +12093,14 @@ write csv "outputs/q.csv", Q
             vec!["T".to_owned()]
         );
         assert_eq!(
+            system.solver_plan.jacobian_sparsity[0].status,
+            "sparsity_metadata"
+        );
+        assert_eq!(
             system.solver_plan.jacobian_seed[0].with_respect_to,
             vec!["T".to_owned()]
         );
+        assert_eq!(system.solver_plan.jacobian_seed[0].status, "symbolic_seed");
         assert_eq!(system.solver_plan.ode_runner.status, "deferred");
         assert_eq!(
             system.equation_ir[0].derivative_states,

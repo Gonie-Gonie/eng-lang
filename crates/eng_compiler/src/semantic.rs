@@ -151,7 +151,7 @@ pub struct SolverPlanInfo {
     pub method: String,
     pub solve_order: Vec<String>,
     pub ode_runner: OdeRunnerInfo,
-    pub jacobian_sparsity: Vec<JacobianSeedInfo>,
+    pub jacobian_sparsity: Vec<JacobianSparsityInfo>,
     pub jacobian_seed: Vec<JacobianSeedInfo>,
 }
 
@@ -162,12 +162,14 @@ pub struct OdeRunnerInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct JacobianSeedInfo {
+pub struct JacobianSparsityInfo {
     pub residual: String,
     pub with_respect_to: Vec<String>,
     pub derivative_states: Vec<String>,
     pub status: String,
 }
+
+pub type JacobianSeedInfo = JacobianSparsityInfo;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SystemInfo {
@@ -11740,17 +11742,22 @@ fn analyze_equation(
         line: equation.line,
     });
     system.solver_plan.solve_order.push(residual_name.clone());
-    let jacobian_entry = JacobianSeedInfo {
+    let jacobian_sparsity_entry = JacobianSparsityInfo {
         residual: residual_name.clone(),
-        with_respect_to: jacobian_variables,
+        with_respect_to: jacobian_variables.clone(),
         derivative_states: derivative_states.clone(),
-        status: "symbolic_seed".to_owned(),
+        status: "sparsity_metadata".to_owned(),
     };
     system
         .solver_plan
         .jacobian_sparsity
-        .push(jacobian_entry.clone());
-    system.solver_plan.jacobian_seed.push(jacobian_entry);
+        .push(jacobian_sparsity_entry);
+    system.solver_plan.jacobian_seed.push(JacobianSeedInfo {
+        residual: residual_name.clone(),
+        with_respect_to: jacobian_variables,
+        derivative_states: derivative_states.clone(),
+        status: "symbolic_seed".to_owned(),
+    });
     system.equation_ir.push(EquationIrInfo {
         system: system.name.clone(),
         residual: residual_name,

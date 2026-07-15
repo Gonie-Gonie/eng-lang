@@ -1071,7 +1071,7 @@ pub struct ReportSolverPlan {
     pub method: String,
     pub solve_order: Vec<String>,
     pub ode_runner: ReportOdeRunner,
-    pub jacobian_sparsity: Vec<ReportJacobianSeed>,
+    pub jacobian_sparsity: Vec<ReportJacobianSparsity>,
     pub jacobian_seed: Vec<ReportJacobianSeed>,
 }
 
@@ -1145,12 +1145,14 @@ pub struct ReportSystemSolutionPoint {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct ReportJacobianSeed {
+pub struct ReportJacobianSparsity {
     pub residual: String,
     pub with_respect_to: Vec<String>,
     pub derivative_states: Vec<String>,
     pub status: String,
 }
+
+pub type ReportJacobianSeed = ReportJacobianSparsity;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ReportEquationIr {
@@ -1866,11 +1868,11 @@ pub fn report_spec_from_report(
                     .solver_plan
                     .jacobian_sparsity
                     .iter()
-                    .map(|seed| ReportJacobianSeed {
-                        residual: seed.residual.clone(),
-                        with_respect_to: seed.with_respect_to.clone(),
-                        derivative_states: seed.derivative_states.clone(),
-                        status: seed.status.clone(),
+                    .map(|entry| ReportJacobianSparsity {
+                        residual: entry.residual.clone(),
+                        with_respect_to: entry.with_respect_to.clone(),
+                        derivative_states: entry.derivative_states.clone(),
+                        status: entry.status.clone(),
                     })
                     .collect(),
                 jacobian_seed: system
@@ -6678,7 +6680,7 @@ fn render_html_inner(
         }
         assembly_summary.push_str("<tr>");
         assembly_summary.push_str(&format!(
-            "<td>{}</td><td>residual graph</td><td>{}</td><td>residuals={}</td><td>dependencies={}, algebraic loop seeds={}, jacobian seeds={}, solver plan={}</td><td>{}</td>",
+            "<td>{}</td><td>residual graph</td><td>{}</td><td>residuals={}</td><td>dependencies={}, algebraic loop seeds={}, jacobian sparsity entries={}, solver plan={}</td><td>{}</td>",
             assembly.line,
             html_escape(&assembly.residual_graph.name),
             assembly.residual_graph.residuals.len(),
@@ -8978,8 +8980,16 @@ mod tests {
             vec!["T".to_owned()]
         );
         assert_eq!(
+            spec.system_ir[0].solver_plan.jacobian_sparsity[0].status,
+            "sparsity_metadata"
+        );
+        assert_eq!(
             spec.system_ir[0].solver_plan.jacobian_seed[0].with_respect_to,
             vec!["T".to_owned()]
+        );
+        assert_eq!(
+            spec.system_ir[0].solver_plan.jacobian_seed[0].status,
+            "symbolic_seed"
         );
         assert_eq!(spec.system_ir[0].equations[0].dependencies.len(), 5);
         assert_eq!(
