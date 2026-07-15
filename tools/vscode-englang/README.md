@@ -40,7 +40,8 @@ embedding compiler logic in JavaScript.
 - standard Find All References results for compiler-resolved occurrences in the
   current unsaved file and workspace files that resolve the same static-import
   declaration, with declaration inclusion controlled by VS Code
-- workspace symbol search across `.eng` files in the open workspace
+- workspace symbol search across `.eng` files in the open workspace, preferring
+  every modified open EngLang buffer over its saved file
 - compiler-owned snippets from generated editor metadata, plus non-overlapping static snippets from `snippets/eng.json`
 - quick fixes for `:=`, boolean `==`, stale `struct Args`, removable `script` wrapper
   migration diagnostics, ambiguous unit-to-quantity annotations, safe
@@ -171,7 +172,9 @@ static-import-aware references, semantic rename, and quick fixes. References
 use the current unsaved buffer and include other open or saved workspace files
 only when their static import chain resolves to the same declaration; unrelated
 same-name symbols are excluded. Local variables, parameters, and members remain
-current-file results. Rename updates an importable declaration and every
+current-file results. Workspace symbol search passes all modified open EngLang
+documents to the bounded compiler endpoint, so Ctrl+T does not fall back to
+stale saved text for those files. Rename updates an importable declaration and every
 workspace file whose static import chain resolves to it. The operation is
 rejected as a whole for conflicts, incomplete semantic coverage, unreadable or
 truncated workspace scans, built-ins, and member fields. Save other modified

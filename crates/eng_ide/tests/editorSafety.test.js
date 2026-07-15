@@ -11,6 +11,8 @@ const invokeCalls = [];
 const openFileSources = new Map();
 let saveFailurePath = null;
 let codeActionPayload = null;
+let workspaceSymbolPayload = null;
+let workspaceSymbolPromise = null;
 const pendingBootstrap = new Promise(() => {});
 const nativeWindowState = {
   closeCallback: null,
@@ -74,6 +76,13 @@ const context = vm.createContext({
           }
           if (command === "ide_code_actions") {
             return Promise.resolve(codeActionPayload || { uri: "file:///C:/Repo/main.eng", actions: [] });
+          }
+          if (command === "ide_workspace_symbols") {
+            if (workspaceSymbolPromise) return workspaceSymbolPromise;
+            return Promise.resolve(workspaceSymbolPayload || {
+              format: "eng-lsp-snapshot-v1",
+              symbols: []
+            });
           }
           return Promise.resolve({});
         }
@@ -265,6 +274,194 @@ function definitionShortcutUsesCurrentAction() {
 
   assert.strictEqual(run("globalThis.definitionShortcutEvent.prevented"), true);
   assert.strictEqual(run("globalThis.definitionShortcutCalls"), 1);
+}
+
+function workspaceSymbolShortcutOpensCompilerSearch() {
+  run(`
+    state.pendingQuickFix = null;
+    state.pendingRename = null;
+    state.pendingWorkspaceSymbols = null;
+    state.pendingTabClose = null;
+    state.pendingWindowClose = false;
+    globalThis.workspaceSymbolShortcutCalls = 0;
+    globalThis.realOpenWorkspaceSymbolSearch = openWorkspaceSymbolSearch;
+    openWorkspaceSymbolSearch = () => {
+      globalThis.workspaceSymbolShortcutCalls += 1;
+      return true;
+    };
+    globalThis.workspaceSymbolShortcutEvent = {
+      altKey: false,
+      ctrlKey: true,
+      key: "t",
+      metaKey: false,
+      prevented: false,
+      shiftKey: false,
+      preventDefault() {
+        this.prevented = true;
+      }
+    };
+    handleGlobalKeyDown(globalThis.workspaceSymbolShortcutEvent);
+    openWorkspaceSymbolSearch = globalThis.realOpenWorkspaceSymbolSearch;
+  `);
+
+  assert.strictEqual(run("globalThis.workspaceSymbolShortcutEvent.prevented"), true);
+  assert.strictEqual(run("globalThis.workspaceSymbolShortcutCalls"), 1);
+}
+
+async function workspaceSymbolSearchUsesDirtyBuffersAndCompilerLocations() {
+  invokeCalls.length = 0;
+  workspaceSymbolPromise = null;
+  workspaceSymbolPayload = {
+    format: "eng-lsp-snapshot-v1",
+    symbols: [
+      {
+        name: "WorkspaceThingFactory",
+        kind: 12,
+        location: {
+          uri: "file:///C:/Repo/lib.eng",
+          range: {
+            start: { line: 4, character: 0 },
+            end: { line: 4, character: 21 }
+          }
+        },
+        containerName: "function"
+      },
+      {
+        name: "WorkspaceThing",
+        kind: 5,
+        location: {
+          uri: "file:///C:/Repo/main.eng",
+          range: {
+            start: { line: 0, character: 7 },
+            end: { line: 0, character: 21 }
+          }
+        },
+        containerName: "schema"
+      }
+    ]
+  };
+  run(`
+    state.root = "C:/Repo";
+    state.currentPath = "main.eng";
+    state.source = "schema WorkspaceThing {}";
+    state.dirty = true;
+    state.tabs = [
+      { path: "main.eng", source: state.source, dirty: true },
+      { path: "lib.eng", source: "fn WorkspaceThingFactory() {}", dirty: false },
+      { path: "C:/Else/outside.eng", source: "outside = 1", dirty: true }
+    ];
+    state.pendingWorkspaceSymbols = {
+      busy: true,
+      error: "",
+      items: [],
+      query: "WorkspaceThing",
+      revision: 0,
+      selectedIndex: 0
+    };
+  `);
+
+  assert.strictEqual(await run("requestWorkspaceSymbols(state.pendingWorkspaceSymbols)"), true);
+  const call = invokeCalls.find((item) => item.command === "ide_workspace_symbols");
+  assert.ok(call, "workspace symbol search should call the native compiler bridge");
+  assert.strictEqual(call.args.query, "WorkspaceThing");
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(call.args.documents)), [{
+    path: "main.eng",
+    source: "schema WorkspaceThing {}"
+  }]);
+  assert.deepStrictEqual(
+    Array.from(run("state.pendingWorkspaceSymbols.items.map((item) => item.name)")),
+    ["WorkspaceThing", "WorkspaceThingFactory"]
+  );
+  assert.strictEqual(run("state.pendingWorkspaceSymbols.items[0].path"), "main.eng");
+  assert.strictEqual(run('workspaceSymbolRelativePath("C:/Else/outside.eng")'), "");
+  run(`
+    state.pendingWorkspaceSymbols = null;
+    state.root = "";
+  `);
+  workspaceSymbolPayload = null;
+}
+
+async function closedWorkspaceSymbolSearchRejectsLateResults() {
+  let resolveWorkspaceSymbols;
+  workspaceSymbolPromise = new Promise((resolve) => {
+    resolveWorkspaceSymbols = resolve;
+  });
+  run(`
+    state.root = "C:/Repo";
+    state.currentPath = "main.eng";
+    state.source = "value = 1";
+    state.dirty = false;
+    state.tabs = [{ path: "main.eng", source: state.source, dirty: false }];
+    state.pendingWorkspaceSymbols = {
+      busy: true,
+      error: "",
+      items: [],
+      query: "Late",
+      revision: 0,
+      selectedIndex: 0
+    };
+  `);
+  const request = run("requestWorkspaceSymbols(state.pendingWorkspaceSymbols)");
+  run(`
+    state.pendingWorkspaceSymbols = null;
+    workspaceSymbolRequestRevision += 1;
+  `);
+  resolveWorkspaceSymbols({
+    format: "eng-lsp-snapshot-v1",
+    symbols: []
+  });
+  assert.strictEqual(await request, false);
+  workspaceSymbolPromise = null;
+  run('state.root = ""');
+}
+
+async function workspaceSymbolNavigationSelectsUtf16Range() {
+  run(`
+    state.pendingWorkspaceSymbols = {
+      items: [{
+        absolutePath: "C:/Repo/lib.eng",
+        detail: "schema",
+        kind: 5,
+        name: "WorkspaceThing",
+        path: "lib.eng",
+        range: {
+          start: { line: 0, character: 2 },
+          end: { line: 0, character: 16 }
+        },
+        uri: "file:///C:/Repo/lib.eng"
+      }],
+      selectedIndex: 0
+    };
+    globalThis.workspaceSymbolEditor = {
+      value: "\uD83D\uDE00WorkspaceThing",
+      selectionStart: 0,
+      selectionEnd: 0,
+      scrollTop: 0,
+      focus() {}
+    };
+    globalThis.workspaceSymbolOpenedPath = "";
+    globalThis.realWorkspaceSymbolById = byId;
+    globalThis.realCloseWorkspaceSymbolSearch = closeWorkspaceSymbolSearch;
+    globalThis.realWorkspaceSymbolOpenDefinitionTarget = openDefinitionTarget;
+    byId = (id) => id === "editor" ? globalThis.workspaceSymbolEditor : null;
+    closeWorkspaceSymbolSearch = () => {
+      state.pendingWorkspaceSymbols = null;
+    };
+    openDefinitionTarget = async (path) => {
+      globalThis.workspaceSymbolOpenedPath = path;
+      return true;
+    };
+  `);
+
+  assert.strictEqual(await run("openWorkspaceSymbolItem(0)"), true);
+  assert.strictEqual(run("globalThis.workspaceSymbolOpenedPath"), "C:/Repo/lib.eng");
+  assert.strictEqual(run("globalThis.workspaceSymbolEditor.selectionStart"), 2);
+  assert.strictEqual(run("globalThis.workspaceSymbolEditor.selectionEnd"), 16);
+  run(`
+    byId = globalThis.realWorkspaceSymbolById;
+    closeWorkspaceSymbolSearch = globalThis.realCloseWorkspaceSymbolSearch;
+    openDefinitionTarget = globalThis.realWorkspaceSymbolOpenDefinitionTarget;
+  `);
 }
 
 function documentHighlightShortcutUsesCurrentAction() {
@@ -1214,6 +1411,10 @@ async function main() {
   definitionRequestUsesUtf16Caret();
   await definitionNavigationPreservesDirtyOpenTab();
   definitionShortcutUsesCurrentAction();
+  workspaceSymbolShortcutOpensCompilerSearch();
+  await workspaceSymbolSearchUsesDirtyBuffersAndCompilerLocations();
+  await closedWorkspaceSymbolSearchRejectsLateResults();
+  await workspaceSymbolNavigationSelectsUtf16Range();
   documentHighlightShortcutUsesCurrentAction();
   quickFixShortcutUsesCurrentProblemAction();
   renameShortcutUsesCurrentAction();

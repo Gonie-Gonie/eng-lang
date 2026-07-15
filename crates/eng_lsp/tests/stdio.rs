@@ -3612,6 +3612,105 @@ fn workspace_symbols_cli_searches_workspace_root() {
 }
 
 #[test]
+fn workspace_symbols_stdin_prefers_open_document_source() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let workspace_root = repo_root().join("build/editor-tests/workspace_symbols_stdin");
+    std::fs::create_dir_all(&workspace_root).expect("workspace root should be writable");
+    let source_path = workspace_root.join("bridge.eng");
+    std::fs::write(
+        &source_path,
+        "schema SavedBridgeThing {\n    value: Float\n}\n",
+    )
+    .expect("workspace symbol source should be writable");
+    let source_path = source_path
+        .canonicalize()
+        .expect("workspace symbol source should exist");
+    let source_uri = file_uri(&source_path);
+    let payload = json!({
+        "format": "eng-lsp-open-documents-v1",
+        "documents": [{
+            "path": source_path,
+            "source": "schema UnsavedBridgeThing {\n    value: Float\n}\n"
+        }]
+    });
+
+    let mut child = Command::new(server)
+        .arg("--workspace-symbols-stdin")
+        .arg(&workspace_root)
+        .arg("BridgeThing")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("eng-lsp workspace symbol stdin CLI should start");
+    child
+        .stdin
+        .take()
+        .expect("workspace symbol stdin should be available")
+        .write_all(payload.to_string().as_bytes())
+        .expect("workspace symbol payload should be writable");
+    let output = child
+        .wait_with_output()
+        .expect("workspace symbol stdin CLI should finish");
+
+    assert!(
+        output.status.success(),
+        "workspace-symbols-stdin failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let payload: Value = serde_json::from_slice(&output.stdout)
+        .expect("workspace-symbols-stdin stdout should be JSON");
+    assert_eq!(payload["format"], "eng-lsp-snapshot-v1");
+    let symbols = payload["symbols"]
+        .as_array()
+        .expect("workspace symbols should be an array");
+    assert!(symbols.iter().any(|symbol| {
+        symbol["name"] == "UnsavedBridgeThing" && symbol["location"]["uri"] == source_uri
+    }));
+    assert!(!symbols
+        .iter()
+        .any(|symbol| symbol["name"] == "SavedBridgeThing"));
+}
+
+#[test]
+fn workspace_symbols_stdin_rejects_documents_outside_root() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let test_root = repo_root().join("build/editor-tests/workspace_symbols_stdin_boundary");
+    let workspace_root = test_root.join("workspace");
+    std::fs::create_dir_all(&workspace_root).expect("workspace root should be writable");
+    let outside_path = test_root.join("outside.eng");
+    std::fs::write(&outside_path, "outside_value = 1\n")
+        .expect("outside source should be writable");
+    let payload = json!({
+        "format": "eng-lsp-open-documents-v1",
+        "documents": [{
+            "path": outside_path,
+            "source": "unsaved_outside_value = 2\n"
+        }]
+    });
+    let mut child = Command::new(server)
+        .arg("--workspace-symbols-stdin")
+        .arg(&workspace_root)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("eng-lsp workspace symbol stdin CLI should start");
+    child
+        .stdin
+        .take()
+        .expect("workspace symbol stdin should be available")
+        .write_all(payload.to_string().as_bytes())
+        .expect("workspace symbol payload should be writable");
+    let output = child
+        .wait_with_output()
+        .expect("workspace symbol stdin CLI should finish");
+
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("outside the workspace"));
+}
+
+#[test]
 fn editor_metadata_cli_exports_editor_contract() {
     let server = env!("CARGO_BIN_EXE_eng-lsp");
     let output = Command::new(server)

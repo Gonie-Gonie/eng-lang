@@ -3,6 +3,7 @@ const listen = window.__TAURI__?.event?.listen;
 const RUN_HISTORY_LIMIT = 40;
 const RUN_HISTORY_STORAGE_PREFIX = "englang.nativeIde.runHistory.v1:";
 const LIVE_CHECK_DELAY_MS = 350;
+const WORKSPACE_SYMBOL_DELAY_MS = 160;
 const EDITOR_INDENT = "    ";
 const EDITOR_PAIR_CLOSE = { "{": "}", "[": "]", "(": ")", "\"": "\"" };
 const EDITOR_PAIR_OPEN = { "}": "{", "]": "[", ")": "(", "\"": "\"" };
@@ -147,6 +148,7 @@ const state = {
   editorFindMatchIndex: -1,
   pendingQuickFix: null,
   pendingRename: null,
+  pendingWorkspaceSymbols: null,
   pendingTabClose: null,
   pendingWindowClose: false,
   sideTab: "variables",
@@ -163,6 +165,8 @@ let definitionRequestRevision = 0;
 let documentHighlightRequestRevision = 0;
 let quickFixRequestRevision = 0;
 let renameRequestRevision = 0;
+let workspaceSymbolRequestRevision = 0;
+let workspaceSymbolTimer = null;
 let nativeAppWindow = null;
 let nativeCloseListenerBound = false;
 
@@ -1033,6 +1037,332 @@ function selectEditorUtf16Range(editor, range) {
   return { start: editor.selectionStart, end: editor.selectionEnd };
 }
 
+function openWorkspaceSymbolSearch() {
+  if (
+    state.pendingWorkspaceSymbols
+    || state.pendingQuickFix
+    || state.pendingRename
+    || state.pendingTabClose
+    || state.pendingWindowClose
+  ) {
+    return false;
+  }
+  rememberCurrentTab();
+  const pending = {
+    busy: true,
+    error: "",
+    items: [],
+    query: "",
+    revision: 0,
+    selectedIndex: 0
+  };
+  state.pendingWorkspaceSymbols = pending;
+  const backdrop = document.createElement("div");
+  backdrop.id = "workspaceSymbolsBackdrop";
+  backdrop.className = "dialog-backdrop workspace-symbol-backdrop";
+  backdrop.innerHTML = `
+    <div class="workspace-symbol-dialog" role="dialog" aria-modal="true" aria-labelledby="workspaceSymbolTitle">
+      <div class="workspace-symbol-heading">
+        <h2 id="workspaceSymbolTitle">Go to Symbol</h2>
+        <button id="workspaceSymbolCloseBtn" class="workspace-symbol-close" title="Close" aria-label="Close workspace symbol search">&#215;</button>
+      </div>
+      <input id="workspaceSymbolInput" class="workspace-symbol-input" placeholder="Search workspace symbols" aria-label="Search workspace symbols" aria-controls="workspaceSymbolResults" aria-autocomplete="list" aria-expanded="true" role="combobox" autocomplete="off" spellcheck="false" />
+      <div id="workspaceSymbolStatus" class="workspace-symbol-status" role="status" aria-live="polite"></div>
+      <div id="workspaceSymbolResults" class="workspace-symbol-results" role="listbox" aria-label="Workspace symbols"></div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  syncDialogInert();
+  const input = backdrop.querySelector("#workspaceSymbolInput");
+  const closeButton = backdrop.querySelector("#workspaceSymbolCloseBtn");
+  closeButton.onclick = cancelWorkspaceSymbolSearch;
+  backdrop.onclick = (event) => {
+    if (event.target === backdrop) cancelWorkspaceSymbolSearch();
+  };
+  input.oninput = () => {
+    if (state.pendingWorkspaceSymbols !== pending) return;
+    pending.query = input.value;
+    pending.items = [];
+    pending.selectedIndex = 0;
+    pending.error = "";
+    pending.busy = true;
+    pending.revision = ++workspaceSymbolRequestRevision;
+    refreshWorkspaceSymbolDialog();
+    scheduleWorkspaceSymbolRequest(pending);
+  };
+  input.onkeydown = (event) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      event.stopPropagation();
+      moveWorkspaceSymbolSelection(1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      event.stopPropagation();
+      moveWorkspaceSymbolSelection(-1);
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      event.stopPropagation();
+      void openWorkspaceSymbolItem(pending.selectedIndex);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      cancelWorkspaceSymbolSearch();
+    }
+  };
+  refreshWorkspaceSymbolDialog();
+  input.focus();
+  setStatus("Finding workspace symbols...");
+  void requestWorkspaceSymbols(pending);
+  return true;
+}
+
+function scheduleWorkspaceSymbolRequest(pending) {
+  if (workspaceSymbolTimer) clearTimeout(workspaceSymbolTimer);
+  workspaceSymbolTimer = setTimeout(() => {
+    workspaceSymbolTimer = null;
+    void requestWorkspaceSymbols(pending);
+  }, WORKSPACE_SYMBOL_DELAY_MS);
+}
+
+async function requestWorkspaceSymbols(pending = state.pendingWorkspaceSymbols) {
+  if (!pending || state.pendingWorkspaceSymbols !== pending) return false;
+  if (workspaceSymbolTimer) {
+    clearTimeout(workspaceSymbolTimer);
+    workspaceSymbolTimer = null;
+  }
+  const revision = ++workspaceSymbolRequestRevision;
+  pending.revision = revision;
+  pending.busy = true;
+  pending.error = "";
+  refreshWorkspaceSymbolDialog();
+  const query = pending.query;
+  const documents = dirtyWorkspaceSymbolDocuments();
+  try {
+    const payload = await call("ide_workspace_symbols", { query, documents });
+    if (state.pendingWorkspaceSymbols !== pending || pending.revision !== revision) return false;
+    const items = workspaceSymbolItemsFromPayload(payload, query);
+    pending.items = items;
+    pending.selectedIndex = items.length ? 0 : -1;
+    pending.busy = false;
+    refreshWorkspaceSymbolDialog();
+    setStatus(items.length
+      ? `Workspace symbols: ${items.length}`
+      : `No workspace symbols${query.trim() ? ` matching ${query.trim()}` : ""}`);
+    return items.length > 0;
+  } catch (error) {
+    if (state.pendingWorkspaceSymbols !== pending || pending.revision !== revision) return false;
+    const message = String(error);
+    pending.items = [];
+    pending.selectedIndex = -1;
+    pending.busy = false;
+    pending.error = message;
+    refreshWorkspaceSymbolDialog();
+    setStatus(message);
+    appendTerminal("error", message);
+    return false;
+  }
+}
+
+function dirtyWorkspaceSymbolDocuments() {
+  rememberCurrentTab();
+  const documents = [];
+  const seen = new Set();
+  for (const tab of state.tabs) {
+    if (!tab.dirty || !/\.eng$/i.test(String(tab.path || ""))) continue;
+    const path = workspaceSymbolRelativePath(tab.path);
+    if (!path) continue;
+    const key = definitionPathKey(path);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    documents.push({ path, source: tab.source });
+  }
+  return documents;
+}
+
+function workspaceSymbolItemsFromPayload(payload, query = "") {
+  if (payload?.format !== "eng-lsp-snapshot-v1" || !Array.isArray(payload?.symbols)) {
+    throw new Error("Workspace symbol lookup returned an invalid compiler snapshot.");
+  }
+  if (payload.symbols.length > 200) {
+    throw new Error("Workspace symbol lookup exceeded the 200-symbol safety limit.");
+  }
+  const seen = new Set();
+  const items = payload.symbols.map((symbol) => {
+    const name = String(symbol?.name || "").trim();
+    const kind = Number(symbol?.kind);
+    const detail = typeof symbol?.containerName === "string" ? symbol.containerName.trim() : null;
+    const uri = String(symbol?.location?.uri || "");
+    const range = workspaceReferenceRange(symbol?.location);
+    const absolutePath = definitionPathFromUri(uri);
+    const path = workspaceSymbolRelativePath(absolutePath);
+    if (
+      !name
+      || !Number.isInteger(kind)
+      || kind < 1
+      || kind > 26
+      || detail === null
+      || !range
+      || !absolutePath
+      || !path
+      || !/\.eng$/i.test(path)
+    ) {
+      throw new Error("Workspace symbol lookup returned an incomplete symbol location.");
+    }
+    const key = `${name}\n${definitionPathKey(absolutePath)}\n${range.start.line}\n${range.start.character}`;
+    if (seen.has(key)) {
+      throw new Error("Workspace symbol lookup returned a duplicate symbol.");
+    }
+    seen.add(key);
+    return { absolutePath, detail, kind, name, path, range, uri };
+  });
+  return items.sort((left, right) =>
+    workspaceSymbolMatchRank(left, query) - workspaceSymbolMatchRank(right, query)
+    || left.name.localeCompare(right.name)
+    || left.path.localeCompare(right.path)
+    || left.range.start.line - right.range.start.line
+  );
+}
+
+function workspaceSymbolMatchRank(item, query) {
+  const needle = String(query || "").trim().toLowerCase();
+  if (!needle) return 0;
+  const name = item.name.toLowerCase();
+  if (name === needle) return 0;
+  if (name.startsWith(needle)) return 1;
+  if (name.includes(needle)) return 2;
+  return item.detail.toLowerCase().includes(needle) ? 3 : 4;
+}
+
+function workspaceSymbolRelativePath(path) {
+  const normalized = normalizePath(path).replace(/^\.\//, "");
+  if (!normalized) return "";
+  const absolute = /^[A-Za-z]:\//.test(normalized) || normalized.startsWith("/");
+  if (!absolute) {
+    if (normalized === ".." || normalized.startsWith("../")) return "";
+    return normalized;
+  }
+  const root = normalizePath(state.root);
+  const pathKey = definitionPathKey(normalized);
+  const rootKey = definitionPathKey(root);
+  if (!rootKey || !pathKey.startsWith(`${rootKey}/`)) return "";
+  return normalized.slice(root.length + 1);
+}
+
+function refreshWorkspaceSymbolDialog() {
+  const pending = state.pendingWorkspaceSymbols;
+  const status = byId("workspaceSymbolStatus");
+  const results = byId("workspaceSymbolResults");
+  if (!pending || !status || !results) return;
+  status.textContent = pending.busy
+    ? "Searching..."
+    : pending.error
+      ? "Search unavailable"
+      : `${pending.items.length} symbol${pending.items.length === 1 ? "" : "s"}`;
+  results.innerHTML = renderWorkspaceSymbolResults(pending);
+  results.querySelectorAll("[data-workspace-symbol-index]").forEach((button) => {
+    const index = Number(button.dataset.workspaceSymbolIndex);
+    button.onclick = () => void openWorkspaceSymbolItem(index);
+    button.onmousemove = () => {
+      if (pending.selectedIndex !== index) setWorkspaceSymbolSelection(index, false);
+    };
+  });
+  results.querySelector(".workspace-symbol-option.selected")?.scrollIntoView({ block: "nearest" });
+}
+
+function renderWorkspaceSymbolResults(pending) {
+  if (pending.error) {
+    return `<div class="workspace-symbol-empty error">${escapeHtml(pending.error)}</div>`;
+  }
+  if (!pending.items.length) {
+    return `<div class="workspace-symbol-empty">${pending.busy ? "Searching workspace..." : "No matching symbols"}</div>`;
+  }
+  return pending.items.map((item, index) => {
+    const kind = outlineKindMeta(item.kind);
+    const selected = index === pending.selectedIndex;
+    const title = `${kind.label}: ${item.name}${item.detail ? ` - ${item.detail}` : ""} - ${item.path}:${item.range.start.line + 1}`;
+    return `
+      <button class="workspace-symbol-option ${selected ? "selected" : ""}" data-workspace-symbol-index="${index}" role="option" aria-selected="${selected}" title="${escapeAttr(title)}">
+        <span class="outline-kind ${kind.className}" title="${escapeAttr(kind.label)}">${escapeHtml(kind.short)}</span>
+        <span class="workspace-symbol-copy">
+          <strong>${escapeHtml(item.name)}</strong>
+          <small>${escapeHtml(item.detail || kind.label)}</small>
+        </span>
+        <span class="workspace-symbol-location">${escapeHtml(item.path)}:${item.range.start.line + 1}</span>
+      </button>
+    `;
+  }).join("");
+}
+
+function moveWorkspaceSymbolSelection(direction) {
+  const pending = state.pendingWorkspaceSymbols;
+  if (!pending?.items.length) return false;
+  const index = pending.selectedIndex < 0 ? 0 : pending.selectedIndex;
+  const next = (index + direction + pending.items.length) % pending.items.length;
+  return setWorkspaceSymbolSelection(next);
+}
+
+function setWorkspaceSymbolSelection(index, scroll = true) {
+  const pending = state.pendingWorkspaceSymbols;
+  if (!pending?.items.length) return false;
+  pending.selectedIndex = Math.max(0, Math.min(pending.items.length - 1, Number(index) || 0));
+  const results = byId("workspaceSymbolResults");
+  results?.querySelectorAll("[data-workspace-symbol-index]").forEach((button) => {
+    const selected = Number(button.dataset.workspaceSymbolIndex) === pending.selectedIndex;
+    button.classList.toggle("selected", selected);
+    button.setAttribute("aria-selected", String(selected));
+    if (selected && scroll) button.scrollIntoView({ block: "nearest" });
+  });
+  return true;
+}
+
+async function openWorkspaceSymbolItem(index) {
+  const pending = state.pendingWorkspaceSymbols;
+  const item = pending?.items?.[index];
+  if (!pending || !item) return false;
+  closeWorkspaceSymbolSearch();
+  try {
+    if (!await openDefinitionTarget(item.absolutePath)) {
+      throw new Error(`Could not open workspace symbol file: ${item.absolutePath}`);
+    }
+    const editor = byId("editor");
+    if (!editor) return false;
+    selectEditorUtf16Range(editor, {
+      line: item.range.start.line,
+      character: item.range.start.character,
+      endLine: item.range.end.line,
+      endCharacter: item.range.end.character
+    });
+    syncEditorHighlightScroll();
+    updateEditorFindStatus();
+    updateCursorInsight();
+    setStatus(`Symbol: ${item.name} - ${item.path}:${item.range.start.line + 1}`);
+    return true;
+  } catch (error) {
+    const message = String(error);
+    setStatus(message);
+    appendTerminal("error", message);
+    return false;
+  }
+}
+
+function closeWorkspaceSymbolSearch() {
+  if (workspaceSymbolTimer) {
+    clearTimeout(workspaceSymbolTimer);
+    workspaceSymbolTimer = null;
+  }
+  workspaceSymbolRequestRevision += 1;
+  byId("workspaceSymbolsBackdrop")?.remove();
+  state.pendingWorkspaceSymbols = null;
+  syncDialogInert();
+}
+
+function cancelWorkspaceSymbolSearch() {
+  if (!state.pendingWorkspaceSymbols) return;
+  closeWorkspaceSymbolSearch();
+  setStatus("Workspace symbol search cancelled");
+  byId("editor")?.focus();
+}
+
 function bindProblemActions(root) {
   root.querySelectorAll("[data-problem-severity]").forEach((button) => {
     button.onclick = () => {
@@ -1828,7 +2158,11 @@ async function switchTab(path) {
 function syncDialogInert() {
   const app = byId("app");
   if (app) app.inert = Boolean(
-    state.pendingQuickFix || state.pendingRename || state.pendingTabClose || state.pendingWindowClose
+    state.pendingQuickFix
+      || state.pendingRename
+      || state.pendingWorkspaceSymbols
+      || state.pendingTabClose
+      || state.pendingWindowClose
   );
 }
 
@@ -7024,7 +7358,7 @@ async function openWorkspaceReferenceLocation(reference) {
 }
 
 async function startSemanticRename() {
-  if (state.pendingQuickFix || state.pendingRename) return false;
+  if (state.pendingQuickFix || state.pendingRename || state.pendingWorkspaceSymbols) return false;
   const editor = byId("editor");
   const request = editorDefinitionRequest(editor);
   if (!request) return false;
@@ -8834,7 +9168,7 @@ async function requestCursorProblemQuickFix() {
 }
 
 async function requestProblemQuickFix(diag) {
-  if (state.pendingQuickFix || state.pendingRename) return false;
+  if (state.pendingQuickFix || state.pendingRename || state.pendingWorkspaceSymbols) return false;
   if (state.highlightSource !== state.source) {
     setStatus("Analyze the current buffer before requesting a quick fix");
     scheduleLiveCheck();
@@ -9438,7 +9772,11 @@ function bindSplitters() {
 
 function handleGlobalKeyDown(event) {
   const editorModalOpen = Boolean(
-    state.pendingQuickFix || state.pendingRename || state.pendingWindowClose || state.pendingTabClose
+    state.pendingQuickFix
+      || state.pendingRename
+      || state.pendingWorkspaceSymbols
+      || state.pendingWindowClose
+      || state.pendingTabClose
   );
   const quickFixShortcut = (event.ctrlKey || event.metaKey)
     && !event.altKey
@@ -9458,6 +9796,16 @@ function handleGlobalKeyDown(event) {
     if (!editorModalOpen) focusOutline();
     return;
   }
+  const workspaceSymbolShortcut = (event.ctrlKey || event.metaKey)
+    && !event.altKey
+    && !event.shiftKey
+    && String(event.key || "").toLowerCase() === "t";
+  if (workspaceSymbolShortcut) {
+    event.preventDefault();
+    if (state.pendingWorkspaceSymbols) byId("workspaceSymbolInput")?.focus();
+    else if (!editorModalOpen) openWorkspaceSymbolSearch();
+    return;
+  }
   const findShortcut = (event.ctrlKey || event.metaKey)
     && !event.altKey
     && String(event.key || "").toLowerCase() === "f";
@@ -9472,7 +9820,7 @@ function handleGlobalKeyDown(event) {
     && String(event.key || "").toLowerCase() === "s";
   if (saveShortcut) {
     event.preventDefault();
-    if (state.pendingQuickFix || state.pendingRename) return;
+    if (state.pendingQuickFix || state.pendingRename || state.pendingWorkspaceSymbols) return;
     if (state.pendingWindowClose) void saveAllDirtyTabsAndClose();
     else if (state.pendingTabClose) void savePendingTabAndClose();
     else void saveCurrent();
@@ -9507,7 +9855,10 @@ function handleGlobalKeyDown(event) {
     }
     return;
   }
-  if (event.key === "Escape" && state.pendingQuickFix) {
+  if (event.key === "Escape" && state.pendingWorkspaceSymbols) {
+    event.preventDefault();
+    cancelWorkspaceSymbolSearch();
+  } else if (event.key === "Escape" && state.pendingQuickFix) {
     event.preventDefault();
     cancelProblemQuickFix();
   } else if (event.key === "Escape" && state.pendingRename) {
@@ -9543,6 +9894,7 @@ function handleNativeWindowClose(event) {
   }
   if (!hasDirtyTabs()) return;
   event.preventDefault();
+  if (state.pendingWorkspaceSymbols) closeWorkspaceSymbolSearch();
   openUnsavedWindowDialog();
 }
 

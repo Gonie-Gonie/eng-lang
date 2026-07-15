@@ -1,5 +1,6 @@
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
+use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::io::Write;
@@ -12,13 +13,19 @@ use eng_compiler::{
     CheckOptions, CheckReport, Severity,
 };
 use eng_runtime::{run_file, run_source, ExecutionProfile, RunOptions, RuntimeError};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tauri::State;
 
 const MAX_NATIVE_IDE_RENAME_EDITS: usize = 1_000;
 const MAX_NATIVE_IDE_CODE_ACTIONS: usize = 256;
 const MAX_NATIVE_IDE_CODE_ACTION_EDITS: usize = 1_000;
+const MAX_NATIVE_IDE_WORKSPACE_SYMBOLS: usize = 200;
+const MAX_NATIVE_IDE_WORKSPACE_DOCUMENTS: usize = 128;
+const MAX_NATIVE_IDE_WORKSPACE_DOCUMENT_BYTES: usize = 4 * 1024 * 1024;
+const MAX_NATIVE_IDE_WORKSPACE_DOCUMENT_TOTAL_BYTES: usize = 16 * 1024 * 1024;
+const MAX_NATIVE_IDE_WORKSPACE_QUERY_BYTES: usize = 512;
+const WORKSPACE_OPEN_DOCUMENT_FORMAT: &str = "eng-lsp-open-documents-v1";
 
 #[derive(Default)]
 struct IdeState {
@@ -51,6 +58,13 @@ struct FileNodeView {
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct FileView {
+    path: String,
+    source: String,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceDocumentInput {
     path: String,
     source: String,
 }
@@ -400,6 +414,96 @@ fn ide_check(path: String, source: String) -> CheckView {
 }
 
 #[tauri::command]
+fn ide_workspace_symbols(
+    query: String,
+    documents: Vec<WorkspaceDocumentInput>,
+) -> Result<Value, String> {
+    if query.len() > MAX_NATIVE_IDE_WORKSPACE_QUERY_BYTES {
+        return Err(format!(
+            "Workspace symbol query exceeded the {MAX_NATIVE_IDE_WORKSPACE_QUERY_BYTES}-byte limit."
+        ));
+    }
+    let root = workspace_root()
+        .canonicalize()
+        .map_err(|error| format!("Could not resolve the EngLang workspace: {error}"))?;
+    let documents = workspace_document_payload(&root, documents)?;
+    let payload = json!({
+        "format": WORKSPACE_OPEN_DOCUMENT_FORMAT,
+        "documents": documents
+    })
+    .to_string();
+    let arguments = vec![root.to_string_lossy().into_owned(), query];
+    let output = run_lsp_query(
+        &root,
+        "--workspace-symbols-stdin",
+        "Workspace symbol lookup",
+        &arguments,
+        payload.as_bytes(),
+    )?;
+    parse_workspace_symbols_output(&output, &root)
+}
+
+fn workspace_document_payload(
+    root: &Path,
+    documents: Vec<WorkspaceDocumentInput>,
+) -> Result<Vec<Value>, String> {
+    if documents.len() > MAX_NATIVE_IDE_WORKSPACE_DOCUMENTS {
+        return Err(format!(
+            "Workspace symbol lookup exceeded the {MAX_NATIVE_IDE_WORKSPACE_DOCUMENTS}-document limit."
+        ));
+    }
+    let mut seen = HashSet::new();
+    let mut total_source_bytes = 0usize;
+    let mut payload = Vec::with_capacity(documents.len());
+    for document in documents {
+        if document.source.len() > MAX_NATIVE_IDE_WORKSPACE_DOCUMENT_BYTES {
+            return Err(format!(
+                "Workspace document {} exceeded the {MAX_NATIVE_IDE_WORKSPACE_DOCUMENT_BYTES}-byte limit.",
+                document.path
+            ));
+        }
+        total_source_bytes = total_source_bytes
+            .checked_add(document.source.len())
+            .ok_or_else(|| "Workspace document source size overflowed.".to_owned())?;
+        if total_source_bytes > MAX_NATIVE_IDE_WORKSPACE_DOCUMENT_TOTAL_BYTES {
+            return Err(format!(
+                "Workspace documents exceeded the {MAX_NATIVE_IDE_WORKSPACE_DOCUMENT_TOTAL_BYTES}-byte total limit."
+            ));
+        }
+        let candidate = resolve_path(root, &document.path);
+        let canonical = candidate.canonicalize().map_err(|error| {
+            format!(
+                "Could not resolve workspace document {}: {error}",
+                document.path
+            )
+        })?;
+        if !canonical.is_file() || !canonical.starts_with(root) {
+            return Err(format!(
+                "Workspace document is outside the current workspace or is not a file: {}",
+                document.path
+            ));
+        }
+        if !is_englang_path(&canonical) {
+            return Err(format!(
+                "Workspace symbol lookup accepts only .eng documents: {}",
+                document.path
+            ));
+        }
+        if !seen.insert(canonical.clone()) {
+            return Err(format!(
+                "Workspace document was provided more than once: {}",
+                document.path
+            ));
+        }
+        payload.push(json!({
+            "path": canonical.to_string_lossy(),
+            "source": document.source
+        }));
+    }
+    Ok(payload)
+}
+
+#[tauri::command]
 fn ide_code_actions(path: String, source: String) -> Result<Value, String> {
     let output = run_lsp_source_query(
         &path,
@@ -542,12 +646,29 @@ fn run_lsp_source_query(
 ) -> Result<Vec<u8>, String> {
     let root = workspace_root();
     let source_path = resolve_path(&root, path);
+    let mut command_arguments = vec![source_path.to_string_lossy().into_owned()];
+    command_arguments.extend(arguments.iter().cloned());
+    run_lsp_query(
+        &root,
+        command,
+        operation,
+        &command_arguments,
+        source.as_bytes(),
+    )
+}
+
+fn run_lsp_query(
+    root: &Path,
+    command: &str,
+    operation: &str,
+    arguments: &[String],
+    input: &[u8],
+) -> Result<Vec<u8>, String> {
     let runtime = bundled_lsp_executable()?;
     let mut child = Command::new(&runtime)
         .arg(command)
-        .arg(&source_path)
         .args(arguments)
-        .current_dir(&root)
+        .current_dir(root)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -557,8 +678,8 @@ fn run_lsp_source_query(
         .stdin
         .take()
         .ok_or_else(|| format!("{operation} input was unavailable."))?
-        .write_all(source.as_bytes())
-        .map_err(|error| format!("{operation} could not receive the current buffer: {error}"))?;
+        .write_all(input)
+        .map_err(|error| format!("{operation} could not receive its input: {error}"))?;
     let output = child
         .wait_with_output()
         .map_err(|error| format!("{operation} did not finish: {error}"))?;
@@ -865,6 +986,7 @@ fn main() {
             ide_open_file,
             ide_save_file,
             ide_check,
+            ide_workspace_symbols,
             ide_code_actions,
             ide_definition,
             ide_document_highlights,
@@ -2660,6 +2782,117 @@ fn bundled_lsp_executable() -> Result<PathBuf, String> {
     }
 }
 
+fn parse_workspace_symbols_output(output: &[u8], root: &Path) -> Result<Value, String> {
+    let value = serde_json::from_slice::<Value>(output)
+        .map_err(|error| format!("Could not read workspace symbol result: {error}"))?;
+    if value.get("format").and_then(Value::as_str) != Some("eng-lsp-snapshot-v1") {
+        return Err("Workspace symbol lookup returned an unsupported snapshot format.".to_owned());
+    }
+    let symbols = value
+        .get("symbols")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "Workspace symbol lookup returned an invalid symbol list.".to_owned())?;
+    if symbols.len() > MAX_NATIVE_IDE_WORKSPACE_SYMBOLS {
+        return Err(format!(
+            "Workspace symbol lookup exceeded the {MAX_NATIVE_IDE_WORKSPACE_SYMBOLS}-symbol limit."
+        ));
+    }
+    let root = root
+        .canonicalize()
+        .map_err(|error| format!("Could not verify the EngLang workspace: {error}"))?;
+    let mut seen = HashSet::new();
+    for symbol in symbols {
+        let name = symbol
+            .get("name")
+            .and_then(Value::as_str)
+            .filter(|name| !name.trim().is_empty())
+            .ok_or_else(|| "Workspace symbol lookup returned an unnamed symbol.".to_owned())?;
+        let kind = symbol
+            .get("kind")
+            .and_then(Value::as_u64)
+            .filter(|kind| (1..=26).contains(kind))
+            .ok_or_else(|| "Workspace symbol lookup returned an invalid symbol kind.".to_owned())?;
+        if symbol
+            .get("containerName")
+            .and_then(Value::as_str)
+            .is_none()
+        {
+            return Err(
+                "Workspace symbol lookup returned an invalid symbol description.".to_owned(),
+            );
+        }
+        let uri = symbol
+            .pointer("/location/uri")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "Workspace symbol lookup returned a symbol without a URI.".to_owned())?;
+        let range = symbol.pointer("/location/range");
+        if !non_empty_lsp_range(range) {
+            return Err(
+                "Workspace symbol lookup returned an incomplete or reversed range.".to_owned(),
+            );
+        }
+        let path = local_path_from_file_uri(uri)
+            .ok_or_else(|| "Workspace symbol lookup returned a non-local file URI.".to_owned())?;
+        let canonical = path.canonicalize().map_err(|error| {
+            format!(
+                "Could not verify workspace symbol target {}: {error}",
+                path.display()
+            )
+        })?;
+        if !canonical.is_file() || !canonical.starts_with(&root) || !is_englang_path(&canonical) {
+            return Err(
+                "Workspace symbol lookup returned a target outside the current EngLang workspace."
+                    .to_owned(),
+            );
+        }
+        let coordinates = lsp_range_coordinates(range)
+            .ok_or_else(|| "Workspace symbol lookup returned an incomplete range.".to_owned())?;
+        if !seen.insert((canonical, coordinates, kind, name.to_owned())) {
+            return Err("Workspace symbol lookup returned a duplicate symbol.".to_owned());
+        }
+    }
+    Ok(value)
+}
+
+fn local_path_from_file_uri(uri: &str) -> Option<PathBuf> {
+    let encoded = uri.strip_prefix("file://")?;
+    let decoded = percent_decode_file_uri(encoded)?;
+    if decoded.contains('\0') {
+        return None;
+    }
+    let path = if cfg!(target_os = "windows") {
+        let decoded = if decoded.starts_with('/') && decoded.as_bytes().get(2) == Some(&b':') {
+            &decoded[1..]
+        } else {
+            decoded.as_str()
+        };
+        PathBuf::from(decoded.replace('/', "\\"))
+    } else {
+        PathBuf::from(decoded)
+    };
+    path.is_absolute().then_some(path)
+}
+
+fn percent_decode_file_uri(value: &str) -> Option<String> {
+    let bytes = value.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            if index + 2 >= bytes.len() {
+                return None;
+            }
+            let hex = std::str::from_utf8(&bytes[index + 1..index + 3]).ok()?;
+            decoded.push(u8::from_str_radix(hex, 16).ok()?);
+            index += 3;
+        } else {
+            decoded.push(bytes[index]);
+            index += 1;
+        }
+    }
+    String::from_utf8(decoded).ok()
+}
+
 fn parse_definition_output(output: &[u8]) -> Result<Value, String> {
     let value = serde_json::from_slice::<Value>(output)
         .map_err(|error| format!("Could not read definition lookup result: {error}"))?;
@@ -3041,6 +3274,12 @@ fn resolve_path(root: &Path, input: &str) -> PathBuf {
     } else {
         root.join(path)
     }
+}
+
+fn is_englang_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("eng"))
 }
 
 fn source_dir(path: &Path) -> &Path {
@@ -4378,15 +4617,21 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "function workspaceRenamePlan(payload, newName, originPath = state.currentPath)",
         "function applyWorkspaceTextEdits(source, edits, expectedText)",
         "function saveAllDirtyTabs()",
+        "function openWorkspaceSymbolSearch()",
+        "function requestWorkspaceSymbols(pending = state.pendingWorkspaceSymbols)",
+        "function workspaceSymbolItemsFromPayload(payload, query = \"\")",
+        "function openWorkspaceSymbolItem(index)",
         "saveAllBtn",
         "quickFixBackdrop",
         "renameBackdrop",
+        "workspaceSymbolsBackdrop",
         "function documentHighlightKindForToken(token, lineIndex)",
         r#"call("ide_document_highlights", request)"#,
         r#"call("ide_references", request)"#,
         r#"call("ide_code_actions", request)"#,
         r#"call("ide_prepare_rename", request)"#,
         r#"call("ide_rename", { ...pending.request, newName })"#,
+        r#"call("ide_workspace_symbols", { query, documents })"#,
         "data-show-document-highlights",
         "data-workspace-reference-uri",
         "data-quick-fix-problem-index",
@@ -4394,6 +4639,7 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "Save other modified EngLang files before workspace reference search",
         "Save other modified EngLang files before workspace rename",
         r#"event.key === "F2""#,
+        r#"String(event.key || "").toLowerCase() === "t""#,
         r#"String(event.key || "") === ".""#,
         r#"event.key === "F12" && event.shiftKey"#,
         "const LIVE_CHECK_DELAY_MS = 350;",
@@ -4538,6 +4784,12 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "ide_rename",
         "--rename-stdin",
         "parse_rename_output",
+        "ide_workspace_symbols",
+        "--workspace-symbols-stdin",
+        "workspace_document_payload",
+        "run_lsp_query",
+        "parse_workspace_symbols_output",
+        "workspace_symbol_output_accepts_complete_workspace_locations",
     ] {
         if !main_rs.contains(required) {
             return Err(format!(
@@ -4798,6 +5050,92 @@ with {
             "keyword",
             "sideEffect"
         ));
+    }
+
+    #[test]
+    fn workspace_symbol_output_accepts_complete_workspace_locations() {
+        let root = unique_temp_root();
+        fs::create_dir_all(&root).unwrap();
+        let source_path = root.join("symbols.eng");
+        fs::write(&source_path, "schema WorkspaceThing {}\n").unwrap();
+        let root = root.canonicalize().unwrap();
+        let source_path = source_path.canonicalize().unwrap();
+        let payload = json!({
+            "format": "eng-lsp-snapshot-v1",
+            "symbols": [{
+                "name": "WorkspaceThing",
+                "kind": 5,
+                "location": {
+                    "uri": test_file_uri(&source_path),
+                    "range": {
+                        "start": { "line": 0, "character": 7 },
+                        "end": { "line": 0, "character": 21 }
+                    }
+                },
+                "containerName": "schema"
+            }]
+        });
+
+        assert_eq!(
+            parse_workspace_symbols_output(payload.to_string().as_bytes(), &root).unwrap(),
+            payload
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_symbol_output_rejects_outside_and_reversed_locations() {
+        let root = unique_temp_root();
+        fs::create_dir_all(&root).unwrap();
+        let inside_path = root.join("inside.eng");
+        fs::write(&inside_path, "inside_value = 1\n").unwrap();
+        let outside_path = root.with_extension("outside.eng");
+        fs::write(&outside_path, "outside_value = 1\n").unwrap();
+        let root = root.canonicalize().unwrap();
+        let outside_path = outside_path.canonicalize().unwrap();
+        let outside = json!({
+            "format": "eng-lsp-snapshot-v1",
+            "symbols": [{
+                "name": "outside_value",
+                "kind": 13,
+                "location": {
+                    "uri": test_file_uri(&outside_path),
+                    "range": {
+                        "start": { "line": 0, "character": 0 },
+                        "end": { "line": 0, "character": 13 }
+                    }
+                },
+                "containerName": "variable"
+            }]
+        });
+        assert!(
+            parse_workspace_symbols_output(outside.to_string().as_bytes(), &root)
+                .unwrap_err()
+                .contains("outside the current EngLang workspace")
+        );
+
+        let reversed = json!({
+            "format": "eng-lsp-snapshot-v1",
+            "symbols": [{
+                "name": "inside_value",
+                "kind": 13,
+                "location": {
+                    "uri": test_file_uri(&root.join("inside.eng")),
+                    "range": {
+                        "start": { "line": 0, "character": 12 },
+                        "end": { "line": 0, "character": 0 }
+                    }
+                },
+                "containerName": "variable"
+            }]
+        });
+        assert!(
+            parse_workspace_symbols_output(reversed.to_string().as_bytes(), &root)
+                .unwrap_err()
+                .contains("reversed range")
+        );
+        fs::remove_dir_all(&root).unwrap();
+        fs::remove_file(outside_path).unwrap();
     }
 
     #[test]
@@ -6496,5 +6834,13 @@ with {
             std::process::id(),
             nanos
         ))
+    }
+
+    fn test_file_uri(path: &Path) -> String {
+        let mut path = path.to_string_lossy().replace('\\', "/");
+        if path.as_bytes().get(1) == Some(&b':') {
+            path = format!("/{path}");
+        }
+        format!("file://{}", path.replace(' ', "%20"))
     }
 }

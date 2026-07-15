@@ -125,6 +125,11 @@ refresh and `Run` to execute the current file. Successful runs update the
 terminal, Problems tab, Variables table, Schema panel, TimeSeries panel,
 PlotSpec preview, Runtime summary, and generated artifact paths.
 
+Use `Ctrl+Shift+O` for symbols in the current file and `Ctrl+T` for symbols
+across the workspace. Workspace search is compiler-backed and includes the
+current contents of modified open EngLang tabs; selecting a result preserves
+those tabs and jumps to its exact source range.
+
 The IDE uses the same compiler and runtime crates as `eng.exe`. Diagnostics,
 symbols, completions, run artifacts, and report generation therefore exercise
 the real core path instead of duplicated editor-only logic.

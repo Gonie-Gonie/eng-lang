@@ -165,18 +165,35 @@ function createLspRequests(options = {}) {
 
       const root = folder.uri.fsPath;
       const runtime = findLspRuntimeForRoot(context, root);
+      const openDocuments = workspaceOpenDocumentsForFolder(folder);
+      const documentStates = openDocuments.map((document) => ({
+        dirty: document.isDirty,
+        uri: document.uri.toString(),
+        version: document.version
+      }));
+      const payload = JSON.stringify({
+        format: "eng-lsp-open-documents-v1",
+        documents: openDocuments
+          .filter((document) => document.isDirty)
+          .map((document) => ({
+            path: document.uri.fsPath,
+            source: document.getText()
+          }))
+      });
       let settled = false;
+      let cancellationSubscription;
       const finish = (value) => {
         if (settled) {
           return;
         }
         settled = true;
+        cancellationSubscription?.dispose?.();
         resolve(value);
       };
 
       const child = cp.execFile(
         runtime,
-        ["--workspace-symbols", root, query ?? ""],
+        ["--workspace-symbols-stdin", root, query ?? ""],
         { cwd: root, maxBuffer: 10 * 1024 * 1024 },
         (error, stdout, stderr) => {
           if (settled) {
@@ -190,12 +207,16 @@ function createLspRequests(options = {}) {
             finish([]);
             return;
           }
+          if (!workspaceDocumentStatesAreCurrent(folder, documentStates)) {
+            finish([]);
+            return;
+          }
           try {
             const payload = JSON.parse(stdout);
-            const symbols = Array.isArray(payload)
-              ? payload
-              : (Array.isArray(payload.symbols) ? payload.symbols : []);
-            finish(symbols);
+            if (payload?.format !== "eng-lsp-snapshot-v1" || !Array.isArray(payload.symbols)) {
+              throw new Error("compiler response did not contain a workspace symbol snapshot");
+            }
+            finish(payload.symbols);
           } catch (parseError) {
             appendOutputLine(`Unable to parse EngLang workspace symbols: ${parseError.message}`);
             finish([]);
@@ -203,10 +224,41 @@ function createLspRequests(options = {}) {
         }
       );
 
-      cancellationToken?.onCancellationRequested(() => {
+      cancellationSubscription = cancellationToken?.onCancellationRequested(() => {
         child.kill();
         finish([]);
       });
+      if (settled) {
+        cancellationSubscription?.dispose?.();
+        cancellationSubscription = undefined;
+      }
+      child.stdin?.on?.("error", (error) => {
+        appendOutputLine(`workspace symbol input failed: ${error.message}`);
+        child.kill();
+        finish([]);
+      });
+      if (!settled) child.stdin?.end(payload);
+    });
+  }
+
+  function workspaceOpenDocumentsForFolder(folder) {
+    const folderUri = folder.uri.toString();
+    return (vscode.workspace.textDocuments ?? []).filter((document) => {
+      if (!isEngDocument(document) || document.uri.scheme !== "file") {
+        return false;
+      }
+      const owner = vscode.workspace.getWorkspaceFolder?.(document.uri);
+      return owner?.uri?.toString() === folderUri;
+    });
+  }
+
+  function workspaceDocumentStatesAreCurrent(folder, states) {
+    const current = workspaceOpenDocumentsForFolder(folder);
+    if (current.length !== states.length) return false;
+    const currentByUri = new Map(current.map((document) => [document.uri.toString(), document]));
+    return states.every(({ dirty, uri, version }) => {
+      const document = currentByUri.get(uri);
+      return document?.version === version && document.isDirty === dirty;
     });
   }
 

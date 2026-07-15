@@ -225,6 +225,156 @@ button:hover {
   white-space: nowrap;
 }
 
+.workspace-symbol-backdrop {
+  place-items: start center;
+  padding-top: min(11vh, 92px);
+}
+
+.workspace-symbol-dialog {
+  width: min(720px, calc(100vw - 40px));
+  max-height: min(620px, calc(100vh - 80px));
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  box-shadow: 0 18px 50px rgba(31, 41, 55, 0.24);
+}
+
+.workspace-symbol-heading {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 10px 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.workspace-symbol-heading h2 {
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: 0;
+}
+
+.workspace-symbol-close {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.workspace-symbol-close:hover,
+.workspace-symbol-close:focus-visible {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.workspace-symbol-input {
+  width: calc(100% - 20px);
+  height: 36px;
+  margin: 10px 10px 0;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: #fff;
+  color: var(--text);
+  font: 13px/1 Consolas, "Cascadia Mono", monospace;
+}
+
+.workspace-symbol-input:focus {
+  border-color: var(--accent);
+  outline: 1px solid var(--accent);
+  outline-offset: 0;
+}
+
+.workspace-symbol-status {
+  min-height: 27px;
+  padding: 6px 11px 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.workspace-symbol-results {
+  max-height: min(440px, 55vh);
+  overflow: auto;
+  border-top: 1px solid var(--border);
+}
+
+.workspace-symbol-option {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: 20px minmax(120px, 1fr) minmax(110px, 0.75fr);
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border: 0;
+  border-bottom: 1px solid #edf1f6;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.workspace-symbol-option:hover,
+.workspace-symbol-option.selected,
+.workspace-symbol-option:focus-visible {
+  background: var(--accent-soft);
+  color: var(--text);
+  outline: none;
+}
+
+.workspace-symbol-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.workspace-symbol-copy strong,
+.workspace-symbol-copy small,
+.workspace-symbol-location {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-symbol-copy strong {
+  font: 12px/1.25 Consolas, "Cascadia Mono", monospace;
+  font-weight: 600;
+}
+
+.workspace-symbol-copy small,
+.workspace-symbol-location {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.workspace-symbol-location {
+  text-align: right;
+}
+
+.workspace-symbol-empty {
+  min-height: 80px;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.workspace-symbol-empty.error {
+  color: var(--error);
+}
+
 .shell {
   display: grid;
   height: 100%;

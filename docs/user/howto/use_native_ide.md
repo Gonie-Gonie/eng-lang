@@ -74,6 +74,12 @@ Left Explorer
   Outline filter, and Enter opens its first result. Files open into editor tabs,
   and the active Run Dir is highlighted.
 
+  Ctrl+T opens compiler-backed workspace symbol search. It searches `.eng`
+  declarations across the workspace, prefers the current contents of every
+  modified open EngLang tab over its saved file, and supports arrow-key
+  selection, Enter navigation, and Escape. Opening a result preserves modified
+  tabs and selects the compiler's exact UTF-16 source range.
+
 Editor
   Multi-file tabs support switching and closing files. The editor keeps dirty
   state per tab and shows completion suggestions near the caret from current

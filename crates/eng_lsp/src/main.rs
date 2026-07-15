@@ -67,6 +67,9 @@ fn main() -> std::process::ExitCode {
             args.get(5),
         );
     }
+    if args.first().map(String::as_str) == Some("--workspace-symbols-stdin") {
+        return command_workspace_symbols_stdin(args.get(1), args.get(2));
+    }
     if args.first().map(String::as_str) == Some("--workspace-symbols") {
         return command_workspace_symbols(args.get(1), args.get(2));
     }
@@ -556,6 +559,144 @@ fn command_workspace_symbols(
         })
     );
     std::process::ExitCode::SUCCESS
+}
+
+fn command_workspace_symbols_stdin(
+    root: Option<&String>,
+    query: Option<&String>,
+) -> std::process::ExitCode {
+    let Some(root) = root else {
+        eprintln!("usage: eng-lsp --workspace-symbols-stdin <workspace-root> [query]");
+        return std::process::ExitCode::from(2);
+    };
+    let root = match Path::new(root).canonicalize() {
+        Ok(root) if root.is_dir() => root,
+        Ok(_) => {
+            eprintln!("workspace symbol root is not a directory: {root}");
+            return std::process::ExitCode::from(2);
+        }
+        Err(error) => {
+            eprintln!("could not resolve workspace symbol root {root}: {error}");
+            return std::process::ExitCode::from(2);
+        }
+    };
+    let mut input = Vec::new();
+    if let Err(error) = std::io::stdin()
+        .take((MAX_WORKSPACE_OPEN_DOCUMENT_PAYLOAD_BYTES + 1) as u64)
+        .read_to_end(&mut input)
+    {
+        eprintln!("failed to read workspace documents from stdin: {error}");
+        return std::process::ExitCode::from(1);
+    }
+    if input.len() > MAX_WORKSPACE_OPEN_DOCUMENT_PAYLOAD_BYTES {
+        eprintln!(
+            "workspace document payload exceeded the {}-byte limit",
+            MAX_WORKSPACE_OPEN_DOCUMENT_PAYLOAD_BYTES
+        );
+        return std::process::ExitCode::from(2);
+    }
+    let payload = match serde_json::from_slice::<Value>(&input) {
+        Ok(payload) => payload,
+        Err(error) => {
+            eprintln!("could not parse workspace document payload: {error}");
+            return std::process::ExitCode::from(2);
+        }
+    };
+    let documents = match workspace_documents_from_payload(&payload, &root) {
+        Ok(documents) => documents,
+        Err(error) => {
+            eprintln!("invalid workspace document payload: {error}");
+            return std::process::ExitCode::from(2);
+        }
+    };
+    let request = json!({
+        "params": {
+            "query": query.map(String::as_str).unwrap_or("")
+        }
+    });
+    let symbols = workspace_symbols_for_request(&request, &documents, &[root]);
+    println!(
+        "{}",
+        json!({
+            "format": LSP_SNAPSHOT_FORMAT,
+            "symbols": symbols
+        })
+    );
+    std::process::ExitCode::SUCCESS
+}
+
+fn workspace_documents_from_payload(payload: &Value, root: &Path) -> Result<Documents, String> {
+    if payload.get("format").and_then(Value::as_str) != Some(WORKSPACE_OPEN_DOCUMENT_FORMAT) {
+        return Err(format!("format must be {WORKSPACE_OPEN_DOCUMENT_FORMAT}"));
+    }
+    let document_values = payload
+        .get("documents")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "documents must be an array".to_owned())?;
+    if document_values.len() > MAX_WORKSPACE_OPEN_DOCUMENTS {
+        return Err(format!(
+            "documents exceeded the {MAX_WORKSPACE_OPEN_DOCUMENTS}-document limit"
+        ));
+    }
+
+    let mut documents = Documents::new();
+    let mut total_source_bytes = 0usize;
+    for document in document_values {
+        let path = document
+            .get("path")
+            .and_then(Value::as_str)
+            .filter(|path| !path.trim().is_empty())
+            .ok_or_else(|| "each document must have a non-empty path".to_owned())?;
+        let source = document
+            .get("source")
+            .and_then(Value::as_str)
+            .ok_or_else(|| format!("workspace document {path} must have string source"))?;
+        if source.len() > MAX_WORKSPACE_OPEN_DOCUMENT_BYTES {
+            return Err(format!(
+                "workspace document {path} exceeded the {MAX_WORKSPACE_OPEN_DOCUMENT_BYTES}-byte limit"
+            ));
+        }
+        total_source_bytes = total_source_bytes
+            .checked_add(source.len())
+            .ok_or_else(|| "workspace document source size overflowed".to_owned())?;
+        if total_source_bytes > MAX_WORKSPACE_OPEN_DOCUMENT_TOTAL_BYTES {
+            return Err(format!(
+                "workspace document sources exceeded the {MAX_WORKSPACE_OPEN_DOCUMENT_TOTAL_BYTES}-byte total limit"
+            ));
+        }
+
+        let raw_path = PathBuf::from(path);
+        let candidate = if raw_path.is_absolute() {
+            raw_path
+        } else {
+            root.join(raw_path)
+        };
+        let canonical = candidate
+            .canonicalize()
+            .map_err(|error| format!("could not resolve workspace document {path}: {error}"))?;
+        if !canonical.is_file() || !canonical.starts_with(root) {
+            return Err(format!(
+                "workspace document is outside the workspace or is not a file: {path}"
+            ));
+        }
+        if !canonical
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("eng"))
+        {
+            return Err(format!("workspace document is not an .eng file: {path}"));
+        }
+        let uri = file_uri_from_path(&canonical);
+        if documents
+            .insert(uri, DocumentState::new(source.to_owned(), None))
+            .is_some()
+        {
+            return Err(format!(
+                "workspace document was provided more than once: {path}"
+            ));
+        }
+    }
+    Ok(documents)
 }
 
 #[derive(Clone, Debug)]
@@ -5257,6 +5398,11 @@ fn snapshot_for_request(request: &Value, documents: &Documents) -> Option<eng_ls
 const MAX_WORKSPACE_INDEX_FILES: usize = 500;
 const MAX_WORKSPACE_SYMBOL_RESULTS: usize = 200;
 const MAX_WORKSPACE_REFERENCE_RESULTS: usize = 1_000;
+const WORKSPACE_OPEN_DOCUMENT_FORMAT: &str = "eng-lsp-open-documents-v1";
+const MAX_WORKSPACE_OPEN_DOCUMENTS: usize = 128;
+const MAX_WORKSPACE_OPEN_DOCUMENT_BYTES: usize = 4 * 1024 * 1024;
+const MAX_WORKSPACE_OPEN_DOCUMENT_TOTAL_BYTES: usize = 16 * 1024 * 1024;
+const MAX_WORKSPACE_OPEN_DOCUMENT_PAYLOAD_BYTES: usize = 100 * 1024 * 1024;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 struct WorkspaceWalkStatus {
@@ -5309,15 +5455,23 @@ fn workspace_symbols_for_request(
         .to_ascii_lowercase();
     let mut results = Vec::new();
     let mut seen = HashSet::<(String, usize, String)>::new();
+    let mut open_document_paths = HashSet::<PathBuf>::new();
 
     for (uri, state) in documents {
         if results.len() >= MAX_WORKSPACE_SYMBOL_RESULTS {
             break;
         }
         let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
+        let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
+        if !path_is_within_workspace_roots(&canonical, workspace_roots) {
+            continue;
+        }
+        if !open_document_paths.insert(canonical.clone()) {
+            continue;
+        }
         push_workspace_symbols_from_source(
             uri,
-            &path,
+            &canonical,
             &state.text,
             &query,
             &mut results,
@@ -5337,8 +5491,11 @@ fn workspace_symbols_for_request(
             break;
         }
         let canonical = path.canonicalize().unwrap_or(path);
+        if !path_is_within_workspace_roots(&canonical, workspace_roots) {
+            continue;
+        }
         let uri = file_uri_from_path(&canonical);
-        if documents.contains_key(&uri) {
+        if open_document_paths.contains(&canonical) || documents.contains_key(&uri) {
             continue;
         }
         let Ok(source) = std::fs::read_to_string(&canonical) else {
@@ -5355,6 +5512,14 @@ fn workspace_symbols_for_request(
     }
 
     results
+}
+
+fn path_is_within_workspace_roots(path: &Path, workspace_roots: &[PathBuf]) -> bool {
+    workspace_roots.is_empty()
+        || workspace_roots.iter().any(|root| {
+            let canonical_root = root.canonicalize().unwrap_or_else(|_| root.clone());
+            path.starts_with(canonical_root)
+        })
 }
 
 fn push_workspace_symbols_from_source(
@@ -7087,7 +7252,22 @@ fn file_uri_from_path(path: &Path) -> String {
     if path.as_bytes().get(1) == Some(&b':') {
         path = format!("/{path}");
     }
-    format!("file://{}", path.replace(' ', "%20"))
+    format!("file://{}", percent_encode_file_uri_path(&path))
+}
+
+fn percent_encode_file_uri_path(path: &str) -> String {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+    let mut encoded = String::with_capacity(path.len());
+    for byte in path.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'/' | b':' | b'-' | b'.' | b'_' | b'~') {
+            encoded.push(char::from(byte));
+        } else {
+            encoded.push('%');
+            encoded.push(char::from(HEX[(byte >> 4) as usize]));
+            encoded.push(char::from(HEX[(byte & 0x0f) as usize]));
+        }
+    }
+    encoded
 }
 
 fn ast_definition_line_for_label(item: &AstItem, label: &str) -> Option<usize> {
@@ -7262,10 +7442,14 @@ fn request_range(request: &Value) -> Option<((usize, usize), (usize, usize))> {
 fn path_from_uri(uri: &str) -> Option<PathBuf> {
     let rest = uri.strip_prefix("file://")?;
     let decoded = percent_decode(rest);
-    let path = if decoded.starts_with('/') && decoded.as_bytes().get(2) == Some(&b':') {
-        decoded.trim_start_matches('/').replace('/', "\\")
+    let path = if cfg!(target_os = "windows") {
+        if decoded.starts_with('/') && decoded.as_bytes().get(2) == Some(&b':') {
+            decoded.trim_start_matches('/').replace('/', "\\")
+        } else {
+            decoded.replace('/', "\\")
+        }
     } else {
-        decoded.replace('/', "\\")
+        decoded
     };
     Some(PathBuf::from(path))
 }
@@ -7322,6 +7506,24 @@ fn write_response<W: Write>(output: &mut W, value: Value) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn file_uri_paths_percent_encode_reserved_and_utf8_bytes() {
+        assert_eq!(
+            percent_encode_file_uri_path("/tmp/a % #한.eng"),
+            "/tmp/a%20%25%20%23%ED%95%9C.eng"
+        );
+    }
+
+    #[test]
+    fn file_uri_paths_round_trip_on_the_current_platform() {
+        let path = if cfg!(target_os = "windows") {
+            PathBuf::from(r"C:\workspace\한 % #.eng")
+        } else {
+            PathBuf::from("/tmp/한 % #.eng")
+        };
+        assert_eq!(path_from_uri(&file_uri_from_path(&path)), Some(path));
+    }
 
     fn document_highlight_request(source: &str, line: usize, character: usize) -> Value {
         let uri = "file:///C:/workspace/highlights.eng".to_owned();

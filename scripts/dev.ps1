@@ -3740,6 +3740,7 @@ function Assert-VscodeExtensionContract {
     $DocumentHighlightsTestPath = Join-Path $ExtensionRoot "test\documentHighlights.test.js"
     $EditorRequestRaceTestPath = Join-Path $ExtensionRoot "test\editorRequestRace.test.js"
     $RenameTestPath = Join-Path $ExtensionRoot "test\rename.test.js"
+    $WorkspaceSymbolsTestPath = Join-Path $ExtensionRoot "test\workspaceSymbols.test.js"
     $TextMateExampleCoverageTestPath = Join-Path $ExtensionRoot "test\textmateExampleCoverage.test.js"
     $SnippetsPath = Join-Path $ExtensionRoot "snippets\eng.json"
     $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
@@ -3853,6 +3854,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $RenameTestPath)) {
         throw "missing VS Code semantic rename smoke at $RenameTestPath"
+    }
+    if (-not (Test-Path $WorkspaceSymbolsTestPath)) {
+        throw "missing VS Code unsaved workspace symbol smoke at $WorkspaceSymbolsTestPath"
     }
     if (-not (Test-Path $TextMateExampleCoverageTestPath)) {
         throw "missing VS Code TextMate example coverage smoke at $TextMateExampleCoverageTestPath"
@@ -5978,7 +5982,11 @@ function Assert-VscodeExtensionContract {
         "EngWorkspaceSymbolProvider",
         "workspaceSymbolsForQuery",
         "workspaceSymbolsForFolder",
-        "--workspace-symbols",
+        "--workspace-symbols-stdin",
+        "eng-lsp-open-documents-v1",
+        "workspaceOpenDocumentsForFolder",
+        "workspaceDocumentStatesAreCurrent",
+        "child.stdin?.end(payload)",
         "workspaceSymbolInformationFromLsp",
         "findLspRuntimeForRoot",
         "new vscode.SymbolInformation"
@@ -5986,6 +5994,9 @@ function Assert-VscodeExtensionContract {
         if (-not $NavigationSource.Contains($RequiredWorkspaceSymbolToken)) {
             throw "VS Code extension missing workspace symbol token $RequiredWorkspaceSymbolToken"
         }
+    }
+    if ($LspRequestsSource.Contains('["--workspace-symbols", root')) {
+        throw "VS Code workspace symbol search must pass unsaved EngLang buffers through --workspace-symbols-stdin"
     }
     if (-not $ExtensionSource.Contains('require("./navigationProviders")') -or -not $NavigationProvidersSource.Contains("EngDocumentSymbolProvider") -or -not $NavigationProvidersSource.Contains("EngWorkspaceSymbolProvider") -or -not $NavigationProvidersSource.Contains("EngDefinitionProvider") -or -not $NavigationProvidersSource.Contains("EngDocumentHighlightProvider") -or -not $NavigationProvidersSource.Contains("EngReferenceProvider") -or -not $NavigationProvidersSource.Contains("EngRenameProvider")) {
         throw "VS Code extension must load navigation provider orchestration from navigationProviders.js"
@@ -6279,8 +6290,15 @@ function Assert-VscodeExtensionContract {
         "workspaceSymbolProvider",
         "workspace/symbol",
         "--workspace-symbols",
+        "--workspace-symbols-stdin",
         "command_workspace_symbols",
+        "command_workspace_symbols_stdin",
+        "workspace_documents_from_payload",
+        "WORKSPACE_OPEN_DOCUMENT_FORMAT",
+        "MAX_WORKSPACE_OPEN_DOCUMENTS",
         "workspace_symbols_for_request",
+        "path_is_within_workspace_roots",
+        "percent_encode_file_uri_path",
         "MAX_WORKSPACE_INDEX_FILES",
         "MAX_WORKSPACE_SYMBOL_RESULTS"
     )) {
@@ -6750,6 +6768,7 @@ function Assert-VscodeExtensionContract {
         $DocumentHighlightsTestPath,
         $EditorRequestRaceTestPath,
         $RenameTestPath,
+        $WorkspaceSymbolsTestPath,
         $TextMateExampleCoverageTestPath
     )
     Invoke-JavaScriptSyntaxCheck -Paths $VscodeJavaScriptPaths -Label "VS Code extension"
@@ -6758,6 +6777,7 @@ function Assert-VscodeExtensionContract {
     Invoke-JavaScriptProgram -Path $DocumentHighlightsTestPath -Label "VS Code semantic document highlight smoke"
     Invoke-JavaScriptProgram -Path $EditorRequestRaceTestPath -Label "VS Code editor request race smoke"
     Invoke-JavaScriptProgram -Path $RenameTestPath -Label "VS Code semantic rename smoke"
+    Invoke-JavaScriptProgram -Path $WorkspaceSymbolsTestPath -Label "VS Code unsaved workspace symbol smoke"
     Invoke-JavaScriptProgram -Path $TextMateExampleCoverageTestPath -Label "VS Code TextMate example coverage smoke"
 
     Write-Host "VS Code extension contract check passed."
@@ -6911,6 +6931,14 @@ function Invoke-IdeCheck {
         "selectOutlineSymbol",
         "selectEditorUtf16Range",
         'String(event.key || "").toLowerCase() === "o"',
+        "openWorkspaceSymbolSearch",
+        "requestWorkspaceSymbols",
+        "workspaceSymbolItemsFromPayload",
+        "dirtyWorkspaceSymbolDocuments",
+        "openWorkspaceSymbolItem",
+        "workspaceSymbolsBackdrop",
+        'call("ide_workspace_symbols", { query, documents })',
+        'String(event.key || "").toLowerCase() === "t"',
         "goToDefinitionAtCaret",
         "editorDefinitionRequest",
         "openDefinitionTarget",
@@ -7544,11 +7572,16 @@ function Invoke-IdeCheck {
             throw "Native IDE CSS missing semantic document highlight style $DocumentHighlightStyle"
         }
     }
+    foreach ($WorkspaceSymbolStyle in @(".workspace-symbol-dialog", ".workspace-symbol-input", ".workspace-symbol-option", ".workspace-symbol-location")) {
+        if (-not $IdeUiStyles.Contains($WorkspaceSymbolStyle)) {
+            throw "Native IDE CSS missing workspace symbol style $WorkspaceSymbolStyle"
+        }
+    }
     if ($IdeUiSource.Contains("byteOffsetToCodeUnit(line, startByte)") -or $IdeUiSource.Contains("byteOffsetToCodeUnit(lineRange.text, startByte)")) {
         throw "Native IDE semantic token ranges must use LSP UTF-16 offsets directly"
     }
     $IdeMainSource = Get-Content -LiteralPath $TauriMainPath -Raw
-    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "document_symbols", "document_symbols_lsp_json", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_items", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completions_use_lsp_editor_items", "check_view_surfaces_lsp_semantic_tokens", "ide_definition", "--definition-stdin", "ide_document_highlights", "--document-highlights-stdin", "ide_code_actions", "--code-actions-stdin", "parse_code_actions_output", "run_lsp_source_query", "ide_prepare_rename", "--prepare-rename-stdin", "parse_prepare_rename_output", "ide_rename", "--rename-stdin", "parse_rename_output", "run_lsp_position_query", "parse_document_highlights_output", "bundled_lsp_executable", "parse_definition_output", "Stdio::piped()", "definition_output_accepts_null_and_complete_locations", "document_highlight_output_accepts_complete_read_and_write_ranges", "code_action_output_accepts_diagnostic_bound_insertions", "rename_output_accepts_complete_multi_file_edits", "one-line EngLang statement such as", "cd <dir>", "diagnostic_view_from_lsp", "diagnostic_view_from_parts", 'range_text: format!("L{line}:C{column}-C{end_column}")', 'include_str!("../ui/app.js")', 'include_str!("main.rs")')) {
+    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "document_symbols", "document_symbols_lsp_json", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_items", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completions_use_lsp_editor_items", "check_view_surfaces_lsp_semantic_tokens", "ide_definition", "--definition-stdin", "ide_document_highlights", "--document-highlights-stdin", "ide_code_actions", "--code-actions-stdin", "parse_code_actions_output", "run_lsp_source_query", "ide_prepare_rename", "--prepare-rename-stdin", "parse_prepare_rename_output", "ide_rename", "--rename-stdin", "parse_rename_output", "ide_workspace_symbols", "--workspace-symbols-stdin", "workspace_document_payload", "run_lsp_query", "parse_workspace_symbols_output", "workspace_symbol_output_accepts_complete_workspace_locations", "run_lsp_position_query", "parse_document_highlights_output", "bundled_lsp_executable", "parse_definition_output", "Stdio::piped()", "definition_output_accepts_null_and_complete_locations", "document_highlight_output_accepts_complete_read_and_write_ranges", "code_action_output_accepts_diagnostic_bound_insertions", "rename_output_accepts_complete_multi_file_edits", "one-line EngLang statement such as", "cd <dir>", "diagnostic_view_from_lsp", "diagnostic_view_from_parts", 'range_text: format!("L{line}:C{column}-C{end_column}")', 'include_str!("../ui/app.js")', 'include_str!("main.rs")')) {
         if (-not $IdeMainSource.Contains($RequiredIdeBackendToken)) {
             throw "Native IDE backend missing contract token $RequiredIdeBackendToken"
         }

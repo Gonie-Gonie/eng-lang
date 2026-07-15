@@ -1,3 +1,4 @@
+- Batch 963: Added compiler-owned workspace symbol search to the native IDE with Ctrl+T, ranked keyboard navigation, exact UTF-16 jumps, stale-response rejection, and dirty-tab preservation; added a bounded `eng-lsp --workspace-symbols-stdin` open-document contract so native IDE and VS Code searches both prefer every modified EngLang buffer over disk while rejecting malformed, duplicate, non-EngLang, and out-of-workspace inputs/results.
 - Batch 962: Removed the VS Code extension's 3,500-line JavaScript copy of compiler quick-fix rules after verifying all 60 explicit dispatch codes plus option/model repairs against `eng-lsp`; code actions now come only from the current unsaved buffer through the compiler-owned endpoint, with exact diagnostic binding and all-or-nothing current-file URI/range/overlap validation.
 - Batch 961: Exposed compiler-backed linter quick fixes in the native IDE Problems panel and Ctrl+., using the current unsaved buffer, exact diagnostic matching, current-file-only URI validation, bounded UTF-16 edit validation, overlap/stale-buffer rejection, multi-choice selection, and modified-buffer review before Save.
 - Batch 960: Added compiler-backed semantic rename to the native IDE with F2 and checked-token actions, strict prepare/workspace-edit parsing, dirty-buffer preflight, workspace/path/UTF-16/overlap/stale-source validation, all-or-nothing in-memory staging across affected files, unsaved changed tabs, and a toolbar Save All action.
@@ -132,8 +133,8 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
   scheduling, automatic external-adapter dispatch, and shared/remote cache
   adapters remain open.
 - DB query support: typed SQLite table readback is implemented; arbitrary query APIs, parameter binding, and query transaction policy remain open.
-- Native IDE usability: keep improving token insight, source-range actions, and inspector flows for repeated debugging tasks.
-- VS Code navigation: current-file definition/highlights, static-import-aware workspace references and safe rename, and workspace symbol search are implemented; broader package/index identities remain open.
+- Native IDE usability: current-file Outline, workspace symbol search, definition, references, rename, and compiler quick fixes are implemented; keep improving token insight and inspector flows for repeated debugging tasks.
+- VS Code navigation: current-file definition/highlights, static-import-aware workspace references and safe rename, and unsaved-aware workspace symbol search are implemented; broader package/index identities remain open.
 - VS Code linter/highlighting: continue expanding checked-code role-aware color coverage as more source spans become first-class metadata.
 
 ## Documentation Policy
