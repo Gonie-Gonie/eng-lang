@@ -107,6 +107,7 @@ function documentFixture() {
     version: 7,
     uri: {
       fsPath: "C:\\workspace\\main.eng",
+      scheme: "file",
       toString: () => "file:///C:/workspace/main.eng"
     },
     getText: () => source
@@ -192,10 +193,18 @@ async function requestsUseRenameStdinCommands() {
   const originalExecFile = childProcess.execFile;
   const calls = [];
   childProcess.execFile = (_runtime, args, _options, callback) => {
-    calls.push(args);
-    const payload = args[0] === "--prepare-rename-stdin" ? preparePayload : renamePayload;
+    const call = { args, stdin: "" };
+    calls.push(call);
+    const payload = args[0] === "--workspace-prepare-rename-stdin" ? preparePayload : renamePayload;
     setImmediate(() => callback(null, JSON.stringify(payload), ""));
-    return { kill() {}, stdin: { end() {} } };
+    return {
+      kill() {},
+      stdin: {
+        end(value) {
+          call.stdin = value;
+        }
+      }
+    };
   };
   try {
     const requests = createLspRequests({
@@ -213,36 +222,75 @@ async function requestsUseRenameStdinCommands() {
       await requests.renameForPosition(document, position, "input_power", {}),
       renamePayload
     );
-    assert.deepStrictEqual(calls[0], [
-      "--prepare-rename-stdin",
+    assert.deepStrictEqual(calls[0].args, [
+      "--workspace-prepare-rename-stdin",
+      "C:\\workspace",
       document.uri.fsPath,
       "1",
       "15"
     ]);
-    assert.deepStrictEqual(calls[1], [
-      "--rename-stdin",
+    assert.deepStrictEqual(JSON.parse(calls[0].stdin), {
+      format: "eng-lsp-open-documents-v1",
+      documents: [{ path: document.uri.fsPath, source: document.getText() }]
+    });
+    assert.deepStrictEqual(calls[1].args, [
+      "--workspace-rename-stdin",
+      "C:\\workspace",
       document.uri.fsPath,
       "1",
       "15",
-      "input_power",
-      "C:\\workspace"
+      "input_power"
     ]);
+    assert.deepStrictEqual(JSON.parse(calls[1].stdin), {
+      format: "eng-lsp-open-documents-v1",
+      documents: [{ path: document.uri.fsPath, source: document.getText() }]
+    });
 
+    const otherDocument = {
+      languageId: "englang",
+      isDirty: true,
+      version: 3,
+      uri: {
+        fsPath: "C:\\workspace\\other.eng",
+        scheme: "file",
+        toString: () => "file:///C:/workspace/other.eng"
+      },
+      getText: () => "other = left_power\n"
+    };
     vscodeMock.workspace.textDocuments = [
       document,
-      {
-        languageId: "englang",
-        isDirty: true,
-        uri: {
-          fsPath: "C:\\workspace\\other.eng",
-          toString: () => "file:///C:/workspace/other.eng"
-        }
-      }
+      otherDocument
     ];
-    const blocked = await requests.renameForPosition(document, position, "input_power", {});
-    assert.match(blocked.error, /Save other modified EngLang files/);
-    assert.match(blocked.error, /other\.eng/);
-    assert.strictEqual(calls.length, 2, "dirty-document preflight must not start the CLI");
+    assert.deepStrictEqual(
+      await requests.prepareRenameForPosition(document, position, {}),
+      preparePayload
+    );
+    assert.deepStrictEqual(JSON.parse(calls[2].stdin), {
+      format: "eng-lsp-open-documents-v1",
+      documents: [
+        { path: document.uri.fsPath, source: document.getText() },
+        { path: otherDocument.uri.fsPath, source: otherDocument.getText() }
+      ]
+    });
+    assert.deepStrictEqual(
+      await requests.renameForPosition(document, position, "input_power", {}),
+      renamePayload
+    );
+    assert.strictEqual(calls.length, 4, "dirty workspace documents should reach rename preparation and rename");
+    assert.deepStrictEqual(JSON.parse(calls[3].stdin), {
+      format: "eng-lsp-open-documents-v1",
+      documents: [
+        { path: document.uri.fsPath, source: document.getText() },
+        { path: otherDocument.uri.fsPath, source: otherDocument.getText() }
+      ]
+    });
+    const staleRename = requests.renameForPosition(document, position, "input_power", {});
+    otherDocument.version += 1;
+    assert.strictEqual(
+      await staleRename,
+      undefined,
+      "a changed dirty workspace buffer must invalidate the complete rename result"
+    );
   } finally {
     vscodeMock.workspace.textDocuments = [];
     childProcess.execFile = originalExecFile;

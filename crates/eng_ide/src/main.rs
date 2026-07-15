@@ -18,6 +18,7 @@ use serde_json::{json, Value};
 use tauri::State;
 
 const MAX_NATIVE_IDE_RENAME_EDITS: usize = 1_000;
+const MAX_NATIVE_IDE_WORKSPACE_REFERENCES: usize = 1_000;
 const MAX_NATIVE_IDE_CODE_ACTIONS: usize = 256;
 const MAX_NATIVE_IDE_CODE_ACTION_EDITS: usize = 1_000;
 const MAX_NATIVE_IDE_WORKSPACE_SYMBOLS: usize = 200;
@@ -449,7 +450,7 @@ fn workspace_document_payload(
 ) -> Result<Vec<Value>, String> {
     if documents.len() > MAX_NATIVE_IDE_WORKSPACE_DOCUMENTS {
         return Err(format!(
-            "Workspace symbol lookup exceeded the {MAX_NATIVE_IDE_WORKSPACE_DOCUMENTS}-document limit."
+            "Workspace open-document payload exceeded the {MAX_NATIVE_IDE_WORKSPACE_DOCUMENTS}-document limit."
         ));
     }
     let mut seen = HashSet::new();
@@ -470,25 +471,7 @@ fn workspace_document_payload(
                 "Workspace documents exceeded the {MAX_NATIVE_IDE_WORKSPACE_DOCUMENT_TOTAL_BYTES}-byte total limit."
             ));
         }
-        let candidate = resolve_path(root, &document.path);
-        let canonical = candidate.canonicalize().map_err(|error| {
-            format!(
-                "Could not resolve workspace document {}: {error}",
-                document.path
-            )
-        })?;
-        if !canonical.is_file() || !canonical.starts_with(root) {
-            return Err(format!(
-                "Workspace document is outside the current workspace or is not a file: {}",
-                document.path
-            ));
-        }
-        if !is_englang_path(&canonical) {
-            return Err(format!(
-                "Workspace symbol lookup accepts only .eng documents: {}",
-                document.path
-            ));
-        }
+        let canonical = canonical_workspace_document_path(root, &document.path)?;
         if !seen.insert(canonical.clone()) {
             return Err(format!(
                 "Workspace document was provided more than once: {}",
@@ -557,19 +540,68 @@ fn ide_references(
     source: String,
     line: usize,
     character: usize,
+    documents: Vec<WorkspaceDocumentInput>,
 ) -> Result<Value, String> {
-    let root = workspace_root();
-    let extra_arguments = vec!["true".to_owned(), root.to_string_lossy().into_owned()];
-    let output = run_lsp_position_query_with_args(
-        &path,
-        &source,
-        line,
-        character,
-        "--references-stdin",
+    let root = workspace_root()
+        .canonicalize()
+        .map_err(|error| format!("Could not resolve the EngLang workspace: {error}"))?;
+    let (source_path, payload) = workspace_navigation_payload(&root, &path, source, documents)?;
+    let arguments = vec![
+        root.to_string_lossy().into_owned(),
+        source_path.to_string_lossy().into_owned(),
+        line.to_string(),
+        character.to_string(),
+        "true".to_owned(),
+    ];
+    let output = run_lsp_query(
+        &root,
+        "--workspace-references-stdin",
         "Workspace reference lookup",
-        &extra_arguments,
+        &arguments,
+        payload.as_bytes(),
     )?;
-    parse_references_output(&output)
+    parse_references_output(&output, &root)
+}
+
+fn workspace_navigation_payload(
+    root: &Path,
+    path: &str,
+    source: String,
+    mut documents: Vec<WorkspaceDocumentInput>,
+) -> Result<(PathBuf, String), String> {
+    let source_path = canonical_workspace_document_path(root, path)?;
+    documents.insert(
+        0,
+        WorkspaceDocumentInput {
+            path: source_path.to_string_lossy().into_owned(),
+            source,
+        },
+    );
+    let documents = workspace_document_payload(root, documents)?;
+    let payload = json!({
+        "format": WORKSPACE_OPEN_DOCUMENT_FORMAT,
+        "documents": documents
+    })
+    .to_string();
+    Ok((source_path, payload))
+}
+
+fn canonical_workspace_document_path(root: &Path, path: &str) -> Result<PathBuf, String> {
+    let candidate = resolve_path(root, path);
+    let canonical = candidate
+        .canonicalize()
+        .map_err(|error| format!("Could not resolve workspace document {path}: {error}"))?;
+    if !canonical.is_file() || !canonical.starts_with(root) {
+        return Err(format!(
+            "Workspace document is outside the current workspace or is not a file: {path}"
+        ));
+    }
+    if !is_englang_path(&canonical) {
+        return Err(format!(
+            "Workspace navigation accepts only .eng documents: {path}"
+        ));
+    }
+    Ok(canonical)
 }
 
 #[tauri::command]
@@ -578,14 +610,24 @@ fn ide_prepare_rename(
     source: String,
     line: usize,
     character: usize,
+    documents: Vec<WorkspaceDocumentInput>,
 ) -> Result<Value, String> {
-    let output = run_lsp_position_query(
-        &path,
-        &source,
-        line,
-        character,
-        "--prepare-rename-stdin",
+    let root = workspace_root()
+        .canonicalize()
+        .map_err(|error| format!("Could not resolve the EngLang workspace: {error}"))?;
+    let (source_path, payload) = workspace_navigation_payload(&root, &path, source, documents)?;
+    let arguments = vec![
+        root.to_string_lossy().into_owned(),
+        source_path.to_string_lossy().into_owned(),
+        line.to_string(),
+        character.to_string(),
+    ];
+    let output = run_lsp_query(
+        &root,
+        "--workspace-prepare-rename-stdin",
         "Rename preparation",
+        &arguments,
+        payload.as_bytes(),
     )?;
     parse_prepare_rename_output(&output)
 }
@@ -597,19 +639,27 @@ fn ide_rename(
     line: usize,
     character: usize,
     new_name: String,
+    documents: Vec<WorkspaceDocumentInput>,
 ) -> Result<Value, String> {
-    let root = workspace_root();
-    let extra_arguments = vec![new_name, root.to_string_lossy().into_owned()];
-    let output = run_lsp_position_query_with_args(
-        &path,
-        &source,
-        line,
-        character,
-        "--rename-stdin",
+    let root = workspace_root()
+        .canonicalize()
+        .map_err(|error| format!("Could not resolve the EngLang workspace: {error}"))?;
+    let (source_path, payload) = workspace_navigation_payload(&root, &path, source, documents)?;
+    let arguments = vec![
+        root.to_string_lossy().into_owned(),
+        source_path.to_string_lossy().into_owned(),
+        line.to_string(),
+        character.to_string(),
+        new_name,
+    ];
+    let output = run_lsp_query(
+        &root,
+        "--workspace-rename-stdin",
         "Rename",
-        &extra_arguments,
+        &arguments,
+        payload.as_bytes(),
     )?;
-    parse_rename_output(&output)
+    parse_rename_output(&output, &root)
 }
 
 fn run_lsp_position_query(
@@ -2831,20 +2881,7 @@ fn parse_workspace_symbols_output(output: &[u8], root: &Path) -> Result<Value, S
                 "Workspace symbol lookup returned an incomplete or reversed range.".to_owned(),
             );
         }
-        let path = local_path_from_file_uri(uri)
-            .ok_or_else(|| "Workspace symbol lookup returned a non-local file URI.".to_owned())?;
-        let canonical = path.canonicalize().map_err(|error| {
-            format!(
-                "Could not verify workspace symbol target {}: {error}",
-                path.display()
-            )
-        })?;
-        if !canonical.is_file() || !canonical.starts_with(&root) || !is_englang_path(&canonical) {
-            return Err(
-                "Workspace symbol lookup returned a target outside the current EngLang workspace."
-                    .to_owned(),
-            );
-        }
+        let canonical = verified_workspace_eng_uri(uri, &root, "Workspace symbol lookup")?;
         let coordinates = lsp_range_coordinates(range)
             .ok_or_else(|| "Workspace symbol lookup returned an incomplete range.".to_owned())?;
         if !seen.insert((canonical, coordinates, kind, name.to_owned())) {
@@ -2852,6 +2889,23 @@ fn parse_workspace_symbols_output(output: &[u8], root: &Path) -> Result<Value, S
         }
     }
     Ok(value)
+}
+
+fn verified_workspace_eng_uri(uri: &str, root: &Path, operation: &str) -> Result<PathBuf, String> {
+    let path = local_path_from_file_uri(uri)
+        .ok_or_else(|| format!("{operation} returned a non-local file URI."))?;
+    let canonical = path.canonicalize().map_err(|error| {
+        format!(
+            "Could not verify {operation} target {}: {error}",
+            path.display()
+        )
+    })?;
+    if !canonical.is_file() || !canonical.starts_with(root) || !is_englang_path(&canonical) {
+        return Err(format!(
+            "{operation} returned a target outside the current EngLang workspace."
+        ));
+    }
+    Ok(canonical)
 }
 
 fn local_path_from_file_uri(uri: &str) -> Option<PathBuf> {
@@ -2942,23 +2996,34 @@ fn parse_document_highlights_output(output: &[u8]) -> Result<Value, String> {
     Ok(value)
 }
 
-fn parse_references_output(output: &[u8]) -> Result<Value, String> {
+fn parse_references_output(output: &[u8], root: &Path) -> Result<Value, String> {
     let value = serde_json::from_slice::<Value>(output)
         .map_err(|error| format!("Could not read workspace reference result: {error}"))?;
     let references = value
         .as_array()
         .ok_or_else(|| "Workspace reference lookup returned a non-array result.".to_owned())?;
+    if references.len() > MAX_NATIVE_IDE_WORKSPACE_REFERENCES {
+        return Err(format!(
+            "Workspace reference lookup exceeded the {MAX_NATIVE_IDE_WORKSPACE_REFERENCES}-reference limit."
+        ));
+    }
+    let root = root
+        .canonicalize()
+        .map_err(|error| format!("Could not verify the EngLang workspace: {error}"))?;
+    let mut seen = HashSet::new();
     for reference in references {
-        let complete_range = [
-            "/range/start/line",
-            "/range/start/character",
-            "/range/end/line",
-            "/range/end/character",
-        ]
-        .iter()
-        .all(|pointer| reference.pointer(pointer).and_then(Value::as_u64).is_some());
-        if reference.get("uri").and_then(Value::as_str).is_none() || !complete_range {
+        let Some(uri) = reference.get("uri").and_then(Value::as_str) else {
             return Err("Workspace reference lookup returned an incomplete location.".to_owned());
+        };
+        if !non_empty_lsp_range(reference.get("range")) {
+            return Err("Workspace reference lookup returned an incomplete location.".to_owned());
+        }
+        let canonical = verified_workspace_eng_uri(uri, &root, "Workspace reference lookup")?;
+        let coordinates = lsp_range_coordinates(reference.get("range")).ok_or_else(|| {
+            "Workspace reference lookup returned an incomplete location.".to_owned()
+        })?;
+        if !seen.insert((canonical, coordinates)) {
+            return Err("Workspace reference lookup returned a duplicate location.".to_owned());
         }
     }
     Ok(value)
@@ -3059,7 +3124,7 @@ fn parse_prepare_rename_output(output: &[u8]) -> Result<Value, String> {
     Ok(value)
 }
 
-fn parse_rename_output(output: &[u8]) -> Result<Value, String> {
+fn parse_rename_output(output: &[u8], root: &Path) -> Result<Value, String> {
     let value = serde_json::from_slice::<Value>(output)
         .map_err(|error| format!("Could not read rename result: {error}"))?;
     if let Some(message) = value.get("error").and_then(Value::as_str) {
@@ -3070,11 +3135,13 @@ fn parse_rename_output(output: &[u8]) -> Result<Value, String> {
         .and_then(Value::as_object)
         .filter(|changes| !changes.is_empty())
         .ok_or_else(|| "Rename returned no workspace edits.".to_owned())?;
+    let root = root
+        .canonicalize()
+        .map_err(|error| format!("Could not verify the EngLang workspace: {error}"))?;
     let mut edit_count = 0usize;
+    let mut seen = HashSet::new();
     for (uri, edits) in changes {
-        if !uri.starts_with("file://") {
-            return Err("Rename returned a non-file workspace edit URI.".to_owned());
-        }
+        let canonical = verified_workspace_eng_uri(uri, &root, "Rename")?;
         let edits = edits
             .as_array()
             .filter(|edits| !edits.is_empty())
@@ -3084,6 +3151,11 @@ fn parse_rename_output(output: &[u8]) -> Result<Value, String> {
                 || !non_empty_lsp_range(edit.get("range"))
             {
                 return Err("Rename returned an incomplete text edit.".to_owned());
+            }
+            let coordinates = lsp_range_coordinates(edit.get("range"))
+                .ok_or_else(|| "Rename returned an incomplete text edit.".to_owned())?;
+            if !seen.insert((canonical.clone(), coordinates)) {
+                return Err("Rename returned a duplicate workspace text edit.".to_owned());
             }
             edit_count += 1;
             if edit_count > MAX_NATIVE_IDE_RENAME_EDITS {
@@ -4607,6 +4679,8 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "function showDocumentHighlightsAtCaret()",
         "function renderDocumentHighlightReferences()",
         "function currentWorkspaceReferences()",
+        "function dirtyWorkspaceDocuments(originPath = \"\")",
+        "function workspaceDocumentsAreCurrent(documents, originPath = \"\")",
         "function bindWorkspaceReferenceButtons(root)",
         "function openWorkspaceReferenceLocation(reference)",
         "function requestProblemQuickFix(diag)",
@@ -4627,17 +4701,15 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "workspaceSymbolsBackdrop",
         "function documentHighlightKindForToken(token, lineIndex)",
         r#"call("ide_document_highlights", request)"#,
-        r#"call("ide_references", request)"#,
+        r#"call("ide_references", { ...request, documents })"#,
         r#"call("ide_code_actions", request)"#,
-        r#"call("ide_prepare_rename", request)"#,
-        r#"call("ide_rename", { ...pending.request, newName })"#,
+        r#"call("ide_prepare_rename", { ...request, documents })"#,
+        r#"call("ide_rename", { ...pending.request, newName, documents })"#,
         r#"call("ide_workspace_symbols", { query, documents })"#,
         "data-show-document-highlights",
         "data-workspace-reference-uri",
         "data-quick-fix-problem-index",
         "data-rename-symbol",
-        "Save other modified EngLang files before workspace reference search",
-        "Save other modified EngLang files before workspace rename",
         r#"event.key === "F2""#,
         r#"String(event.key || "").toLowerCase() === "t""#,
         r#"String(event.key || "") === ".""#,
@@ -4771,7 +4843,8 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "--document-highlights-stdin",
         "parse_document_highlights_output",
         "ide_references",
-        "--references-stdin",
+        "--workspace-references-stdin",
+        "workspace_navigation_payload",
         "parse_references_output",
         "ide_code_actions",
         "--code-actions-stdin",
@@ -4779,10 +4852,10 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "parse_code_actions_output",
         "code_action_output_accepts_diagnostic_bound_insertions",
         "ide_prepare_rename",
-        "--prepare-rename-stdin",
+        "--workspace-prepare-rename-stdin",
         "parse_prepare_rename_output",
         "ide_rename",
-        "--rename-stdin",
+        "--workspace-rename-stdin",
         "parse_rename_output",
         "ide_workspace_symbols",
         "--workspace-symbols-stdin",
@@ -5198,16 +5271,23 @@ with {
 
     #[test]
     fn workspace_reference_output_accepts_complete_locations() {
+        let root = unique_temp_root();
+        fs::create_dir_all(&root).unwrap();
+        let main_path = root.join("main.eng");
+        let module_path = root.join("module.eng");
+        fs::write(&main_path, "value = SHARED_GAIN\n").unwrap();
+        fs::write(&module_path, "const SHARED_GAIN: Ratio = 0.8\n").unwrap();
+        let root = root.canonicalize().unwrap();
         let references = json!([
             {
-                "uri": "file:///C:/workspace/main.eng",
+                "uri": test_file_uri(&main_path.canonicalize().unwrap()),
                 "range": {
                     "start": { "line": 1, "character": 4 },
                     "end": { "line": 1, "character": 10 }
                 }
             },
             {
-                "uri": "file:///C:/workspace/module.eng",
+                "uri": test_file_uri(&module_path.canonicalize().unwrap()),
                 "range": {
                     "start": { "line": 0, "character": 6 },
                     "end": { "line": 0, "character": 12 }
@@ -5215,18 +5295,23 @@ with {
             }
         ]);
         assert_eq!(
-            parse_references_output(references.to_string().as_bytes()).unwrap(),
+            parse_references_output(references.to_string().as_bytes(), &root).unwrap(),
             references
         );
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
     fn workspace_reference_output_rejects_incomplete_locations() {
+        let root = unique_temp_root();
+        fs::create_dir_all(&root).unwrap();
         let error = parse_references_output(
             br#"[{"range":{"start":{"line":1,"character":2},"end":{"line":1,"character":4}}}]"#,
+            &root,
         )
         .unwrap_err();
         assert!(error.contains("incomplete location"));
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -5254,16 +5339,25 @@ with {
 
     #[test]
     fn rename_output_accepts_complete_multi_file_edits() {
+        let root = unique_temp_root();
+        fs::create_dir_all(&root).unwrap();
+        let main_path = root.join("main.eng");
+        let module_path = root.join("module.eng");
+        fs::write(&main_path, "SHARED_RATE = 1\n").unwrap();
+        fs::write(&module_path, "const SHARED_RATE: Ratio = 0.8\n").unwrap();
+        let root = root.canonicalize().unwrap();
+        let main_uri = test_file_uri(&main_path.canonicalize().unwrap());
+        let module_uri = test_file_uri(&module_path.canonicalize().unwrap());
         let rename = json!({
             "changes": {
-                "file:///C:/workspace/main.eng": [{
+                main_uri: [{
                     "range": {
                         "start": { "line": 1, "character": 9 },
                         "end": { "line": 1, "character": 20 }
                     },
                     "newText": "RENAMED_RATE"
                 }],
-                "file:///C:/workspace/module.eng": [{
+                module_uri: [{
                     "range": {
                         "start": { "line": 0, "character": 6 },
                         "end": { "line": 0, "character": 17 }
@@ -5273,22 +5367,36 @@ with {
             }
         });
         assert_eq!(
-            parse_rename_output(rename.to_string().as_bytes()).unwrap(),
+            parse_rename_output(rename.to_string().as_bytes(), &root).unwrap(),
             rename
         );
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
     fn rename_output_rejects_backend_errors_and_partial_edits() {
-        let error =
-            parse_rename_output(br#"{"error":"`report` is reserved by EngLang."}"#).unwrap_err();
+        let root = unique_temp_root();
+        fs::create_dir_all(&root).unwrap();
+        let main_path = root.join("main.eng");
+        fs::write(&main_path, "next = 1\n").unwrap();
+        let root = root.canonicalize().unwrap();
+        let main_uri = test_file_uri(&main_path.canonicalize().unwrap());
+        let error = parse_rename_output(br#"{"error":"`report` is reserved by EngLang."}"#, &root)
+            .unwrap_err();
         assert!(error.contains("reserved by EngLang"));
 
-        let partial = parse_rename_output(
-            br#"{"changes":{"file:///C:/workspace/main.eng":[{"range":{},"newText":"next"}]}}"#,
-        )
-        .unwrap_err();
+        let partial_payload = json!({
+            "changes": {
+                main_uri: [{
+                    "range": {},
+                    "newText": "next"
+                }]
+            }
+        });
+        let partial =
+            parse_rename_output(partial_payload.to_string().as_bytes(), &root).unwrap_err();
         assert!(partial.contains("incomplete text edit"));
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

@@ -310,7 +310,7 @@ takes precedence over its saved file. The scan is bounded to 500 files and
 1,000 locations. Local variables, parameters, and members remain document
 scoped.
 
-The on-demand CLI form is
+The single-buffer compatibility form is
 `--references-stdin <file.eng> <line> <character> [true|false] [workspace-root]`.
 Without `workspace-root`, it returns current-buffer occurrences plus occurrences
 in the resolved declaration file; the wider saved-file scan is disabled.
@@ -327,13 +327,40 @@ occurrence coverage is incomplete, a name conflict is found in any affected
 file, or the edit would exceed 1,000 locations. Built-ins and members remain
 non-renameable.
 
-The on-demand rename form is
+The single-buffer compatibility rename form is
 `--rename-stdin <file.eng> <line> <character> <new-name> [workspace-root]`.
 Without `workspace-root`, declarations that are safe to rename in the current
 buffer remain current-file operations; selecting an imported symbol returns an
-actionable error instead of an incomplete edit. The CLI receives only the
-current unsaved buffer, so editor clients must save or otherwise account for
-other modified documents before requesting a workspace rename. Persistent LSP
-clients can supply all open document versions directly.
+actionable error instead of an incomplete edit.
+
+On-demand editor clients with multiple modified buffers use the workspace forms:
+
+```text
+--workspace-references-stdin <workspace-root> <file.eng> <line> <character> [true|false]
+--workspace-prepare-rename-stdin <workspace-root> <file.eng> <line> <character>
+--workspace-rename-stdin <workspace-root> <file.eng> <line> <character> <new-name>
+```
+
+All three read the same strict JSON payload from stdin:
+
+```json
+{
+  "format": "eng-lsp-open-documents-v1",
+  "documents": [
+    { "path": "C:/workspace/main.eng", "source": "use \"module.eng\"\n..." },
+    { "path": "C:/workspace/module.eng", "source": "const RATE = 0.8\n" }
+  ]
+}
+```
+
+The selected file must be present. Other entries should be modified open
+`.eng` documents; omitted workspace files are read from disk. Paths must resolve
+to existing files inside `workspace-root`, duplicates are rejected, and open
+text takes precedence throughout the static-import graph. The contract accepts
+at most 128 documents, 4 MiB per document, and 16 MiB of document source in
+total. Editor clients must discard the result if the participating document set,
+dirty state, or version changes while the subprocess is running. Persistent LSP
+clients continue to provide open document versions through `didOpen` and
+`didChange`.
 
 This JSON contract is not a replacement for full LSP editor validation.

@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
@@ -55,11 +56,37 @@ fn main() -> std::process::ExitCode {
             args.get(5),
         );
     }
+    if args.first().map(String::as_str) == Some("--workspace-references-stdin") {
+        return command_workspace_references_stdin(
+            args.get(1),
+            args.get(2),
+            args.get(3),
+            args.get(4),
+            args.get(5),
+        );
+    }
     if args.first().map(String::as_str) == Some("--prepare-rename-stdin") {
         return command_prepare_rename_stdin(args.get(1), args.get(2), args.get(3));
     }
+    if args.first().map(String::as_str) == Some("--workspace-prepare-rename-stdin") {
+        return command_workspace_prepare_rename_stdin(
+            args.get(1),
+            args.get(2),
+            args.get(3),
+            args.get(4),
+        );
+    }
     if args.first().map(String::as_str) == Some("--rename-stdin") {
         return command_rename_stdin(
+            args.get(1),
+            args.get(2),
+            args.get(3),
+            args.get(4),
+            args.get(5),
+        );
+    }
+    if args.first().map(String::as_str) == Some("--workspace-rename-stdin") {
+        return command_workspace_rename_stdin(
             args.get(1),
             args.get(2),
             args.get(3),
@@ -441,6 +468,55 @@ fn command_references_stdin(
     std::process::ExitCode::SUCCESS
 }
 
+fn command_workspace_references_stdin(
+    root: Option<&String>,
+    path: Option<&String>,
+    line: Option<&String>,
+    character: Option<&String>,
+    include_declaration: Option<&String>,
+) -> std::process::ExitCode {
+    const USAGE: &str = "usage: eng-lsp --workspace-references-stdin <workspace-root> <file.eng> <line> <character> [true|false]";
+    let Some(path) = path else {
+        eprintln!("{USAGE}");
+        return std::process::ExitCode::from(2);
+    };
+    let Some((line, character)) = parse_position(line, character) else {
+        eprintln!("{USAGE}");
+        return std::process::ExitCode::from(2);
+    };
+    let include_declaration = match include_declaration.map(String::as_str) {
+        None | Some("true") => true,
+        Some("false") => false,
+        Some(_) => {
+            eprintln!("{USAGE}");
+            return std::process::ExitCode::from(2);
+        }
+    };
+    let (root, documents) = match read_workspace_documents_stdin(root, USAGE) {
+        Ok(value) => value,
+        Err(exit_code) => return exit_code,
+    };
+    let uri = match workspace_request_uri(&root, path, &documents) {
+        Ok(uri) => uri,
+        Err(error) => {
+            eprintln!("invalid workspace reference request: {error}");
+            return std::process::ExitCode::from(2);
+        }
+    };
+    let request = json!({
+        "params": {
+            "textDocument": { "uri": uri },
+            "position": { "line": line, "character": character },
+            "context": { "includeDeclaration": include_declaration }
+        }
+    });
+    println!(
+        "{}",
+        references_for_request(&request, &documents, std::slice::from_ref(&root))
+    );
+    std::process::ExitCode::SUCCESS
+}
+
 fn command_prepare_rename_stdin(
     path: Option<&String>,
     line: Option<&String>,
@@ -468,6 +544,45 @@ fn command_prepare_rename_stdin(
     });
     let mut documents = Documents::new();
     documents.insert(uri, DocumentState::new(source, None));
+    println!(
+        "{}",
+        prepare_rename_for_request(&request, &documents).unwrap_or(Value::Null)
+    );
+    std::process::ExitCode::SUCCESS
+}
+
+fn command_workspace_prepare_rename_stdin(
+    root: Option<&String>,
+    path: Option<&String>,
+    line: Option<&String>,
+    character: Option<&String>,
+) -> std::process::ExitCode {
+    const USAGE: &str = "usage: eng-lsp --workspace-prepare-rename-stdin <workspace-root> <file.eng> <line> <character>";
+    let Some(path) = path else {
+        eprintln!("{USAGE}");
+        return std::process::ExitCode::from(2);
+    };
+    let Some((line, character)) = parse_position(line, character) else {
+        eprintln!("{USAGE}");
+        return std::process::ExitCode::from(2);
+    };
+    let (root, documents) = match read_workspace_documents_stdin(root, USAGE) {
+        Ok(value) => value,
+        Err(exit_code) => return exit_code,
+    };
+    let uri = match workspace_request_uri(&root, path, &documents) {
+        Ok(uri) => uri,
+        Err(error) => {
+            eprintln!("invalid workspace rename preparation request: {error}");
+            return std::process::ExitCode::from(2);
+        }
+    };
+    let request = json!({
+        "params": {
+            "textDocument": { "uri": uri },
+            "position": { "line": line, "character": character }
+        }
+    });
     println!(
         "{}",
         prepare_rename_for_request(&request, &documents).unwrap_or(Value::Null)
@@ -520,6 +635,51 @@ fn command_rename_stdin(
     std::process::ExitCode::SUCCESS
 }
 
+fn command_workspace_rename_stdin(
+    root: Option<&String>,
+    path: Option<&String>,
+    line: Option<&String>,
+    character: Option<&String>,
+    new_name: Option<&String>,
+) -> std::process::ExitCode {
+    const USAGE: &str = "usage: eng-lsp --workspace-rename-stdin <workspace-root> <file.eng> <line> <character> <new-name>";
+    let Some(path) = path else {
+        eprintln!("{USAGE}");
+        return std::process::ExitCode::from(2);
+    };
+    let Some((line, character)) = parse_position(line, character) else {
+        eprintln!("{USAGE}");
+        return std::process::ExitCode::from(2);
+    };
+    let Some(new_name) = new_name else {
+        eprintln!("{USAGE}");
+        return std::process::ExitCode::from(2);
+    };
+    let (root, documents) = match read_workspace_documents_stdin(root, USAGE) {
+        Ok(value) => value,
+        Err(exit_code) => return exit_code,
+    };
+    let uri = match workspace_request_uri(&root, path, &documents) {
+        Ok(uri) => uri,
+        Err(error) => {
+            eprintln!("invalid workspace rename request: {error}");
+            return std::process::ExitCode::from(2);
+        }
+    };
+    let request = json!({
+        "params": {
+            "textDocument": { "uri": uri },
+            "position": { "line": line, "character": character },
+            "newName": new_name
+        }
+    });
+    match rename_for_request(&request, &documents, std::slice::from_ref(&root)) {
+        Ok(edit) => println!("{edit}"),
+        Err(message) => println!("{}", json!({ "error": message })),
+    }
+    std::process::ExitCode::SUCCESS
+}
+
 fn parse_position(line: Option<&String>, character: Option<&String>) -> Option<(usize, usize)> {
     Some((
         line?.parse::<usize>().ok()?,
@@ -565,49 +725,10 @@ fn command_workspace_symbols_stdin(
     root: Option<&String>,
     query: Option<&String>,
 ) -> std::process::ExitCode {
-    let Some(root) = root else {
-        eprintln!("usage: eng-lsp --workspace-symbols-stdin <workspace-root> [query]");
-        return std::process::ExitCode::from(2);
-    };
-    let root = match Path::new(root).canonicalize() {
-        Ok(root) if root.is_dir() => root,
-        Ok(_) => {
-            eprintln!("workspace symbol root is not a directory: {root}");
-            return std::process::ExitCode::from(2);
-        }
-        Err(error) => {
-            eprintln!("could not resolve workspace symbol root {root}: {error}");
-            return std::process::ExitCode::from(2);
-        }
-    };
-    let mut input = Vec::new();
-    if let Err(error) = std::io::stdin()
-        .take((MAX_WORKSPACE_OPEN_DOCUMENT_PAYLOAD_BYTES + 1) as u64)
-        .read_to_end(&mut input)
-    {
-        eprintln!("failed to read workspace documents from stdin: {error}");
-        return std::process::ExitCode::from(1);
-    }
-    if input.len() > MAX_WORKSPACE_OPEN_DOCUMENT_PAYLOAD_BYTES {
-        eprintln!(
-            "workspace document payload exceeded the {}-byte limit",
-            MAX_WORKSPACE_OPEN_DOCUMENT_PAYLOAD_BYTES
-        );
-        return std::process::ExitCode::from(2);
-    }
-    let payload = match serde_json::from_slice::<Value>(&input) {
-        Ok(payload) => payload,
-        Err(error) => {
-            eprintln!("could not parse workspace document payload: {error}");
-            return std::process::ExitCode::from(2);
-        }
-    };
-    let documents = match workspace_documents_from_payload(&payload, &root) {
-        Ok(documents) => documents,
-        Err(error) => {
-            eprintln!("invalid workspace document payload: {error}");
-            return std::process::ExitCode::from(2);
-        }
+    const USAGE: &str = "usage: eng-lsp --workspace-symbols-stdin <workspace-root> [query]";
+    let (root, documents) = match read_workspace_documents_stdin(root, USAGE) {
+        Ok(value) => value,
+        Err(exit_code) => return exit_code,
     };
     let request = json!({
         "params": {
@@ -623,6 +744,57 @@ fn command_workspace_symbols_stdin(
         })
     );
     std::process::ExitCode::SUCCESS
+}
+
+fn read_workspace_documents_stdin(
+    root: Option<&String>,
+    usage: &str,
+) -> Result<(PathBuf, Documents), std::process::ExitCode> {
+    let Some(root) = root else {
+        eprintln!("{usage}");
+        return Err(std::process::ExitCode::from(2));
+    };
+    let root = match Path::new(root).canonicalize() {
+        Ok(root) if root.is_dir() => root,
+        Ok(_) => {
+            eprintln!("workspace root is not a directory: {root}");
+            return Err(std::process::ExitCode::from(2));
+        }
+        Err(error) => {
+            eprintln!("could not resolve workspace root {root}: {error}");
+            return Err(std::process::ExitCode::from(2));
+        }
+    };
+    let mut input = Vec::new();
+    if let Err(error) = std::io::stdin()
+        .take((MAX_WORKSPACE_OPEN_DOCUMENT_PAYLOAD_BYTES + 1) as u64)
+        .read_to_end(&mut input)
+    {
+        eprintln!("failed to read workspace documents from stdin: {error}");
+        return Err(std::process::ExitCode::from(1));
+    }
+    if input.len() > MAX_WORKSPACE_OPEN_DOCUMENT_PAYLOAD_BYTES {
+        eprintln!(
+            "workspace document payload exceeded the {}-byte limit",
+            MAX_WORKSPACE_OPEN_DOCUMENT_PAYLOAD_BYTES
+        );
+        return Err(std::process::ExitCode::from(2));
+    }
+    let payload = match serde_json::from_slice::<Value>(&input) {
+        Ok(payload) => payload,
+        Err(error) => {
+            eprintln!("could not parse workspace document payload: {error}");
+            return Err(std::process::ExitCode::from(2));
+        }
+    };
+    let documents = match workspace_documents_from_payload(&payload, &root) {
+        Ok(documents) => documents,
+        Err(error) => {
+            eprintln!("invalid workspace document payload: {error}");
+            return Err(std::process::ExitCode::from(2));
+        }
+    };
+    Ok((root, documents))
 }
 
 fn workspace_documents_from_payload(payload: &Value, root: &Path) -> Result<Documents, String> {
@@ -665,27 +837,7 @@ fn workspace_documents_from_payload(payload: &Value, root: &Path) -> Result<Docu
             ));
         }
 
-        let raw_path = PathBuf::from(path);
-        let candidate = if raw_path.is_absolute() {
-            raw_path
-        } else {
-            root.join(raw_path)
-        };
-        let canonical = candidate
-            .canonicalize()
-            .map_err(|error| format!("could not resolve workspace document {path}: {error}"))?;
-        if !canonical.is_file() || !canonical.starts_with(root) {
-            return Err(format!(
-                "workspace document is outside the workspace or is not a file: {path}"
-            ));
-        }
-        if !canonical
-            .extension()
-            .and_then(|extension| extension.to_str())
-            .is_some_and(|extension| extension.eq_ignore_ascii_case("eng"))
-        {
-            return Err(format!("workspace document is not an .eng file: {path}"));
-        }
+        let canonical = canonical_workspace_document_path(root, path)?;
         let uri = file_uri_from_path(&canonical);
         if documents
             .insert(uri, DocumentState::new(source.to_owned(), None))
@@ -697,6 +849,42 @@ fn workspace_documents_from_payload(payload: &Value, root: &Path) -> Result<Docu
         }
     }
     Ok(documents)
+}
+
+fn canonical_workspace_document_path(root: &Path, path: &str) -> Result<PathBuf, String> {
+    let raw_path = PathBuf::from(path);
+    let candidate = if raw_path.is_absolute() {
+        raw_path
+    } else {
+        root.join(raw_path)
+    };
+    let canonical = candidate
+        .canonicalize()
+        .map_err(|error| format!("could not resolve workspace document {path}: {error}"))?;
+    if !canonical.is_file() || !canonical.starts_with(root) {
+        return Err(format!(
+            "workspace document is outside the workspace or is not a file: {path}"
+        ));
+    }
+    if !canonical
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("eng"))
+    {
+        return Err(format!("workspace document is not an .eng file: {path}"));
+    }
+    Ok(canonical)
+}
+
+fn workspace_request_uri(root: &Path, path: &str, documents: &Documents) -> Result<String, String> {
+    let canonical = canonical_workspace_document_path(root, path)?;
+    let uri = file_uri_from_path(&canonical);
+    if !documents.contains_key(&uri) {
+        return Err(format!(
+            "selected workspace document must be included in the open-document payload: {path}"
+        ));
+    }
+    Ok(uri)
 }
 
 #[derive(Clone, Debug)]
@@ -5743,8 +5931,10 @@ fn document_highlights_for_request(request: &Value, documents: &Documents) -> Va
         .and_then(Value::as_u64)
         .unwrap_or(0) as usize;
     let snapshot = snapshot_for_source(&path, &text);
-    let Some(symbol) = semantic_symbol_occurrences(
+    let Some(symbol) = workspace_semantic_symbol_occurrences(
+        &path,
         &text,
+        documents,
         &snapshot.semantic_tokens.tokens,
         &snapshot.hovers,
         line,
@@ -5819,8 +6009,10 @@ fn references_for_request(
         .and_then(Value::as_bool)
         .unwrap_or(true);
     let snapshot = snapshot_for_source(&path, &text);
-    let Some(symbol) = semantic_symbol_occurrences(
+    let Some(symbol) = workspace_semantic_symbol_occurrences(
+        &path,
         &text,
+        documents,
         &snapshot.semantic_tokens.tokens,
         &snapshot.hovers,
         line,
@@ -5835,7 +6027,7 @@ fn references_for_request(
         .collect::<Vec<_>>();
 
     if let Some(identity) =
-        workspace_reference_identity(uri, &path, &text, &snapshot.hovers, &symbol)
+        workspace_reference_identity(uri, &path, &text, documents, &snapshot.hovers, &symbol)
     {
         let mut workspace_locations =
             workspace_reference_locations(uri, &path, documents, workspace_roots, &identity);
@@ -5896,6 +6088,7 @@ fn workspace_reference_identity(
     uri: &str,
     source_path: &Path,
     source: &str,
+    documents: &Documents,
     hovers: &[eng_lsp::LspHover],
     symbol: &SemanticSymbolOccurrences,
 ) -> Option<WorkspaceReferenceIdentity> {
@@ -5930,6 +6123,7 @@ fn workspace_reference_identity(
         imported_definition_target_for_family(
             source_path,
             source,
+            documents,
             &symbol.label,
             &symbol.family,
             preferred_line,
@@ -5937,9 +6131,23 @@ fn workspace_reference_identity(
     };
     let definition_path = path_from_uri(&target.uri)?;
     let definition_path = definition_path.canonicalize().unwrap_or(definition_path);
+    let definition_line = if let Some((definition_uri, state)) =
+        workspace_document_for_path(documents, &definition_path)
+    {
+        importable_definition_target_in_source(
+            definition_uri,
+            &state.text,
+            &symbol.label,
+            &symbol.family,
+            target.line + 1,
+        )?
+        .line
+    } else {
+        target.line
+    };
     Some(WorkspaceReferenceIdentity {
         definition_path,
-        definition_line: target.line,
+        definition_line,
         label: symbol.label.clone(),
         family: symbol.family.clone(),
     })
@@ -5961,23 +6169,22 @@ fn workspace_reference_locations(
         }
         if source.uri == selected_uri
             || !source.text.contains(&identity.label)
-            || !source_resolves_workspace_reference(&source, identity)
+            || !source_resolves_workspace_reference(&source, documents, identity)
         {
             continue;
         }
         let snapshot = snapshot_for_source(&source.path, &source.text);
+        let Some(symbol) = semantic_symbol_occurrences_for_workspace_identity(
+            &source.text,
+            &snapshot.semantic_tokens.tokens,
+            identity,
+        ) else {
+            continue;
+        };
         locations.extend(
-            snapshot
-                .semantic_tokens
-                .tokens
+            symbol
+                .occurrences
                 .iter()
-                .filter(|token| {
-                    !has_semantic_modifier(token, "local")
-                        && semantic_symbol_family(&token.token_type, &token.modifiers)
-                            == Some(identity.family.as_str())
-                        && semantic_token_text(&source.text, token).as_deref()
-                            == Some(identity.label.as_str())
-                })
                 .map(|token| semantic_reference_location(&source.uri, token)),
         );
     }
@@ -6066,11 +6273,7 @@ fn push_workspace_source_for_path(
     if !seen_paths.insert(path.clone()) || sources.len() >= MAX_WORKSPACE_INDEX_FILES {
         return true;
     }
-    if let Some((uri, state)) = documents.iter().find(|(uri, _)| {
-        path_from_uri(uri)
-            .map(|candidate| candidate.canonicalize().unwrap_or(candidate) == path)
-            .unwrap_or(false)
-    }) {
+    if let Some((uri, state)) = workspace_document_for_path(documents, &path) {
         sources.push(WorkspaceSource {
             uri: uri.clone(),
             path,
@@ -6089,8 +6292,21 @@ fn push_workspace_source_for_path(
     true
 }
 
+fn workspace_document_for_path<'a>(
+    documents: &'a Documents,
+    path: &Path,
+) -> Option<(&'a String, &'a DocumentState)> {
+    let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    documents.iter().find(|(uri, _)| {
+        path_from_uri(uri)
+            .map(|candidate| candidate.canonicalize().unwrap_or(candidate) == path)
+            .unwrap_or(false)
+    })
+}
+
 fn source_resolves_workspace_reference(
     source: &WorkspaceSource,
+    documents: &Documents,
     identity: &WorkspaceReferenceIdentity,
 ) -> bool {
     if source.path == identity.definition_path {
@@ -6110,6 +6326,7 @@ fn source_resolves_workspace_reference(
     let Some(target) = imported_definition_target_for_family(
         &source.path,
         &source.text,
+        documents,
         &identity.label,
         &identity.family,
         identity.definition_line + 1,
@@ -6166,21 +6383,71 @@ fn semantic_symbol_occurrences(
     })
 }
 
+fn workspace_semantic_symbol_occurrences(
+    source_path: &Path,
+    source: &str,
+    documents: &Documents,
+    tokens: &[eng_lsp::LspSemanticToken],
+    hovers: &[eng_lsp::LspHover],
+    line: usize,
+    character: usize,
+) -> Option<SemanticSymbolOccurrences> {
+    if let Some(symbol) = semantic_symbol_occurrences(source, tokens, hovers, line, character) {
+        return Some(symbol);
+    }
+
+    let (label, start, length) = identifier_range_at_position(source, line, character)?;
+    let mut candidates = ["type", "variable", "function"]
+        .into_iter()
+        .filter_map(|family| {
+            imported_definition_target_for_family(
+                source_path,
+                source,
+                documents,
+                &label,
+                family,
+                line + 1,
+            )
+            .map(|target| (family, target))
+        })
+        .collect::<Vec<_>>();
+    if candidates.len() != 1 {
+        return None;
+    }
+    let (family, target) = candidates.pop()?;
+    let definition_path = path_from_uri(&target.uri)?;
+    let identity = WorkspaceReferenceIdentity {
+        definition_path: definition_path.canonicalize().unwrap_or(definition_path),
+        definition_line: target.line,
+        label,
+        family: family.to_owned(),
+    };
+    let mut symbol = semantic_symbol_occurrences_for_workspace_identity(source, tokens, &identity)?;
+    symbol.selected = symbol
+        .occurrences
+        .iter()
+        .find(|token| token.line == line && token.start == start && token.length == length)?
+        .clone();
+    Some(symbol)
+}
+
 fn prepare_rename_for_request(request: &Value, documents: &Documents) -> Option<Value> {
     let uri = request_uri(request)?;
     let text = document_text_for_uri(uri, documents)?;
     let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
     let (line, character) = request_position(request)?;
     let snapshot = snapshot_for_source(&path, &text);
-    let symbol = semantic_symbol_occurrences(
+    let symbol = workspace_semantic_symbol_occurrences(
+        &path,
         &text,
+        documents,
         &snapshot.semantic_tokens.tokens,
         &snapshot.hovers,
         line,
         character,
     )?;
     let workspace_identity =
-        workspace_reference_identity(uri, &path, &text, &snapshot.hovers, &symbol);
+        workspace_reference_identity(uri, &path, &text, documents, &snapshot.hovers, &symbol);
     (semantic_symbol_is_renameable(&text, &symbol) || workspace_identity.is_some()).then(|| {
         json!({
             "range": semantic_token_range_json(&symbol.selected),
@@ -6207,8 +6474,10 @@ fn rename_for_request(
         .map(str::trim)
         .ok_or_else(|| "Rename request is missing the new symbol name.".to_owned())?;
     let snapshot = snapshot_for_source(&path, &text);
-    let symbol = semantic_symbol_occurrences(
+    let symbol = workspace_semantic_symbol_occurrences(
+        &path,
         &text,
+        documents,
         &snapshot.semantic_tokens.tokens,
         &snapshot.hovers,
         line,
@@ -6217,7 +6486,7 @@ fn rename_for_request(
     .ok_or_else(|| "The selected token is not a renameable EngLang symbol.".to_owned())?;
     let current_file_renameable = semantic_symbol_is_renameable(&text, &symbol);
     let workspace_identity =
-        workspace_reference_identity(uri, &path, &text, &snapshot.hovers, &symbol);
+        workspace_reference_identity(uri, &path, &text, documents, &snapshot.hovers, &symbol);
     if new_name == symbol.label {
         return Err("The new symbol name is unchanged.".to_owned());
     }
@@ -6329,7 +6598,7 @@ fn workspace_rename_for_symbol(
         if !path_is_in_workspace(&source.path, &workspace_roots)
             || !source.text.contains(&identity.label)
             || (source.uri != selected_uri
-                && !source_resolves_workspace_reference(&source, identity))
+                && !source_resolves_workspace_reference(&source, documents, identity))
         {
             continue;
         }
@@ -6440,6 +6709,40 @@ fn semantic_symbol_occurrences_for_workspace_identity(
         })
         .cloned()
         .collect::<Vec<_>>();
+    let token_type = match identity.family.as_str() {
+        "type" => "type",
+        "variable" => "variable",
+        "function" => "function",
+        _ => return None,
+    };
+    let mut known_ranges = occurrences
+        .iter()
+        .map(|token| (token.line, token.start, token.length))
+        .collect::<HashSet<_>>();
+    for (line_number, line) in source.lines().enumerate() {
+        for (start, length) in rename_identifier_ranges_on_line(line, &identity.label) {
+            if known_ranges.contains(&(line_number, start, length)) {
+                continue;
+            }
+            let conflicts_with_semantic_symbol = tokens.iter().any(|token| {
+                token.line == line_number
+                    && token.start == start
+                    && token.length == length
+                    && semantic_symbol_family(&token.token_type, &token.modifiers).is_some()
+            });
+            if conflicts_with_semantic_symbol {
+                continue;
+            }
+            known_ranges.insert((line_number, start, length));
+            occurrences.push(eng_lsp::LspSemanticToken {
+                line: line_number,
+                start,
+                length,
+                token_type: token_type.to_owned(),
+                modifiers: Vec::new(),
+            });
+        }
+    }
     occurrences.sort_by_key(|token| (token.line, token.start, token.length));
     occurrences.dedup_by_key(|token| (token.line, token.start, token.length));
     let selected = occurrences
@@ -6926,6 +7229,41 @@ fn symbol_at_position(source: &str, line: usize, character: usize) -> Option<Str
     Some(line_text[start..end].trim_matches('.').to_owned())
 }
 
+fn identifier_range_at_position(
+    source: &str,
+    line: usize,
+    character: usize,
+) -> Option<(String, usize, usize)> {
+    let line_text = source.lines().nth(line)?;
+    let bytes = line_text.as_bytes();
+    let cursor = utf16_character_to_byte(line_text, character);
+    if !bytes
+        .get(cursor)
+        .is_some_and(|byte| is_identifier_byte(*byte))
+        && !cursor
+            .checked_sub(1)
+            .and_then(|index| bytes.get(index))
+            .is_some_and(|byte| is_identifier_byte(*byte))
+    {
+        return None;
+    }
+    let mut start = cursor;
+    while start > 0 && is_identifier_byte(bytes[start - 1]) {
+        start -= 1;
+    }
+    let mut end = cursor;
+    while end < bytes.len() && is_identifier_byte(bytes[end]) {
+        end += 1;
+    }
+    (start < end).then(|| {
+        (
+            line_text[start..end].to_owned(),
+            utf16_len(&line_text[..start]),
+            utf16_len(&line_text[start..end]),
+        )
+    })
+}
+
 fn is_symbol_byte(byte: u8) -> bool {
     byte == b'.' || byte == b'_' || byte.is_ascii_alphanumeric()
 }
@@ -7051,6 +7389,7 @@ fn ast_importable_definition_line_for_family(
 fn imported_definition_target_for_family(
     source_path: &Path,
     source: &str,
+    documents: &Documents,
     label: &str,
     family: &str,
     preferred_line: usize,
@@ -7061,6 +7400,7 @@ fn imported_definition_target_for_family(
     imported_definition_target_for_family_from_program(
         &parsed,
         base_dir,
+        documents,
         label,
         family,
         preferred_line,
@@ -7071,6 +7411,7 @@ fn imported_definition_target_for_family(
 fn imported_definition_target_for_family_from_program(
     parsed: &eng_compiler::ParsedProgram,
     base_dir: &Path,
+    documents: &Documents,
     label: &str,
     family: &str,
     preferred_line: usize,
@@ -7089,25 +7430,31 @@ fn imported_definition_target_for_family_from_program(
         if !visited.insert(import_path.clone()) {
             continue;
         }
-        let Ok(imported_source) = std::fs::read_to_string(&import_path) else {
-            visited.remove(&import_path);
-            continue;
-        };
-        let imported_uri = file_uri_from_path(&import_path);
+        let (imported_uri, imported_source) =
+            if let Some((uri, state)) = workspace_document_for_path(documents, &import_path) {
+                (uri.clone(), Cow::Borrowed(state.text.as_str()))
+            } else {
+                let Ok(source) = std::fs::read_to_string(&import_path) else {
+                    visited.remove(&import_path);
+                    continue;
+                };
+                (file_uri_from_path(&import_path), Cow::Owned(source))
+            };
         if let Some(target) = importable_definition_target_in_source(
             &imported_uri,
-            &imported_source,
+            imported_source.as_ref(),
             label,
             family,
             preferred_line,
         ) {
             return Some(target);
         }
-        let imported = parse_source(&imported_source);
+        let imported = parse_source(imported_source.as_ref());
         if let Some(import_base_dir) = import_path.parent() {
             if let Some(target) = imported_definition_target_for_family_from_program(
                 &imported,
                 import_base_dir,
+                documents,
                 label,
                 family,
                 preferred_line,

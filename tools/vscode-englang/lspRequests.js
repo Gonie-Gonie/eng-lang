@@ -1,4 +1,5 @@
 const cp = require("child_process");
+const nodePath = require("path");
 const vscode = require("vscode");
 
 function createLspRequests(options = {}) {
@@ -310,71 +311,164 @@ function createLspRequests(options = {}) {
     context,
     cancellationToken
   ) {
-    const root = workspaceRoot(document);
-    const args = [
-      "--references-stdin",
-      document.uri.fsPath,
-      String(position.line),
-      String(position.character),
-      includeDeclaration ? "true" : "false"
-    ];
-    if (root) {
-      args.push(root);
-    }
-    return stdinJsonRequest(document, context, cancellationToken, {
-      args,
+    const root = workspaceRoot(document) || nodePath.dirname(document.uri.fsPath);
+    return workspaceNavigationJsonRequest(document, context, cancellationToken, {
+      args: [
+        "--workspace-references-stdin",
+        root,
+        document.uri.fsPath,
+        String(position.line),
+        String(position.character),
+        includeDeclaration ? "true" : "false"
+      ],
       errorMessage: "Reference lookup failed",
       parseMessage: "Unable to parse EngLang reference data",
+      root,
       normalize: (payload) => Array.isArray(payload) ? payload : []
     });
   }
 
   function prepareRenameForPosition(document, position, context, cancellationToken) {
-    return stdinJsonRequest(document, context, cancellationToken, {
+    const root = workspaceRoot(document) || nodePath.dirname(document.uri.fsPath);
+    return workspaceNavigationJsonRequest(document, context, cancellationToken, {
       args: [
-        "--prepare-rename-stdin",
+        "--workspace-prepare-rename-stdin",
+        root,
         document.uri.fsPath,
         String(position.line),
         String(position.character)
       ],
       errorMessage: "Rename preparation failed",
-      parseMessage: "Unable to parse EngLang rename preparation"
+      parseMessage: "Unable to parse EngLang rename preparation",
+      root
     });
   }
 
   function renameForPosition(document, position, newName, context, cancellationToken) {
-    const documentUri = document.uri.toString();
-    const dirtyOtherDocuments = (vscode.workspace.textDocuments ?? []).filter((candidate) =>
-      candidate.isDirty
-        && isEngDocument(candidate)
-        && candidate.uri.toString() !== documentUri
-    );
-    if (dirtyOtherDocuments.length > 0) {
-      const paths = dirtyOtherDocuments
-        .slice(0, 3)
-        .map((candidate) => candidate.uri.fsPath ?? candidate.fileName ?? candidate.uri.toString());
-      const remainder = dirtyOtherDocuments.length - paths.length;
-      const suffix = remainder > 0 ? ` and ${remainder} more` : "";
-      return Promise.resolve({
-        error: `Save other modified EngLang files before workspace rename: ${paths.join(", ")}${suffix}.`
-      });
-    }
-    const root = workspaceRoot(document);
-    const args = [
-      "--rename-stdin",
-      document.uri.fsPath,
-      String(position.line),
-      String(position.character),
-      newName
-    ];
-    if (root) {
-      args.push(root);
-    }
-    return stdinJsonRequest(document, context, cancellationToken, {
-      args,
+    const root = workspaceRoot(document) || nodePath.dirname(document.uri.fsPath);
+    return workspaceNavigationJsonRequest(document, context, cancellationToken, {
+      args: [
+        "--workspace-rename-stdin",
+        root,
+        document.uri.fsPath,
+        String(position.line),
+        String(position.character),
+        newName
+      ],
       errorMessage: "Rename failed",
-      parseMessage: "Unable to parse EngLang rename result"
+      parseMessage: "Unable to parse EngLang rename result",
+      root
     });
+  }
+
+  function workspaceNavigationJsonRequest(document, context, cancellationToken, request) {
+    return new Promise((resolve) => {
+      if (!isEngDocument(document) || cancellationToken?.isCancellationRequested) {
+        resolve(undefined);
+        return;
+      }
+      const root = request.root;
+      const openDocuments = workspaceNavigationDocuments(document, root);
+      const documentStates = openDocuments.map((candidate) => ({
+        dirty: candidate.isDirty,
+        uri: candidate.uri.toString(),
+        version: candidate.version
+      }));
+      const payload = JSON.stringify({
+        format: "eng-lsp-open-documents-v1",
+        documents: openDocuments.map((candidate) => ({
+          path: candidate.uri.fsPath,
+          source: candidate.getText()
+        }))
+      });
+      const runtime = findLspRuntime(context, document);
+      let settled = false;
+      let cancellationSubscription;
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        cancellationSubscription?.dispose?.();
+        resolve(value);
+      };
+      const child = cp.execFile(
+        runtime,
+        request.args,
+        { cwd: root, maxBuffer: 10 * 1024 * 1024 },
+        (error, stdout, stderr) => {
+          if (settled) return;
+          if (stderr && stderr.trim().length > 0) appendOutputLine(stderr.trim());
+          if (error) {
+            appendOutputLine(`${request.errorMessage}: ${error.message}`);
+            finish(undefined);
+            return;
+          }
+          if (!workspaceNavigationDocumentStatesAreCurrent(document, root, documentStates)) {
+            finish(undefined);
+            return;
+          }
+          try {
+            const response = JSON.parse(stdout);
+            finish(request.normalize ? request.normalize(response) : response);
+          } catch (parseError) {
+            appendOutputLine(`${request.parseMessage}: ${parseError.message}`);
+            finish(undefined);
+          }
+        }
+      );
+      cancellationSubscription = cancellationToken?.onCancellationRequested(() => {
+        child.kill();
+        finish(undefined);
+      });
+      if (settled) {
+        cancellationSubscription?.dispose?.();
+        cancellationSubscription = undefined;
+      }
+      child.stdin?.on?.("error", (error) => {
+        if (settled) return;
+        appendOutputLine(`workspace navigation input failed: ${error.message}`);
+        child.kill();
+        finish(undefined);
+      });
+      if (!settled) child.stdin?.end(payload);
+    });
+  }
+
+  function workspaceNavigationDocuments(document, root) {
+    const currentUri = document.uri.toString();
+    const candidates = [document, ...(vscode.workspace?.textDocuments ?? [])];
+    const documents = new Map();
+    for (const candidate of candidates) {
+      const uri = candidate?.uri;
+      if (
+        !isEngDocument(candidate)
+        || !uri?.fsPath
+        || (uri.scheme && uri.scheme !== "file")
+        || !pathIsWithinRoot(uri.fsPath, root)
+        || (uri.toString() !== currentUri && !candidate.isDirty)
+        || typeof candidate.getText !== "function"
+      ) {
+        continue;
+      }
+      documents.set(uri.toString(), candidate);
+    }
+    return Array.from(documents.values());
+  }
+
+  function workspaceNavigationDocumentStatesAreCurrent(document, root, states) {
+    const current = workspaceNavigationDocuments(document, root);
+    if (current.length !== states.length) return false;
+    const currentByUri = new Map(current.map((candidate) => [candidate.uri.toString(), candidate]));
+    return states.every(({ dirty, uri, version }) => {
+      const candidate = currentByUri.get(uri);
+      return candidate?.version === version && candidate.isDirty === dirty;
+    });
+  }
+
+  function pathIsWithinRoot(filePath, root) {
+    if (!filePath || !root) return false;
+    const relative = nodePath.relative(nodePath.resolve(root), nodePath.resolve(filePath));
+    return relative === ""
+      || (!nodePath.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${nodePath.sep}`));
   }
 
   function formatDocumentSource(document, context, cancellationToken) {
@@ -395,7 +489,7 @@ function createLspRequests(options = {}) {
 
   function stdinJsonRequest(document, context, cancellationToken, request) {
     return new Promise((resolve) => {
-      if (!isEngDocument(document)) {
+      if (!isEngDocument(document) || cancellationToken?.isCancellationRequested) {
         resolve(undefined);
         return;
       }
@@ -405,11 +499,13 @@ function createLspRequests(options = {}) {
       const documentVersion = document.version;
       const documentText = document.getText();
       let settled = false;
+      let cancellationSubscription;
       const finish = (value) => {
         if (settled) {
           return;
         }
         settled = true;
+        cancellationSubscription?.dispose?.();
         if (document.version !== documentVersion) {
           resolve(undefined);
           return;
@@ -422,6 +518,7 @@ function createLspRequests(options = {}) {
         request.args,
         { cwd, maxBuffer: 10 * 1024 * 1024 },
         (error, stdout, stderr) => {
+          if (settled) return;
           if (stderr && stderr.trim().length > 0) {
             appendOutputLine(stderr.trim());
           }
@@ -440,14 +537,22 @@ function createLspRequests(options = {}) {
         }
       );
 
-      cancellationToken?.onCancellationRequested(() => {
+      cancellationSubscription = cancellationToken?.onCancellationRequested(() => {
         child.kill();
         finish(undefined);
       });
-
-      if (child.stdin) {
-        child.stdin.end(documentText);
+      if (settled) {
+        cancellationSubscription?.dispose?.();
+        cancellationSubscription = undefined;
       }
+
+      child.stdin?.on?.("error", (error) => {
+        if (settled) return;
+        appendOutputLine(`${request.errorMessage} input failed: ${error.message}`);
+        child.kill();
+        finish(undefined);
+      });
+      if (!settled) child.stdin?.end(documentText);
     });
   }
 

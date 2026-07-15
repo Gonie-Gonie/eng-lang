@@ -121,7 +121,7 @@ const state = {
   check: { diagnostics: [], symbols: [], status: "", semanticTokens: { legend: {}, tokens: [] }, hovers: [], documentSymbols: [] },
   highlightSource: null,
   documentHighlights: { path: "", source: "", items: [] },
-  workspaceReferences: { path: "", source: "", label: "", items: [], notice: "" },
+  workspaceReferences: { path: "", source: "", documents: [], label: "", items: [], notice: "" },
   variables: [],
   args: [],
   artifacts: [],
@@ -1164,11 +1164,16 @@ async function requestWorkspaceSymbols(pending = state.pendingWorkspaceSymbols) 
 }
 
 function dirtyWorkspaceSymbolDocuments() {
+  return dirtyWorkspaceDocuments();
+}
+
+function dirtyWorkspaceDocuments(originPath = "") {
   rememberCurrentTab();
   const documents = [];
   const seen = new Set();
   for (const tab of state.tabs) {
     if (!tab.dirty || !/\.eng$/i.test(String(tab.path || ""))) continue;
+    if (originPath && sameDefinitionPath(tab.path, originPath)) continue;
     const path = workspaceSymbolRelativePath(tab.path);
     if (!path) continue;
     const key = definitionPathKey(path);
@@ -1177,6 +1182,17 @@ function dirtyWorkspaceSymbolDocuments() {
     documents.push({ path, source: tab.source });
   }
   return documents;
+}
+
+function workspaceDocumentsAreCurrent(documents, originPath = "") {
+  const expected = Array.isArray(documents) ? documents : [];
+  const current = dirtyWorkspaceDocuments(originPath);
+  if (current.length !== expected.length) return false;
+  const currentByPath = new Map(current.map((document) => [definitionPathKey(document.path), document]));
+  return expected.every((document) => {
+    const candidate = currentByPath.get(definitionPathKey(document.path));
+    return candidate?.source === document.source;
+  });
 }
 
 function workspaceSymbolItemsFromPayload(payload, query = "") {
@@ -7234,25 +7250,24 @@ function currentWorkspaceReferences() {
   const origin = sameDefinitionPath(payload.path, state.currentPath)
     ? { source: state.source }
     : state.tabs.find((tab) => sameDefinitionPath(tab.path, payload.path));
-  if (!origin || origin.source !== payload.source) return [];
+  if (
+    !origin
+    || origin.source !== payload.source
+    || !workspaceDocumentsAreCurrent(payload.documents, payload.path)
+  ) return [];
   return arrayOrEmpty(payload.items);
-}
-
-function dirtyWorkspaceReferenceTabs(originPath) {
-  return dirtyOtherEngLangTabs(originPath);
-}
-
-function dirtyOtherEngLangTabs(originPath) {
-  return state.tabs.filter((tab) =>
-    tab.dirty
-      && /\.eng$/i.test(String(tab.path || ""))
-      && !sameDefinitionPath(tab.path, originPath)
-  );
 }
 
 function clearReferenceResults() {
   state.documentHighlights = { path: "", source: "", items: [] };
-  state.workspaceReferences = { path: "", source: "", label: "", items: [], notice: "" };
+  state.workspaceReferences = {
+    path: "",
+    source: "",
+    documents: [],
+    label: "",
+    items: [],
+    notice: ""
+  };
 }
 
 async function showDocumentHighlightsAtCaret() {
@@ -7264,18 +7279,16 @@ async function showDocumentHighlightsAtCaret() {
     column: request.character
   });
   const label = selectedToken ? semanticTokenText(selectedToken) : "";
-  const dirtyOtherTabs = dirtyWorkspaceReferenceTabs(request.path);
+  const documents = dirtyWorkspaceDocuments(request.path);
   const revision = ++documentHighlightRequestRevision;
   hideCompletions();
   setStatus("Finding references...");
   try {
     let workspaceError = "";
-    const referencesPromise = dirtyOtherTabs.length
-      ? Promise.resolve([])
-      : call("ide_references", request).catch((error) => {
-        workspaceError = String(error);
-        return [];
-      });
+    const referencesPromise = call("ide_references", { ...request, documents }).catch((error) => {
+      workspaceError = String(error);
+      return [];
+    });
     const [highlights, references] = await Promise.all([
       call("ide_document_highlights", request),
       referencesPromise
@@ -7285,15 +7298,15 @@ async function showDocumentHighlightsAtCaret() {
       setStatus("References cancelled; buffer changed");
       return false;
     }
+    if (!workspaceDocumentsAreCurrent(documents, request.path)) {
+      setStatus("References cancelled; another modified buffer changed");
+      return false;
+    }
     const items = Array.isArray(highlights) ? highlights : [];
     const workspaceItems = Array.isArray(references) ? references : [];
-    const dirtyNames = dirtyOtherTabs.slice(0, 3).map((tab) => fileName(tab.path));
-    const dirtyRemainder = dirtyOtherTabs.length - dirtyNames.length;
-    const notice = dirtyOtherTabs.length
-      ? `Save other modified EngLang files before workspace reference search: ${dirtyNames.join(", ")}${dirtyRemainder > 0 ? ` and ${dirtyRemainder} more` : ""}. Current-file references are shown.`
-      : workspaceError
-        ? `Workspace reference search was unavailable. Current-file references are shown.`
-        : "";
+    const notice = workspaceError
+      ? "Workspace reference search was unavailable. Current-file references are shown."
+      : "";
     state.documentHighlights = {
       path: request.path,
       source: request.source,
@@ -7302,6 +7315,7 @@ async function showDocumentHighlightsAtCaret() {
     state.workspaceReferences = {
       path: request.path,
       source: request.source,
+      documents,
       label,
       items: workspaceItems,
       notice
@@ -7363,21 +7377,19 @@ async function startSemanticRename() {
   const request = editorDefinitionRequest(editor);
   if (!request) return false;
   rememberCurrentTab();
-  const dirtyTabs = dirtyOtherEngLangTabs(request.path);
-  if (dirtyTabs.length) {
-    const message = workspaceRenameDirtyMessage(dirtyTabs);
-    setStatus(message);
-    appendTerminal("error", message);
-    return false;
-  }
+  const documents = dirtyWorkspaceDocuments(request.path);
   const revision = ++renameRequestRevision;
   hideCompletions();
   setStatus("Preparing rename...");
   try {
-    const preparation = await call("ide_prepare_rename", request);
+    const preparation = await call("ide_prepare_rename", { ...request, documents });
     if (revision !== renameRequestRevision) return false;
     if (!bufferRequestIsCurrent(request)) {
       setStatus("Rename cancelled; buffer changed");
+      return false;
+    }
+    if (!workspaceDocumentsAreCurrent(documents, request.path)) {
+      setStatus("Rename cancelled; another modified buffer changed");
       return false;
     }
     const range = workspaceReferenceRange(preparation);
@@ -7391,7 +7403,7 @@ async function startSemanticRename() {
       endLine: range.end.line,
       endCharacter: range.end.character
     });
-    openSemanticRenameDialog({ request, range, placeholder, revision, busy: false });
+    openSemanticRenameDialog({ request, documents, range, placeholder, revision, busy: false });
     return true;
   } catch (error) {
     if (revision !== renameRequestRevision) return false;
@@ -7499,26 +7511,32 @@ async function submitSemanticRename() {
     cancelSemanticRename();
     return false;
   }
-  const dirtyTabs = dirtyOtherEngLangTabs(pending.request.path);
-  if (dirtyTabs.length) {
-    setRenameDialogError(workspaceRenameDirtyMessage(dirtyTabs));
+  const documents = arrayOrEmpty(pending.documents);
+  if (!workspaceDocumentsAreCurrent(documents, pending.request.path)) {
+    setRenameDialogError("Rename preparation is stale because another modified buffer changed.");
     return false;
   }
   setRenameDialogBusy(true);
   setRenameDialogError("");
   setStatus(`Renaming ${pending.placeholder}...`);
   try {
-    const payload = await call("ide_rename", { ...pending.request, newName });
+    const payload = await call("ide_rename", { ...pending.request, newName, documents });
     if (state.pendingRename !== pending || pending.revision !== renameRequestRevision) return false;
     if (!bufferRequestIsCurrent(pending.request)) {
       throw new Error("Rename cancelled because the current buffer changed.");
     }
-    const staged = await stageWorkspaceRename(pending, payload, newName);
+    if (!workspaceDocumentsAreCurrent(documents, pending.request.path)) {
+      throw new Error("Rename cancelled because another modified buffer changed.");
+    }
+    const staged = await stageWorkspaceRename(pending, payload, newName, documents);
     if (state.pendingRename !== pending || pending.revision !== renameRequestRevision) return false;
     if (!bufferRequestIsCurrent(pending.request)) {
       throw new Error("Rename cancelled because the current buffer changed.");
     }
-    commitWorkspaceRename(pending, staged);
+    if (!workspaceDocumentsAreCurrent(documents, pending.request.path)) {
+      throw new Error("Rename cancelled because another modified buffer changed.");
+    }
+    commitWorkspaceRename(pending, staged, documents);
     closeSemanticRenameDialog(pending);
     clearReferenceResults();
     markCheckPending();
@@ -7550,12 +7568,6 @@ function validRenameIdentifier(value) {
   return /^[A-Za-z_][A-Za-z0-9_]*$/.test(String(value || ""));
 }
 
-function workspaceRenameDirtyMessage(tabs) {
-  const names = tabs.slice(0, 3).map((tab) => fileName(tab.path));
-  const remainder = tabs.length - names.length;
-  return `Save other modified EngLang files before workspace rename: ${names.join(", ")}${remainder > 0 ? ` and ${remainder} more` : ""}.`;
-}
-
 function workspaceRenamePlan(payload, newName, originPath = state.currentPath) {
   if (payload?.error) throw new Error(String(payload.error));
   const changes = payload?.changes;
@@ -7565,6 +7577,7 @@ function workspaceRenamePlan(payload, newName, originPath = state.currentPath) {
   const targets = [];
   const pathKeys = new Set();
   let editCount = 0;
+  let originIncluded = false;
   for (const [uri, rawEdits] of Object.entries(changes)) {
     const absolutePath = definitionPathFromUri(uri);
     const path = definitionWorkspacePath(absolutePath);
@@ -7580,6 +7593,7 @@ function workspaceRenamePlan(payload, newName, originPath = state.currentPath) {
     if (pathKeys.has(pathKey)) {
       throw new Error("Rename returned duplicate workspace file edits.");
     }
+    if (isOrigin) originIncluded = true;
     pathKeys.add(pathKey);
     if (!Array.isArray(rawEdits) || !rawEdits.length) {
       throw new Error(`Rename returned no edits for ${path}.`);
@@ -7598,6 +7612,7 @@ function workspaceRenamePlan(payload, newName, originPath = state.currentPath) {
     targets.push({ uri, absolutePath, path, edits });
   }
   if (!targets.length || !editCount) throw new Error("Rename returned no workspace edits.");
+  if (!originIncluded) throw new Error("Rename did not edit the selected EngLang file.");
   if (targets.length > 1 && targets.some((target) => !definitionPathInsideWorkspace(target.absolutePath))) {
     throw new Error("Rename cannot mix an external file with workspace edits.");
   }
@@ -7611,8 +7626,11 @@ function definitionPathInsideWorkspace(path) {
   return Boolean(rootKey && (pathKey === rootKey || pathKey.startsWith(`${rootKey}/`)));
 }
 
-async function stageWorkspaceRename(pending, payload, newName) {
+async function stageWorkspaceRename(pending, payload, newName, documents = []) {
   const plan = workspaceRenamePlan(payload, newName, pending.request.path);
+  const openDocuments = new Map(
+    documents.map((document) => [definitionPathKey(document.path), document.source])
+  );
   const updates = [];
   for (const target of plan.targets) {
     if (
@@ -7624,6 +7642,8 @@ async function stageWorkspaceRename(pending, payload, newName) {
     let source;
     if (sameDefinitionPath(target.path, pending.request.path)) {
       source = pending.request.source;
+    } else if (openDocuments.has(definitionPathKey(target.path))) {
+      source = openDocuments.get(definitionPathKey(target.path));
     } else {
       const file = await call("ide_open_file", { path: target.path });
       if (!file || !sameDefinitionPath(file.path, target.path) || typeof file.source !== "string") {
@@ -7708,16 +7728,14 @@ function sameWorkspaceRange(left, right) {
     && left?.end?.character === right?.end?.character;
 }
 
-function commitWorkspaceRename(pending, staged) {
+function commitWorkspaceRename(pending, staged, documents = []) {
   rememberCurrentTab();
   if (!bufferRequestIsCurrent(pending.request)) {
     throw new Error("Rename cancelled because the current buffer changed.");
   }
-  const dirtyTargets = staged.updates.filter((update) => {
-    const tab = state.tabs.find((candidate) => sameDefinitionPath(candidate.path, update.path));
-    return tab?.dirty && !sameDefinitionPath(update.path, pending.request.path);
-  });
-  if (dirtyTargets.length) throw new Error(workspaceRenameDirtyMessage(dirtyTargets));
+  if (!workspaceDocumentsAreCurrent(documents, pending.request.path)) {
+    throw new Error("Rename cancelled because another modified buffer changed.");
+  }
   for (const update of staged.updates) {
     const tab = state.tabs.find((candidate) => sameDefinitionPath(candidate.path, update.path));
     if (tab) {

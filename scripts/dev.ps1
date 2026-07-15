@@ -3919,8 +3919,8 @@ function Assert-VscodeExtensionContract {
     if (-not $VscodeReadmeSource.Contains("completion_items") -or $VscodeReadmeSource.Contains("completion_seed") -or -not $VscodeReadmeSource.Contains("static completion fallback") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_unit_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_builtin_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_option_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.model_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.prediction_table_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.coverage_result_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.table_fields") -or -not $VscodeReadmeSource.Contains("public member API") -or -not $VscodeReadmeSource.Contains("runtime-backed public fields") -or -not $VscodeReadmeSource.Contains("editor-only placeholders") -or -not $VscodeReadmeSource.Contains("highlight-only compatibility aliases")) {
         throw "VS Code README must document completion_items as the editor metadata completion catalog, public member field catalogs, and legacy aliases as highlight-only metadata without completion_seed"
     }
-    if (-not $VscodeReadmeSource.Contains("static-import-aware workspace rename") -or -not $VscodeReadmeSource.Contains("incomplete semantic coverage") -or -not $VscodeReadmeSource.Contains("Save other modified") -or -not $VscodeReadmeSource.Contains("EngLang documents before workspace rename")) {
-        throw "VS Code README must document static-import workspace rename safety and modified-document preflight"
+    if (-not $VscodeReadmeSource.Contains("static-import-aware") -or -not $VscodeReadmeSource.Contains("incomplete semantic coverage") -or -not $VscodeReadmeSource.Contains("all modified open") -or -not $VscodeReadmeSource.Contains("discards the") -or -not $VscodeReadmeSource.Contains("whole result instead")) {
+        throw "VS Code README must document static-import workspace rename safety and unsaved open-document freshness"
     }
     if (-not $VscodeReadmeSource.Contains("overlapping highlight ranges") -or -not $VscodeReadmeSource.Contains("line overlap rows") -or -not $VscodeReadmeSource.Contains("domain coverage summary")) {
         throw "VS Code README must document highlight overlap rows and coverage summary in user-facing terms"
@@ -4356,9 +4356,9 @@ function Assert-VscodeExtensionContract {
         "Ctrl+S saves the active buffer",
         "dirty tab offers Save, Discard, and Cancel",
         "offers Save All, Discard All, and Cancel",
-        "F2 or Rename prepares the symbol through the compiler",
-        "remain open and modified until Save or Save All",
-        "Other modified EngLang tabs must be saved before rename",
+        "F2 or Rename uses the same snapshot to prepare the symbol",
+        "all affected files remain open and modified",
+        "If any participating tab changes during the request",
         "toolbar Save All action",
         "Quick Fix at cursor, or Ctrl+. requests compiler-provided repairs",
         "current unsaved buffer",
@@ -4369,6 +4369,9 @@ function Assert-VscodeExtensionContract {
         if (-not $NativeIdeHowtoSource.Contains($RequiredNativeIdeSafetyDocToken)) {
             throw "Native IDE user how-to missing editor safety contract: $RequiredNativeIdeSafetyDocToken"
         }
+    }
+    if ($NativeIdeHowtoSource.Contains("Other modified EngLang tabs must be saved before rename")) {
+        throw "Native IDE user how-to must document unsaved-aware workspace rename without the old save preflight"
     }
     if ($NativeIdeHowtoSource -notmatch "Closing the IDE with dirty tabs\s+offers Save All, Discard All, and Cancel") {
         throw "Native IDE user how-to must document the native dirty-window close choices"
@@ -5411,7 +5414,7 @@ function Assert-VscodeExtensionContract {
         "const documentVersion = document.version;",
         "const documentText = document.getText();",
         "document.version !== documentVersion",
-        "child.stdin.end(documentText)"
+        "child.stdin?.end(documentText)"
     )) {
         if (-not $StdinJsonRequestSource.Contains($RequiredStdinRequestFreshnessToken)) {
             throw "VS Code stdin live editor requests must guard stale document versions with $RequiredStdinRequestFreshnessToken"
@@ -5952,7 +5955,10 @@ function Assert-VscodeExtensionContract {
         "registerReferenceProvider",
         "EngReferenceProvider",
         "referencesForPosition",
-        "--references-stdin",
+        "--workspace-references-stdin",
+        "workspaceNavigationJsonRequest",
+        "workspaceNavigationDocumentStatesAreCurrent",
+        "eng-lsp-open-documents-v1",
         "referenceLocationsFromLsp",
         "new vscode.Location"
     )) {
@@ -5965,17 +5971,20 @@ function Assert-VscodeExtensionContract {
         "EngRenameProvider",
         "prepareRenameForPosition",
         "renameForPosition",
-        "--prepare-rename-stdin",
-        "--rename-stdin",
+        "--workspace-prepare-rename-stdin",
+        "--workspace-rename-stdin",
         "prepareRenameFromLsp",
         "workspaceEditFromLsp",
         "new vscode.WorkspaceEdit",
-        "dirtyOtherDocuments",
-        "Save other modified EngLang files before workspace rename"
+        "workspaceNavigationDocuments",
+        "workspaceNavigationDocumentStatesAreCurrent"
     )) {
         if (-not $NavigationSource.Contains($RequiredRenameToken)) {
             throw "VS Code extension missing semantic rename token $RequiredRenameToken"
         }
+    }
+    if ($LspRequestsSource.Contains('Save other modified EngLang files before workspace rename') -or $LspRequestsSource.Contains('"--references-stdin"') -or $LspRequestsSource.Contains('"--prepare-rename-stdin"') -or $LspRequestsSource.Contains('"--rename-stdin"')) {
+        throw "VS Code workspace references and rename must pass modified EngLang documents to compiler-owned workspace stdin endpoints"
     }
     foreach ($RequiredWorkspaceSymbolToken in @(
         "registerWorkspaceSymbolProvider",
@@ -6248,7 +6257,9 @@ function Assert-VscodeExtensionContract {
         '"referencesProvider": true',
         "textDocument/references",
         "--references-stdin",
+        "--workspace-references-stdin",
         "command_references_stdin",
+        "command_workspace_references_stdin",
         "references_for_request",
         "workspace_reference_identity",
         "imported_definition_target_for_family",
@@ -6263,10 +6274,15 @@ function Assert-VscodeExtensionContract {
         "textDocument/prepareRename",
         "textDocument/rename",
         "--prepare-rename-stdin",
+        "--workspace-prepare-rename-stdin",
         "--rename-stdin",
+        "--workspace-rename-stdin",
         "prepare_rename_for_request",
         "rename_for_request",
+        "command_workspace_prepare_rename_stdin",
+        "command_workspace_rename_stdin",
         "workspace_rename_for_symbol",
+        "workspace_semantic_symbol_occurrences",
         "WorkspaceSourceCollection",
         "semantic_rename_occurrences_are_complete",
         "MAX_WORKSPACE_INDEX_FILES"
@@ -6975,12 +6991,12 @@ function Invoke-IdeCheck {
         "data-quick-fix-problem-index",
         "data-rename-symbol",
         'call("ide_document_highlights", request)',
-        'call("ide_references", request)',
+        'call("ide_references", { ...request, documents })',
         'call("ide_code_actions", request)',
-        'call("ide_prepare_rename", request)',
-        'call("ide_rename", { ...pending.request, newName })',
-        "Save other modified EngLang files before workspace reference search",
-        "Save other modified EngLang files before workspace rename",
+        'call("ide_prepare_rename", { ...request, documents })',
+        'call("ide_rename", { ...pending.request, newName, documents })',
+        'function dirtyWorkspaceDocuments(originPath = "")',
+        'function workspaceDocumentsAreCurrent(documents, originPath = "")',
         'String(event.key || "") === "."',
         'event.key === "F2"',
         'event.key === "F12" && event.shiftKey',
@@ -7252,6 +7268,9 @@ function Invoke-IdeCheck {
         if (-not $IdeUiSource.Contains($RequiredIdeToken)) {
             throw "Native IDE UI missing contract token $RequiredIdeToken"
         }
+    }
+    if ($IdeUiSource.Contains("Save other modified EngLang files before workspace reference search") -or $IdeUiSource.Contains("Save other modified EngLang files before workspace rename")) {
+        throw "Native IDE references and rename must use modified open EngLang buffers instead of requiring a save preflight"
     }
     if ($IdeUiSource.Contains('(?:#|\/\/) ?')) {
         throw "Native IDE comment toggling must not treat /// documentation comments as ordinary // comments"
@@ -7581,7 +7600,7 @@ function Invoke-IdeCheck {
         throw "Native IDE semantic token ranges must use LSP UTF-16 offsets directly"
     }
     $IdeMainSource = Get-Content -LiteralPath $TauriMainPath -Raw
-    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "document_symbols", "document_symbols_lsp_json", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_items", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completions_use_lsp_editor_items", "check_view_surfaces_lsp_semantic_tokens", "ide_definition", "--definition-stdin", "ide_document_highlights", "--document-highlights-stdin", "ide_code_actions", "--code-actions-stdin", "parse_code_actions_output", "run_lsp_source_query", "ide_prepare_rename", "--prepare-rename-stdin", "parse_prepare_rename_output", "ide_rename", "--rename-stdin", "parse_rename_output", "ide_workspace_symbols", "--workspace-symbols-stdin", "workspace_document_payload", "run_lsp_query", "parse_workspace_symbols_output", "workspace_symbol_output_accepts_complete_workspace_locations", "run_lsp_position_query", "parse_document_highlights_output", "bundled_lsp_executable", "parse_definition_output", "Stdio::piped()", "definition_output_accepts_null_and_complete_locations", "document_highlight_output_accepts_complete_read_and_write_ranges", "code_action_output_accepts_diagnostic_bound_insertions", "rename_output_accepts_complete_multi_file_edits", "one-line EngLang statement such as", "cd <dir>", "diagnostic_view_from_lsp", "diagnostic_view_from_parts", 'range_text: format!("L{line}:C{column}-C{end_column}")', 'include_str!("../ui/app.js")', 'include_str!("main.rs")')) {
+    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "document_symbols", "document_symbols_lsp_json", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_items", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completions_use_lsp_editor_items", "check_view_surfaces_lsp_semantic_tokens", "ide_definition", "--definition-stdin", "ide_document_highlights", "--document-highlights-stdin", "ide_code_actions", "--code-actions-stdin", "parse_code_actions_output", "run_lsp_source_query", "ide_prepare_rename", "--workspace-prepare-rename-stdin", "parse_prepare_rename_output", "ide_references", "--workspace-references-stdin", "ide_rename", "--workspace-rename-stdin", "workspace_navigation_payload", "parse_rename_output", "ide_workspace_symbols", "--workspace-symbols-stdin", "workspace_document_payload", "run_lsp_query", "parse_workspace_symbols_output", "workspace_symbol_output_accepts_complete_workspace_locations", "run_lsp_position_query", "parse_document_highlights_output", "bundled_lsp_executable", "parse_definition_output", "Stdio::piped()", "definition_output_accepts_null_and_complete_locations", "document_highlight_output_accepts_complete_read_and_write_ranges", "code_action_output_accepts_diagnostic_bound_insertions", "rename_output_accepts_complete_multi_file_edits", "one-line EngLang statement such as", "cd <dir>", "diagnostic_view_from_lsp", "diagnostic_view_from_parts", 'range_text: format!("L{line}:C{column}-C{end_column}")', 'include_str!("../ui/app.js")', 'include_str!("main.rs")')) {
         if (-not $IdeMainSource.Contains($RequiredIdeBackendToken)) {
             throw "Native IDE backend missing contract token $RequiredIdeBackendToken"
         }

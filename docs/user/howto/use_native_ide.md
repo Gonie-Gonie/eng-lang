@@ -107,16 +107,16 @@ Editor
   openable workspace locations whose static file-import chain resolves to the
   same declaration. Unrelated same-name symbols, comments, plain strings,
   literals, units, and same-named locals in other function scopes are excluded.
-  If another open EngLang tab is modified, the IDE shows current-file results
-  only until that tab is saved, so disk-backed workspace ranges cannot be
-  stale. F2 or Rename prepares the symbol through the compiler and applies
-  verified edits for the same static-import identity. Every affected file and
-  UTF-16 range is validated before any buffer changes; the affected files then
-  remain open and modified until Save or Save All. Built-ins, members, reserved
-  names, conflicts, incomplete semantic coverage, overlapping edits, stale
-  source ranges, and cross-file edits outside the current workspace are
-  rejected. Other modified EngLang tabs must be saved before rename; the
-  current buffer itself may remain unsaved. The `{}`, `[]`, `()`, and `"`
+  References pass every modified open EngLang tab in the workspace to the
+  compiler, so changed declarations and imports are resolved from open text
+  before disk. F2 or Rename uses the same snapshot to prepare the symbol and
+  apply verified edits for its static-import identity. Every affected file and
+  UTF-16 range is validated before any buffer changes; modified target tabs are
+  edited in memory and all affected files remain open and modified until Save
+  or Save All. If any participating tab changes during the request, the whole
+  result is discarded. Built-ins, members, reserved names, conflicts,
+  incomplete semantic coverage, overlapping edits, stale source ranges, and
+  cross-file edits outside the current workspace are rejected. The `{}`, `[]`, `()`, and `"`
   auto-close or wrap selections. Typing `}` on an
   indented blank line aligns the brace with its block, and Backspace removes an
   empty pair. Format applies the same compiler-owned formatter used by VS Code
@@ -255,15 +255,14 @@ unsaved active buffer until the file is saved. Direct settings changes to
 diagnostics mode or Problems settings also refresh or clear the active EngLang editor.
 
 The extension shares the same checked-code diagnostics, hover, completion, and
-role-aware highlighting data as the native IDE. VS Code Find All References
-uses the current unsaved file plus open or saved workspace files whose static
-file-import chain resolves the symbol to the same declaration. Unrelated
-same-name symbols are excluded. Rename follows the same workspace identity for
-importable top-level declarations and rejects the whole operation when any
-affected file has incomplete semantic coverage or a conflict. Local variables
-and parameters remain current-file operations, while built-ins and members are
-not renameable. Because the VS Code bridge runs an on-demand CLI process, save
-other modified EngLang documents before a workspace rename; the current buffer
-itself may remain unsaved. The extension is useful when you prefer VS Code,
+role-aware highlighting data as the native IDE. VS Code Find All References,
+rename preparation, and rename pass the current file plus every modified open
+EngLang file in the workspace to the compiler. Saved workspace files are added
+when their static file-import chain resolves the symbol to the same declaration;
+unrelated same-name symbols are excluded. Rename rejects the whole operation
+when a participating buffer changes, any affected file has incomplete semantic
+coverage, or a conflict is found. Local variables and parameters remain
+current-file operations, while built-ins and members are not renameable. The
+extension is useful when you prefer VS Code,
 while `eng-ide.exe` remains the primary no-install review path for the current
 release.

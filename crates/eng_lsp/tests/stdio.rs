@@ -3116,6 +3116,177 @@ other_result = shared_plus(SHARED_RATE) + RENAMED_RATE
 }
 
 #[test]
+fn workspace_reference_and_rename_stdin_prefer_all_open_documents() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let workspace_root =
+        repo_root().join("build/editor-tests/workspace_open_document_navigation_cli");
+    if workspace_root.exists() {
+        std::fs::remove_dir_all(&workspace_root)
+            .expect("prior open-document navigation fixture should be removable");
+    }
+    std::fs::create_dir_all(&workspace_root).expect("workspace root should be writable");
+
+    let module_path = workspace_root.join("module.eng");
+    let current_path = workspace_root.join("current.eng");
+    let other_path = workspace_root.join("other.eng");
+    let saved_module_source = "const SAVED_GAIN: Ratio = 0.8\n";
+    let current_source =
+        "use \"module.eng\"\ncurrent_gain = SHARED_GAIN\ncurrent_again = SHARED_GAIN\n";
+    let saved_other_source = "saved_other = 1\n";
+    let open_module_source = "# shifted in the open buffer\n\nconst SHARED_GAIN: Ratio = 0.9\n";
+    let open_other_source = "use \"module.eng\"\nunsaved_other = SHARED_GAIN\n";
+    for (path, source) in [
+        (&module_path, saved_module_source),
+        (&current_path, current_source),
+        (&other_path, saved_other_source),
+    ] {
+        std::fs::write(path, source).expect("workspace source should be writable");
+    }
+
+    let module_path = module_path
+        .canonicalize()
+        .expect("module source should exist");
+    let current_path = current_path
+        .canonicalize()
+        .expect("current source should exist");
+    let other_path = other_path
+        .canonicalize()
+        .expect("other source should exist");
+    let module_uri = file_uri(&module_path);
+    let current_uri = file_uri(&current_path);
+    let other_uri = file_uri(&other_path);
+    let selected_character = current_source
+        .lines()
+        .nth(1)
+        .expect("current use line should exist")
+        .find("SHARED_GAIN")
+        .expect("current source should use shared gain");
+    let payload = json!({
+        "format": "eng-lsp-open-documents-v1",
+        "documents": [
+            { "path": current_path, "source": current_source },
+            { "path": module_path, "source": open_module_source },
+            { "path": other_path, "source": open_other_source }
+        ]
+    });
+
+    let run = |command: &str, tail: &[String]| {
+        let mut child = Command::new(server)
+            .arg(command)
+            .arg(&workspace_root)
+            .args(tail)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("workspace navigation CLI should start");
+        child
+            .stdin
+            .take()
+            .expect("workspace navigation stdin should be available")
+            .write_all(payload.to_string().as_bytes())
+            .expect("workspace navigation payload should be writable");
+        child
+            .wait_with_output()
+            .expect("workspace navigation CLI should finish")
+    };
+
+    let prepare_output = run(
+        "--workspace-prepare-rename-stdin",
+        &[
+            current_path.to_string_lossy().into_owned(),
+            "1".to_owned(),
+            selected_character.to_string(),
+        ],
+    );
+    assert!(
+        prepare_output.status.success(),
+        "workspace rename preparation failed: {}",
+        String::from_utf8_lossy(&prepare_output.stderr)
+    );
+    let prepare: Value = serde_json::from_slice(&prepare_output.stdout)
+        .expect("workspace rename preparation stdout should be JSON");
+    assert_eq!(prepare["placeholder"], "SHARED_GAIN");
+    assert_eq!(prepare["range"]["start"]["line"], 1);
+    assert_eq!(prepare["range"]["start"]["character"], selected_character);
+
+    let references_output = run(
+        "--workspace-references-stdin",
+        &[
+            current_path.to_string_lossy().into_owned(),
+            "1".to_owned(),
+            selected_character.to_string(),
+            "true".to_owned(),
+        ],
+    );
+    assert!(
+        references_output.status.success(),
+        "workspace references failed: {}",
+        String::from_utf8_lossy(&references_output.stderr)
+    );
+    let references: Value = serde_json::from_slice(&references_output.stdout)
+        .expect("workspace references stdout should be JSON");
+    let references = references
+        .as_array()
+        .expect("workspace references should be an array");
+    for expected_uri in [&current_uri, &module_uri, &other_uri] {
+        assert!(
+            references
+                .iter()
+                .any(|location| location["uri"] == expected_uri.as_str()),
+            "workspace references should include {expected_uri}: {references:?}"
+        );
+    }
+    assert!(references.iter().any(|location| {
+        location["uri"] == module_uri && location["range"]["start"]["line"] == 2
+    }));
+    assert_eq!(
+        references
+            .iter()
+            .filter(|location| location["uri"] == current_uri)
+            .count(),
+        2
+    );
+
+    let rename_output = run(
+        "--workspace-rename-stdin",
+        &[
+            current_path.to_string_lossy().into_owned(),
+            "1".to_owned(),
+            selected_character.to_string(),
+            "RENAMED_GAIN".to_owned(),
+        ],
+    );
+    assert!(
+        rename_output.status.success(),
+        "workspace rename failed: {}",
+        String::from_utf8_lossy(&rename_output.stderr)
+    );
+    let rename: Value = serde_json::from_slice(&rename_output.stdout)
+        .expect("workspace rename stdout should be JSON");
+    assert!(
+        rename.get("error").is_none(),
+        "rename should succeed: {rename}"
+    );
+    let changes = rename["changes"]
+        .as_object()
+        .expect("workspace rename changes should be an object");
+    for expected_uri in [&current_uri, &module_uri, &other_uri] {
+        let edits = changes
+            .get(expected_uri)
+            .and_then(Value::as_array)
+            .unwrap_or_else(|| panic!("rename should edit {expected_uri}: {changes:?}"));
+        assert!(edits.iter().all(|edit| edit["newText"] == "RENAMED_GAIN"));
+    }
+    assert_eq!(changes[&current_uri].as_array().unwrap().len(), 2);
+    assert_eq!(changes[&module_uri].as_array().unwrap().len(), 1);
+    assert_eq!(changes[&other_uri].as_array().unwrap().len(), 1);
+    assert!(changes[&module_uri].as_array().unwrap().iter().any(|edit| {
+        edit["range"]["start"]["line"] == 2 && edit["range"]["start"]["character"] == 6
+    }));
+}
+
+#[test]
 fn stdio_references_use_workspace_roots_and_open_document_text() {
     let server = env!("CARGO_BIN_EXE_eng-lsp");
     let workspace_root = repo_root().join("build/editor-tests/workspace_references_stdio");

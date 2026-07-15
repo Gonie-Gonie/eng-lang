@@ -39,7 +39,8 @@ const vscodeMock = {
   },
   Location,
   Uri,
-  Range
+  Range,
+  workspace: { textDocuments: [] }
 };
 
 const originalLoad = Module._load;
@@ -165,7 +166,7 @@ async function referenceProviderRejectsStaleBufferResults() {
   assert.deepStrictEqual(await pending, []);
 }
 
-async function referenceRequestUsesUnsavedBufferAndDeclarationFlag() {
+async function referenceRequestUsesAllDirtyWorkspaceBuffersAndDeclarationFlag() {
   const childProcess = require("child_process");
   const originalExecFile = childProcess.execFile;
   let invocation;
@@ -189,11 +190,28 @@ async function referenceRequestUsesUnsavedBufferAndDeclarationFlag() {
       isEngDocument: () => true
     });
     const document = {
+      isDirty: true,
       languageId: "englang",
       version: 13,
-      uri: { fsPath: "C:/workspace/main.eng" },
+      uri: {
+        fsPath: "C:/workspace/main.eng",
+        scheme: "file",
+        toString: () => "file:///C:/workspace/main.eng"
+      },
       getText: () => "Q = 5 kW\nE = Q\n"
     };
+    const otherDocument = {
+      isDirty: true,
+      languageId: "englang",
+      version: 4,
+      uri: {
+        fsPath: "C:/workspace/other.eng",
+        scheme: "file",
+        toString: () => "file:///C:/workspace/other.eng"
+      },
+      getText: () => "other = Q\n"
+    };
+    vscodeMock.workspace.textDocuments = [document, otherDocument];
     const references = await requests.referencesForPosition(
       document,
       { line: 1, character: 4 },
@@ -203,15 +221,22 @@ async function referenceRequestUsesUnsavedBufferAndDeclarationFlag() {
     );
     assert.deepStrictEqual(references, referencePayload);
     assert.deepStrictEqual(invocation.args, [
-      "--references-stdin",
+      "--workspace-references-stdin",
+      "C:/workspace",
       "C:/workspace/main.eng",
       "1",
       "4",
-      "false",
-      "C:/workspace"
+      "false"
     ]);
-    assert.strictEqual(stdinText, document.getText());
+    assert.deepStrictEqual(JSON.parse(stdinText), {
+      format: "eng-lsp-open-documents-v1",
+      documents: [
+        { path: "C:/workspace/main.eng", source: document.getText() },
+        { path: "C:/workspace/other.eng", source: otherDocument.getText() }
+      ]
+    });
   } finally {
+    vscodeMock.workspace.textDocuments = [];
     childProcess.execFile = originalExecFile;
   }
 }
@@ -220,7 +245,7 @@ Promise.all([
   providerUsesCurrentBufferRequest(),
   referenceProviderUsesCurrentBufferAndDeclarationContext(),
   referenceProviderRejectsStaleBufferResults(),
-  referenceRequestUsesUnsavedBufferAndDeclarationFlag()
+  referenceRequestUsesAllDirtyWorkspaceBuffersAndDeclarationFlag()
 ])
   .then(() => process.stdout.write("VS Code semantic document highlight and reference smoke passed.\n"))
   .catch((error) => {

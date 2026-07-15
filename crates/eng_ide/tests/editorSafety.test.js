@@ -11,6 +11,7 @@ const invokeCalls = [];
 const openFileSources = new Map();
 let saveFailurePath = null;
 let codeActionPayload = null;
+let prepareRenamePayload = null;
 let workspaceSymbolPayload = null;
 let workspaceSymbolPromise = null;
 const pendingBootstrap = new Promise(() => {});
@@ -76,6 +77,9 @@ const context = vm.createContext({
           }
           if (command === "ide_code_actions") {
             return Promise.resolve(codeActionPayload || { uri: "file:///C:/Repo/main.eng", actions: [] });
+          }
+          if (command === "ide_prepare_rename") {
+            return Promise.resolve(prepareRenamePayload || {});
           }
           if (command === "ide_workspace_symbols") {
             if (workspaceSymbolPromise) return workspaceSymbolPromise;
@@ -564,8 +568,15 @@ function busyRenameCanBeCancelledSafely() {
   );
 }
 
-async function renamePreflightBlocksDirtyEngLangTabsBeforeBackendCall() {
+async function renamePreparationAllowsOtherDirtyEngLangTabs() {
   invokeCalls.length = 0;
+  prepareRenamePayload = {
+    range: {
+      start: { line: 0, character: 8 },
+      end: { line: 0, character: 19 }
+    },
+    placeholder: "SHARED_RATE"
+  };
   run(`
     state.pendingRename = null;
     state.currentPath = "main.eng";
@@ -582,23 +593,34 @@ async function renamePreflightBlocksDirtyEngLangTabsBeforeBackendCall() {
       line: 0,
       character: 10
     });
+    globalThis.realOpenSemanticRenameDialog = openSemanticRenameDialog;
+    globalThis.realSelectEditorUtf16Range = selectEditorUtf16Range;
+    selectEditorUtf16Range = () => true;
+    openSemanticRenameDialog = (pending) => {
+      globalThis.preparedRename = pending;
+      state.pendingRename = pending;
+    };
   `);
-  assert.strictEqual(await run("startSemanticRename()"), false);
-  assert.strictEqual(
-    invokeCalls.some((item) => item.command === "ide_prepare_rename"),
-    false
-  );
-
-  run("state.tabs[1].dirty = false");
-  assert.strictEqual(await run("startSemanticRename()"), false);
+  assert.strictEqual(await run("startSemanticRename()"), true);
   const preparationCall = invokeCalls.find((item) => item.command === "ide_prepare_rename");
   assert.deepStrictEqual(JSON.parse(JSON.stringify(preparationCall.args)), {
     path: "main.eng",
     source: "value = SHARED_RATE",
     line: 0,
-    character: 10
+    character: 10,
+    documents: [{ path: "other.eng", source: "other = SHARED_RATE" }]
   });
-  run("editorDefinitionRequest = globalThis.realEditorDefinitionRequest");
+  assert.deepStrictEqual(
+    JSON.parse(run("JSON.stringify(globalThis.preparedRename.documents)")),
+    [{ path: "other.eng", source: "other = SHARED_RATE" }]
+  );
+  run(`
+    editorDefinitionRequest = globalThis.realEditorDefinitionRequest;
+    openSemanticRenameDialog = globalThis.realOpenSemanticRenameDialog;
+    selectEditorUtf16Range = globalThis.realSelectEditorUtf16Range;
+    state.pendingRename = null;
+  `);
+  prepareRenamePayload = null;
 }
 
 function semanticTokenAndReferenceRangesUseUtf16Coordinates() {
@@ -637,7 +659,7 @@ function semanticTokenAndReferenceRangesUseUtf16Coordinates() {
   assert.strictEqual(run("currentDocumentHighlights().length"), 0);
 }
 
-function workspaceReferencesRespectOpenBuffersAndDirtyPreflight() {
+function workspaceReferencesTrackAllDirtyOpenBuffers() {
   run(`
     state.root = "C:/Repo";
     state.currentPath = "main.eng";
@@ -660,6 +682,7 @@ function workspaceReferencesRespectOpenBuffersAndDirtyPreflight() {
     state.workspaceReferences = {
       path: "main.eng",
       source: state.source,
+      documents: [{ path: "other.eng", source: "other = SHARED_GAIN" }],
       label: "SHARED_GAIN",
       notice: "",
       items: [
@@ -681,7 +704,10 @@ function workspaceReferencesRespectOpenBuffersAndDirtyPreflight() {
     };
   `);
 
-  assert.strictEqual(run("dirtyWorkspaceReferenceTabs('main.eng').length"), 1);
+  assert.deepStrictEqual(
+    JSON.parse(run("JSON.stringify(dirtyWorkspaceDocuments('main.eng'))")),
+    [{ path: "other.eng", source: "other = SHARED_GAIN" }]
+  );
   assert.strictEqual(run("currentWorkspaceReferences().length"), 2);
   assert.strictEqual(
     run("documentHighlightForWorkspaceReference(state.workspaceReferences.items[0]).kind"),
@@ -710,7 +736,6 @@ function workspaceReferencesRespectOpenBuffersAndDirtyPreflight() {
 async function workspaceRenameStagesVerifiedUtf16Buffers() {
   invokeCalls.length = 0;
   openFileSources.clear();
-  openFileSources.set("module.eng", "const SHARED_RATE: Ratio = 0.8\n");
   run(`
     state.root = "C:/Repo";
     state.currentPath = "main.eng";
@@ -718,7 +743,7 @@ async function workspaceRenameStagesVerifiedUtf16Buffers() {
     state.dirty = true;
     state.tabs = [
       { path: "main.eng", source: state.source, dirty: true },
-      { path: "module.eng", source: "stale clean tab", dirty: false },
+      { path: "module.eng", source: "const SHARED_RATE: Ratio = 0.8\\n", dirty: true },
       { path: "notes.csv", source: "changed", dirty: true }
     ];
     globalThis.renamePending = {
@@ -761,48 +786,42 @@ async function workspaceRenameStagesVerifiedUtf16Buffers() {
         }]
       }
     };
+    globalThis.renameDocuments = [{
+      path: "module.eng",
+      source: "const SHARED_RATE: Ratio = 0.8\\n"
+    }];
   `);
 
-  assert.strictEqual(run("dirtyOtherEngLangTabs('main.eng').length"), 0);
-  run("state.tabs[1].dirty = true");
-  assert.strictEqual(run("dirtyOtherEngLangTabs('main.eng').length"), 1);
-  assert.match(
-    run("workspaceRenameDirtyMessage(dirtyOtherEngLangTabs('main.eng'))"),
-    /Save other modified EngLang files.*module\.eng/
-  );
-  run("state.tabs[1].dirty = false");
+  assert.strictEqual(run("workspaceDocumentsAreCurrent(globalThis.renameDocuments, 'main.eng')"), true);
   assert.strictEqual(run("sourceUtf16Offset(state.source, { line: 0, character: 3 })"), 3);
   await run(`(async () => {
     globalThis.stagedRename = await stageWorkspaceRename(
       globalThis.renamePending,
       globalThis.renamePayload,
-      "RENAMED_RATE"
+      "RENAMED_RATE",
+      globalThis.renameDocuments
     );
   })()`);
   assert.strictEqual(run("globalThis.stagedRename.editCount"), 3);
   assert.strictEqual(run("globalThis.stagedRename.focus.start"), 3);
   assert.strictEqual(run("globalThis.stagedRename.focus.end"), 15);
-  assert.deepStrictEqual(
-    invokeCalls.map((item) => [item.command, item.args.path]),
-    [["ide_open_file", "module.eng"]]
-  );
+  assert.deepStrictEqual(invokeCalls, []);
 
   const originalSource = run("state.source");
   const originalTabs = run("JSON.stringify(state.tabs)");
-  openFileSources.set("module.eng", "const CHANGED_RATE: Ratio = 0.8\n");
   await assert.rejects(
     run(`stageWorkspaceRename(
       globalThis.renamePending,
       globalThis.renamePayload,
-      "RENAMED_RATE"
+      "RENAMED_RATE",
+      [{ path: "module.eng", source: "const CHANGED_RATE: Ratio = 0.8\\n" }]
     )`),
     /changed before all edits could be verified/
   );
   assert.strictEqual(run("state.source"), originalSource);
   assert.strictEqual(run("JSON.stringify(state.tabs)"), originalTabs);
-  openFileSources.set("module.eng", "const SHARED_RATE: Ratio = 0.8\n");
 
-  run("commitWorkspaceRename(globalThis.renamePending, globalThis.stagedRename)");
+  run("commitWorkspaceRename(globalThis.renamePending, globalThis.stagedRename, globalThis.renameDocuments)");
   assert.strictEqual(
     run("state.source"),
     "\uD83D\uDE00 RENAMED_RATE\nagain = RENAMED_RATE\n"
@@ -824,6 +843,15 @@ async function workspaceRenameStagesVerifiedUtf16Buffers() {
       }]
     } }, "next", "main.eng")`),
     /outside the EngLang workspace/
+  );
+  assert.throws(
+    () => run(`workspaceRenamePlan({ changes: {
+      "file:///C:/Repo/module.eng": [{
+        range: { start: { line: 0, character: 6 }, end: { line: 0, character: 17 } },
+        newText: "next"
+      }]
+    } }, "next", "main.eng")`),
+    /did not edit the selected EngLang file/
   );
   assert.throws(
     () => run(`applyWorkspaceTextEdits("aaaa", [
@@ -1419,9 +1447,9 @@ async function main() {
   quickFixShortcutUsesCurrentProblemAction();
   renameShortcutUsesCurrentAction();
   busyRenameCanBeCancelledSafely();
-  await renamePreflightBlocksDirtyEngLangTabsBeforeBackendCall();
+  await renamePreparationAllowsOtherDirtyEngLangTabs();
   semanticTokenAndReferenceRangesUseUtf16Coordinates();
-  workspaceReferencesRespectOpenBuffersAndDirtyPreflight();
+  workspaceReferencesTrackAllDirtyOpenBuffers();
   await workspaceRenameStagesVerifiedUtf16Buffers();
   await compilerQuickFixAppliesUnsavedUtf16Edits();
   documentSymbolsNormalizeAndFilter();
