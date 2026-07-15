@@ -5334,15 +5334,21 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --workspace-snapshot-stdin"
     }
     foreach ($RequiredEditorChangeCacheToken in @(
-        "function clearCachedEditorSnapshot(document)",
-        "clearCachedEditorSnapshot(event.document)",
-        "reviewCache.delete(document.uri.fsPath)",
-        "updateReviewRiskDecorations(document, undefined)",
-        "updateSemanticSymbolDecorations(document, undefined)"
+        "function clearCachedWorkspaceEditorSnapshots(document)",
+        "clearCachedWorkspaceEditorSnapshots(event.document)",
+        "clearCachedWorkspaceEditorSnapshots(document)",
+        "vscode.workspace.textDocuments",
+        "workspaceRoot(candidate)",
+        "reviewCache.delete(candidate.uri.fsPath)",
+        "updateReviewRiskDecorations(candidate, undefined)",
+        "updateSemanticSymbolDecorations(candidate, undefined)"
     )) {
         if (-not $ExtensionSource.Contains($RequiredEditorChangeCacheToken)) {
-            throw "VS Code extension must clear stale cached editor review/highlight state on buffer edits: $RequiredEditorChangeCacheToken"
+            throw "VS Code extension must clear stale workspace editor review/highlight state on imported-buffer edits and close: $RequiredEditorChangeCacheToken"
         }
+    }
+    if ([regex]::Matches($ExtensionSource, "semanticTokensProvider\.scheduleRefresh\(\)").Count -lt 2) {
+        throw "VS Code extension must refresh dependent role-aware colors after imported-buffer edits and close"
     }
     if (-not $DiagnosticsProviderSource.Contains('this.diagnosticsRuntime?.(document) !== "lsp-snapshot"')) {
         throw "VS Code live buffer diagnostics must only run when diagnostics mode is live"
@@ -5797,6 +5803,16 @@ function Assert-VscodeExtensionContract {
     }
     if (-not $SemanticTokensProviderSource.Contains("onDidChangeSemanticTokens") -or -not $SemanticTokensProviderSource.Contains("refresh()") -or -not $SemanticTokensProviderSource.Contains("_onDidChangeSemanticTokens.fire()")) {
         throw "VS Code semantic token provider must notify VS Code when highlight settings change"
+    }
+    foreach ($RequiredSemanticRefreshToken in @(
+        "SEMANTIC_REFRESH_DEBOUNCE_MS",
+        "scheduleRefresh(delayMs = SEMANTIC_REFRESH_DEBOUNCE_MS)",
+        "clearTimeout(this.refreshTimer)",
+        "this.refreshTimer = undefined"
+    )) {
+        if (-not $SemanticTokensProviderSource.Contains($RequiredSemanticRefreshToken)) {
+            throw "VS Code semantic token provider must debounce and dispose imported-buffer color refreshes: $RequiredSemanticRefreshToken"
+        }
     }
     if (-not $ExtensionSource.Contains("semanticTokensProvider.refresh()") -or -not $ExtensionSource.Contains('affectsConfiguration("englang.semanticHighlighting.enabled")') -or -not $ExtensionSource.Contains("refreshVisibleSemanticSymbolDecorations")) {
         throw "VS Code extension must refresh semantic tokens and symbol decorations when semantic highlighting settings change"

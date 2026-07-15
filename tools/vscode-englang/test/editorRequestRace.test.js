@@ -19,6 +19,16 @@ class Diagnostic {
   }
 }
 
+class EventEmitter {
+  constructor() {
+    this.event = () => ({ dispose() {} });
+  }
+
+  fire() {}
+
+  dispose() {}
+}
+
 const vscodeMock = {
   Diagnostic,
   DiagnosticSeverity: {
@@ -30,6 +40,7 @@ const vscodeMock = {
     Deprecated: 1,
     Unnecessary: 2
   },
+  EventEmitter,
   Range,
   window: {
     activeTextEditor: undefined,
@@ -51,6 +62,7 @@ const vscodeMock = {
 
 const originalLoad = Module._load;
 let EngDiagnosticsController;
+let EngSemanticTokensProvider;
 let createLspRequests;
 try {
   Module._load = function loadWithVscodeMock(request, parent, isMain) {
@@ -60,6 +72,7 @@ try {
     return originalLoad.call(this, request, parent, isMain);
   };
   ({ EngDiagnosticsController } = require("../diagnosticsProvider"));
+  ({ EngSemanticTokensProvider } = require("../semanticTokensProvider"));
   ({ createLspRequests } = require("../lspRequests"));
 } finally {
   Module._load = originalLoad;
@@ -77,6 +90,10 @@ function deferred() {
 
 function flushPromises() {
   return new Promise((resolve) => setImmediate(resolve));
+}
+
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 function documentFixture() {
@@ -370,12 +387,31 @@ function changedImportSchedulesOpenWorkspaceDiagnostics() {
   vscodeMock.workspace.textDocuments = [];
 }
 
+async function semanticRefreshIsDebouncedAndDisposed() {
+  const provider = new EngSemanticTokensProvider({}, {});
+  let refreshCount = 0;
+  provider._onDidChangeSemanticTokens.fire = () => {
+    refreshCount += 1;
+  };
+
+  provider.scheduleRefresh(5);
+  provider.scheduleRefresh(5);
+  await wait(20);
+  assert.strictEqual(refreshCount, 1, "rapid imported-buffer changes should request one color refresh");
+
+  provider.scheduleRefresh(20);
+  provider.dispose();
+  await wait(30);
+  assert.strictEqual(refreshCount, 1, "disposing the provider must cancel a pending color refresh");
+}
+
 async function main() {
   await latestDocumentCheckWins();
   await staleFailureDoesNotReplaceProblems();
   await clearingProblemsInvalidatesInFlightCheck();
   await callerCancellationDoesNotKillSharedSnapshot();
   changedImportSchedulesOpenWorkspaceDiagnostics();
+  await semanticRefreshIsDebouncedAndDisposed();
   process.stdout.write("VS Code editor request race smoke passed.\n");
 }
 

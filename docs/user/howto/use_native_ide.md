@@ -266,7 +266,9 @@ completion, go-to-definition, Find All References, rename preparation, and
 rename pass the current file plus every modified open EngLang file in the
 workspace to the compiler. Recursive static imports use open text before disk,
 and results are discarded if the participating document set, dirty state, or
-version changes. Saved workspace files are added when their static file-import
+version changes. Problems, role-aware colors, and review decorations in other
+open editors refresh after a modified import changes or closes. Saved workspace
+files are added when their static file-import
 chain resolves the symbol to the same declaration;
 unrelated same-name symbols are excluded. Rename rejects the whole operation
 when a participating buffer changes, any affected file has incomplete semantic

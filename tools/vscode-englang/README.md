@@ -15,6 +15,8 @@ embedding compiler logic in JavaScript.
   unsaved buffer plus every modified open EngLang import in the workspace
 - debounced diagnostics for unsaved buffers after a short typing pause,
   including open dependent EngLang files when an imported buffer changes
+- debounced role-aware color refresh and stale decoration clearing across open
+  editors when a modified EngLang import changes or closes
 - a clickable EngLang Problems status bar item showing file/live mode,
   current error/warning/info/hint counts, and a Tooling Status shortcut
 - role-aware highlighting for unsaved buffers, covering roles such as

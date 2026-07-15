@@ -1,6 +1,8 @@
 const vscode = require("vscode");
 const { semanticTokensFromSnapshot } = require("./lspSemanticTokens");
 
+const SEMANTIC_REFRESH_DEBOUNCE_MS = 350;
+
 class EngSemanticTokensProvider {
   constructor(context, options = {}) {
     this.context = context;
@@ -14,6 +16,7 @@ class EngSemanticTokensProvider {
     this.semanticLegend = options.semanticLegend;
     this.semanticTokenTypes = options.semanticTokenTypes ?? [];
     this.semanticTokenModifiers = options.semanticTokenModifiers ?? [];
+    this.refreshTimer = undefined;
   }
 
   async provideDocumentSemanticTokens(document, cancellationToken) {
@@ -48,10 +51,28 @@ class EngSemanticTokensProvider {
   }
 
   refresh() {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = undefined;
+    }
     this._onDidChangeSemanticTokens.fire();
   }
 
+  scheduleRefresh(delayMs = SEMANTIC_REFRESH_DEBOUNCE_MS) {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+    }
+    this.refreshTimer = setTimeout(() => {
+      this.refreshTimer = undefined;
+      this.refresh();
+    }, delayMs);
+  }
+
   dispose() {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = undefined;
+    }
     this._onDidChangeSemanticTokens.dispose();
   }
 }

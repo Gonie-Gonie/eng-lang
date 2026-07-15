@@ -166,13 +166,27 @@ function activate(context) {
     refreshActiveDiagnosticsForSettings("diagnostics mode command");
   }
 
-  function clearCachedEditorSnapshot(document) {
+  function clearCachedWorkspaceEditorSnapshots(document) {
     if (!document || !isEngDocument(document)) {
       return;
     }
-    reviewCache.delete(document.uri.fsPath);
-    decorationController.updateReviewRiskDecorations(document, undefined);
-    decorationController.updateSemanticSymbolDecorations(document, undefined);
+    const changedRoot = String(workspaceRoot(document) ?? "").toLowerCase();
+    const candidates = [document, ...(vscode.workspace.textDocuments ?? [])];
+    const seen = new Set();
+    for (const candidate of candidates) {
+      if (!isEngDocument(candidate)) {
+        continue;
+      }
+      const candidateRoot = String(workspaceRoot(candidate) ?? "").toLowerCase();
+      const candidateUri = candidate.uri.toString();
+      if (candidateRoot !== changedRoot || seen.has(candidateUri)) {
+        continue;
+      }
+      seen.add(candidateUri);
+      reviewCache.delete(candidate.uri.fsPath);
+      decorationController.updateReviewRiskDecorations(candidate, undefined);
+      decorationController.updateSemanticSymbolDecorations(candidate, undefined);
+    }
   }
 
   function updateDiagnosticsStatusBar(document = vscode.window.activeTextEditor?.document) {
@@ -216,7 +230,8 @@ function activate(context) {
       updateDiagnosticsStatusBarForDocument(document);
     }),
     vscode.workspace.onDidChangeTextDocument((event) => {
-      clearCachedEditorSnapshot(event.document);
+      clearCachedWorkspaceEditorSnapshots(event.document);
+      semanticTokensProvider.scheduleRefresh();
       diagnosticController.scheduleWorkspaceChangedChecks(event.document);
       updateDiagnosticsStatusBarForDocument(event.document);
     }),
@@ -246,8 +261,8 @@ function activate(context) {
       diagnosticController.invalidateDocumentCheck(document);
       lspRequests.clearSnapshotCache(document);
       diagnostics.delete(document.uri);
-      decorationController.updateReviewRiskDecorations(document, undefined);
-      decorationController.updateSemanticSymbolDecorations(document, undefined);
+      clearCachedWorkspaceEditorSnapshots(document);
+      semanticTokensProvider.scheduleRefresh();
       diagnosticController.scheduleWorkspaceChangedChecks(document, false);
       updateDiagnosticsStatusBar();
     }),
