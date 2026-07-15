@@ -31,6 +31,8 @@ class EngDiagnosticsController {
     this.updateReviewRiskDecorations = options.updateReviewRiskDecorations ?? (() => undefined);
     this.updateSemanticSymbolDecorations = options.updateSemanticSymbolDecorations ?? (() => undefined);
     this.changeTimers = new Map();
+    this.checkSequence = 0;
+    this.activeDocumentChecks = new WeakMap();
   }
 
   maybeCheck(document) {
@@ -50,6 +52,7 @@ class EngDiagnosticsController {
       return;
     }
     this.clearSnapshotCache(document);
+    this.invalidateDocumentCheck(document);
     if (this.diagnosticsRuntime?.(document) !== "lsp-snapshot") {
       return;
     }
@@ -75,11 +78,30 @@ class EngDiagnosticsController {
     }
   }
 
+  beginDocumentCheck(document) {
+    const revision = ++this.checkSequence;
+    this.activeDocumentChecks.set(document, revision);
+    return revision;
+  }
+
+  invalidateDocumentCheck(document) {
+    if (!document) {
+      return;
+    }
+    this.activeDocumentChecks.set(document, ++this.checkSequence);
+  }
+
+  isCurrentDocumentCheck(document, documentVersion, checkRevision) {
+    return document.version === documentVersion
+      && this.activeDocumentChecks.get(document) === checkRevision;
+  }
+
   clearDocumentDiagnostics(document, reason = "diagnostics mode changed") {
     if (!document || !this.isEngDocument(document)) {
       return;
     }
     this.clearPendingCheck(document);
+    this.invalidateDocumentCheck(document);
     this.clearCachedReview(document);
     this.diagnostics.delete(document.uri);
     this.updateReviewRiskDecorations(document, undefined);
@@ -112,6 +134,7 @@ class EngDiagnosticsController {
   }
 
   checkDocument(document) {
+    const checkRevision = this.beginDocumentCheck(document);
     const runtimeMode = this.diagnosticsRuntime(document);
     const runtime = runtimeMode === "lsp-snapshot"
       ? this.findLspRuntime(this.context, document)
@@ -130,12 +153,21 @@ class EngDiagnosticsController {
       args,
       { cwd, maxBuffer: 10 * 1024 * 1024 },
       (error, stdout, stderr) => {
-        this.finishDocumentCheck(document, runtimeLabel, documentVersion, error, stdout, stderr);
+        this.finishDocumentCheck(
+          document,
+          runtimeLabel,
+          documentVersion,
+          checkRevision,
+          error,
+          stdout,
+          stderr
+        );
       }
     );
   }
 
   checkDocumentSource(document) {
+    const checkRevision = this.beginDocumentCheck(document);
     if (this.snapshotDocumentSource) {
       const documentVersion = document.version;
       const runtime = this.findLspRuntime?.(this.context, document) ?? "eng-lsp.exe";
@@ -143,7 +175,7 @@ class EngDiagnosticsController {
       this.appendLine(`Problems source: ${diagnosticSource("live buffer")}; diagnostics: live buffer; tool: ${runtime}`);
       this.snapshotDocumentSource(document, this.context)
         .then((review) => {
-          if (document.version !== documentVersion) {
+          if (!this.isCurrentDocumentCheck(document, documentVersion, checkRevision)) {
             return;
           }
           if (!review) {
@@ -154,9 +186,18 @@ class EngDiagnosticsController {
             );
             return;
           }
-          this.finishParsedDocumentCheck(document, "live buffer", documentVersion, review);
+          this.finishParsedDocumentCheck(
+            document,
+            "live buffer",
+            documentVersion,
+            checkRevision,
+            review
+          );
         })
         .catch((error) => {
+          if (!this.isCurrentDocumentCheck(document, documentVersion, checkRevision)) {
+            return;
+          }
           this.appendLine(`live buffer check failed: ${error.message}`);
           this.applyUnavailableSnapshotDiagnostic(
             document,
@@ -178,7 +219,15 @@ class EngDiagnosticsController {
       ["--snapshot-stdin", document.uri.fsPath],
       { cwd, maxBuffer: 10 * 1024 * 1024 },
       (error, stdout, stderr) => {
-        this.finishDocumentCheck(document, "live buffer", documentVersion, error, stdout, stderr);
+        this.finishDocumentCheck(
+          document,
+          "live buffer",
+          documentVersion,
+          checkRevision,
+          error,
+          stdout,
+          stderr
+        );
       }
     );
     if (child.stdin) {
@@ -186,8 +235,16 @@ class EngDiagnosticsController {
     }
   }
 
-  finishDocumentCheck(document, runtimeLabel, documentVersion, error, stdout, stderr) {
-    if (document.version !== documentVersion) {
+  finishDocumentCheck(
+    document,
+    runtimeLabel,
+    documentVersion,
+    checkRevision,
+    error,
+    stdout,
+    stderr
+  ) {
+    if (!this.isCurrentDocumentCheck(document, documentVersion, checkRevision)) {
       return;
     }
     if (stderr && stderr.trim().length > 0) {
@@ -209,11 +266,23 @@ class EngDiagnosticsController {
       this.applyUnavailableSnapshotDiagnostic(document, runtimeLabel, failure);
       return;
     }
-    this.finishParsedDocumentCheck(document, runtimeLabel, documentVersion, review);
+    this.finishParsedDocumentCheck(
+      document,
+      runtimeLabel,
+      documentVersion,
+      checkRevision,
+      review
+    );
   }
 
-  finishParsedDocumentCheck(document, runtimeLabel, documentVersion, review) {
-    if (document.version !== documentVersion) {
+  finishParsedDocumentCheck(
+    document,
+    runtimeLabel,
+    documentVersion,
+    checkRevision,
+    review
+  ) {
+    if (!this.isCurrentDocumentCheck(document, documentVersion, checkRevision)) {
       return;
     }
     this.cacheReview(document, review);

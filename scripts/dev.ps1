@@ -3515,6 +3515,62 @@ function Invoke-JavaScriptSyntaxCheck {
     Write-Host "$Label JavaScript structural fallback check passed."
 }
 
+function Invoke-JavaScriptProgram {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Path,
+
+        [Parameter(Mandatory = $true)]
+        [string] $Label
+    )
+
+    $Node = Get-Command node -ErrorAction SilentlyContinue
+    if ($null -ne $Node) {
+        $NodeUsable = $true
+        try {
+            & $Node.Source "--version" *> $null
+            if ($LASTEXITCODE -ne 0) {
+                $NodeUsable = $false
+            }
+        } catch {
+            $NodeUsable = $false
+        }
+        if ($NodeUsable) {
+            Invoke-Native $Node.Source $Path
+            return
+        }
+    }
+
+    $CodeCandidates = @()
+    $CodeCommand = Get-Command code -ErrorAction SilentlyContinue
+    if ($null -ne $CodeCommand) {
+        $CodeRoot = Split-Path -Parent (Split-Path -Parent $CodeCommand.Source)
+        $CodeCandidates += Join-Path $CodeRoot "Code.exe"
+    }
+    if ($env:LOCALAPPDATA) {
+        $CodeCandidates += Join-Path $env:LOCALAPPDATA "Programs\Microsoft VS Code\Code.exe"
+    }
+    foreach ($CodeExecutable in @($CodeCandidates | Select-Object -Unique)) {
+        if (-not (Test-Path -LiteralPath $CodeExecutable)) {
+            continue
+        }
+        $PreviousElectronRunAsNode = $env:ELECTRON_RUN_AS_NODE
+        try {
+            $env:ELECTRON_RUN_AS_NODE = "1"
+            Invoke-Native $CodeExecutable "-e" "require(process.argv[1])" $Path
+            return
+        } finally {
+            if ($null -eq $PreviousElectronRunAsNode) {
+                Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+            } else {
+                $env:ELECTRON_RUN_AS_NODE = $PreviousElectronRunAsNode
+            }
+        }
+    }
+
+    Write-Host "$Label skipped because no JavaScript runtime is available; source contracts remain checked."
+}
+
 function Assert-VscodeExtensionContract {
     $ExtensionRoot = Join-Path $RepoRoot "tools\vscode-englang"
     $PackageJsonPath = Join-Path $ExtensionRoot "package.json"
@@ -3543,6 +3599,7 @@ function Assert-VscodeExtensionContract {
     $ModuleStatusPath = Join-Path $ExtensionRoot "moduleStatus.js"
     $RuntimeDiscoveryPath = Join-Path $ExtensionRoot "runtimeDiscovery.js"
     $ReviewPanelRendererPath = Join-Path $ExtensionRoot "reviewPanelRenderer.js"
+    $EditorRequestRaceTestPath = Join-Path $ExtensionRoot "test\editorRequestRace.test.js"
     $SnippetsPath = Join-Path $ExtensionRoot "snippets\eng.json"
     $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
     $LspCliSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\main.rs"
@@ -3640,6 +3697,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $ReviewPanelRendererPath)) {
         throw "missing VS Code review panel renderer at $ReviewPanelRendererPath"
+    }
+    if (-not (Test-Path $EditorRequestRaceTestPath)) {
+        throw "missing VS Code editor request race smoke at $EditorRequestRaceTestPath"
     }
     if (-not (Test-Path $SnippetsPath)) {
         throw "missing VS Code snippets at $SnippetsPath"
@@ -4572,6 +4632,17 @@ function Assert-VscodeExtensionContract {
             throw "VS Code README should describe quick fixes as edits or repairs, not '$ForbiddenVscodeReadmeWording'"
         }
     }
+    foreach ($RequiredVscodeRaceSafetyWording in @(
+        "Checks are ordered per document",
+        "slower earlier request cannot replace",
+        "newer Problems",
+        "A cancelled color refresh does not interrupt a linter check",
+        "that uses the same analysis"
+    )) {
+        if (-not $VscodeReadmeSource.Contains($RequiredVscodeRaceSafetyWording)) {
+            throw "VS Code README missing live-analysis race safety wording $RequiredVscodeRaceSafetyWording"
+        }
+    }
     $ExtensionSource = Get-Content -LiteralPath $ExtensionJsPath -Raw
     $ArtifactOpenersSource = Get-Content -LiteralPath $ArtifactOpenersPath -Raw
     $CommandHandlersSource = Get-Content -LiteralPath $CommandHandlersPath -Raw
@@ -4597,6 +4668,7 @@ function Assert-VscodeExtensionContract {
     $ModuleStatusSource = Get-Content -LiteralPath $ModuleStatusPath -Raw
     $RuntimeDiscoverySource = Get-Content -LiteralPath $RuntimeDiscoveryPath -Raw
     $ReviewPanelRendererSource = Get-Content -LiteralPath $ReviewPanelRendererPath -Raw
+    $EditorRequestRaceTestSource = Get-Content -LiteralPath $EditorRequestRaceTestPath -Raw
     $DiagnosticsSource = $ExtensionSource + "`n" + $DiagnosticsProviderSource
     foreach ($RequiredStatusBarToken in @(
         "createStatusBarItem",
@@ -5115,6 +5187,16 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing shared LSP snapshot reuse token $RequiredSnapshotReuseToken"
         }
     }
+    foreach ($RequiredSnapshotCancellationToken in @(
+        "function snapshotResultForCaller",
+        "return snapshotResultForCaller(cached, cancellationToken)",
+        "return snapshotResultForCaller(promise, cancellationToken)",
+        "cancellationSubscription?.dispose?.()"
+    )) {
+        if (-not $LspRequestsSource.Contains($RequiredSnapshotCancellationToken)) {
+            throw "VS Code shared snapshot requests must isolate caller cancellation: $RequiredSnapshotCancellationToken"
+        }
+    }
     if (-not $ExtensionSource.Contains("clearSnapshotCache: lspRequests.clearSnapshotCache") -or -not $DiagnosticsProviderSource.Contains("this.clearSnapshotCache(document)") -or -not $LspRequestsSource.Contains("function clearSnapshotCache(document)")) {
         throw "VS Code extension must clear shared LSP snapshot cache on document changes and close"
     }
@@ -5123,6 +5205,9 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension missing shared snapshot document source helper"
     }
     $SnapshotDocumentSource = $LspRequestsSource.Substring($SnapshotDocumentSourceIndex, $LspRequestsSource.IndexOf("function snapshotCacheKey") - $SnapshotDocumentSourceIndex)
+    if ($SnapshotDocumentSource.Contains("child.kill()")) {
+        throw "VS Code shared snapshot subprocess must not be killed by one provider cancellation"
+    }
     foreach ($RequiredSnapshotFreshnessToken in @(
         "const documentVersion = document.version;",
         "const documentText = document.getText();",
@@ -5529,6 +5614,10 @@ function Assert-VscodeExtensionContract {
         "maybeCheck(document)",
         "scheduleChangedCheck",
         "clearPendingCheck",
+        "beginDocumentCheck",
+        "invalidateDocumentCheck",
+        "isCurrentDocumentCheck",
+        "activeDocumentChecks",
         "checkActiveFile",
         "checkDocumentSource",
         "finishDocumentCheck",
@@ -5569,6 +5658,21 @@ function Assert-VscodeExtensionContract {
     )) {
         if (-not $DiagnosticsSource.Contains($RequiredDiagnosticsToken)) {
             throw "VS Code extension missing diagnostics provider token $RequiredDiagnosticsToken"
+        }
+    }
+    if (-not $ExtensionSource.Contains("diagnosticController.invalidateDocumentCheck(document)")) {
+        throw "VS Code extension must invalidate in-flight Problems checks when a document closes"
+    }
+    foreach ($RequiredEditorRequestRaceTestToken in @(
+        "latestDocumentCheckWins",
+        "staleFailureDoesNotReplaceProblems",
+        "clearingProblemsInvalidatesInFlightCheck",
+        "callerCancellationDoesNotKillSharedSnapshot",
+        "same-version callers must share one snapshot process",
+        "one caller must not kill a shared snapshot process"
+    )) {
+        if (-not $EditorRequestRaceTestSource.Contains($RequiredEditorRequestRaceTestToken)) {
+            throw "VS Code editor request race smoke missing contract token $RequiredEditorRequestRaceTestToken"
         }
     }
     if ($ExtensionSource.Contains("function maybeCheck") -or $ExtensionSource.Contains("function scheduleChangedCheck") -or $ExtensionSource.Contains("function checkDocumentSource") -or $ExtensionSource.Contains("function finishDocumentCheck") -or $ExtensionSource.Contains("function toDiagnostics") -or $ExtensionSource.Contains("function toVscodeSeverity") -or $ExtensionSource.Contains("function firstLineRange")) {
@@ -6570,9 +6674,11 @@ function Assert-VscodeExtensionContract {
         $ExecutionProfilesPath,
         $ModuleStatusPath,
         $RuntimeDiscoveryPath,
-        $ReviewPanelRendererPath
+        $ReviewPanelRendererPath,
+        $EditorRequestRaceTestPath
     )
     Invoke-JavaScriptSyntaxCheck -Paths $VscodeJavaScriptPaths -Label "VS Code extension"
+    Invoke-JavaScriptProgram -Path $EditorRequestRaceTestPath -Label "VS Code editor request race smoke"
 
     Write-Host "VS Code extension contract check passed."
 }

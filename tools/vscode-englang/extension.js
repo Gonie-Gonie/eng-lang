@@ -241,6 +241,7 @@ function activate(context) {
     }),
     vscode.workspace.onDidCloseTextDocument((document) => {
       diagnosticController.clearPendingCheck(document);
+      diagnosticController.invalidateDocumentCheck(document);
       lspRequests.clearSnapshotCache(document);
       diagnostics.delete(document.uri);
       decorationController.updateReviewRiskDecorations(document, undefined);

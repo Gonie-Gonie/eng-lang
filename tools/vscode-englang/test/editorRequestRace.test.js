@@ -1,0 +1,317 @@
+"use strict";
+
+const assert = require("assert");
+const childProcess = require("child_process");
+const Module = require("module");
+
+class Range {
+  constructor(startLine, startCharacter, endLine, endCharacter) {
+    this.start = { line: startLine, character: startCharacter };
+    this.end = { line: endLine, character: endCharacter };
+  }
+}
+
+class Diagnostic {
+  constructor(range, message, severity) {
+    this.range = range;
+    this.message = message;
+    this.severity = severity;
+  }
+}
+
+const vscodeMock = {
+  Diagnostic,
+  DiagnosticSeverity: {
+    Error: 0,
+    Warning: 1,
+    Information: 2
+  },
+  DiagnosticTag: {
+    Deprecated: 1,
+    Unnecessary: 2
+  },
+  Range,
+  window: {
+    activeTextEditor: undefined,
+    showInformationMessage() {},
+    showWarningMessage() {}
+  },
+  workspace: {
+    getConfiguration() {
+      return {
+        get(_name, fallback) {
+          return fallback;
+        }
+      };
+    },
+    workspaceFolders: []
+  }
+};
+
+const originalLoad = Module._load;
+let EngDiagnosticsController;
+let createLspRequests;
+try {
+  Module._load = function loadWithVscodeMock(request, parent, isMain) {
+    if (request === "vscode") {
+      return vscodeMock;
+    }
+    return originalLoad.call(this, request, parent, isMain);
+  };
+  ({ EngDiagnosticsController } = require("../diagnosticsProvider"));
+  ({ createLspRequests } = require("../lspRequests"));
+} finally {
+  Module._load = originalLoad;
+}
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, reject, resolve };
+}
+
+function flushPromises() {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+function documentFixture() {
+  const source = "value = 1";
+  return {
+    fileName: "C:\\workspace\\main.eng",
+    isDirty: true,
+    languageId: "englang",
+    lineCount: 1,
+    uri: {
+      fsPath: "C:\\workspace\\main.eng",
+      toString() {
+        return "file:///C:/workspace/main.eng";
+      }
+    },
+    version: 1,
+    getText() {
+      return source;
+    },
+    lineAt() {
+      return { text: source };
+    }
+  };
+}
+
+function reviewFixture(message) {
+  return {
+    diagnostics: [
+      {
+        message,
+        range: {
+          start: { line: 0, character: 0 },
+          end: { line: 0, character: 5 }
+        },
+        severity: "warning"
+      }
+    ]
+  };
+}
+
+function diagnosticsFixture() {
+  const calls = [];
+  return {
+    calls,
+    delete(uri) {
+      calls.push({ kind: "delete", uri: uri.toString() });
+    },
+    set(uri, diagnostics) {
+      calls.push({
+        kind: "set",
+        messages: diagnostics.map((diagnostic) => diagnostic.message),
+        uri: uri.toString()
+      });
+    }
+  };
+}
+
+function controllerFixture(requests, diagnostics, cachedReviews = []) {
+  return new EngDiagnosticsController({}, diagnostics, {
+    cacheReview(_document, review) {
+      cachedReviews.push(review);
+    },
+    clearCachedReview() {},
+    diagnosticsRuntime() {
+      return "lsp-snapshot";
+    },
+    findLspRuntime() {
+      return "eng-lsp.exe";
+    },
+    output: {
+      appendLine() {}
+    },
+    snapshotDocumentSource() {
+      const request = requests.shift();
+      assert.ok(request, "unexpected editor snapshot request");
+      return request.promise;
+    },
+    updateReviewRiskDecorations() {},
+    updateSemanticSymbolDecorations() {}
+  });
+}
+
+async function latestDocumentCheckWins() {
+  const oldRequest = deferred();
+  const latestRequest = deferred();
+  const document = documentFixture();
+  const diagnostics = diagnosticsFixture();
+  const cachedReviews = [];
+  const controller = controllerFixture(
+    [oldRequest, latestRequest],
+    diagnostics,
+    cachedReviews
+  );
+
+  controller.checkDocumentSource(document);
+  controller.checkDocumentSource(document);
+  latestRequest.resolve(reviewFixture("latest"));
+  await flushPromises();
+
+  assert.deepStrictEqual(
+    diagnostics.calls.filter((call) => call.kind === "set").map((call) => call.messages),
+    [["latest"]]
+  );
+  assert.strictEqual(cachedReviews.at(-1).diagnostics[0].message, "latest");
+
+  oldRequest.resolve(reviewFixture("stale"));
+  await flushPromises();
+  assert.deepStrictEqual(
+    diagnostics.calls.filter((call) => call.kind === "set").map((call) => call.messages),
+    [["latest"]],
+    "an older same-version check must not replace current Problems"
+  );
+  assert.strictEqual(cachedReviews.at(-1).diagnostics[0].message, "latest");
+}
+
+async function staleFailureDoesNotReplaceProblems() {
+  const oldRequest = deferred();
+  const latestRequest = deferred();
+  const document = documentFixture();
+  const diagnostics = diagnosticsFixture();
+  const controller = controllerFixture([oldRequest, latestRequest], diagnostics);
+
+  controller.checkDocumentSource(document);
+  controller.checkDocumentSource(document);
+  oldRequest.reject(new Error("stale failure"));
+  await flushPromises();
+  assert.deepStrictEqual(
+    diagnostics.calls.filter((call) => call.kind === "set"),
+    [],
+    "a stale rejected check must not publish a tool failure"
+  );
+
+  latestRequest.resolve(reviewFixture("current"));
+  await flushPromises();
+  assert.deepStrictEqual(
+    diagnostics.calls.filter((call) => call.kind === "set").map((call) => call.messages),
+    [["current"]]
+  );
+}
+
+async function clearingProblemsInvalidatesInFlightCheck() {
+  const request = deferred();
+  const document = documentFixture();
+  const diagnostics = diagnosticsFixture();
+  const controller = controllerFixture([request], diagnostics);
+
+  controller.checkDocumentSource(document);
+  controller.clearDocumentDiagnostics(document, "test clear");
+  request.resolve(reviewFixture("late"));
+  await flushPromises();
+
+  assert.deepStrictEqual(
+    diagnostics.calls.map((call) => call.kind),
+    ["delete"],
+    "cleared Problems must stay clear when an earlier request completes"
+  );
+}
+
+async function callerCancellationDoesNotKillSharedSnapshot() {
+  const originalExecFile = childProcess.execFile;
+  let callback;
+  let cancel;
+  let disposed = 0;
+  let execCount = 0;
+  let killCount = 0;
+  let stdinText = "";
+  childProcess.execFile = (_runtime, _args, _options, complete) => {
+    execCount += 1;
+    callback = complete;
+    return {
+      kill() {
+        killCount += 1;
+      },
+      stdin: {
+        end(value) {
+          stdinText = value;
+        }
+      }
+    };
+  };
+
+  try {
+    const document = documentFixture();
+    const requests = createLspRequests({
+      appendOutputLine() {},
+      findLspRuntime() {
+        return "eng-lsp.exe";
+      },
+      workspaceRoot() {
+        return "C:\\workspace";
+      }
+    });
+    const cancellationToken = {
+      isCancellationRequested: false,
+      onCancellationRequested(listener) {
+        cancel = listener;
+        return {
+          dispose() {
+            disposed += 1;
+          }
+        };
+      }
+    };
+
+    const cancelledCaller = requests.snapshotDocumentSource(
+      document,
+      {},
+      cancellationToken
+    );
+    const sharedCaller = requests.snapshotDocumentSource(document, {});
+    assert.strictEqual(execCount, 1, "same-version callers must share one snapshot process");
+    assert.strictEqual(stdinText, document.getText());
+
+    cancellationToken.isCancellationRequested = true;
+    cancel();
+    assert.strictEqual(await cancelledCaller, undefined);
+    assert.strictEqual(killCount, 0, "one caller must not kill a shared snapshot process");
+
+    callback(null, JSON.stringify(reviewFixture("shared")), "");
+    const sharedResult = await sharedCaller;
+    assert.strictEqual(sharedResult.diagnostics[0].message, "shared");
+    assert.strictEqual(disposed, 1);
+  } finally {
+    childProcess.execFile = originalExecFile;
+  }
+}
+
+async function main() {
+  await latestDocumentCheckWins();
+  await staleFailureDoesNotReplaceProblems();
+  await clearingProblemsInvalidatesInFlightCheck();
+  await callerCancellationDoesNotKillSharedSnapshot();
+  process.stdout.write("VS Code editor request race smoke passed.\n");
+}
+
+main().catch((error) => {
+  process.stderr.write(String(error.stack || error.message) + "\n");
+  process.exitCode = 1;
+});

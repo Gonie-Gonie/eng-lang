@@ -18,17 +18,20 @@ function createLspRequests(options = {}) {
   }
 
   function snapshotDocumentSource(document, context, cancellationToken) {
+    if (cancellationToken?.isCancellationRequested) {
+      return Promise.resolve(undefined);
+    }
     const key = snapshotCacheKey(document);
     const cachedResult = snapshotResultCache.get(key);
     if (cachedResult && cachedResult.expiresAt > Date.now()) {
-      return Promise.resolve(cachedResult.value);
+      return snapshotResultForCaller(Promise.resolve(cachedResult.value), cancellationToken);
     }
     if (cachedResult) {
       snapshotResultCache.delete(key);
     }
     const cached = snapshotPromiseCache.get(key);
     if (cached) {
-      return cached;
+      return snapshotResultForCaller(cached, cancellationToken);
     }
 
     const promise = new Promise((resolve) => {
@@ -79,11 +82,6 @@ function createLspRequests(options = {}) {
         }
       );
 
-      cancellationToken?.onCancellationRequested(() => {
-        child.kill();
-        finish(undefined);
-      });
-
       if (child.stdin) {
         child.stdin.end(documentText);
       }
@@ -94,7 +92,39 @@ function createLspRequests(options = {}) {
         snapshotPromiseCache.delete(key);
       }
     });
-    return promise;
+    return snapshotResultForCaller(promise, cancellationToken);
+  }
+
+  function snapshotResultForCaller(promise, cancellationToken) {
+    if (!cancellationToken) {
+      return promise;
+    }
+    if (cancellationToken.isCancellationRequested) {
+      return Promise.resolve(undefined);
+    }
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      let cancellationSubscription;
+      const finish = (callback, value) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cancellationSubscription?.dispose?.();
+        callback(value);
+      };
+      cancellationSubscription = cancellationToken.onCancellationRequested(() => {
+        finish(resolve, undefined);
+      });
+      if (settled) {
+        cancellationSubscription?.dispose?.();
+        cancellationSubscription = undefined;
+      }
+      promise.then(
+        (value) => finish(resolve, value),
+        (error) => finish(reject, error)
+      );
+    });
   }
 
   function snapshotCacheKey(document) {

@@ -205,6 +205,9 @@ typing pause, so Problems can update before the file is saved. The EngLang outpu
 panel records whether Problems came from file diagnostics or live-buffer
 diagnostics and which tool path was selected. The VS Code Problems source column
 uses `eng/file` for saved-file checks and `eng/live` for live-buffer checks.
+Checks are ordered per document, so a slower earlier request cannot replace
+newer Problems. A cancelled color refresh does not interrupt a linter check
+that uses the same analysis.
 The status bar shows the active `.eng` file's EngLang Problems mode and current
 error/warning/info/hint counts; click it to open `EngLang: Show Tooling Status`.
 Use `EngLang: Refresh Problems` from the Command Palette or `.eng` editor
