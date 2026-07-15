@@ -155,6 +155,7 @@ let dragDropBound = false;
 let liveCheckTimer = null;
 let liveCheckRevision = 0;
 let navigationRevision = 0;
+let definitionRequestRevision = 0;
 let nativeAppWindow = null;
 let nativeCloseListenerBound = false;
 
@@ -736,9 +737,14 @@ function bind() {
     if (["ArrowDown", "ArrowUp", "Enter", "Tab", "Escape"].includes(event.key)) return;
     updateCompletionOverlay();
   });
-  editor.addEventListener("click", () => {
+  editor.addEventListener("click", (event) => {
     updateCursorInsight();
     updateEditorFindStatus();
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && event.button === 0) {
+      hideCompletions();
+      void goToDefinitionAtCaret();
+      return;
+    }
     updateCompletionOverlay();
   });
   editor.addEventListener("mouseup", () => {
@@ -6445,6 +6451,9 @@ function bindCursorInsightActions() {
       render();
     };
   });
+  target.querySelectorAll("[data-go-to-definition]").forEach((button) => {
+    button.onclick = () => void goToDefinitionAtCaret();
+  });
   bindInspectorTabButtons(target);
 }
 
@@ -6531,14 +6540,15 @@ function renderCursorInsight() {
   const title = hover ? hoverTitle(hover) : parts.join(" / ");
   return `
     <span title="${escapeAttr(title)}">${escapeHtml(parts.join(" / "))}</span>
-    ${token ? renderCursorInsightActions(token, "Select", hover) : nearestToken ? renderCursorInsightActions(nearestToken, "Select Nearby") : ""}
+    ${token ? renderCursorInsightActions(token, "Select", hover, true) : nearestToken ? renderCursorInsightActions(nearestToken, "Select Nearby") : ""}
   `;
 }
 
-function renderCursorInsightActions(token, selectLabel = "Select", hover = null) {
+function renderCursorInsightActions(token, selectLabel = "Select", hover = null, showDefinition = false) {
   return `
     ${sourceTokenButton(token, selectLabel)}
     ${sourceTokenCopyButton(token, "text", "Copy")}
+    ${showDefinition ? '<button class="link-button token-range-button" data-go-to-definition title="Go to definition (F12)">Definition</button>' : ""}
     <button class="link-button token-range-button" data-show-highlight-panel title="Open Highlight panel">Highlight</button>
     ${renderInspectorTabButtons(inspectorTabsForSemanticToken(token, hover))}
   `;
@@ -6604,6 +6614,108 @@ function editorCursorPosition(source, offset) {
     column: lines[lines.length - 1].length,
     offset: safeOffset
   };
+}
+
+function editorDefinitionRequest(editor) {
+  if (!editor || !state.currentPath) return null;
+  const position = editorCursorPosition(editor.value, editor.selectionStart ?? 0);
+  return {
+    path: state.currentPath,
+    source: editor.value,
+    line: position.line,
+    character: position.column
+  };
+}
+
+async function goToDefinitionAtCaret() {
+  const editor = byId("editor");
+  const request = editorDefinitionRequest(editor);
+  if (!request) return false;
+  const revision = ++definitionRequestRevision;
+  hideCompletions();
+  setStatus("Finding definition...");
+  try {
+    const target = await call("ide_definition", request);
+    if (revision !== definitionRequestRevision) return false;
+    if (!bufferRequestIsCurrent(request)) {
+      setStatus("Definition cancelled; buffer changed");
+      return false;
+    }
+    if (!target?.uri || !target?.range) {
+      setStatus("No definition found");
+      return false;
+    }
+    const absolutePath = definitionPathFromUri(target.uri);
+    if (!absolutePath) throw new Error("Definition location was not a local file.");
+    if (!await openDefinitionTarget(absolutePath)) {
+      throw new Error(`Could not open definition file: ${absolutePath}`);
+    }
+    if (revision !== definitionRequestRevision) return false;
+    const nextEditor = byId("editor");
+    if (!nextEditor) return false;
+    const start = target.range.start || {};
+    const end = target.range.end || start;
+    selectEditorUtf16Range(nextEditor, {
+      line: start.line,
+      character: start.character,
+      endLine: end.line,
+      endCharacter: end.character
+    });
+    syncEditorHighlightScroll();
+    updateEditorFindStatus();
+    updateCursorInsight();
+    setStatus(`Definition: ${fileName(state.currentPath)}:${Number(start.line || 0) + 1}`);
+    return true;
+  } catch (error) {
+    if (revision !== definitionRequestRevision) return false;
+    const message = String(error);
+    setStatus(message);
+    appendTerminal("error", message);
+    return false;
+  }
+}
+
+async function openDefinitionTarget(absolutePath) {
+  const targetPath = definitionWorkspacePath(absolutePath);
+  if (sameDefinitionPath(targetPath, state.currentPath)) return true;
+  const existing = state.tabs.find((tab) => sameDefinitionPath(tab.path, targetPath));
+  if (existing) await switchTab(existing.path);
+  else await openFile(absolutePath);
+  return sameDefinitionPath(state.currentPath, targetPath);
+}
+
+function definitionPathFromUri(uri) {
+  try {
+    const parsed = new URL(String(uri || ""));
+    if (parsed.protocol !== "file:") return "";
+    let path = decodeURIComponent(parsed.pathname || "");
+    if (/^\/[A-Za-z]:\//.test(path)) path = path.slice(1);
+    return normalizePath(path);
+  } catch {
+    return "";
+  }
+}
+
+function definitionWorkspacePath(path) {
+  const normalized = normalizePath(path);
+  const root = normalizePath(state.root);
+  const pathKey = definitionPathKey(normalized);
+  const rootKey = definitionPathKey(root);
+  if (!rootKey || pathKey === rootKey) return pathKey === rootKey ? "." : normalized;
+  if (pathKey.startsWith(`${rootKey}/`)) return normalized.slice(root.length + 1);
+  return normalized;
+}
+
+function definitionPathKey(path) {
+  const normalized = normalizePath(path);
+  const root = normalizePath(state.root);
+  return /^[A-Za-z]:\//.test(normalized) || /^[A-Za-z]:\//.test(root)
+    ? normalized.toLowerCase()
+    : normalized;
+}
+
+function sameDefinitionPath(left, right) {
+  return definitionPathKey(left) === definitionPathKey(right);
 }
 
 function editorBracketMatch(source, offset) {
@@ -8264,6 +8376,11 @@ function handleGlobalKeyDown(event) {
     if (state.pendingWindowClose) void saveAllDirtyTabsAndClose();
     else if (state.pendingTabClose) void savePendingTabAndClose();
     else void saveCurrent();
+    return;
+  }
+  if (event.key === "F12" && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+    event.preventDefault();
+    if (!state.pendingWindowClose && !state.pendingTabClose) void goToDefinitionAtCaret();
     return;
   }
   if (event.key === "F3" && !event.ctrlKey && !event.metaKey && !event.altKey) {

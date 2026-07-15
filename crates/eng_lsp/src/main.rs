@@ -5329,9 +5329,14 @@ fn definition_location_json(target: &DefinitionTarget) -> Value {
 fn symbol_at_position(source: &str, line: usize, character: usize) -> Option<String> {
     let line_text = source.lines().nth(line)?;
     let bytes = line_text.as_bytes();
-    let mut cursor = utf16_character_to_byte(line_text, character);
-    while cursor > 0 && !is_symbol_byte(bytes[cursor.saturating_sub(1)]) {
-        cursor -= 1;
+    let cursor = utf16_character_to_byte(line_text, character);
+    if !bytes.get(cursor).is_some_and(|byte| is_symbol_byte(*byte))
+        && !cursor
+            .checked_sub(1)
+            .and_then(|index| bytes.get(index))
+            .is_some_and(|byte| is_symbol_byte(*byte))
+    {
+        return None;
     }
     let mut start = cursor;
     while start > 0 && is_symbol_byte(bytes[start - 1]) {
@@ -5764,5 +5769,14 @@ mod tests {
             &line[assignment.value_start..assignment.value_end],
             "[\"https://example.org/#fragment\"]"
         );
+    }
+
+    #[test]
+    fn symbol_at_position_accepts_token_start_and_end_without_crossing_whitespace() {
+        let source = "\u{1f600} Q_coil = integrate(Q_coil, over=Time)";
+        assert_eq!(symbol_at_position(source, 0, 3).as_deref(), Some("Q_coil"));
+        assert_eq!(symbol_at_position(source, 0, 9).as_deref(), Some("Q_coil"));
+        assert_eq!(symbol_at_position(source, 0, 2), None);
+        assert_eq!(symbol_at_position("alpha  beta", 0, 6), None);
     }
 }

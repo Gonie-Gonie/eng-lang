@@ -92,7 +92,11 @@ Editor
   single-line selection when available. Enter, Shift+Enter, F3, and Shift+F3
   move through matches with wraparound; Match Case narrows the results and
   Escape closes the search bar. Enter in the editor preserves block
-  indentation, and
+  indentation. F12, Ctrl+click, or Definition in the checked-token meta bar
+  jumps to the compiler-resolved definition using the current unsaved buffer.
+  Definitions in the current file, static imports, and bundled stdlib modules
+  open at their exact UTF-16 source range; an already-open dirty target tab is
+  reused without reloading it from disk. The
   `{}`, `[]`, `()`, and `"` auto-close or wrap selections. Typing `}` on an
   indented blank line aligns the brace with its block, and Backspace removes an
   empty pair. Format applies the same compiler-owned formatter used by VS Code

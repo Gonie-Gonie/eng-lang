@@ -164,6 +164,98 @@ function saveShortcutUsesCurrentAction() {
   assert.strictEqual(run("globalThis.saveShortcutCalls"), 1);
 }
 
+function definitionPathsNormalizeWorkspaceTargets() {
+  run('state.root = "C:/Repo"');
+  assert.strictEqual(
+    run('definitionPathFromUri("file:///C:/Repo/stdlib/eng/path.eng")'),
+    "C:/Repo/stdlib/eng/path.eng"
+  );
+  assert.strictEqual(
+    run('definitionWorkspacePath("C:/Repo/stdlib/eng/path.eng")'),
+    "stdlib/eng/path.eng"
+  );
+  assert.strictEqual(
+    run('sameDefinitionPath("stdlib/Eng/Path.eng", "STDLIB/eng/path.eng")'),
+    true
+  );
+  assert.strictEqual(run('definitionPathFromUri("https://example.com/main.eng")'), "");
+  run('state.root = ""');
+}
+
+function definitionRequestUsesUtf16Caret() {
+  run(`
+    state.currentPath = "main.eng";
+    globalThis.definitionEditor = {
+      value: "head\\n  \\uD83D\\uDE00alpha",
+      selectionStart: "head\\n  \\uD83D\\uDE00alpha".indexOf("alpha")
+    };
+    globalThis.definitionRequest = editorDefinitionRequest(globalThis.definitionEditor);
+  `);
+  assert.strictEqual(run("globalThis.definitionRequest.path"), "main.eng");
+  assert.strictEqual(run("globalThis.definitionRequest.line"), 1);
+  assert.strictEqual(run("globalThis.definitionRequest.character"), 4);
+}
+
+async function definitionNavigationPreservesDirtyOpenTab() {
+  run(`
+    state.root = "C:/Repo";
+    state.currentPath = "main.eng";
+    state.tabs = [
+      { path: "main.eng", source: "main", dirty: false },
+      { path: "lib.eng", source: "unsaved", dirty: true }
+    ];
+    globalThis.definitionSwitchPath = null;
+    globalThis.definitionOpenCalls = 0;
+    globalThis.realDefinitionSwitchTab = switchTab;
+    globalThis.realDefinitionOpenFile = openFile;
+    switchTab = async (path) => {
+      globalThis.definitionSwitchPath = path;
+      state.currentPath = path;
+    };
+    openFile = async () => {
+      globalThis.definitionOpenCalls += 1;
+    };
+  `);
+
+  assert.strictEqual(await run('openDefinitionTarget("C:/Repo/lib.eng")'), true);
+  assert.strictEqual(run("globalThis.definitionSwitchPath"), "lib.eng");
+  assert.strictEqual(run("globalThis.definitionOpenCalls"), 0);
+  assert.strictEqual(run('state.tabs.find((tab) => tab.path === "lib.eng").dirty'), true);
+  run(`
+    switchTab = globalThis.realDefinitionSwitchTab;
+    openFile = globalThis.realDefinitionOpenFile;
+    state.root = "";
+  `);
+}
+
+function definitionShortcutUsesCurrentAction() {
+  run(`
+    state.pendingTabClose = null;
+    state.pendingWindowClose = false;
+    globalThis.definitionShortcutCalls = 0;
+    globalThis.realGoToDefinitionAtCaret = goToDefinitionAtCaret;
+    goToDefinitionAtCaret = async () => {
+      globalThis.definitionShortcutCalls += 1;
+    };
+    globalThis.definitionShortcutEvent = {
+      altKey: false,
+      ctrlKey: false,
+      key: "F12",
+      metaKey: false,
+      prevented: false,
+      shiftKey: false,
+      preventDefault() {
+        this.prevented = true;
+      }
+    };
+    handleGlobalKeyDown(globalThis.definitionShortcutEvent);
+    goToDefinitionAtCaret = globalThis.realGoToDefinitionAtCaret;
+  `);
+
+  assert.strictEqual(run("globalThis.definitionShortcutEvent.prevented"), true);
+  assert.strictEqual(run("globalThis.definitionShortcutCalls"), 1);
+}
+
 function documentSymbolsNormalizeAndFilter() {
   const flattened = run(`JSON.stringify(flattenDocumentSymbols(normalizeCheck({
     document_symbols: [{
@@ -584,6 +676,10 @@ async function main() {
   await dirtyTabRequiresDecision();
   await saveDecisionPersistsThenCloses();
   saveShortcutUsesCurrentAction();
+  definitionPathsNormalizeWorkspaceTargets();
+  definitionRequestUsesUtf16Caret();
+  await definitionNavigationPreservesDirtyOpenTab();
+  definitionShortcutUsesCurrentAction();
   documentSymbolsNormalizeAndFilter();
   outlineSelectionUsesUtf16Coordinates();
   outlineRefreshPreservesFilterFocus();

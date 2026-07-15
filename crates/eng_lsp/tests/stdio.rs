@@ -2655,8 +2655,7 @@ fn definition_stdin_follows_static_imports() {
         .nth(heat_loss_line)
         .expect("source line should exist")
         .find("heat_loss")
-        .expect("source line should contain heat_loss")
-        + "heat_loss".len();
+        .expect("source line should contain heat_loss");
 
     let mut child = Command::new(server)
         .arg("--definition-stdin")

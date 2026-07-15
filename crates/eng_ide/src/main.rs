@@ -2,8 +2,9 @@
 
 use std::env;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::Mutex;
 
 use eng_compiler::{
@@ -395,6 +396,47 @@ fn ide_check(path: String, source: String) -> CheckView {
 }
 
 #[tauri::command]
+fn ide_definition(
+    path: String,
+    source: String,
+    line: usize,
+    character: usize,
+) -> Result<Value, String> {
+    let root = workspace_root();
+    let source_path = resolve_path(&root, &path);
+    let runtime = bundled_lsp_executable()?;
+    let mut child = Command::new(&runtime)
+        .arg("--definition-stdin")
+        .arg(&source_path)
+        .arg(line.to_string())
+        .arg(character.to_string())
+        .current_dir(&root)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("Could not start {}: {error}", runtime.display()))?;
+    child
+        .stdin
+        .take()
+        .ok_or_else(|| "Definition lookup input was unavailable.".to_owned())?
+        .write_all(source.as_bytes())
+        .map_err(|error| format!("Could not send current buffer for definition lookup: {error}"))?;
+    let output = child
+        .wait_with_output()
+        .map_err(|error| format!("Definition lookup did not finish: {error}"))?;
+    if !output.status.success() {
+        let detail = String::from_utf8_lossy(&output.stderr).trim().to_owned();
+        return Err(if detail.is_empty() {
+            format!("Definition lookup failed with {}.", output.status)
+        } else {
+            format!("Definition lookup failed: {detail}")
+        });
+    }
+    parse_definition_output(&output.stdout)
+}
+
+#[tauri::command]
 fn ide_format(path: String, source: String) -> FormatView {
     let _ = path;
     let result = format_source(&source);
@@ -686,6 +728,7 @@ fn main() {
             ide_open_file,
             ide_save_file,
             ide_check,
+            ide_definition,
             ide_format,
             ide_run,
             ide_terminal,
@@ -2452,6 +2495,48 @@ fn diagnostic_summary_text(check: &CheckView) -> String {
         ));
     }
     lines.join("\n")
+}
+
+fn bundled_lsp_executable() -> Result<PathBuf, String> {
+    let executable = env::current_exe()
+        .map_err(|error| format!("Could not locate the EngLang IDE executable: {error}"))?;
+    let directory = executable
+        .parent()
+        .ok_or_else(|| "Could not locate the EngLang IDE executable folder.".to_owned())?;
+    let file_name = if cfg!(target_os = "windows") {
+        "eng-lsp.exe"
+    } else {
+        "eng-lsp"
+    };
+    let candidate = directory.join(file_name);
+    if candidate.is_file() {
+        Ok(candidate)
+    } else {
+        Err(format!(
+            "Definition lookup requires {file_name} next to eng-ide."
+        ))
+    }
+}
+
+fn parse_definition_output(output: &[u8]) -> Result<Value, String> {
+    let value = serde_json::from_slice::<Value>(output)
+        .map_err(|error| format!("Could not read definition lookup result: {error}"))?;
+    if value.is_null() {
+        return Ok(value);
+    }
+    if value.get("uri").and_then(Value::as_str).is_none()
+        || [
+            "/range/start/line",
+            "/range/start/character",
+            "/range/end/line",
+            "/range/end/character",
+        ]
+        .iter()
+        .any(|pointer| value.pointer(pointer).and_then(Value::as_u64).is_none())
+    {
+        return Err("Definition lookup returned an incomplete source location.".to_owned());
+    }
+    Ok(value)
 }
 
 fn workspace_root() -> PathBuf {
@@ -4295,6 +4380,31 @@ with {
             "keyword",
             "sideEffect"
         ));
+    }
+
+    #[test]
+    fn definition_output_accepts_null_and_complete_locations() {
+        assert_eq!(parse_definition_output(b"null").unwrap(), Value::Null);
+        let location = json!({
+            "uri": "file:///C:/workspace/main.eng",
+            "range": {
+                "start": { "line": 2, "character": 4 },
+                "end": { "line": 2, "character": 10 }
+            }
+        });
+        assert_eq!(
+            parse_definition_output(location.to_string().as_bytes()).unwrap(),
+            location
+        );
+    }
+
+    #[test]
+    fn definition_output_rejects_incomplete_locations() {
+        let error = parse_definition_output(
+            br#"{"uri":"file:///tmp/main.eng","range":{"start":{"line":2}}}"#,
+        )
+        .unwrap_err();
+        assert!(error.contains("incomplete source location"));
     }
 
     #[test]
