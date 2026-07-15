@@ -10,6 +10,7 @@ const {
 function createDecorationController(options = {}) {
   const { isEngDocument = () => false, reviewCache = new Map() } = options;
   const reviewRiskDecorations = createReviewRiskDecorationTypes();
+  const reviewValidationDecorations = createReviewValidationDecorationTypes();
   const semanticSymbolDecorations = createSemanticSymbolDecorationTypes();
 
   function updateReviewRiskDecorations(document, review) {
@@ -38,6 +39,15 @@ function createDecorationController(options = {}) {
         const cached = reviewCache.get(editor.document.uri.fsPath);
         updateReviewRiskDecorations(editor.document, cached);
         updateSemanticSymbolDecorations(editor.document, cached);
+      }
+    }
+  }
+
+  function refreshVisibleReviewValidationDecorations() {
+    for (const editor of vscode.window.visibleTextEditors) {
+      if (isEngDocument(editor.document)) {
+        const cached = reviewCache.get(editor.document.uri.fsPath);
+        updateReviewValidationDecorations(editor.document, cached);
       }
     }
   }
@@ -71,16 +81,40 @@ function createDecorationController(options = {}) {
     }
   }
 
+  function updateReviewValidationDecorations(document, review) {
+    if (!reviewValidationDecorations || !isEngDocument(document)) {
+      return;
+    }
+    const editors = vscode.window.visibleTextEditors.filter(
+      (editor) => editor.document.uri.toString() === document.uri.toString()
+    );
+    if (editors.length === 0) {
+      return;
+    }
+    const config = vscode.workspace.getConfiguration("englang", document.uri);
+    const decorations = config.get("validationDecorations.enabled", true)
+      ? reviewValidationDecorationOptions(document, review)
+      : { pass: [], fail: [] };
+    for (const editor of editors) {
+      editor.setDecorations(reviewValidationDecorations.pass, decorations.pass);
+      editor.setDecorations(reviewValidationDecorations.fail, decorations.fail);
+    }
+  }
+
   return {
     disposables: [
       reviewRiskDecorations.high,
       reviewRiskDecorations.medium,
+      reviewValidationDecorations.pass,
+      reviewValidationDecorations.fail,
       semanticSymbolDecorations.internal,
       semanticSymbolDecorations.planned
     ],
     refreshVisibleReviewRiskDecorations,
+    refreshVisibleReviewValidationDecorations,
     refreshVisibleSemanticSymbolDecorations,
     updateReviewRiskDecorations,
+    updateReviewValidationDecorations,
     updateSemanticSymbolDecorations
   };
 }
@@ -115,6 +149,29 @@ function createSemanticSymbolDecorationTypes() {
     planned: vscode.window.createTextEditorDecorationType({
       textDecoration: "underline dotted",
       opacity: "0.75"
+    })
+  };
+}
+
+function createReviewValidationDecorationTypes() {
+  return {
+    pass: vscode.window.createTextEditorDecorationType({
+      after: {
+        contentText: "  validation passed",
+        color: new vscode.ThemeColor("testing.iconPassed"),
+        fontStyle: "italic",
+        margin: "0 0 0 0.75rem"
+      }
+    }),
+    fail: vscode.window.createTextEditorDecorationType({
+      after: {
+        contentText: "  validation failed",
+        color: new vscode.ThemeColor("testing.iconFailed"),
+        fontStyle: "italic",
+        margin: "0 0 0 0.75rem"
+      },
+      overviewRulerColor: new vscode.ThemeColor("testing.iconFailed"),
+      overviewRulerLane: vscode.OverviewRulerLane.Right
     })
   };
 }
@@ -198,6 +255,75 @@ function reviewRiskDecorationOptions(document, review) {
   return { high, medium };
 }
 
+function reviewValidationDecorationOptions(document, review) {
+  const doc = normalizedReviewDocument(review);
+  const records = firstReviewArray(doc, review, "validations");
+  const byLine = new Map();
+  for (const record of records) {
+    const status = String(record?.status ?? "").toLowerCase();
+    if (status !== "pass" && status !== "fail") {
+      continue;
+    }
+    const lineNumber = Number(lineValue(record));
+    if (!Number.isFinite(lineNumber) || lineNumber < 1 || lineNumber > document.lineCount) {
+      continue;
+    }
+    const safeLine = Math.trunc(lineNumber);
+    const item = byLine.get(safeLine) ?? { status: "pass", records: [] };
+    item.records.push(record);
+    if (status === "fail") {
+      item.status = "fail";
+    }
+    byLine.set(safeLine, item);
+  }
+
+  const pass = [];
+  const fail = [];
+  for (const [lineNumber, item] of [...byLine.entries()].sort((left, right) => left[0] - right[0])) {
+    const option = {
+      range: lineEndRange(document, lineNumber - 1),
+      hoverMessage: reviewValidationHoverMessage(item.status, item.records)
+    };
+    if (item.status === "fail") {
+      fail.push(option);
+    } else {
+      pass.push(option);
+    }
+  }
+  return { pass, fail };
+}
+
+function reviewValidationHoverMessage(status, records) {
+  const markdown = new vscode.MarkdownString();
+  markdown.isTrusted = false;
+  markdown.appendMarkdown(
+    status === "fail"
+      ? "**EngLang validation failed**"
+      : "**EngLang validation passed**"
+  );
+  for (const record of records) {
+    const target = reviewValue(record, "target", "target", "validation");
+    const className = reviewValue(record, "class_name", "className", "");
+    const expression = reviewValue(record, "expression", "expression", "");
+    const leftValue = reviewValue(record, "left_value", "leftValue", "");
+    const rightValue = reviewValue(record, "right_value", "rightValue", "");
+    const operator = reviewValue(record, "operator", "operator", "");
+    const recordStatus = String(reviewValue(record, "status", "status", "")).toLowerCase();
+    const resultLabel = recordStatus === "fail" ? "failed" : "passed";
+    markdown.appendMarkdown("\n\n");
+    markdown.appendText(
+      `${className ? `${target} (${className})` : String(target)} - ${resultLabel}`
+    );
+    if (expression) {
+      markdown.appendText(`\nRule: ${expression}`);
+    }
+    if (leftValue || rightValue) {
+      markdown.appendText(`\nObserved: ${leftValue || "?"} ${operator || "?"} ${rightValue || "?"}`);
+    }
+  }
+  return markdown;
+}
+
 function setReviewRiskDecorationLine(byLine, document, lineNumber, level, record) {
   if (!Number.isFinite(lineNumber) || lineNumber < 1 || lineNumber > document.lineCount) {
     return;
@@ -252,6 +378,12 @@ function fullLineRange(document, lineNumber) {
   return new vscode.Range(lineNumber, 0, lineNumber, line.text.length);
 }
 
+function lineEndRange(document, lineNumber) {
+  const line = document.lineAt(lineNumber);
+  return new vscode.Range(lineNumber, line.text.length, lineNumber, line.text.length);
+}
+
 module.exports = {
-  createDecorationController
+  createDecorationController,
+  reviewValidationDecorationOptions
 };

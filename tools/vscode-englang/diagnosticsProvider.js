@@ -30,6 +30,8 @@ class EngDiagnosticsController {
     this.cacheReview = options.cacheReview ?? (() => undefined);
     this.clearCachedReview = options.clearCachedReview ?? (() => undefined);
     this.updateReviewRiskDecorations = options.updateReviewRiskDecorations ?? (() => undefined);
+    this.updateReviewValidationDecorations =
+      options.updateReviewValidationDecorations ?? (() => undefined);
     this.updateSemanticSymbolDecorations = options.updateSemanticSymbolDecorations ?? (() => undefined);
     this.changeTimers = new Map();
     this.checkDebounceMs = options.checkDebounceMs ?? CHECK_DEBOUNCE_MS;
@@ -192,6 +194,7 @@ class EngDiagnosticsController {
     this.clearCachedReview(document);
     this.diagnostics.delete(document.uri);
     this.updateReviewRiskDecorations(document, undefined);
+    this.updateReviewValidationDecorations(document, undefined);
     this.updateSemanticSymbolDecorations(document, undefined);
     this.appendLine(`Problems cleared for ${document.uri.fsPath}: ${reason}`);
   }
@@ -377,6 +380,7 @@ class EngDiagnosticsController {
       source: diagnosticSource(runtimeLabel)
     }));
     this.updateReviewRiskDecorations(document, review);
+    this.updateReviewValidationDecorations(document, review);
     this.updateSemanticSymbolDecorations(document, review);
     const errors = review.diagnostics?.filter((item) => severityName(item.severity) === "error").length ?? 0;
     const warnings = review.diagnostics?.filter((item) => severityName(item.severity) === "warning").length ?? 0;
@@ -397,8 +401,10 @@ class EngDiagnosticsController {
       vscode.DiagnosticSeverity.Error
     );
     diagnostic.source = diagnosticSource(runtimeLabel);
+    this.clearCachedReview(document);
     this.diagnostics.set(document.uri, [diagnostic]);
     this.updateReviewRiskDecorations(document, undefined);
+    this.updateReviewValidationDecorations(document, undefined);
     this.updateSemanticSymbolDecorations(document, undefined);
   }
 

@@ -159,12 +159,14 @@ function diagnosticsFixture() {
   };
 }
 
-function controllerFixture(requests, diagnostics, cachedReviews = []) {
+function controllerFixture(requests, diagnostics, cachedReviews = [], clearedReviews = []) {
   return new EngDiagnosticsController({}, diagnostics, {
     cacheReview(_document, review) {
       cachedReviews.push(review);
     },
-    clearCachedReview() {},
+    clearCachedReview(document) {
+      clearedReviews.push(document.uri.toString());
+    },
     diagnosticsRuntime() {
       return "lsp-snapshot";
     },
@@ -180,6 +182,7 @@ function controllerFixture(requests, diagnostics, cachedReviews = []) {
       return request.promise;
     },
     updateReviewRiskDecorations() {},
+    updateReviewValidationDecorations() {},
     updateSemanticSymbolDecorations() {}
   });
 }
@@ -239,6 +242,25 @@ async function staleFailureDoesNotReplaceProblems() {
   assert.deepStrictEqual(
     diagnostics.calls.filter((call) => call.kind === "set").map((call) => call.messages),
     [["current"]]
+  );
+}
+
+async function currentFailureClearsCachedReview() {
+  const request = deferred();
+  const document = documentFixture();
+  const diagnostics = diagnosticsFixture();
+  const clearedReviews = [];
+  const controller = controllerFixture([request], diagnostics, [], clearedReviews);
+
+  controller.checkDocumentSource(document);
+  request.reject(new Error("current failure"));
+  await flushPromises();
+
+  assert.deepStrictEqual(clearedReviews, [document.uri.toString()]);
+  assert.strictEqual(
+    diagnostics.calls.filter((call) => call.kind === "set").length,
+    1,
+    "a current tool failure must replace stale Problems and cached review data"
   );
 }
 
@@ -510,6 +532,7 @@ async function semanticRefreshIsDebouncedAndDisposed() {
 async function main() {
   await latestDocumentCheckWins();
   await staleFailureDoesNotReplaceProblems();
+  await currentFailureClearsCachedReview();
   await clearingProblemsInvalidatesInFlightCheck();
   await callerCancellationDoesNotKillSharedSnapshot();
   changedImportSchedulesOpenWorkspaceDiagnostics();

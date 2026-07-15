@@ -436,15 +436,16 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
 
     <h2>Validations</h2>
     ${renderReviewTable(
-      ["Line", "Target", "Kind", "Status", "Reason"],
+      ["Line", "Target", "Expression", "Kind", "Phase", "Status"],
       validations,
       "No validations.",
       (validation) => `<tr>
         <td>${sourceLineCell(validation)}</td>
         <td><strong>${escapeHtml(reviewValue(validation, "target", "name"))}</strong></td>
+        <td>${escapeHtml(compactText(reviewValue(validation, "expression"), 140))}</td>
         <td>${escapeHtml(reviewValue(validation, "kind", "category"))}</td>
+        <td>${escapeHtml(reviewValue(validation, "evaluation_phase", "evaluationPhase"))}</td>
         <td>${statusPill(reviewValue(validation, "status"))}</td>
-        <td>${escapeHtml(compactText(reviewValue(validation, "reason", "summary"), 140))}</td>
       </tr>`
     )}
 
@@ -761,6 +762,7 @@ function statusClass(value) {
     text.includes("accepted") ||
     text.includes("declared") ||
     text.includes("fixture") ||
+    text === "pass" ||
     text.includes("passed") ||
     text.includes("ok")
   ) {

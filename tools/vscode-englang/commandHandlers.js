@@ -1392,6 +1392,7 @@ function createCommandHandlers(options = {}) {
         role_aware_highlighting: semanticHighlighting,
         semantic_highlighting: semanticHighlighting,
         review_risk_decorations: config.get("reviewRiskDecorations.enabled", true),
+        validation_decorations: config.get("validationDecorations.enabled", true),
         execution_profile: executionProfile(document)
       },
       commands: {

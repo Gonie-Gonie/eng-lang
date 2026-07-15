@@ -622,12 +622,42 @@
     },
     "reviewValidation": {
       "type": "object",
-      "required": ["kind", "expression", "status", "line"],
+      "required": [
+        "kind",
+        "target",
+        "expression",
+        "evaluation_phase",
+        "status",
+        "line",
+        "source_span"
+      ],
       "properties": {
-        "kind": { "type": "string" },
+        "kind": {
+          "enum": ["command_validation", "class_validation", "class_object_validation"]
+        },
+        "target": { "type": "string" },
         "expression": { "type": "string" },
+        "evaluation_phase": { "enum": ["static", "runtime"] },
         "status": { "type": "string" },
-        "line": { "type": "integer", "minimum": 1 }
+        "compiler_status": { "type": "string" },
+        "class_name": { "type": "string" },
+        "left": { "type": "string" },
+        "operator": { "type": "string" },
+        "right": { "type": "string" },
+        "left_value": { "type": "string" },
+        "right_value": { "type": "string" },
+        "unit": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "source_span": { "$ref": "#/$defs/reviewSourceSpan" },
+        "rule_source_span": { "$ref": "#/$defs/reviewSourceSpan" }
+      }
+    },
+    "reviewSourceSpan": {
+      "type": "object",
+      "required": ["line", "column"],
+      "properties": {
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
       }
     },
     "reviewSideEffect": {

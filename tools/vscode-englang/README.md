@@ -322,6 +322,14 @@ high and medium review risks without changing source text. Set
 `englang.reviewRiskDecorations.enabled = false` to hide those markers while
 keeping diagnostics and role-aware highlighting enabled.
 
+Evaluated class-object validation rules add one compact `validation passed` or
+`validation failed` result at the end of each object declaration line. Hovering
+the result shows the class, rule, and observed operands; multiple rules on the
+same object are grouped, and any failure takes precedence. Rule declarations
+and runtime-pending `validate` commands are intentionally not marked as passed.
+Set `englang.validationDecorations.enabled = false` to hide these results while
+keeping Problems diagnostics available.
+
 Completion uses the current unsaved buffer and compiler-owned editor metadata.
 JavaScript does not maintain a separate keyword, type, quantity, or unit table.
 If live completion is unavailable, the extension falls back to the generated

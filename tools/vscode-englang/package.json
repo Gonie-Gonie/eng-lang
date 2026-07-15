@@ -845,6 +845,11 @@
           "type": "boolean",
           "default": true,
           "description": "Show subtle editor line markers and overview-ruler marks for high and medium EngLang review risks."
+        },
+        "englang.validationDecorations.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show compact pass/fail results beside EngLang object declarations whose class validation rules were evaluated."
         }
       }
     },

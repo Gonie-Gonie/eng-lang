@@ -11,6 +11,8 @@ class EngSemanticTokensProvider {
     this.isEngDocument = options.isEngDocument ?? (() => true);
     this.snapshotDocumentSource = options.snapshotDocumentSource;
     this.cacheSnapshotForDocument = options.cacheSnapshotForDocument ?? (() => undefined);
+    this.updateReviewValidationDecorations =
+      options.updateReviewValidationDecorations ?? (() => undefined);
     this.updateSemanticSymbolDecorations =
       options.updateSemanticSymbolDecorations ?? (() => undefined);
     this.semanticLegend = options.semanticLegend;
@@ -41,6 +43,7 @@ class EngSemanticTokensProvider {
       return emptySemanticTokens();
     }
     this.cacheSnapshotForDocument(document, snapshot);
+    this.updateReviewValidationDecorations(document, snapshot);
     this.updateSemanticSymbolDecorations(document, snapshot);
     return semanticTokensFromSnapshot(
       snapshot,

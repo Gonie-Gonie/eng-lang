@@ -7,8 +7,9 @@ This page documents two maintainer JSON surfaces:
 
 - `eng-lsp.exe --snapshot <file.eng>` emits live document data for editor, IDE,
   and automated smoke-test consumers that need compiler diagnostics,
-  completion metadata, hover metadata, semantic highlighting data, document
-  symbols, and folding ranges without starting a long-lived editor session.
+  evaluated validation metadata, completion metadata, hover metadata, semantic
+  highlighting data, document symbols, and folding ranges without starting a
+  long-lived editor session.
 - `eng-lsp.exe --editor-metadata` emits the static editor catalog used by the VS
   Code extension, grammar smoke checks, and native IDE bootstrap contracts.
 
@@ -43,6 +44,7 @@ it has a clear compatibility rule so tools can be built against it safely:
 {
   "format": "eng-lsp-snapshot-v1",
   "diagnostics": [],
+  "validations": [],
   "completions": [],
   "hovers": [],
   "semantic_tokens": {
@@ -57,10 +59,23 @@ it has a clear compatibility rule so tools can be built against it safely:
 }
 ```
 
-`diagnostics`, `completions`, `hovers`, `document_symbols`, and
+`diagnostics`, `validations`, `completions`, `hovers`, `document_symbols`, and
 `folding_ranges` are always arrays. `semantic_tokens` always has a legend and a
 token array. These arrays may be empty when the source legitimately has no
 diagnostics or no semantic metadata.
+
+## Validation Results
+
+`validations` uses the same compiler-owned records as
+`review.json.review_document.validations`. Every row identifies its `kind`,
+`target`, `expression`, `evaluation_phase`, `status`, and one-based
+`source_span`. Command validations use `pending_runtime` after successful
+lowering because their outcome is known only when the workflow runs. Class
+rules use `declared`; class-object rows use `pass`, `fail`, or `unresolved` and
+include observed values when available. Object rows point `source_span` at the
+object declaration and preserve the class rule location in `rule_source_span`.
+This distinction lets editors show evaluated results without presenting a rule
+declaration as though it had passed for every object.
 
 ## Static Editor Metadata
 

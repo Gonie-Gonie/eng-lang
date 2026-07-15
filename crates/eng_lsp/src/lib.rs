@@ -4,9 +4,10 @@ use std::path::Path;
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, bundled_module_registry, check_source,
     check_source_with_import_overrides, classify_diagnostic_review_risk, classify_review_risk,
-    db_read_expression, read_only_io_expression, CheckOptions, CheckReport, ClassFieldInfo,
-    CommandStyleInfo, Diagnostic, DomainTypeParameterInfo, FileOperationInfo, FunctionInfo,
-    ImportSourceOverrides, SemanticProgram, Severity, WithBlockInfo, WithOptionInfo,
+    db_read_expression, read_only_io_expression, review_validation_records, CheckOptions,
+    CheckReport, ClassFieldInfo, CommandStyleInfo, Diagnostic, DomainTypeParameterInfo,
+    FileOperationInfo, FunctionInfo, ImportSourceOverrides, ReviewValidationRecord,
+    SemanticProgram, Severity, WithBlockInfo, WithOptionInfo,
 };
 use serde_json::{json, Value};
 
@@ -16,6 +17,7 @@ pub const LSP_EDITOR_METADATA_FORMAT: &str = "eng-lsp-editor-metadata-v2";
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LspSnapshot {
     pub diagnostics: Vec<LspDiagnostic>,
+    pub validations: Vec<ReviewValidationRecord>,
     pub completions: Vec<LspCompletion>,
     pub hovers: Vec<LspHover>,
     pub semantic_tokens: LspSemanticTokens,
@@ -1183,6 +1185,7 @@ pub fn snapshot_from_report_with_source(report: &CheckReport, source: Option<&st
             .iter()
             .map(|diagnostic| lsp_diagnostic(diagnostic, source))
             .collect(),
+        validations: review_validation_records(report),
         completions: completion_items(report),
         hovers: hover_items(report, source),
         semantic_tokens: source
@@ -1916,6 +1919,7 @@ pub fn snapshot_json(snapshot: &LspSnapshot) -> Value {
     json!({
         "format": LSP_SNAPSHOT_FORMAT,
         "diagnostics": snapshot.diagnostics.iter().map(diagnostic_json).collect::<Vec<_>>(),
+        "validations": snapshot.validations.iter().map(ReviewValidationRecord::to_json_value).collect::<Vec<_>>(),
         "completions": snapshot.completions.iter().map(completion_json).collect::<Vec<_>>(),
         "hovers": snapshot.hovers.iter().map(hover_json).collect::<Vec<_>>(),
         "semantic_tokens": semantic_tokens_json(&snapshot.semantic_tokens),
@@ -17358,5 +17362,48 @@ wall_value = wall.
             completion.label == "summary()"
                 && completion.detail.contains("String [-] from Construction")
         }));
+    }
+
+    #[test]
+    fn snapshot_exposes_normalized_object_validation_results() {
+        let source = r#"class Construction {
+    u_value: Conductance [W/K]
+    validate {
+        u_value > 0 W/K
+    }
+}
+
+good = Construction {
+    u_value = 10 W/K
+}
+
+bad = Construction {
+    u_value = 0 W/K
+}
+"#;
+        let snapshot = snapshot_for_source(Path::new("class_validation_snapshot.eng"), source);
+        let json = snapshot_json(&snapshot);
+        let validations = json["validations"]
+            .as_array()
+            .expect("snapshot validation records");
+
+        assert_eq!(validations.len(), 3);
+        let good = validations
+            .iter()
+            .find(|validation| validation["target"] == "good")
+            .expect("passing object validation");
+        assert_eq!(good["kind"].as_str(), Some("class_object_validation"));
+        assert_eq!(good["status"].as_str(), Some("pass"));
+        assert_eq!(good["source_span"]["line"].as_u64(), Some(8));
+        assert_eq!(good["rule_source_span"]["line"].as_u64(), Some(4));
+
+        let bad = validations
+            .iter()
+            .find(|validation| validation["target"] == "bad")
+            .expect("failing object validation");
+        assert_eq!(bad["status"].as_str(), Some("fail"));
+        assert_eq!(bad["source_span"]["line"].as_u64(), Some(12));
+        assert_eq!(bad["left_value"].as_str(), Some("0 W/K"));
+        assert_eq!(bad["right_value"].as_str(), Some("0 W/K"));
     }
 }

@@ -107,12 +107,14 @@ function activate(context) {
     cacheReview: (document, review) => reviewCache.set(document.uri.fsPath, review),
     clearCachedReview: (document) => reviewCache.delete(document.uri.fsPath),
     updateReviewRiskDecorations: decorationController.updateReviewRiskDecorations,
+    updateReviewValidationDecorations: decorationController.updateReviewValidationDecorations,
     updateSemanticSymbolDecorations: decorationController.updateSemanticSymbolDecorations
   });
   const semanticTokensProvider = new EngSemanticTokensProvider(context, {
     isEngDocument,
     snapshotDocumentSource: lspRequests.snapshotDocumentSource,
     cacheSnapshotForDocument: (document, snapshot) => reviewCache.set(document.uri.fsPath, snapshot),
+    updateReviewValidationDecorations: decorationController.updateReviewValidationDecorations,
     updateSemanticSymbolDecorations: decorationController.updateSemanticSymbolDecorations,
     semanticLegend,
     semanticTokenTypes: SEMANTIC_TOKEN_TYPES,
@@ -189,6 +191,7 @@ function activate(context) {
       seen.add(candidateUri);
       reviewCache.delete(candidate.uri.fsPath);
       decorationController.updateReviewRiskDecorations(candidate, undefined);
+      decorationController.updateReviewValidationDecorations(candidate, undefined);
       decorationController.updateSemanticSymbolDecorations(candidate, undefined);
     }
   }
@@ -292,6 +295,9 @@ function activate(context) {
       if (event.affectsConfiguration("englang.reviewRiskDecorations.enabled")) {
         decorationController.refreshVisibleReviewRiskDecorations();
       }
+      if (event.affectsConfiguration("englang.validationDecorations.enabled")) {
+        decorationController.refreshVisibleReviewValidationDecorations();
+      }
       if (event.affectsConfiguration("englang.semanticHighlighting.enabled")) {
         semanticTokensProvider.refresh();
         decorationController.refreshVisibleSemanticSymbolDecorations();
@@ -312,6 +318,7 @@ function activate(context) {
       if (editor && isEngDocument(editor.document)) {
         const cached = reviewCache.get(editor.document.uri.fsPath);
         decorationController.updateReviewRiskDecorations(editor.document, cached);
+        decorationController.updateReviewValidationDecorations(editor.document, cached);
         decorationController.updateSemanticSymbolDecorations(editor.document, cached);
       }
       updateDiagnosticsStatusBar(editor?.document);

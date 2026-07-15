@@ -563,6 +563,15 @@ Fallback entries use the shared ReviewFallback record shape: `kind`, `category`,
 native module fallback facts, such as TimeSeries coverage gaps, to the same
 `review_document.fallbacks` array.
 
+Validation entries use one normalized shape across static Review JSON and live
+editor snapshots: `kind`, `target`, `expression`, `evaluation_phase`, `status`,
+`line`, and `source_span`. Lowered command validations are
+`pending_runtime`; class rules are `declared`; evaluated class-object rules are
+`pass`, `fail`, or `unresolved`. Object results include class, operand, observed
+value, and unit fields when available. Their `source_span` points to the object
+declaration while `rule_source_span` retains the class rule location. The root
+`validation_count` is the exact number of records in `validations`.
+
 The quick CLI view is:
 
 ```text

@@ -3737,6 +3737,7 @@ function Assert-VscodeExtensionContract {
     $ReviewPanelRendererPath = Join-Path $ExtensionRoot "reviewPanelRenderer.js"
     $CaseRunCompletionTestPath = Join-Path $ExtensionRoot "test\caseRunCompletion.test.js"
     $CodeActionsTestPath = Join-Path $ExtensionRoot "test\codeActions.test.js"
+    $DecorationsTestPath = Join-Path $ExtensionRoot "test\decorations.test.js"
     $DocumentHighlightsTestPath = Join-Path $ExtensionRoot "test\documentHighlights.test.js"
     $EditorRequestRaceTestPath = Join-Path $ExtensionRoot "test\editorRequestRace.test.js"
     $RenameTestPath = Join-Path $ExtensionRoot "test\rename.test.js"
@@ -3845,6 +3846,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $CodeActionsTestPath)) {
         throw "missing VS Code compiler code action smoke at $CodeActionsTestPath"
+    }
+    if (-not (Test-Path $DecorationsTestPath)) {
+        throw "missing VS Code review decoration smoke at $DecorationsTestPath"
     }
     if (-not (Test-Path $DocumentHighlightsTestPath)) {
         throw "missing VS Code semantic document highlight smoke at $DocumentHighlightsTestPath"
@@ -4254,7 +4258,7 @@ function Assert-VscodeExtensionContract {
         }
     }
     $Properties = $Package.contributes.configuration.properties
-    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsMode", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange", "englang.semanticHighlighting.enabled", "englang.reviewRiskDecorations.enabled")) {
+    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsMode", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange", "englang.semanticHighlighting.enabled", "englang.reviewRiskDecorations.enabled", "englang.validationDecorations.enabled")) {
         if ($null -eq $Properties.$RequiredProperty) {
             throw "VS Code extension missing configuration property $RequiredProperty"
         }
@@ -4396,6 +4400,10 @@ function Assert-VscodeExtensionContract {
     $RiskDecorationDescription = [string]$Properties."englang.reviewRiskDecorations.enabled".description
     if ($RiskDecorationDescription -notmatch "review risks") {
         throw "VS Code reviewRiskDecorations setting must describe review-risk markers"
+    }
+    $ValidationDecorationDescription = [string]$Properties."englang.validationDecorations.enabled".description
+    if ($ValidationDecorationDescription -notmatch "pass/fail" -or $ValidationDecorationDescription -notmatch "object declarations") {
+        throw "VS Code validationDecorations setting must describe evaluated object validation results"
     }
     $SemanticModifiers = @($Package.contributes.semanticTokenModifiers | ForEach-Object { $_.id })
     foreach ($RequiredSemanticModifier in @(
@@ -5067,6 +5075,7 @@ function Assert-VscodeExtensionContract {
         "live_typing_diagnostics_enabled",
         "semantic_highlighting",
         "review_risk_decorations",
+        "validation_decorations",
         "source_checkout_detected",
         "expected_vsix_path",
         "Package freshness: rebuild available",
@@ -5929,6 +5938,7 @@ function Assert-VscodeExtensionContract {
     foreach ($RequiredEditorRequestRaceTestToken in @(
         "latestDocumentCheckWins",
         "staleFailureDoesNotReplaceProblems",
+        "currentFailureClearsCachedReview",
         "clearingProblemsInvalidatesInFlightCheck",
         "callerCancellationDoesNotKillSharedSnapshot",
         "diskImportChangeUsesSelectedDiagnosticsMode",
@@ -5966,6 +5976,22 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing review risk decoration token $RequiredRiskDecorationToken"
         }
     }
+    foreach ($RequiredValidationDecorationToken in @(
+        "createReviewValidationDecorationTypes",
+        "updateReviewValidationDecorations",
+        "refreshVisibleReviewValidationDecorations",
+        "reviewValidationDecorationOptions",
+        "reviewValidationHoverMessage",
+        "englang.validationDecorations.enabled",
+        "validation passed",
+        "validation failed",
+        "testing.iconPassed",
+        "testing.iconFailed"
+    )) {
+        if (-not $DecorationSourceCombined.Contains($RequiredValidationDecorationToken)) {
+            throw "VS Code extension missing validation decoration token $RequiredValidationDecorationToken"
+        }
+    }
     $SemanticSymbolDecorationSource = $ExtensionSource + "`n" + $DecorationsSource + "`n" + $LspSemanticTokensSource
     foreach ($RequiredSemanticSymbolDecorationToken in @(
         "createSemanticSymbolDecorationTypes",
@@ -5984,11 +6010,15 @@ function Assert-VscodeExtensionContract {
     }
     foreach ($ForbiddenDecorationEntrypointToken in @(
         "function createReviewRiskDecorationTypes",
+        "function createReviewValidationDecorationTypes",
         "function createSemanticSymbolDecorationTypes",
         "function refreshVisibleReviewRiskDecorations",
+        "function refreshVisibleReviewValidationDecorations",
         "function semanticSymbolDecorationOptions",
         "function semanticSymbolHoverMessage",
         "function reviewRiskDecorationOptions",
+        "function reviewValidationDecorationOptions",
+        "function reviewValidationHoverMessage",
         "function setReviewRiskDecorationLine",
         "function fullLineRange"
     )) {
@@ -6888,6 +6918,7 @@ function Assert-VscodeExtensionContract {
         $ReviewPanelRendererPath,
         $CaseRunCompletionTestPath,
         $CodeActionsTestPath,
+        $DecorationsTestPath,
         $DocumentHighlightsTestPath,
         $EditorRequestRaceTestPath,
         $RenameTestPath,
@@ -6897,6 +6928,7 @@ function Assert-VscodeExtensionContract {
     Invoke-JavaScriptSyntaxCheck -Paths $VscodeJavaScriptPaths -Label "VS Code extension"
     Invoke-JavaScriptProgram -Path $CaseRunCompletionTestPath -Label "VS Code native case run completion smoke"
     Invoke-JavaScriptProgram -Path $CodeActionsTestPath -Label "VS Code compiler code action smoke"
+    Invoke-JavaScriptProgram -Path $DecorationsTestPath -Label "VS Code review decoration smoke"
     Invoke-JavaScriptProgram -Path $DocumentHighlightsTestPath -Label "VS Code semantic document highlight smoke"
     Invoke-JavaScriptProgram -Path $EditorRequestRaceTestPath -Label "VS Code editor request race smoke"
     Invoke-JavaScriptProgram -Path $RenameTestPath -Label "VS Code semantic rename smoke"

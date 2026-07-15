@@ -180,6 +180,83 @@ impl ReviewFallbackRecord {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ReviewSourceSpan {
+    pub line: usize,
+    pub column: usize,
+}
+
+impl ReviewSourceSpan {
+    fn to_json_value(self) -> serde_json::Value {
+        serde_json::json!({
+            "line": self.line,
+            "column": self.column
+        })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReviewValidationRecord {
+    pub kind: String,
+    pub target: String,
+    pub expression: String,
+    pub evaluation_phase: String,
+    pub status: String,
+    pub compiler_status: Option<String>,
+    pub class_name: Option<String>,
+    pub left: Option<String>,
+    pub operator: Option<String>,
+    pub right: Option<String>,
+    pub left_value: Option<String>,
+    pub right_value: Option<String>,
+    pub unit: Option<String>,
+    pub line: usize,
+    pub source_span: ReviewSourceSpan,
+    pub rule_source_span: Option<ReviewSourceSpan>,
+}
+
+impl ReviewValidationRecord {
+    pub fn to_json_value(&self) -> serde_json::Value {
+        let mut value = serde_json::json!({
+            "kind": &self.kind,
+            "target": &self.target,
+            "expression": &self.expression,
+            "evaluation_phase": &self.evaluation_phase,
+            "status": &self.status,
+            "line": self.line,
+            "source_span": self.source_span.to_json_value()
+        });
+        let object = value
+            .as_object_mut()
+            .expect("review validation JSON must be an object");
+        insert_optional_json_string(object, "compiler_status", self.compiler_status.as_deref());
+        insert_optional_json_string(object, "class_name", self.class_name.as_deref());
+        insert_optional_json_string(object, "left", self.left.as_deref());
+        insert_optional_json_string(object, "operator", self.operator.as_deref());
+        insert_optional_json_string(object, "right", self.right.as_deref());
+        insert_optional_json_string(object, "left_value", self.left_value.as_deref());
+        insert_optional_json_string(object, "right_value", self.right_value.as_deref());
+        insert_optional_json_string(object, "unit", self.unit.as_deref());
+        if let Some(rule_source_span) = self.rule_source_span {
+            object.insert(
+                "rule_source_span".to_owned(),
+                rule_source_span.to_json_value(),
+            );
+        }
+        value
+    }
+}
+
+fn insert_optional_json_string(
+    object: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: Option<&str>,
+) {
+    if let Some(value) = value {
+        object.insert(key.to_owned(), serde_json::Value::String(value.to_owned()));
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ReviewRiskClassification {
     pub category: &'static str,
     pub severity: &'static str,
@@ -5243,21 +5320,7 @@ fn push_review_document_json(json: &mut String, report: &CheckReport) {
     } else {
         "metadata_ready"
     };
-    let validation_count = program
-        .command_styles
-        .iter()
-        .filter(|command| command.verb == "validate")
-        .count()
-        + program
-            .classes
-            .iter()
-            .map(|class| class.validations.len())
-            .sum::<usize>()
-        + program
-            .class_objects
-            .iter()
-            .map(|object| object.validations.len())
-            .sum::<usize>();
+    let validation_count = review_validation_records(report).len();
     let side_effect_count = program.writes.len()
         + program.file_operations.len()
         + program.csv_exports.len()
@@ -7119,57 +7182,113 @@ fn push_review_report_outputs_json(json: &mut String, report: &CheckReport) {
     json.push_str("\n    ],\n");
 }
 
-fn push_review_validations_json(json: &mut String, report: &CheckReport) {
-    json.push_str("    \"validations\": [\n");
-    let mut first = true;
+pub fn review_validation_records(report: &CheckReport) -> Vec<ReviewValidationRecord> {
+    let mut records = Vec::new();
     for command in report
         .semantic_program
         .command_styles
         .iter()
         .filter(|command| command.verb == "validate")
     {
-        push_review_comma(json, &mut first);
-        json.push_str("      {\n");
-        json.push_str("        \"kind\": \"command_validation\",\n");
-        json.push_str(&format!(
-            "        \"expression\": \"{}\",\n",
-            json_escape(&command.target)
-        ));
-        json.push_str(&format!(
-            "        \"status\": \"{}\",\n",
-            json_escape(&command.status)
-        ));
-        json.push_str(&format!("        \"line\": {},\n", command.line));
-        write_source_span_json(json, "        ", command.line, &report.source_lines, false);
-        json.push('\n');
-        json.push_str("      }");
+        records.push(ReviewValidationRecord {
+            kind: "command_validation".to_owned(),
+            target: command.target.clone(),
+            expression: command.target.clone(),
+            evaluation_phase: "runtime".to_owned(),
+            status: if command.status == "lowered" {
+                "pending_runtime".to_owned()
+            } else {
+                "invalid".to_owned()
+            },
+            compiler_status: Some(command.status.clone()),
+            class_name: None,
+            left: None,
+            operator: None,
+            right: None,
+            left_value: None,
+            right_value: None,
+            unit: None,
+            line: command.line,
+            source_span: review_source_span(report, command.line),
+            rule_source_span: None,
+        });
     }
     for class in &report.semantic_program.classes {
         for validation in &class.validations {
-            push_review_comma(json, &mut first);
-            json.push_str("      {\n");
-            json.push_str("        \"kind\": \"class_validation\",\n");
-            json.push_str(&format!(
-                "        \"expression\": \"{}\",\n",
-                json_escape(&validation.expression)
-            ));
-            json.push_str(&format!(
-                "        \"status\": \"{}\",\n",
-                json_escape(&validation.status)
-            ));
-            json.push_str(&format!("        \"line\": {},\n", validation.line));
-            write_source_span_json(
-                json,
-                "        ",
-                validation.line,
-                &report.source_lines,
-                false,
-            );
-            json.push('\n');
-            json.push_str("      }");
+            records.push(ReviewValidationRecord {
+                kind: "class_validation".to_owned(),
+                target: class.name.clone(),
+                expression: validation.expression.clone(),
+                evaluation_phase: "static".to_owned(),
+                status: validation.status.clone(),
+                compiler_status: None,
+                class_name: Some(class.name.clone()),
+                left: Some(validation.left.clone()),
+                operator: Some(validation.operator.clone()),
+                right: Some(validation.right.clone()),
+                left_value: None,
+                right_value: None,
+                unit: None,
+                line: validation.line,
+                source_span: review_source_span(report, validation.line),
+                rule_source_span: None,
+            });
         }
     }
+    for object in &report.semantic_program.class_objects {
+        for validation in &object.validations {
+            records.push(ReviewValidationRecord {
+                kind: "class_object_validation".to_owned(),
+                target: object.name.clone(),
+                expression: validation.expression.clone(),
+                evaluation_phase: "static".to_owned(),
+                status: validation.status.clone(),
+                compiler_status: None,
+                class_name: Some(object.class_name.clone()),
+                left: Some(validation.left.clone()),
+                operator: Some(validation.operator.clone()),
+                right: Some(validation.right.clone()),
+                left_value: validation.left_value.clone(),
+                right_value: validation.right_value.clone(),
+                unit: Some(validation.unit.clone()),
+                line: object.line,
+                source_span: review_source_span(report, object.line),
+                rule_source_span: Some(review_source_span(report, validation.line)),
+            });
+        }
+    }
+    records
+}
+
+fn review_source_span(report: &CheckReport, line: usize) -> ReviewSourceSpan {
+    ReviewSourceSpan {
+        line,
+        column: source_span_column(&report.source_lines, line),
+    }
+}
+
+fn push_review_validations_json(json: &mut String, report: &CheckReport) {
+    json.push_str("    \"validations\": [\n");
+    for (index, record) in review_validation_records(report).iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        push_indented_json_value(json, &record.to_json_value(), 6);
+    }
     json.push_str("\n    ],\n");
+}
+
+fn push_indented_json_value(json: &mut String, value: &serde_json::Value, indent: usize) {
+    let spaces = " ".repeat(indent);
+    let serialized = serde_json::to_string_pretty(value)
+        .expect("review JSON values must serialize without failure");
+    for (index, line) in serialized.lines().enumerate() {
+        if index > 0 {
+            json.push('\n');
+        }
+        json.push_str(&spaces);
+        json.push_str(line);
+    }
 }
 
 fn push_review_side_effects_json(json: &mut String, report: &CheckReport) {
@@ -10058,6 +10177,32 @@ system Envelope {
             .expect("class validation review row");
         assert_eq!(class_validation["source_span"]["line"].as_u64(), Some(6));
         assert_eq!(class_validation["source_span"]["column"].as_u64(), Some(9));
+        let validations = value["review_document"]["validations"]
+            .as_array()
+            .expect("normalized validation rows");
+        assert_eq!(validations.len(), 6);
+        assert_eq!(
+            value["review_document"]["root_contract"]["validation_count"].as_u64(),
+            Some(validations.len() as u64)
+        );
+        let wall_validation = validations
+            .iter()
+            .find(|validation| {
+                validation["kind"] == "class_object_validation"
+                    && validation["target"] == "wall"
+                    && validation["expression"] == "u_value > 0 W/K"
+            })
+            .expect("evaluated wall validation review row");
+        assert_eq!(wall_validation["status"].as_str(), Some("pass"));
+        assert_eq!(wall_validation["evaluation_phase"].as_str(), Some("static"));
+        assert_eq!(
+            wall_validation["source_span"]["line"].as_u64(),
+            Some(report.semantic_program.class_objects[0].line as u64)
+        );
+        assert_eq!(
+            wall_validation["rule_source_span"]["line"].as_u64(),
+            Some(6)
+        );
     }
 
     #[test]
@@ -10077,6 +10222,19 @@ system Envelope {
             report.semantic_program.class_objects[0].validations[0].status,
             "fail"
         );
+        let review: serde_json::Value =
+            serde_json::from_str(&review_json(&report)).expect("failed validation review JSON");
+        let validation = review["review_document"]["validations"]
+            .as_array()
+            .and_then(|validations| {
+                validations.iter().find(|validation| {
+                    validation["kind"] == "class_object_validation" && validation["target"] == "bad"
+                })
+            })
+            .expect("failed object validation review row");
+        assert_eq!(validation["status"].as_str(), Some("fail"));
+        assert_eq!(validation["source_span"]["line"].as_u64(), Some(8));
+        assert_eq!(validation["rule_source_span"]["line"].as_u64(), Some(4));
     }
 
     #[test]
@@ -13506,6 +13664,30 @@ write csv "outputs/q.csv", Q
                 .pointer("/review_document/validations/0/source_span/column")
                 .and_then(serde_json::Value::as_u64),
             Some(1)
+        );
+        assert_eq!(
+            value
+                .pointer("/review_document/validations/0/target")
+                .and_then(serde_json::Value::as_str),
+            Some("x > 0 m")
+        );
+        assert_eq!(
+            value
+                .pointer("/review_document/validations/0/evaluation_phase")
+                .and_then(serde_json::Value::as_str),
+            Some("runtime")
+        );
+        assert_eq!(
+            value
+                .pointer("/review_document/validations/0/status")
+                .and_then(serde_json::Value::as_str),
+            Some("pending_runtime")
+        );
+        assert_eq!(
+            value
+                .pointer("/review_document/validations/0/compiler_status")
+                .and_then(serde_json::Value::as_str),
+            Some("lowered")
         );
         assert!(value
             .pointer("/review_document/risks")
