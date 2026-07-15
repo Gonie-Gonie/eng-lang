@@ -155,11 +155,16 @@ Advanced panels
 
 Bottom Panel
   Problems and Terminal tabs. Problems can be filtered by severity, diagnostic
-  code, free text, or line; clicking a row jumps to its source line. Copy at
-  cursor copies the current or nearest same-line diagnostic, the row Copy action
-  copies that diagnostic, and Copy visible copies the current filtered list with
-  file, line, column, range, source line, severity, code, message, and help text
-  for sharing or issue notes.
+  code, free text, or line; clicking a row jumps to its source line. Quick Fix...
+  on a row, Quick Fix at cursor, or Ctrl+. requests compiler-provided repairs
+  for the exact diagnostic from the current unsaved buffer. A single repair is
+  applied immediately; multiple repairs open a choice dialog. The IDE accepts
+  only bounded, non-overlapping UTF-16 edits for the current file, rejects stale
+  buffers or other-file edits, and leaves the repaired buffer modified until
+  Save or Save All. Copy at cursor copies the current or nearest same-line
+  diagnostic, the row Copy action copies that diagnostic, and Copy visible
+  copies the current filtered list with file, line, column, range, source line,
+  severity, code, message, and help text for sharing or issue notes.
   The Terminal uses an EngLang prompt, supports `clear`, `reset`, `check`,
   `run`, and one-line top-level commands. Terminal history is append-only
   during normal use, so diagnostics and prior output do not disappear when the

@@ -17,6 +17,8 @@ use serde_json::{json, Value};
 use tauri::State;
 
 const MAX_NATIVE_IDE_RENAME_EDITS: usize = 1_000;
+const MAX_NATIVE_IDE_CODE_ACTIONS: usize = 256;
+const MAX_NATIVE_IDE_CODE_ACTION_EDITS: usize = 1_000;
 
 #[derive(Default)]
 struct IdeState {
@@ -398,6 +400,18 @@ fn ide_check(path: String, source: String) -> CheckView {
 }
 
 #[tauri::command]
+fn ide_code_actions(path: String, source: String) -> Result<Value, String> {
+    let output = run_lsp_source_query(
+        &path,
+        &source,
+        "--code-actions-stdin",
+        "Quick fix lookup",
+        &[],
+    )?;
+    parse_code_actions_output(&output)
+}
+
+#[tauri::command]
 fn ide_definition(
     path: String,
     source: String,
@@ -514,15 +528,25 @@ fn run_lsp_position_query_with_args(
     operation: &str,
     extra_arguments: &[String],
 ) -> Result<Vec<u8>, String> {
+    let mut arguments = vec![line.to_string(), character.to_string()];
+    arguments.extend(extra_arguments.iter().cloned());
+    run_lsp_source_query(path, source, command, operation, &arguments)
+}
+
+fn run_lsp_source_query(
+    path: &str,
+    source: &str,
+    command: &str,
+    operation: &str,
+    arguments: &[String],
+) -> Result<Vec<u8>, String> {
     let root = workspace_root();
     let source_path = resolve_path(&root, path);
     let runtime = bundled_lsp_executable()?;
     let mut child = Command::new(&runtime)
         .arg(command)
         .arg(&source_path)
-        .arg(line.to_string())
-        .arg(character.to_string())
-        .args(extra_arguments)
+        .args(arguments)
         .current_dir(&root)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -841,6 +865,7 @@ fn main() {
             ide_open_file,
             ide_save_file,
             ide_check,
+            ide_code_actions,
             ide_definition,
             ide_document_highlights,
             ide_references,
@@ -2706,6 +2731,82 @@ fn parse_references_output(output: &[u8]) -> Result<Value, String> {
     Ok(value)
 }
 
+fn parse_code_actions_output(output: &[u8]) -> Result<Value, String> {
+    let value = serde_json::from_slice::<Value>(output)
+        .map_err(|error| format!("Could not read quick fix result: {error}"))?;
+    value
+        .get("uri")
+        .and_then(Value::as_str)
+        .filter(|uri| uri.starts_with("file://"))
+        .ok_or_else(|| "Quick fix lookup returned a non-file document URI.".to_owned())?;
+    let actions = value
+        .get("actions")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "Quick fix lookup returned an invalid action list.".to_owned())?;
+    if actions.len() > MAX_NATIVE_IDE_CODE_ACTIONS {
+        return Err(format!(
+            "Quick fix lookup exceeded the {MAX_NATIVE_IDE_CODE_ACTIONS}-action native IDE safety limit."
+        ));
+    }
+
+    let mut edit_count = 0usize;
+    for action in actions {
+        if action
+            .get("title")
+            .and_then(Value::as_str)
+            .filter(|title| !title.trim().is_empty())
+            .is_none()
+            || action.get("kind").and_then(Value::as_str) != Some("quickfix")
+        {
+            return Err("Quick fix lookup returned an incomplete action.".to_owned());
+        }
+        let diagnostics = action
+            .get("diagnostics")
+            .and_then(Value::as_array)
+            .filter(|diagnostics| !diagnostics.is_empty())
+            .ok_or_else(|| "Quick fix action did not identify a diagnostic.".to_owned())?;
+        for diagnostic in diagnostics {
+            if diagnostic
+                .get("code")
+                .and_then(Value::as_str)
+                .filter(|code| !code.is_empty())
+                .is_none()
+                || !non_empty_lsp_range(diagnostic.get("range"))
+            {
+                return Err("Quick fix action returned an incomplete diagnostic.".to_owned());
+            }
+        }
+        let changes = action
+            .pointer("/edit/changes")
+            .and_then(Value::as_object)
+            .filter(|changes| !changes.is_empty())
+            .ok_or_else(|| "Quick fix action returned no text edits.".to_owned())?;
+        for (edit_uri, edits) in changes {
+            if !edit_uri.starts_with("file://") {
+                return Err("Quick fix action returned a non-file edit URI.".to_owned());
+            }
+            let edits = edits
+                .as_array()
+                .filter(|edits| !edits.is_empty())
+                .ok_or_else(|| "Quick fix action returned an empty edit list.".to_owned())?;
+            for edit in edits {
+                if edit.get("newText").and_then(Value::as_str).is_none()
+                    || !complete_lsp_range(edit.get("range"))
+                {
+                    return Err("Quick fix action returned an incomplete text edit.".to_owned());
+                }
+                edit_count += 1;
+                if edit_count > MAX_NATIVE_IDE_CODE_ACTION_EDITS {
+                    return Err(format!(
+                        "Quick fix lookup exceeded the {MAX_NATIVE_IDE_CODE_ACTION_EDITS}-edit native IDE safety limit."
+                    ));
+                }
+            }
+        }
+    }
+    Ok(value)
+}
+
 fn parse_prepare_rename_output(output: &[u8]) -> Result<Value, String> {
     let value = serde_json::from_slice::<Value>(output)
         .map_err(|error| format!("Could not read rename preparation result: {error}"))?;
@@ -2763,8 +2864,24 @@ fn parse_rename_output(output: &[u8]) -> Result<Value, String> {
 }
 
 fn non_empty_lsp_range(range: Option<&Value>) -> bool {
-    let Some(range) = range else {
+    let Some([start_line, start_character, end_line, end_character]) = lsp_range_coordinates(range)
+    else {
         return false;
+    };
+    end_line > start_line || (end_line == start_line && end_character > start_character)
+}
+
+fn complete_lsp_range(range: Option<&Value>) -> bool {
+    let Some([start_line, start_character, end_line, end_character]) = lsp_range_coordinates(range)
+    else {
+        return false;
+    };
+    end_line > start_line || (end_line == start_line && end_character >= start_character)
+}
+
+fn lsp_range_coordinates(range: Option<&Value>) -> Option<[u64; 4]> {
+    let Some(range) = range else {
+        return None;
     };
     let coordinates = [
         "/start/line",
@@ -2776,9 +2893,9 @@ fn non_empty_lsp_range(range: Option<&Value>) -> bool {
     let [Some(start_line), Some(start_character), Some(end_line), Some(end_character)] =
         coordinates
     else {
-        return false;
+        return None;
     };
-    end_line > start_line || (end_line == start_line && end_character > start_character)
+    Some([start_line, start_character, end_line, end_character])
 }
 
 fn workspace_root() -> PathBuf {
@@ -4253,23 +4370,31 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "function currentWorkspaceReferences()",
         "function bindWorkspaceReferenceButtons(root)",
         "function openWorkspaceReferenceLocation(reference)",
+        "function requestProblemQuickFix(diag)",
+        "function codeActionPlansForProblem(payload, diag, request)",
+        "function applyProblemQuickFix(plan, request)",
+        "function applyCodeActionTextEdits(source, edits)",
         "function startSemanticRename()",
         "function workspaceRenamePlan(payload, newName, originPath = state.currentPath)",
         "function applyWorkspaceTextEdits(source, edits, expectedText)",
         "function saveAllDirtyTabs()",
         "saveAllBtn",
+        "quickFixBackdrop",
         "renameBackdrop",
         "function documentHighlightKindForToken(token, lineIndex)",
         r#"call("ide_document_highlights", request)"#,
         r#"call("ide_references", request)"#,
+        r#"call("ide_code_actions", request)"#,
         r#"call("ide_prepare_rename", request)"#,
         r#"call("ide_rename", { ...pending.request, newName })"#,
         "data-show-document-highlights",
         "data-workspace-reference-uri",
+        "data-quick-fix-problem-index",
         "data-rename-symbol",
         "Save other modified EngLang files before workspace reference search",
         "Save other modified EngLang files before workspace rename",
         r#"event.key === "F2""#,
+        r#"String(event.key || "") === ".""#,
         r#"event.key === "F12" && event.shiftKey"#,
         "const LIVE_CHECK_DELAY_MS = 350;",
         "function scheduleLiveCheck()",
@@ -4402,6 +4527,11 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "ide_references",
         "--references-stdin",
         "parse_references_output",
+        "ide_code_actions",
+        "--code-actions-stdin",
+        "run_lsp_source_query",
+        "parse_code_actions_output",
+        "code_action_output_accepts_diagnostic_bound_insertions",
         "ide_prepare_rename",
         "--prepare-rename-stdin",
         "parse_prepare_rename_output",
@@ -4821,6 +4951,66 @@ with {
         )
         .unwrap_err();
         assert!(partial.contains("incomplete text edit"));
+    }
+
+    #[test]
+    fn code_action_output_accepts_diagnostic_bound_insertions() {
+        let payload = json!({
+            "format": "eng-lsp-snapshot-v1",
+            "uri": "file:///C:/workspace/main.eng",
+            "actions": [{
+                "title": "Annotate power as HeatRate [kW]",
+                "kind": "quickfix",
+                "isPreferred": true,
+                "diagnostics": [{
+                    "code": "W-QTY-AMBIG-001",
+                    "range": {
+                        "start": { "line": 0, "character": 0 },
+                        "end": { "line": 0, "character": 5 }
+                    }
+                }],
+                "edit": {
+                    "changes": {
+                        "file:///C:/workspace/main.eng": [{
+                            "range": {
+                                "start": { "line": 0, "character": 5 },
+                                "end": { "line": 0, "character": 5 }
+                            },
+                            "newText": ": HeatRate [kW]"
+                        }]
+                    }
+                }
+            }]
+        });
+        assert_eq!(
+            parse_code_actions_output(payload.to_string().as_bytes()).unwrap(),
+            payload
+        );
+
+        let empty = json!({
+            "format": "eng-lsp-snapshot-v1",
+            "uri": "file:///C:/workspace/main.eng",
+            "actions": []
+        });
+        assert_eq!(
+            parse_code_actions_output(empty.to_string().as_bytes()).unwrap(),
+            empty
+        );
+    }
+
+    #[test]
+    fn code_action_output_rejects_unbound_or_non_file_edits() {
+        let unbound = parse_code_actions_output(
+            br#"{"uri":"file:///C:/workspace/main.eng","actions":[{"title":"Fix","kind":"quickfix","diagnostics":[],"edit":{"changes":{"file:///C:/workspace/main.eng":[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":0}},"newText":"value"}]}}}]}"#,
+        )
+        .unwrap_err();
+        assert!(unbound.contains("did not identify a diagnostic"));
+
+        let non_file = parse_code_actions_output(
+            br#"{"uri":"file:///C:/workspace/main.eng","actions":[{"title":"Fix","kind":"quickfix","diagnostics":[{"code":"E-TEST","range":{"start":{"line":0,"character":0},"end":{"line":0,"character":1}}}],"edit":{"changes":{"https://example.com/main.eng":[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":1}},"newText":"x"}]}}}]}"#,
+        )
+        .unwrap_err();
+        assert!(non_file.contains("non-file edit URI"));
     }
 
     #[test]

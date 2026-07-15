@@ -185,6 +185,46 @@ button:hover {
   visibility: hidden;
 }
 
+.quick-fix-dialog {
+  width: min(560px, calc(100vw - 40px));
+}
+
+.quick-fix-diagnostic {
+  margin: 10px 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.quick-fix-options {
+  display: grid;
+  gap: 5px;
+  max-height: min(320px, 45vh);
+  overflow: auto;
+}
+
+.quick-fix-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 34px;
+  padding: 7px 9px;
+  border-radius: 3px;
+  text-align: left;
+}
+
+.quick-fix-option.preferred {
+  border-color: var(--accent);
+}
+
+.quick-fix-option span {
+  color: var(--accent);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .shell {
   display: grid;
   height: 100%;
@@ -1745,7 +1785,8 @@ button:hover {
   margin-top: 4px;
 }
 
-.problem-copy-button {
+.problem-copy-button,
+.problem-quick-fix-button {
   font-size: 11px;
 }
 

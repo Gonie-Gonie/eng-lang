@@ -145,6 +145,7 @@ const state = {
   editorFindQuery: "",
   editorFindCaseSensitive: false,
   editorFindMatchIndex: -1,
+  pendingQuickFix: null,
   pendingRename: null,
   pendingTabClose: null,
   pendingWindowClose: false,
@@ -160,6 +161,7 @@ let liveCheckRevision = 0;
 let navigationRevision = 0;
 let definitionRequestRevision = 0;
 let documentHighlightRequestRevision = 0;
+let quickFixRequestRevision = 0;
 let renameRequestRevision = 0;
 let nativeAppWindow = null;
 let nativeCloseListenerBound = false;
@@ -1071,6 +1073,10 @@ function bindProblemActions(root) {
   if (copyVisibleProblemsBtn) copyVisibleProblemsBtn.onclick = copyVisibleProblems;
   const copyCursorProblemBtn = root.querySelector("#copyCursorProblemBtn");
   if (copyCursorProblemBtn) copyCursorProblemBtn.onclick = copyCursorProblem;
+  const quickFixCursorProblemBtn = root.querySelector("#quickFixCursorProblemBtn");
+  if (quickFixCursorProblemBtn) {
+    quickFixCursorProblemBtn.onclick = () => void requestCursorProblemQuickFix();
+  }
   root.querySelectorAll("[data-problem-line]").forEach((row) => {
     row.onclick = (event) => {
       if (event.target.closest("button")) return;
@@ -1081,6 +1087,12 @@ function bindProblemActions(root) {
     button.onclick = (event) => {
       event.stopPropagation();
       copyProblemDiagnostic(Number(button.dataset.copyProblemIndex || -1));
+    };
+  });
+  root.querySelectorAll("[data-quick-fix-problem-index]").forEach((button) => {
+    button.onclick = (event) => {
+      event.stopPropagation();
+      void requestProblemQuickFixByIndex(Number(button.dataset.quickFixProblemIndex || -1));
     };
   });
 }
@@ -1816,7 +1828,7 @@ async function switchTab(path) {
 function syncDialogInert() {
   const app = byId("app");
   if (app) app.inert = Boolean(
-    state.pendingRename || state.pendingTabClose || state.pendingWindowClose
+    state.pendingQuickFix || state.pendingRename || state.pendingTabClose || state.pendingWindowClose
   );
 }
 
@@ -7012,7 +7024,7 @@ async function openWorkspaceReferenceLocation(reference) {
 }
 
 async function startSemanticRename() {
-  if (state.pendingRename) return false;
+  if (state.pendingQuickFix || state.pendingRename) return false;
   const editor = byId("editor");
   const request = editorDefinitionRequest(editor);
   if (!request) return false;
@@ -8716,7 +8728,7 @@ function renderProblems() {
       <td><code>${escapeHtml(diag.code)}</code></td>
       <td>
         <div class="problem-message">${escapeHtml(diag.message)}${diag.help ? `<div class="muted">help: ${escapeHtml(diag.help)}</div>` : ""}</div>
-        <div class="problem-actions">${problemCopyButton(index)}</div>
+        <div class="problem-actions">${problemQuickFixButton(index)} ${problemCopyButton(index)}</div>
       </td>
     </tr>
   `).join("");
@@ -8736,6 +8748,7 @@ function renderProblems() {
         </select>
         <input id="problemQueryInput" class="problem-query" value="${escapeAttr(state.problemQuery)}" placeholder="Filter diagnostics" title="Filter by code, message, help, line, or column" />
         <button id="clearProblemFilters">Clear</button>
+        <button id="quickFixCursorProblemBtn" title="Apply a compiler quick fix to the current or nearest same-line diagnostic" ${diagnostics.length ? "" : "disabled"}>Quick Fix at cursor</button>
         <button id="copyCursorProblemBtn" title="Copy current or nearest same-line diagnostic" ${diagnostics.length ? "" : "disabled"}>Copy at cursor</button>
         <button id="copyVisibleProblemsBtn" title="Copy filtered diagnostics" ${filtered.length ? "" : "disabled"}>Copy visible</button>
         <span class="muted">${filtered.length} of ${diagnostics.length}</span>
@@ -8795,6 +8808,294 @@ function problemSeverityLabel(severity, diagnostics) {
 
 function problemCopyButton(index) {
   return `<button class="link-button problem-copy-button" data-copy-problem-index="${escapeAttr(index)}" title="Copy diagnostic details">Copy</button>`;
+}
+
+function problemQuickFixButton(index) {
+  return `<button class="link-button problem-quick-fix-button" data-quick-fix-problem-index="${escapeAttr(index)}" title="Find compiler quick fixes for this diagnostic">Quick Fix...</button>`;
+}
+
+async function requestProblemQuickFixByIndex(index) {
+  const diagnostics = state.check.diagnostics || [];
+  const diag = filteredProblems(activeProblemCode(diagnostics))[index];
+  if (!diag) {
+    setStatus("Problem no longer available");
+    return false;
+  }
+  return await requestProblemQuickFix(diag);
+}
+
+async function requestCursorProblemQuickFix() {
+  const match = problemAtCursor();
+  if (!match) {
+    setStatus("No same-line problem at the cursor");
+    return false;
+  }
+  return await requestProblemQuickFix(match.diag);
+}
+
+async function requestProblemQuickFix(diag) {
+  if (state.pendingQuickFix || state.pendingRename) return false;
+  if (state.highlightSource !== state.source) {
+    setStatus("Analyze the current buffer before requesting a quick fix");
+    scheduleLiveCheck();
+    return false;
+  }
+  if (!problemDiagnosticLspRange(diag)) {
+    setStatus("Problem does not have a complete source range");
+    return false;
+  }
+  rememberCurrentTab();
+  const request = { path: state.currentPath, source: state.source };
+  const revision = ++quickFixRequestRevision;
+  setStatus(`Finding quick fixes for ${diag.code || "diagnostic"}...`);
+  try {
+    const payload = await call("ide_code_actions", request);
+    if (revision !== quickFixRequestRevision) return false;
+    if (!bufferRequestIsCurrent(request)) {
+      setStatus("Quick fix cancelled; buffer changed");
+      return false;
+    }
+    const plans = codeActionPlansForProblem(payload, diag, request);
+    if (!plans.length) {
+      setStatus(`No compiler quick fix for ${diag.code || "this diagnostic"}`);
+      return false;
+    }
+    if (plans.length === 1) return applyProblemQuickFix(plans[0], request);
+    openProblemQuickFixDialog({ request, diag, plans, revision });
+    return true;
+  } catch (error) {
+    if (revision !== quickFixRequestRevision) return false;
+    const message = String(error);
+    setStatus(message);
+    appendTerminal("error", message);
+    return false;
+  }
+}
+
+function codeActionPlansForProblem(payload, diag, request) {
+  const payloadPath = definitionWorkspacePath(definitionPathFromUri(payload?.uri));
+  if (!payloadPath || !sameDefinitionPath(payloadPath, request.path)) {
+    throw new Error("Quick fix response did not match the current file.");
+  }
+  const actions = payload?.actions;
+  if (!Array.isArray(actions)) throw new Error("Quick fix response did not contain an action list.");
+  if (actions.length > 256) throw new Error("Quick fix response exceeded the 256-action safety limit.");
+  return actions
+    .filter((action) => arrayOrEmpty(action?.diagnostics).some((candidate) =>
+      codeActionDiagnosticMatches(candidate, diag)
+    ))
+    .map((action) => codeActionPlan(action, request))
+    .sort((left, right) => Number(right.isPreferred) - Number(left.isPreferred) || left.title.localeCompare(right.title));
+}
+
+function codeActionPlan(action, request) {
+  const title = String(action?.title || "").trim();
+  if (!title || action?.kind !== "quickfix") {
+    throw new Error("Quick fix response contained an incomplete action.");
+  }
+  const changes = action?.edit?.changes;
+  const entries = changes && typeof changes === "object" && !Array.isArray(changes)
+    ? Object.entries(changes)
+    : [];
+  if (entries.length !== 1) {
+    throw new Error("Native IDE quick fixes must edit only the current file.");
+  }
+  const [uri, rawEdits] = entries[0];
+  const targetPath = definitionWorkspacePath(definitionPathFromUri(uri));
+  if (!targetPath || !sameDefinitionPath(targetPath, request.path)) {
+    throw new Error("Quick fix attempted to edit a different file.");
+  }
+  if (!Array.isArray(rawEdits) || !rawEdits.length || rawEdits.length > 1000) {
+    throw new Error("Quick fix returned an invalid number of text edits.");
+  }
+  const edits = rawEdits.map((edit) => {
+    const range = codeActionTextEditRange(edit);
+    if (!range || typeof edit?.newText !== "string") {
+      throw new Error("Quick fix returned an incomplete text edit.");
+    }
+    return { range, newText: edit.newText };
+  });
+  return { title, isPreferred: action.isPreferred === true, edits };
+}
+
+function codeActionTextEditRange(edit) {
+  const start = edit?.range?.start;
+  const end = edit?.range?.end;
+  const range = {
+    start: { line: Number(start?.line), character: Number(start?.character) },
+    end: { line: Number(end?.line), character: Number(end?.character) }
+  };
+  if (
+    !Number.isInteger(range.start.line)
+    || !Number.isInteger(range.start.character)
+    || !Number.isInteger(range.end.line)
+    || !Number.isInteger(range.end.character)
+    || range.start.line < 0
+    || range.start.character < 0
+    || range.end.line < range.start.line
+    || (range.end.line === range.start.line && range.end.character < range.start.character)
+  ) {
+    return null;
+  }
+  return range;
+}
+
+function problemDiagnosticLspRange(diag) {
+  const line = Number(diag?.line) - 1;
+  const startCharacter = Number(diag?.startCharacter ?? diag?.start_character);
+  const endCharacter = Number(diag?.endCharacter ?? diag?.end_character);
+  if (
+    !Number.isInteger(line)
+    || line < 0
+    || !Number.isInteger(startCharacter)
+    || startCharacter < 0
+    || !Number.isInteger(endCharacter)
+    || endCharacter <= startCharacter
+  ) {
+    return null;
+  }
+  return {
+    start: { line, character: startCharacter },
+    end: { line, character: endCharacter }
+  };
+}
+
+function codeActionDiagnosticMatches(candidate, diag) {
+  const code = typeof candidate?.code === "string" ? candidate.code : candidate?.code?.value;
+  const range = codeActionTextEditRange(candidate);
+  const expected = problemDiagnosticLspRange(diag);
+  return code === diag?.code && range && expected && sameWorkspaceRange(range, expected);
+}
+
+function openProblemQuickFixDialog(pending) {
+  byId("quickFixBackdrop")?.remove();
+  state.pendingQuickFix = pending;
+  const backdrop = document.createElement("div");
+  backdrop.id = "quickFixBackdrop";
+  backdrop.className = "dialog-backdrop";
+  backdrop.innerHTML = `
+    <div class="unsaved-dialog quick-fix-dialog" role="dialog" aria-modal="true" aria-labelledby="quickFixTitle">
+      <h2 id="quickFixTitle">Quick Fix</h2>
+      <div class="unsaved-dialog-path" title="${escapeAttr(pending.request.path)}">${escapeHtml(pending.request.path)}</div>
+      <div class="quick-fix-diagnostic"><code>${escapeHtml(pending.diag.code || "diagnostic")}</code> ${escapeHtml(pending.diag.message || "")}</div>
+      <div class="quick-fix-options" role="list">
+        ${pending.plans.map((plan, index) => `
+          <button class="quick-fix-option ${plan.isPreferred ? "preferred" : ""}" data-quick-fix-plan-index="${escapeAttr(index)}" role="listitem">
+            ${escapeHtml(plan.title)}${plan.isPreferred ? `<span>Preferred</span>` : ""}
+          </button>
+        `).join("")}
+      </div>
+      <div class="unsaved-dialog-actions">
+        <button id="quickFixCancelBtn">Cancel</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  syncDialogInert();
+  backdrop.querySelectorAll("[data-quick-fix-plan-index]").forEach((button) => {
+    button.onclick = () => applyPendingProblemQuickFix(Number(button.dataset.quickFixPlanIndex || 0));
+  });
+  byId("quickFixCancelBtn").onclick = cancelProblemQuickFix;
+  backdrop.onclick = (event) => {
+    if (event.target === backdrop) cancelProblemQuickFix();
+  };
+  backdrop.querySelector("[data-quick-fix-plan-index]")?.focus();
+  setStatus(`${pending.plans.length} quick fixes for ${pending.diag.code || "diagnostic"}`);
+}
+
+function cancelProblemQuickFix() {
+  if (!state.pendingQuickFix) return;
+  quickFixRequestRevision += 1;
+  byId("quickFixBackdrop")?.remove();
+  state.pendingQuickFix = null;
+  syncDialogInert();
+  setStatus("Quick fix cancelled");
+  byId("editor")?.focus();
+}
+
+function closeProblemQuickFixDialog(pending) {
+  if (state.pendingQuickFix !== pending) return;
+  byId("quickFixBackdrop")?.remove();
+  state.pendingQuickFix = null;
+  syncDialogInert();
+}
+
+function applyPendingProblemQuickFix(index) {
+  const pending = state.pendingQuickFix;
+  const plan = pending?.plans?.[index];
+  if (!pending || !plan || pending.revision !== quickFixRequestRevision) return false;
+  closeProblemQuickFixDialog(pending);
+  try {
+    return applyProblemQuickFix(plan, pending.request);
+  } catch (error) {
+    const message = String(error);
+    setStatus(message);
+    appendTerminal("error", message);
+    return false;
+  }
+}
+
+function applyProblemQuickFix(plan, request) {
+  if (!bufferRequestIsCurrent(request)) {
+    throw new Error("Quick fix cancelled because the current buffer changed.");
+  }
+  const applied = applyCodeActionTextEdits(request.source, plan.edits);
+  if (applied.source === request.source) throw new Error("Quick fix did not change the current buffer.");
+  const tab = tabFor(request.path);
+  if (!tab || tab.source !== request.source) {
+    throw new Error("Quick fix cancelled because the current tab changed.");
+  }
+  state.source = applied.source;
+  state.dirty = true;
+  tab.source = applied.source;
+  tab.dirty = true;
+  quickFixRequestRevision += 1;
+  clearReferenceResults();
+  markCheckPending();
+  state.status = `Applied quick fix: ${plan.title}`;
+  render();
+  const editor = byId("editor");
+  const focus = applied.mappedEdits[0];
+  if (editor && focus) {
+    editor.focus();
+    editor.selectionStart = focus.newStart;
+    editor.selectionEnd = focus.newEnd;
+    syncEditorHighlightScroll();
+    updateEditorFindStatus();
+    updateCursorInsight();
+  }
+  scheduleLiveCheck();
+  return true;
+}
+
+function applyCodeActionTextEdits(source, edits) {
+  const normalized = edits.map((edit) => {
+    const start = sourceUtf16Offset(source, edit.range.start);
+    const end = sourceUtf16Offset(source, edit.range.end);
+    if (start === null || end === null || end < start || typeof edit.newText !== "string") {
+      throw new Error("Quick fix returned a source range outside the current file.");
+    }
+    return { ...edit, start, end };
+  }).sort((left, right) => left.start - right.start || left.end - right.end);
+  for (let index = 1; index < normalized.length; index += 1) {
+    const previous = normalized[index - 1];
+    const current = normalized[index];
+    if (current.start < previous.end || current.start === previous.start) {
+      throw new Error("Quick fix returned overlapping source edits.");
+    }
+  }
+  let cursor = 0;
+  let changed = "";
+  const mappedEdits = [];
+  for (const edit of normalized) {
+    changed += source.slice(cursor, edit.start);
+    const newStart = changed.length;
+    changed += edit.newText;
+    mappedEdits.push({ range: edit.range, newStart, newEnd: changed.length });
+    cursor = edit.end;
+  }
+  changed += source.slice(cursor);
+  return { source: changed, mappedEdits };
 }
 
 async function copyProblemDiagnostic(index) {
@@ -9136,13 +9437,25 @@ function bindSplitters() {
 }
 
 function handleGlobalKeyDown(event) {
+  const editorModalOpen = Boolean(
+    state.pendingQuickFix || state.pendingRename || state.pendingWindowClose || state.pendingTabClose
+  );
+  const quickFixShortcut = (event.ctrlKey || event.metaKey)
+    && !event.altKey
+    && !event.shiftKey
+    && String(event.key || "") === ".";
+  if (quickFixShortcut) {
+    event.preventDefault();
+    if (!editorModalOpen) void requestCursorProblemQuickFix();
+    return;
+  }
   const outlineShortcut = (event.ctrlKey || event.metaKey)
     && event.shiftKey
     && !event.altKey
     && String(event.key || "").toLowerCase() === "o";
   if (outlineShortcut) {
     event.preventDefault();
-    if (!state.pendingRename && !state.pendingWindowClose && !state.pendingTabClose) focusOutline();
+    if (!editorModalOpen) focusOutline();
     return;
   }
   const findShortcut = (event.ctrlKey || event.metaKey)
@@ -9150,7 +9463,7 @@ function handleGlobalKeyDown(event) {
     && String(event.key || "").toLowerCase() === "f";
   if (findShortcut) {
     event.preventDefault();
-    if (!state.pendingRename && !state.pendingWindowClose && !state.pendingTabClose) openEditorFind();
+    if (!editorModalOpen) openEditorFind();
     return;
   }
   const saveShortcut = (event.ctrlKey || event.metaKey)
@@ -9159,7 +9472,7 @@ function handleGlobalKeyDown(event) {
     && String(event.key || "").toLowerCase() === "s";
   if (saveShortcut) {
     event.preventDefault();
-    if (state.pendingRename) return;
+    if (state.pendingQuickFix || state.pendingRename) return;
     if (state.pendingWindowClose) void saveAllDirtyTabsAndClose();
     else if (state.pendingTabClose) void savePendingTabAndClose();
     else void saveCurrent();
@@ -9167,34 +9480,37 @@ function handleGlobalKeyDown(event) {
   }
   if (event.key === "F2" && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
     event.preventDefault();
-    if (!state.pendingRename && !state.pendingWindowClose && !state.pendingTabClose) {
+    if (!editorModalOpen) {
       void startSemanticRename();
     }
     return;
   }
   if (event.key === "F12" && event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
     event.preventDefault();
-    if (!state.pendingRename && !state.pendingWindowClose && !state.pendingTabClose) {
+    if (!editorModalOpen) {
       void showDocumentHighlightsAtCaret();
     }
     return;
   }
   if (event.key === "F12" && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
     event.preventDefault();
-    if (!state.pendingRename && !state.pendingWindowClose && !state.pendingTabClose) {
+    if (!editorModalOpen) {
       void goToDefinitionAtCaret();
     }
     return;
   }
   if (event.key === "F3" && !event.ctrlKey && !event.metaKey && !event.altKey) {
     event.preventDefault();
-    if (!state.pendingRename && !state.pendingWindowClose && !state.pendingTabClose) {
+    if (!editorModalOpen) {
       if (state.editorFindQuery) findEditorMatch(event.shiftKey ? -1 : 1);
       else openEditorFind();
     }
     return;
   }
-  if (event.key === "Escape" && state.pendingRename) {
+  if (event.key === "Escape" && state.pendingQuickFix) {
+    event.preventDefault();
+    cancelProblemQuickFix();
+  } else if (event.key === "Escape" && state.pendingRename) {
     event.preventDefault();
     cancelSemanticRename();
   } else if (event.key === "Escape" && state.pendingWindowClose) {
@@ -9221,7 +9537,7 @@ function handleBeforeUnload(event) {
 }
 
 function handleNativeWindowClose(event) {
-  if (state.pendingRename) {
+  if (state.pendingQuickFix || state.pendingRename) {
     event.preventDefault();
     return;
   }

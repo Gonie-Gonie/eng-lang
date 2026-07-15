@@ -4351,7 +4351,12 @@ function Assert-VscodeExtensionContract {
         "F2 or Rename prepares the symbol through the compiler",
         "remain open and modified until Save or Save All",
         "Other modified EngLang tabs must be saved before rename",
-        "toolbar Save All action"
+        "toolbar Save All action",
+        "Quick Fix at cursor, or Ctrl+. requests compiler-provided repairs",
+        "current unsaved buffer",
+        "rejects stale",
+        "other-file edits",
+        "leaves the repaired buffer modified until"
     )) {
         if (-not $NativeIdeHowtoSource.Contains($RequiredNativeIdeSafetyDocToken)) {
             throw "Native IDE user how-to missing editor safety contract: $RequiredNativeIdeSafetyDocToken"
@@ -7129,6 +7134,11 @@ function Invoke-IdeCheck {
         "documentHighlightKindForToken",
         "openWorkspaceReferenceLocation",
         "bindWorkspaceReferenceButtons",
+        "requestProblemQuickFix",
+        "codeActionPlansForProblem",
+        "codeActionPlan",
+        "applyProblemQuickFix",
+        "applyCodeActionTextEdits",
         "startSemanticRename",
         "submitSemanticRename",
         "workspaceRenamePlan",
@@ -7137,16 +7147,20 @@ function Invoke-IdeCheck {
         "sourceUtf16Offset",
         "saveAllDirtyTabs",
         "saveAllBtn",
+        "quickFixBackdrop",
         "renameBackdrop",
         "data-show-document-highlights",
         "data-workspace-reference-uri",
+        "data-quick-fix-problem-index",
         "data-rename-symbol",
         'call("ide_document_highlights", request)',
         'call("ide_references", request)',
+        'call("ide_code_actions", request)',
         'call("ide_prepare_rename", request)',
         'call("ide_rename", { ...pending.request, newName })',
         "Save other modified EngLang files before workspace reference search",
         "Save other modified EngLang files before workspace rename",
+        'String(event.key || "") === "."',
         'event.key === "F2"',
         'event.key === "F12" && event.shiftKey',
         "editorHighlight",
@@ -7694,7 +7708,7 @@ function Invoke-IdeCheck {
             throw "Native IDE CSS missing outline style $RequiredOutlineStyle"
         }
     }
-    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "problem-message", "problem-actions", "problem-copy-button", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-interpolation", "hl-constant", "hl-punctuation", "hl-mod-unit", "hl-mod-solver", "hl-mod-validation", "hl-mod-report", "hl-mod-sideEffect", "hl-mod-external", "hl-mod-riskHigh", "semantic-token-table", "highlight-coverage-table", ".semantic-token-table th:last-child", "token-chip", "--token-role-color", "token-filter-chip", "token-missing", "token-range-button", "cursor-insight", "variable-source-line", "button.danger", "dialog-backdrop", "unsaved-dialog", "unsaved-file-list", "unsaved-dialog-actions", "rename-dialog-input", "rename-dialog-error")) {
+    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "problem-message", "problem-actions", "problem-copy-button", "problem-quick-fix-button", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-interpolation", "hl-constant", "hl-punctuation", "hl-mod-unit", "hl-mod-solver", "hl-mod-validation", "hl-mod-report", "hl-mod-sideEffect", "hl-mod-external", "hl-mod-riskHigh", "semantic-token-table", "highlight-coverage-table", ".semantic-token-table th:last-child", "token-chip", "--token-role-color", "token-filter-chip", "token-missing", "token-range-button", "cursor-insight", "variable-source-line", "button.danger", "dialog-backdrop", "unsaved-dialog", "unsaved-file-list", "unsaved-dialog-actions", "quick-fix-dialog", "quick-fix-options", "quick-fix-option", "rename-dialog-input", "rename-dialog-error")) {
         if (-not $IdeUiStyles.Contains($RequiredIdeStyle)) {
             throw "Native IDE UI missing contract style $RequiredIdeStyle"
         }
@@ -7741,7 +7755,7 @@ function Invoke-IdeCheck {
         throw "Native IDE semantic token ranges must use LSP UTF-16 offsets directly"
     }
     $IdeMainSource = Get-Content -LiteralPath $TauriMainPath -Raw
-    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "document_symbols", "document_symbols_lsp_json", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_items", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completions_use_lsp_editor_items", "check_view_surfaces_lsp_semantic_tokens", "ide_definition", "--definition-stdin", "ide_document_highlights", "--document-highlights-stdin", "ide_prepare_rename", "--prepare-rename-stdin", "parse_prepare_rename_output", "ide_rename", "--rename-stdin", "parse_rename_output", "run_lsp_position_query", "parse_document_highlights_output", "bundled_lsp_executable", "parse_definition_output", "Stdio::piped()", "definition_output_accepts_null_and_complete_locations", "document_highlight_output_accepts_complete_read_and_write_ranges", "rename_output_accepts_complete_multi_file_edits", "one-line EngLang statement such as", "cd <dir>", "diagnostic_view_from_lsp", "diagnostic_view_from_parts", 'range_text: format!("L{line}:C{column}-C{end_column}")', 'include_str!("../ui/app.js")', 'include_str!("main.rs")')) {
+    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "document_symbols", "document_symbols_lsp_json", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_items", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completions_use_lsp_editor_items", "check_view_surfaces_lsp_semantic_tokens", "ide_definition", "--definition-stdin", "ide_document_highlights", "--document-highlights-stdin", "ide_code_actions", "--code-actions-stdin", "parse_code_actions_output", "run_lsp_source_query", "ide_prepare_rename", "--prepare-rename-stdin", "parse_prepare_rename_output", "ide_rename", "--rename-stdin", "parse_rename_output", "run_lsp_position_query", "parse_document_highlights_output", "bundled_lsp_executable", "parse_definition_output", "Stdio::piped()", "definition_output_accepts_null_and_complete_locations", "document_highlight_output_accepts_complete_read_and_write_ranges", "code_action_output_accepts_diagnostic_bound_insertions", "rename_output_accepts_complete_multi_file_edits", "one-line EngLang statement such as", "cd <dir>", "diagnostic_view_from_lsp", "diagnostic_view_from_parts", 'range_text: format!("L{line}:C{column}-C{end_column}")', 'include_str!("../ui/app.js")', 'include_str!("main.rs")')) {
         if (-not $IdeMainSource.Contains($RequiredIdeBackendToken)) {
             throw "Native IDE backend missing contract token $RequiredIdeBackendToken"
         }

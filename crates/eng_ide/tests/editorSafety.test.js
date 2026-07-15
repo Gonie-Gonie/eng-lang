@@ -10,6 +10,7 @@ const source = fs.readFileSync(appPath, "utf8");
 const invokeCalls = [];
 const openFileSources = new Map();
 let saveFailurePath = null;
+let codeActionPayload = null;
 const pendingBootstrap = new Promise(() => {});
 const nativeWindowState = {
   closeCallback: null,
@@ -70,6 +71,9 @@ const context = vm.createContext({
               return Promise.reject(new Error(`cannot open ${args.path}`));
             }
             return Promise.resolve({ path: args.path, source: openFileSources.get(args.path) });
+          }
+          if (command === "ide_code_actions") {
+            return Promise.resolve(codeActionPayload || { uri: "file:///C:/Repo/main.eng", actions: [] });
           }
           return Promise.resolve({});
         }
@@ -289,6 +293,36 @@ function documentHighlightShortcutUsesCurrentAction() {
 
   assert.strictEqual(run("globalThis.documentHighlightShortcutEvent.prevented"), true);
   assert.strictEqual(run("globalThis.documentHighlightShortcutCalls"), 1);
+}
+
+function quickFixShortcutUsesCurrentProblemAction() {
+  run(`
+    state.pendingQuickFix = null;
+    state.pendingRename = null;
+    state.pendingTabClose = null;
+    state.pendingWindowClose = false;
+    globalThis.quickFixShortcutCalls = 0;
+    globalThis.realRequestCursorProblemQuickFix = requestCursorProblemQuickFix;
+    requestCursorProblemQuickFix = async () => {
+      globalThis.quickFixShortcutCalls += 1;
+    };
+    globalThis.quickFixShortcutEvent = {
+      altKey: false,
+      ctrlKey: true,
+      key: ".",
+      metaKey: false,
+      prevented: false,
+      shiftKey: false,
+      preventDefault() {
+        this.prevented = true;
+      }
+    };
+    handleGlobalKeyDown(globalThis.quickFixShortcutEvent);
+    requestCursorProblemQuickFix = globalThis.realRequestCursorProblemQuickFix;
+  `);
+
+  assert.strictEqual(run("globalThis.quickFixShortcutEvent.prevented"), true);
+  assert.strictEqual(run("globalThis.quickFixShortcutCalls"), 1);
 }
 
 function renameShortcutUsesCurrentAction() {
@@ -610,6 +644,124 @@ async function workspaceRenameStagesVerifiedUtf16Buffers() {
   );
   openFileSources.clear();
   run("state.root = ''; state.pendingRename = null");
+}
+
+async function compilerQuickFixAppliesUnsavedUtf16Edits() {
+  invokeCalls.length = 0;
+  const source = "\uD83D\uDE00 power = 10\n";
+  codeActionPayload = {
+    format: "eng-lsp-snapshot-v1",
+    uri: "file:///C:/Repo/main.eng",
+    actions: [{
+      title: "Annotate power and add its unit",
+      kind: "quickfix",
+      isPreferred: true,
+      diagnostics: [{
+        code: "W-QTY-AMBIG-001",
+        range: {
+          start: { line: 0, character: 3 },
+          end: { line: 0, character: 8 }
+        }
+      }],
+      edit: {
+        changes: {
+          "file:///C:/Repo/main.eng": [
+            {
+              range: {
+                start: { line: 0, character: 8 },
+                end: { line: 0, character: 8 }
+              },
+              newText: ": HeatRate [kW]"
+            },
+            {
+              range: {
+                start: { line: 0, character: 11 },
+                end: { line: 0, character: 13 }
+              },
+              newText: "12 kW"
+            }
+          ]
+        }
+      }
+    }]
+  };
+  run(`
+    state.root = "C:/Repo";
+    state.currentPath = "main.eng";
+    state.source = ${JSON.stringify(source)};
+    state.highlightSource = state.source;
+    state.dirty = true;
+    state.tabs = [{ path: "main.eng", source: state.source, dirty: true }];
+    state.pendingQuickFix = null;
+    globalThis.quickFixDiagnostic = {
+      line: 1,
+      startCharacter: 3,
+      endCharacter: 8,
+      code: "W-QTY-AMBIG-001",
+      message: "Add an explicit quantity annotation."
+    };
+  `);
+
+  assert.deepStrictEqual(
+    JSON.parse(run("JSON.stringify(problemDiagnosticLspRange(globalThis.quickFixDiagnostic))")),
+    {
+      start: { line: 0, character: 3 },
+      end: { line: 0, character: 8 }
+    }
+  );
+  assert.strictEqual(await run("requestProblemQuickFix(globalThis.quickFixDiagnostic)"), true);
+  const request = invokeCalls.find((item) => item.command === "ide_code_actions");
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(request.args)), { path: "main.eng", source });
+  assert.strictEqual(run("state.source"), "\uD83D\uDE00 power: HeatRate [kW] = 12 kW\n");
+  assert.strictEqual(run("state.tabs[0].source"), run("state.source"));
+  assert.strictEqual(run("state.dirty"), true);
+  assert.strictEqual(run("state.tabs[0].dirty"), true);
+
+  const changedSource = run("state.source");
+  const changedTabs = run("JSON.stringify(state.tabs)");
+  assert.throws(
+    () => run(`applyProblemQuickFix({
+      title: "Stale fix",
+      edits: [{
+        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+        newText: "x"
+      }]
+    }, { path: "main.eng", source: ${JSON.stringify(source)} })`),
+    /current buffer changed/
+  );
+  assert.strictEqual(run("state.source"), changedSource);
+  assert.strictEqual(run("JSON.stringify(state.tabs)"), changedTabs);
+
+  assert.throws(
+    () => run(`codeActionPlan({
+      title: "Outside edit",
+      kind: "quickfix",
+      edit: { changes: {
+        "file:///C:/Repo/other.eng": [{
+          range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
+          newText: "x"
+        }]
+      } }
+    }, { path: "main.eng", source: "value" })`),
+    /different file/
+  );
+  assert.throws(
+    () => run(`applyCodeActionTextEdits("abcd", [
+      { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, newText: "x" },
+      { range: { start: { line: 0, character: 1 }, end: { line: 0, character: 3 } }, newText: "y" }
+    ])`),
+    /overlapping source edits/
+  );
+  assert.throws(
+    () => run(`applyCodeActionTextEdits("abcd", [
+      { range: { start: { line: 0, character: 2 }, end: { line: 0, character: 2 } }, newText: "x" },
+      { range: { start: { line: 0, character: 2 }, end: { line: 0, character: 2 } }, newText: "y" }
+    ])`),
+    /overlapping source edits/
+  );
+  run("invalidateLiveCheck()");
+  codeActionPayload = null;
+  run("state.root = ''; state.pendingQuickFix = null");
 }
 
 function documentSymbolsNormalizeAndFilter() {
@@ -1063,12 +1215,14 @@ async function main() {
   await definitionNavigationPreservesDirtyOpenTab();
   definitionShortcutUsesCurrentAction();
   documentHighlightShortcutUsesCurrentAction();
+  quickFixShortcutUsesCurrentProblemAction();
   renameShortcutUsesCurrentAction();
   busyRenameCanBeCancelledSafely();
   await renamePreflightBlocksDirtyEngLangTabsBeforeBackendCall();
   semanticTokenAndReferenceRangesUseUtf16Coordinates();
   workspaceReferencesRespectOpenBuffersAndDirtyPreflight();
   await workspaceRenameStagesVerifiedUtf16Buffers();
+  await compilerQuickFixAppliesUnsavedUtf16Edits();
   documentSymbolsNormalizeAndFilter();
   outlineSelectionUsesUtf16Coordinates();
   outlineRefreshPreservesFilterFocus();
