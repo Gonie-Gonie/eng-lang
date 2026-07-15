@@ -18,7 +18,7 @@ native mean/peak/integrated energy bindings
 native time-axis coverage check
 explicit sensor summary CSV and quality text artifacts
 single `args.output` directory for generated artifacts
-summary statistics with duration threshold linkage
+summary statistics with percentile and duration uncertainty propagation
 PlotSpec confidence band request
 report/review artifact generation
 ```
@@ -49,6 +49,6 @@ process_results.json has process_count = 0
 review.json records timeseries_uncertainty metadata
 output_manifest.json records outputs/sensor_summary.csv and outputs/sensor_quality_summary.txt
 result.engres records the native coverage binding with status complete
-result.engres records mean/integration/duration uncertainty propagation artifacts
+result.engres records mean/percentile/integration/duration uncertainty propagation artifacts
 report_spec.json and plot_spec.json record the confidence-band plot request
 ```

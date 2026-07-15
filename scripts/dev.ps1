@@ -1224,6 +1224,7 @@ function Invoke-WorkflowsTest {
             Assert-ArtifactNumber $SensorUncertaintyCalcs.Count 4 "Workflow 03 runtime uncertainty calculation count"
             foreach ($RequiredCalc in @(
                 @{ Operation = "statistic"; Statistic = "mean"; Binding = $null; Method = "independent_pointwise_sensor_std_mean"; Unit = "W"; Nominal = 5072.43; Stddev = 100.0 },
+                @{ Operation = "statistic"; Statistic = "p95"; Binding = $null; Method = "independent_pointwise_sensor_std_percentile_finite_difference"; Unit = "W"; Nominal = 5417.28; Stddev = 200.0 },
                 @{ Operation = "statistic"; Statistic = "duration_above(5 kW)"; Binding = $null; Method = "independent_pointwise_sensor_std_duration_above_finite_difference"; Unit = "s"; Nominal = 299.48325358851724; Stddev = 143.29363610942985 },
                 @{ Operation = "integration"; Statistic = $null; Binding = "E_sensor"; Method = "independent_pointwise_sensor_std_trapezoidal"; Unit = "J"; Nominal = 4543242.0; Stddev = 94868.32980505138 }
             )) {
@@ -1246,16 +1247,6 @@ function Invoke-WorkflowsTest {
                 Assert-ArtifactFloat $MatchingCalcs[0].nominal_value ([double]$RequiredCalc.Nominal) "Workflow 03 nominal value for $($RequiredCalc.Method)" 0.000001
                 Assert-ArtifactFloat $MatchingCalcs[0].stddev ([double]$RequiredCalc.Stddev) "Workflow 03 stddev for $($RequiredCalc.Method)" 0.000001
             }
-            $P95MetadataOnly = @($SensorUncertaintyCalcs | Where-Object {
-                [string]$_.source -eq "Q_sensor" -and
-                [string]$_.operation -eq "statistic" -and
-                [string]$_.statistic -eq "p95" -and
-                [string]$_.method -eq "pointwise_sensor_std_metadata_only" -and
-                [string]$_.status -eq "metadata_only" -and
-                $null -eq $_.stddev
-            })
-            Assert-ArtifactNumber $P95MetadataOnly.Count 1 "Workflow 03 p95 uncertainty should remain explicitly metadata-only"
-
             $ReviewUncertainty = @($ReviewData.timeseries_uncertainty)
             Assert-ArtifactNumber $ReviewUncertainty.Count 1 "Workflow 03 review uncertainty row count"
             Assert-ArtifactValue $ReviewUncertainty[0].binding "Q_sensor" "Workflow 03 review uncertainty binding"
@@ -1330,6 +1321,7 @@ function Invoke-WorkflowsTest {
                 '"sensor_std": 0.2',
                 '"sensor_std_unit": "kW"',
                 '"method": "independent_pointwise_sensor_std_mean"',
+                '"method": "independent_pointwise_sensor_std_percentile_finite_difference"',
                 '"method": "independent_pointwise_sensor_std_trapezoidal"',
                 '"status": "propagated_sensor_std"',
                 '"timeseries_coverage"',

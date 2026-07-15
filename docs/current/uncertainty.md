@@ -187,9 +187,10 @@ and source line. When `summarize` or `integrate(...)` consumes that TimeSeries,
 statistics/integration linkage, with `duration_above(...)` recorded as a
 duration operation. Runtime `result.engres` also records
 `typed_payload.timeseries_uncertainty_calculations[]`: current support
-propagates independent pointwise `sensor_std` through `mean`, `integrate(...)`,
-and `duration_above(...)`; percentile statistics remain explicitly
-`metadata_only`. Line plots may request `confidence_band =
+propagates independent pointwise `sensor_std` through `mean`, `pNN`,
+`integrate(...)`, and `duration_above(...)`. Percentiles use finite-difference
+sensitivity around the same nearest-rank kernel as the nominal statistic. Line
+plots may request `confidence_band =
 sensor_std`, which adds a pointwise measured-standard-deviation confidence band
 to PlotSpec/SVG. Full probabilistic TimeSeries propagation remains planned
 follow-up work.

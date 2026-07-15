@@ -641,8 +641,9 @@ negative value, or incompatible unit produces `E-UNC-TS-STD-001`.
 TimeSeries statistics and integrations that consume such a source are recorded
 in static `review.json.timeseries_uncertainty_calculations[]` linkage entries.
 Runtime `result.engres` propagates independent pointwise `sensor_std` through
-mean, integration, and `duration_above(...)` calculations; percentile
-statistics remain metadata-only. Plots can request `confidence_band =
+mean, nearest-rank percentile, integration, and `duration_above(...)`
+calculations. Percentile propagation uses finite-difference sensitivity around
+the nominal nearest-rank kernel. Plots can request `confidence_band =
 sensor_std` to carry a pointwise confidence band in PlotSpec/SVG.
 Propagation source terms are also carried through `review.json`,
 `result.engres`, runtime-updated `report_spec.json`, HTML reports, and the

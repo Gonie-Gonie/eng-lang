@@ -105,8 +105,9 @@ When `summarize` or `integrate(...)` consumes that TimeSeries, the compiler
 also records static `review.json.timeseries_uncertainty_calculations[]`
 linkage entries; `duration_above(...)` summaries are separated as duration
 operations. Runtime `result.engres` propagates independent pointwise
-`sensor_std` through mean, integrate, and duration-above calculations, while
-percentile statistics remain metadata-only. A line plot can request
+`sensor_std` through mean, nearest-rank percentile, integrate, and
+duration-above calculations. Percentile propagation uses finite-difference
+sensitivity around the nominal nearest-rank kernel. A line plot can request
 `confidence_band = sensor_std`, which records a pointwise
 measured-standard-deviation band in PlotSpec/SVG.
 

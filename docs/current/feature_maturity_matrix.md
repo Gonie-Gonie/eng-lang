@@ -194,8 +194,8 @@ separate.
   type-checking, runtime pass/fail materialization for explicit statistic,
   probability, and `between` validations, `review.json` summary/propagation
   sections, pointwise TimeSeries `sensor_std` review metadata, runtime
-  mean/integration/duration `sensor_std` propagation artifacts with
-  metadata-only percentile linkage, `sensor_std` confidence-band
+  mean/percentile/integration/duration `sensor_std` propagation artifacts,
+  `sensor_std` confidence-band
   PlotSpec rendering, internal IDE variable/inspector metadata, histogram
   artifacts, and the current uncertainty guide.
 - Not included: stable Monte Carlo/Jacobian propagation contract, full

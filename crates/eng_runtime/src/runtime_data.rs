@@ -8894,15 +8894,58 @@ fn statistic_uncertainty_stddev(
             },
         );
     }
+    if percentile_fraction(name).is_some() {
+        let stddev = percentile_uncertainty_stddev(name, series, sensor_std);
+        return (
+            stddev,
+            "independent_pointwise_sensor_std_percentile_finite_difference".to_owned(),
+            if stddev.is_some() {
+                "propagated_sensor_std".to_owned()
+            } else {
+                "unavailable".to_owned()
+            },
+        );
+    }
     (
         None,
-        "pointwise_sensor_std_metadata_only".to_owned(),
-        if name.starts_with('p') {
-            "metadata_only".to_owned()
-        } else {
-            "unsupported_statistic".to_owned()
-        },
+        "unsupported_pointwise_sensor_std_statistic".to_owned(),
+        "unsupported_statistic".to_owned(),
     )
+}
+
+fn percentile_uncertainty_stddev(
+    name: &str,
+    series: &RuntimeTimeSeries,
+    sensor_std: f64,
+) -> Option<f64> {
+    let percentile = percentile_fraction(name)?;
+    let values = series
+        .points
+        .iter()
+        .map(|point| point.y)
+        .collect::<Vec<_>>();
+    nearest_rank_percentile(&values, percentile)?;
+    let mut variance = 0.0;
+    for index in 0..values.len() {
+        let step = finite_difference_step(values[index], sensor_std);
+        if step <= 0.0 || !step.is_finite() {
+            return None;
+        }
+        let mut plus = values.clone();
+        plus[index] += step;
+        let plus_percentile = nearest_rank_percentile(&plus, percentile)?;
+
+        let mut minus = values.clone();
+        minus[index] -= step;
+        let minus_percentile = nearest_rank_percentile(&minus, percentile)?;
+
+        let derivative = (plus_percentile - minus_percentile) / (2.0 * step);
+        if !derivative.is_finite() {
+            return None;
+        }
+        variance += derivative * derivative * sensor_std * sensor_std;
+    }
+    Some(variance.sqrt())
 }
 
 fn duration_above_uncertainty_stddev(
@@ -22136,6 +22179,33 @@ Q_band = Q_low + Q_aux
     }
 
     #[test]
+    fn propagates_percentile_sensor_std_uncertainty() {
+        let series = RuntimeTimeSeries {
+            name: "Q_series".to_owned(),
+            axis: "Time".to_owned(),
+            x_unit: "s".to_owned(),
+            quantity_kind: "HeatRate".to_owned(),
+            display_unit: "kW".to_owned(),
+            source_table: "synthetic".to_owned(),
+            source_expression: "Q_series".to_owned(),
+            points: vec![
+                RuntimePoint { x: 0.0, y: 4.0 },
+                RuntimePoint { x: 10.0, y: 6.0 },
+                RuntimePoint { x: 20.0, y: 5.0 },
+            ],
+        };
+
+        let (stddev, method, status) = statistic_uncertainty_stddev("p95", &series, 0.2);
+
+        assert_eq!(
+            method,
+            "independent_pointwise_sensor_std_percentile_finite_difference"
+        );
+        assert_eq!(status, "propagated_sensor_std");
+        assert!((stddev.expect("percentile stddev") - 0.2).abs() < 1.0e-9);
+    }
+
+    #[test]
     fn materialized_uncertain_sensor_workflow_propagates_duration_uncertainty() {
         let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
@@ -22157,6 +22227,21 @@ Q_band = Q_low + Q_aux
         );
         assert!(duration.stddev.is_some_and(|stddev| stddev >= 0.0));
         assert_eq!(duration.unit, "s");
+
+        let percentile = runtime
+            .timeseries_uncertainty_calculations
+            .iter()
+            .find(|calculation| calculation.statistic.as_deref() == Some("p95"))
+            .expect("percentile uncertainty calculation");
+        assert_eq!(percentile.status, "propagated_sensor_std");
+        assert_eq!(
+            percentile.method,
+            "independent_pointwise_sensor_std_percentile_finite_difference"
+        );
+        assert!(percentile
+            .stddev
+            .is_some_and(|stddev| (stddev - 200.0).abs() < 1.0e-6));
+        assert_eq!(percentile.unit, "W");
     }
 
     #[test]
