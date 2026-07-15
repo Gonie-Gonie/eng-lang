@@ -1151,6 +1151,57 @@ button:hover {
   white-space: pre;
 }
 
+.editor-bracket-overlay {
+  position: absolute;
+  inset: 0 0 0 var(--editor-gutter-width);
+  z-index: 3;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.editor-bracket-overlay-content {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  font: 13px Consolas, "Cascadia Mono", monospace;
+  line-height: 1.45;
+  tab-size: 2;
+  white-space: pre;
+  transform-origin: top left;
+  will-change: transform;
+}
+
+.editor-bracket-line {
+  position: absolute;
+  left: 0;
+  height: 1.45em;
+  white-space: pre;
+}
+
+.editor-bracket-prefix {
+  color: transparent;
+}
+
+.editor-bracket-marker {
+  color: #174f8c;
+  background: #dbeafe;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px #7aa7d8;
+  font-weight: 700;
+}
+
+.editor-bracket-marker.active {
+  color: #0f3f73;
+  background: #bfdbfe;
+  box-shadow: inset 0 0 0 1px #3977b8;
+}
+
+.editor-bracket-marker.unmatched {
+  color: #991b1b;
+  background: #fee2e2;
+  box-shadow: inset 0 -2px 0 #dc2626;
+}
+
 .editor {
   position: absolute;
   inset: 0 0 0 var(--editor-gutter-width);

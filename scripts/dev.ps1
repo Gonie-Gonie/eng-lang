@@ -7065,6 +7065,15 @@ function Invoke-IdeCheck {
         "renderEditorLineNumbers",
         "updateEditorLineNumbers",
         'gutterLines.style.top = `${-Math.max(0, Number(editor.scrollTop) || 0)}px`',
+        "editorBracketOverlayContent",
+        "editorBracketIndex",
+        "editorBracketDecorations",
+        "renderEditorBracketDecorations",
+        "updateEditorBracketOverlay",
+        "syncEditorBracketOverlayScroll",
+        "bracketIndex.activeOffsets.has(candidateOffset)",
+        "content.dataset.signature !== signature",
+        'content.style.transform = `translate(${-left}px, ${-top}px)`',
         "pendingGoToLine",
         "data-go-to-line",
         "parseEditorLocation",
@@ -7700,7 +7709,7 @@ function Invoke-IdeCheck {
             throw "Native IDE CSS missing outline style $RequiredOutlineStyle"
         }
     }
-    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "problem-message", "problem-actions", "problem-copy-button", "problem-quick-fix-button", "module-toolbar", "module-query", "editor-highlight", "editor-gutter", "editor-gutter-lines", "--editor-gutter-width", "editor-location-button", "go-to-line-dialog", "go-to-line-range", "hl-keyword", "hl-interpolation", "hl-constant", "hl-punctuation", "hl-mod-unit", "hl-mod-solver", "hl-mod-validation", "hl-mod-report", "hl-mod-sideEffect", "hl-mod-external", "hl-mod-riskHigh", "semantic-token-table", "highlight-coverage-table", ".semantic-token-table th:last-child", "token-chip", "--token-role-color", "token-filter-chip", "token-missing", "token-range-button", "cursor-insight", "editor-breadcrumbs", "editor-breadcrumb-symbol", "variable-source-line", "button.danger", "dialog-backdrop", "unsaved-dialog", "unsaved-file-list", "unsaved-dialog-actions", "quick-fix-dialog", "quick-fix-options", "quick-fix-option", "rename-dialog-input", "rename-dialog-error")) {
+    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "problem-message", "problem-actions", "problem-copy-button", "problem-quick-fix-button", "module-toolbar", "module-query", "editor-highlight", "editor-gutter", "editor-gutter-lines", "--editor-gutter-width", "editor-bracket-overlay", "editor-bracket-overlay-content", "editor-bracket-line", "editor-bracket-marker", "editor-bracket-marker.unmatched", "editor-location-button", "go-to-line-dialog", "go-to-line-range", "hl-keyword", "hl-interpolation", "hl-constant", "hl-punctuation", "hl-mod-unit", "hl-mod-solver", "hl-mod-validation", "hl-mod-report", "hl-mod-sideEffect", "hl-mod-external", "hl-mod-riskHigh", "semantic-token-table", "highlight-coverage-table", ".semantic-token-table th:last-child", "token-chip", "--token-role-color", "token-filter-chip", "token-missing", "token-range-button", "cursor-insight", "editor-breadcrumbs", "editor-breadcrumb-symbol", "variable-source-line", "button.danger", "dialog-backdrop", "unsaved-dialog", "unsaved-file-list", "unsaved-dialog-actions", "quick-fix-dialog", "quick-fix-options", "quick-fix-option", "rename-dialog-input", "rename-dialog-error")) {
         if (-not $IdeUiStyles.Contains($RequiredIdeStyle)) {
             throw "Native IDE UI missing contract style $RequiredIdeStyle"
         }

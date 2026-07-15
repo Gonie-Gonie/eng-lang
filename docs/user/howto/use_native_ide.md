@@ -147,8 +147,11 @@ Editor
   only while the complete saved tab snapshot remains current. The editor meta
   bar shows a clickable file/symbol breadcrumb for the caret's checked scope,
   plus the current line, column, bracket match location, highlight category,
-  and quantity/unit detail. Symbol breadcrumbs disappear while analysis is
-  stale, so they cannot navigate by an older buffer shape. Closing a
+  and quantity/unit detail. When the caret touches a bracket, both endpoints
+  are highlighted directly in the source; an unmatched bracket is marked red.
+  Brackets in comments and plain string text are ignored, while format-string
+  interpolation braces remain matchable. Symbol breadcrumbs disappear while
+  analysis is stale, so they cannot navigate by an older buffer shape. Closing a
   dirty tab offers Save, Discard, and Cancel. Closing the IDE with dirty tabs
   offers Save All, Discard All, and Cancel. The toolbar Save All action persists
   every modified tab without closing the IDE. Each open tab retains its caret,

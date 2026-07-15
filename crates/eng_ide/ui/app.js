@@ -7,6 +7,7 @@ const WORKSPACE_SYMBOL_DELAY_MS = 160;
 const EDITOR_INDENT = "    ";
 const EDITOR_PAIR_CLOSE = { "{": "}", "[": "]", "(": ")", "\"": "\"" };
 const EDITOR_PAIR_OPEN = { "}": "{", "]": "[", ")": "(", "\"": "\"" };
+let editorBracketIndexCache = null;
 
 const SIDE_TABS = [
   { key: "variables", label: "Variables" },
@@ -554,6 +555,9 @@ function render() {
           <pre id="editorGutterLines" class="editor-gutter-lines">${renderEditorLineNumbers()}</pre>
         </div>
         <pre id="editorHighlight" class="editor-highlight" aria-hidden="true">${renderHighlightedSource()}</pre>
+        <div id="editorBracketOverlay" class="editor-bracket-overlay" aria-hidden="true">
+          <div id="editorBracketOverlayContent" class="editor-bracket-overlay-content"></div>
+        </div>
         <textarea id="editor" class="editor" spellcheck="false" wrap="off">${escapeHtml(state.source)}</textarea>
         <div id="completionOverlay" class="completion-popover hidden"></div>
       </div>
@@ -7568,6 +7572,7 @@ function insertCompletion(item) {
 }
 function updateCursorInsight() {
   updateEditorBreadcrumbs();
+  updateEditorBracketOverlay();
   const target = byId("cursorInsight");
   if (!target) return;
   target.outerHTML = `<span id="cursorInsight" class="cursor-insight">${renderCursorInsight()}</span>`;
@@ -8451,6 +8456,7 @@ function editorBracketMatch(source, offset) {
   return {
     ...bracket,
     matched: true,
+    matchOffset,
     line: position.line,
     column: position.column
   };
@@ -8458,10 +8464,11 @@ function editorBracketMatch(source, offset) {
 
 function editorBracketAtCaret(source, offset) {
   const safeOffset = Math.max(0, Math.min(Number(offset) || 0, source.length));
+  const bracketIndex = editorBracketIndex(source);
   for (const candidateOffset of [safeOffset, safeOffset - 1]) {
     if (candidateOffset < 0 || candidateOffset >= source.length) continue;
     const char = source[candidateOffset];
-    if (!isEditorBracket(char)) continue;
+    if (!isEditorBracket(char) || !bracketIndex.activeOffsets.has(candidateOffset)) continue;
     return {
       char,
       offset: candidateOffset,
@@ -8476,6 +8483,89 @@ function isEditorBracket(char) {
   return char === "{" || char === "}" || char === "[" || char === "]" || char === "(" || char === ")";
 }
 
+function editorBracketIndex(source) {
+  const text = String(source ?? "");
+  if (editorBracketIndexCache?.source === text) return editorBracketIndexCache;
+
+  const activeOffsets = new Set();
+  const matches = new Map();
+  const stack = [];
+  let mode = "code";
+  let interpolationDepth = 0;
+  let interpolationStackDepth = 0;
+
+  const record = (offset, char) => {
+    activeOffsets.add(offset);
+    if (EDITOR_PAIR_CLOSE[char] && char !== "\"") {
+      stack.push({ char, offset });
+      return;
+    }
+    const open = stack[stack.length - 1];
+    if (!open || EDITOR_PAIR_CLOSE[open.char] !== char) return;
+    stack.pop();
+    matches.set(open.offset, offset);
+    matches.set(offset, open.offset);
+  };
+
+  const abortLineContext = () => {
+    if (mode === "interpolation" || mode === "interpolation-string") {
+      stack.length = interpolationStackDepth;
+    }
+    mode = "code";
+    interpolationDepth = 0;
+  };
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (char === "\r" || char === "\n") {
+      abortLineContext();
+      continue;
+    }
+    if (mode === "comment") continue;
+    if (mode === "string" || mode === "interpolation-string") {
+      if (char === "\\") {
+        index += 1;
+        continue;
+      }
+      if (char === "\"") {
+        mode = mode === "string" ? "code" : "interpolation";
+        continue;
+      }
+      if (mode === "string" && char === "{") {
+        interpolationStackDepth = stack.length;
+        interpolationDepth = 1;
+        record(index, char);
+        mode = "interpolation";
+      }
+      continue;
+    }
+    if (char === "\"") {
+      mode = mode === "interpolation" ? "interpolation-string" : "string";
+      continue;
+    }
+    if (char === "#" || (char === "/" && text[index + 1] === "/")) {
+      if (mode === "interpolation") {
+        stack.length = interpolationStackDepth;
+        interpolationDepth = 0;
+      }
+      mode = "comment";
+      continue;
+    }
+    if (!isEditorBracket(char)) continue;
+    record(index, char);
+    if (mode !== "interpolation") continue;
+    if (char === "{") interpolationDepth += 1;
+    if (char !== "}") continue;
+    interpolationDepth -= 1;
+    if (interpolationDepth > 0) continue;
+    stack.length = interpolationStackDepth;
+    mode = "string";
+  }
+
+  editorBracketIndexCache = { source: text, activeOffsets, matches };
+  return editorBracketIndexCache;
+}
+
 function matchingBracketOffset(source, offset, char) {
   if (EDITOR_PAIR_CLOSE[char] && char !== "\"") {
     return scanBracketForward(source, offset, char, EDITOR_PAIR_CLOSE[char]);
@@ -8487,25 +8577,74 @@ function matchingBracketOffset(source, offset, char) {
 }
 
 function scanBracketForward(source, offset, open, close) {
-  let depth = 0;
-  for (let index = offset; index < source.length; index += 1) {
-    const char = source[index];
-    if (char === open) depth += 1;
-    if (char === close) depth -= 1;
-    if (depth === 0) return index;
-  }
-  return -1;
+  if (source[offset] !== open) return -1;
+  const match = editorBracketIndex(source).matches.get(offset);
+  return match > offset && source[match] === close ? match : -1;
 }
 
 function scanBracketBackward(source, offset, close, open) {
-  let depth = 0;
-  for (let index = offset; index >= 0; index -= 1) {
-    const char = source[index];
-    if (char === close) depth += 1;
-    if (char === open) depth -= 1;
-    if (depth === 0) return index;
+  if (source[offset] !== close) return -1;
+  const match = editorBracketIndex(source).matches.get(offset);
+  return match >= 0 && match < offset && source[match] === open ? match : -1;
+}
+
+function editorBracketDecorations(source, offset) {
+  const match = editorBracketMatch(source, offset);
+  if (!match) return [];
+  const offsets = match.matched ? [match.offset, match.matchOffset] : [match.offset];
+  return offsets.map((markerOffset, index) => {
+    const position = editorCursorPosition(source, markerOffset);
+    const before = source.slice(0, markerOffset);
+    const lineStart = Math.max(before.lastIndexOf("\n"), before.lastIndexOf("\r")) + 1;
+    return {
+      active: index === 0,
+      char: source[markerOffset],
+      column: position.column,
+      line: position.line,
+      matched: match.matched,
+      offset: markerOffset,
+      prefix: source.slice(lineStart, markerOffset)
+    };
+  });
+}
+
+function editorBracketOverlaySignature(decorations) {
+  return decorations
+    .map((item) => `${item.offset}:${item.char}:${item.active ? 1 : 0}:${item.matched ? 1 : 0}`)
+    .join("|");
+}
+
+function renderEditorBracketDecorations(decorations) {
+  return decorations.map((item) => {
+    const classes = [
+      "editor-bracket-marker",
+      item.matched ? "matched" : "unmatched",
+      item.active ? "active" : ""
+    ].filter(Boolean).join(" ");
+    const lineTop = Number(item.line || 0) * 1.45;
+    return `<span class="editor-bracket-line" data-bracket-line="${item.line + 1}" data-bracket-offset="${item.offset}" style="top: ${lineTop}em"><span class="editor-bracket-prefix">${escapeHtml(item.prefix)}</span><span class="${classes}">${escapeHtml(item.char)}</span></span>`;
+  }).join("");
+}
+
+function updateEditorBracketOverlay() {
+  const editor = byId("editor");
+  const content = byId("editorBracketOverlayContent");
+  if (!editor || !content) return false;
+  const decorations = editorBracketDecorations(editor.value, editor.selectionStart ?? 0);
+  const signature = editorBracketOverlaySignature(decorations);
+  if (content.dataset.signature !== signature) {
+    content.innerHTML = renderEditorBracketDecorations(decorations);
+    content.dataset.signature = signature;
   }
-  return -1;
+  syncEditorBracketOverlayScroll(editor, content);
+  return decorations.length > 0;
+}
+
+function syncEditorBracketOverlayScroll(editor, content = byId("editorBracketOverlayContent")) {
+  if (!editor || !content) return;
+  const left = Math.max(0, Number(editor.scrollLeft) || 0);
+  const top = Math.max(0, Number(editor.scrollTop) || 0);
+  content.style.transform = `translate(${-left}px, ${-top}px)`;
 }
 
 function semanticTokenLineOverlaps(lineIndex) {
@@ -8663,6 +8802,7 @@ function syncEditorHighlightScroll() {
     highlight.scrollLeft = editor.scrollLeft;
   }
   if (gutterLines) gutterLines.style.top = `${-Math.max(0, Number(editor.scrollTop) || 0)}px`;
+  syncEditorBracketOverlayScroll(editor);
 }
 
 function editorGutterWidth(source = state.source) {

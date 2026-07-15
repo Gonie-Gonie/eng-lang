@@ -1696,6 +1696,95 @@ function editorLineNumbersTrackSourceAndScroll() {
   `);
 }
 
+function editorBracketOverlayUsesLexicalPairsAndSparseMarkers() {
+  const lexicalSource = 'outer = ({\n    text = "literal [x] and {item}" # ignored }\n})';
+  run(`globalThis.bracketLexicalSource = ${JSON.stringify(lexicalSource)}`);
+  const outerOpen = lexicalSource.indexOf("(");
+  const outerClose = lexicalSource.lastIndexOf(")");
+  const interpolationOpen = lexicalSource.indexOf("{item}");
+  const interpolationClose = interpolationOpen + "{item".length;
+  const stringBracket = lexicalSource.indexOf("[");
+  const commentBracket = lexicalSource.indexOf("}", lexicalSource.indexOf("#"));
+
+  assert.strictEqual(
+    run(`editorBracketMatch(globalThis.bracketLexicalSource, ${outerOpen}).matchOffset`),
+    outerClose
+  );
+  assert.strictEqual(
+    run(`editorBracketMatch(globalThis.bracketLexicalSource, ${interpolationOpen}).matchOffset`),
+    interpolationClose
+  );
+  assert.strictEqual(run(`editorBracketAtCaret(globalThis.bracketLexicalSource, ${stringBracket})`), null);
+  assert.strictEqual(run(`editorBracketAtCaret(globalThis.bracketLexicalSource, ${commentBracket})`), null);
+
+  const escapedSource = 'text = "escaped \\{ brace and [text]"';
+  run(`globalThis.bracketEscapedSource = ${JSON.stringify(escapedSource)}`);
+  assert.strictEqual(
+    run("editorBracketAtCaret(globalThis.bracketEscapedSource, globalThis.bracketEscapedSource.indexOf('{'))"),
+    null
+  );
+  assert.strictEqual(run('editorBracketMatch("value = [1, 2", 8).matched'), false);
+
+  const overlaySource = "\u{1F600}\tcall(VERY_LONG_SUFFIX\n  value\n)";
+  run(`
+    globalThis.realByIdForBracketOverlay = byId;
+    globalThis.bracketOverlaySource = ${JSON.stringify(overlaySource)};
+    globalThis.bracketOverlayOpen = globalThis.bracketOverlaySource.indexOf("(");
+    globalThis.bracketOverlayEditor = {
+      value: globalThis.bracketOverlaySource,
+      selectionStart: globalThis.bracketOverlayOpen,
+      scrollTop: 73,
+      scrollLeft: 29
+    };
+    globalThis.bracketOverlayContent = {
+      dataset: {},
+      style: { transform: "" },
+      htmlWrites: 0,
+      value: "",
+      get innerHTML() { return this.value; },
+      set innerHTML(next) { this.value = next; this.htmlWrites += 1; }
+    };
+    byId = (id) => ({
+      editor: globalThis.bracketOverlayEditor,
+      editorBracketOverlayContent: globalThis.bracketOverlayContent
+    })[id] || null;
+    globalThis.bracketOverlayDecorations = editorBracketDecorations(
+      globalThis.bracketOverlaySource,
+      globalThis.bracketOverlayOpen
+    );
+    globalThis.bracketOverlayUpdated = updateEditorBracketOverlay();
+    updateEditorBracketOverlay();
+  `);
+
+  assert.deepStrictEqual(
+    JSON.parse(run("JSON.stringify(globalThis.bracketOverlayDecorations.map(({ active, char, line, matched, prefix }) => ({ active, char, line, matched, prefix })))")),
+    [
+      { active: true, char: "(", line: 0, matched: true, prefix: "\u{1F600}\tcall" },
+      { active: false, char: ")", line: 2, matched: true, prefix: "" }
+    ]
+  );
+  assert.strictEqual(run("globalThis.bracketOverlayUpdated"), true);
+  assert.strictEqual(run("globalThis.bracketOverlayContent.htmlWrites"), 1);
+  assert.strictEqual(run("globalThis.bracketOverlayContent.style.transform"), "translate(-29px, -73px)");
+  assert.match(run("globalThis.bracketOverlayContent.innerHTML"), /editor-bracket-marker matched active/);
+  assert.match(run("globalThis.bracketOverlayContent.innerHTML"), /style="top: 2.9em"/);
+  assert.doesNotMatch(run("globalThis.bracketOverlayContent.innerHTML"), /VERY_LONG_SUFFIX/);
+
+  run(`
+    globalThis.bracketOverlayEditor.selectionStart = globalThis.bracketOverlaySource.lastIndexOf(")");
+    updateEditorBracketOverlay();
+  `);
+  assert.strictEqual(run("globalThis.bracketOverlayContent.htmlWrites"), 2);
+  assert.match(run("globalThis.bracketOverlayContent.innerHTML"), /data-bracket-line="3"[^>]*><span class="editor-bracket-prefix"><\/span><span class="editor-bracket-marker matched active">\)<\/span>/);
+
+  const unmatchedMarkup = run('renderEditorBracketDecorations(editorBracketDecorations("value = [1, 2", 8))');
+  assert.match(unmatchedMarkup, /editor-bracket-marker unmatched active/);
+  run(`
+    byId = globalThis.realByIdForBracketOverlay;
+    state.source = "";
+  `);
+}
+
 function editorLocationNavigationUsesValidatedUtf16Coordinates() {
   assert.deepStrictEqual(
     JSON.parse(run('JSON.stringify(parseEditorLocation("2:3", "alpha\\n\\u{1F600}beta\\n"))')),
@@ -2302,6 +2391,7 @@ async function main() {
   documentBreadcrumbNavigationUsesUtf16Coordinates();
   editorViewStatePersistsAcrossRendersAndTabs();
   editorLineNumbersTrackSourceAndScroll();
+  editorBracketOverlayUsesLexicalPairsAndSparseMarkers();
   editorLocationNavigationUsesValidatedUtf16Coordinates();
   outlineSelectionUsesUtf16Coordinates();
   outlineRefreshPreservesFilterFocus();
