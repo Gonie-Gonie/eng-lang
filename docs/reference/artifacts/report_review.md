@@ -775,6 +775,13 @@ the saved artifact hashes still match the prior lock.
 compact reviewer-facing list of node id, kind, label, status, source line/span,
 low/medium/high risk, shared risk category, and risk severity.
 
+`eng-static-run-plan-v2` uses execution-state wording rather than module
+maturity wording. A successfully built pre-execution document has
+`status = ready`; source, executable declaration, and resolved dependency nodes
+use `loaded`, `declared`, and `resolved`. A run decision is `scheduled` until
+execution actually occurs, or `skipped` when the saved lock is reused. These
+values do not mean that a stdlib module has Planned maturity.
+
 ## Promoted Table Selection And Transform Metadata
 
 Compatibility-only `select_first_row(...)` records deterministic row selection

@@ -7337,7 +7337,7 @@ fn static_run_plan_json(
             &id,
             "schema",
             &schema.name,
-            "planned",
+            "declared",
             "static",
             "low",
             schema.line,
@@ -7358,7 +7358,7 @@ fn static_run_plan_json(
             &id,
             node_kind,
             &promotion.binding,
-            "planned",
+            "declared",
             "static",
             "medium",
             promotion.line,
@@ -7379,7 +7379,7 @@ fn static_run_plan_json(
             &id,
             "config_promotion",
             &promotion.binding,
-            "planned",
+            "declared",
             "static",
             "medium",
             promotion.line,
@@ -7399,7 +7399,7 @@ fn static_run_plan_json(
             &id,
             "table_transform",
             &transform.binding,
-            "planned",
+            "declared",
             "static",
             "low",
             transform.line,
@@ -7420,7 +7420,7 @@ fn static_run_plan_json(
             &id,
             "timeseries_kernel",
             &kernel.binding,
-            "planned",
+            "declared",
             "static",
             "medium",
             kernel.line,
@@ -7441,7 +7441,7 @@ fn static_run_plan_json(
             &id,
             "network_request",
             &request.binding,
-            "planned",
+            "declared",
             "static",
             "high",
             request.line,
@@ -7466,7 +7466,7 @@ fn static_run_plan_json(
             &id,
             "network_download",
             &download.target_value,
-            "planned",
+            "declared",
             "static",
             "high",
             download.line,
@@ -7490,7 +7490,7 @@ fn static_run_plan_json(
             &id,
             "cache",
             &cache.owner_name,
-            "planned",
+            "declared",
             "static",
             "medium",
             cache.line,
@@ -7511,7 +7511,7 @@ fn static_run_plan_json(
             &id,
             "environment_dependency",
             &dependency.name,
-            "planned",
+            "resolved",
             "static",
             "medium",
             dependency.line,
@@ -7531,7 +7531,7 @@ fn static_run_plan_json(
             &id,
             "csv_export",
             &export.path,
-            "planned",
+            "declared",
             "static",
             "low",
             export.line,
@@ -7553,7 +7553,7 @@ fn static_run_plan_json(
             &id,
             "write_output",
             &path,
-            "planned",
+            "declared",
             "static",
             "low",
             write.line,
@@ -7587,7 +7587,7 @@ fn static_run_plan_json(
             &id,
             "template_render",
             command.owner.as_deref().unwrap_or("render template"),
-            "planned",
+            "declared",
             "static",
             "low",
             command.line,
@@ -7606,7 +7606,7 @@ fn static_run_plan_json(
             &id,
             "file_operation",
             &operation.operation,
-            "planned",
+            "declared",
             "static",
             "medium",
             operation.line,
@@ -7625,7 +7625,7 @@ fn static_run_plan_json(
             &id,
             "process",
             &process.binding,
-            "planned",
+            "declared",
             "static",
             "high",
             process.line,
@@ -7642,7 +7642,7 @@ fn static_run_plan_json(
             &id,
             "model",
             &ml.binding,
-            "planned",
+            "declared",
             "static",
             "medium",
             ml.line,
@@ -7664,7 +7664,7 @@ fn static_run_plan_json(
             &id,
             "test",
             &test.name,
-            "planned",
+            "declared",
             "static",
             "low",
             test.line,
@@ -7677,20 +7677,30 @@ fn static_run_plan_json(
         edges.push(run_plan_edge("source:program", &id, "declares"));
     }
 
+    let static_rerun_status = static_rerun_status(rerun_decision);
+    for node in &mut nodes {
+        if let Some(node) = node.as_object_mut() {
+            node.insert(
+                "rerun_status".to_owned(),
+                Value::String(static_rerun_status.to_owned()),
+            );
+        }
+    }
+
     let node_ids = run_plan_node_ids(&nodes);
     add_static_dependency_edges(report, &node_ids, &mut edges);
 
     let node_count = nodes.len();
     let edge_count = edges.len();
     let document = json!({
-        "format": "eng-static-run-plan-v1",
+        "format": "eng-static-run-plan-v2",
         "runtime_version": RUNTIME_VERSION,
         "source_path": path_for_manifest(source_path),
         "source_hash": &report.source_hash,
         "execution_profile": profile.as_str(),
         "execution_stage": "pre_execution",
-        "status": "planned",
-        "rerun_status": rerun_status(rerun_decision),
+        "status": "ready",
+        "rerun_status": static_rerun_status,
         "rerun_decision": rerun_decision_json(rerun_decision),
         "graph": {
             "node_count": node_count,
@@ -8234,6 +8244,14 @@ fn rerun_status(decision: &RerunDecision) -> &'static str {
         "skipped"
     } else {
         "executed"
+    }
+}
+
+fn static_rerun_status(decision: &RerunDecision) -> &'static str {
+    if decision.decision == "skip" {
+        "skipped"
+    } else {
+        "scheduled"
     }
 }
 
@@ -19456,7 +19474,7 @@ mod tests {
             serde_json::from_str(&output.static_run_plan_json).expect("static run plan json");
         assert_eq!(
             static_run_plan.get("format").and_then(Value::as_str),
-            Some("eng-static-run-plan-v1")
+            Some("eng-static-run-plan-v2")
         );
         assert_eq!(
             static_run_plan
@@ -19466,7 +19484,32 @@ mod tests {
         );
         assert_eq!(
             static_run_plan.pointer("/status").and_then(Value::as_str),
-            Some("planned")
+            Some("ready")
+        );
+        assert_eq!(
+            static_run_plan
+                .pointer("/rerun_status")
+                .and_then(Value::as_str),
+            Some("scheduled")
+        );
+        let static_nodes = static_run_plan
+            .pointer("/graph/nodes")
+            .and_then(Value::as_array)
+            .expect("static run plan nodes");
+        assert!(static_nodes.iter().all(|node| {
+            matches!(
+                node.get("status").and_then(Value::as_str),
+                Some("loaded" | "declared" | "resolved")
+            )
+        }));
+        assert!(static_nodes
+            .iter()
+            .all(|node| { node.get("rerun_status").and_then(Value::as_str) == Some("scheduled") }));
+        assert_eq!(
+            json_array_item_by_field(&static_run_plan, "/graph/nodes", "id", "source:csv:weather",)
+                .and_then(|node| node.get("status"))
+                .and_then(Value::as_str),
+            Some("declared")
         );
         let static_run_plan_hash = hash_text(&output.static_run_plan_json);
         assert_eq!(

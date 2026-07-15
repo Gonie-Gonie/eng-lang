@@ -2742,14 +2742,20 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactNumber @($review.workflow_graph.risk_by_node).Count $runPlanNodeCount "review.workflow_graph.risk_by_node count"
 
     $staticRunPlan = Read-ArtifactJson (Join-Path $RepoRoot "build\result\static_run_plan.json")
-    Assert-ArtifactValue $staticRunPlan.format "eng-static-run-plan-v1" "static_run_plan.format"
+    Assert-ArtifactValue $staticRunPlan.format "eng-static-run-plan-v2" "static_run_plan.format"
     Assert-ArtifactValue $staticRunPlan.execution_stage "pre_execution" "static_run_plan.execution_stage"
-    Assert-ArtifactValue $staticRunPlan.status "planned" "static_run_plan.status"
+    Assert-ArtifactValue $staticRunPlan.status "ready" "static_run_plan.status"
+    Assert-ArtifactValue $staticRunPlan.rerun_status "scheduled" "static_run_plan.rerun_status"
     Assert-ArtifactValue $staticRunPlan.source_hash $review.source_hash "static_run_plan.source_hash"
     Assert-ArtifactNumber $staticRunPlan.graph.node_count @($staticRunPlan.graph.nodes).Count "static_run_plan.graph.node_count"
     Assert-ArtifactNumber $staticRunPlan.graph.edge_count @($staticRunPlan.graph.edges).Count "static_run_plan.graph.edge_count"
     $staticSourceNode = @($staticRunPlan.graph.nodes) | Where-Object { $_.id -eq "source:program" } | Select-Object -First 1
     Assert-Artifact ($null -ne $staticSourceNode) "static_run_plan.graph.nodes missing source:program"
+    Assert-ArtifactValue $staticSourceNode.status "loaded" "static_run_plan source node status"
+    foreach ($staticNode in @($staticRunPlan.graph.nodes)) {
+        Assert-Artifact (@("loaded", "declared", "resolved") -contains [string]$staticNode.status) "static_run_plan node $($staticNode.id) has invalid status $($staticNode.status)"
+        Assert-ArtifactValue $staticNode.rerun_status "scheduled" "static_run_plan node $($staticNode.id) rerun_status"
+    }
 
     $runLock = Read-ArtifactJson (Join-Path $RepoRoot "build\result\run_lock.json")
     Assert-ArtifactValue $runLock.format "eng-run-lock-v1" "run_lock.format"

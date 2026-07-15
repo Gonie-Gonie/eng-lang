@@ -466,8 +466,12 @@ output-manifest payloads remain runtime objects in memory. `--save-artifacts`
 writes those objects to disk.
 `--skip-unchanged` compares the current run input lock against
 `build/result/run_lock.json`. `static_run_plan.json` is generated before
-bytecode execution from the checked semantic program. When source, profile, CLI
-args, and dependency hashes match the prior lock, `run_plan.json` records
+bytecode execution from the checked semantic program. Its v2 contract reports
+the document as `ready`, executable nodes as `declared`, resolved environment
+dependencies as `resolved`, and a pending run as `scheduled` rather than using
+the stdlib maturity word `planned` or the post-execution word `executed`. When
+source, profile, CLI args, and dependency hashes match the prior lock,
+`run_plan.json` records
 `rerun_decision.decision = skip` and `rerun_status = skipped`; otherwise it
 records a normal executed rerun status. The skip path also verifies saved
 artifact hashes from the prior lock before reusing the saved result.

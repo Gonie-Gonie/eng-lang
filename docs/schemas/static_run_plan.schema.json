@@ -16,14 +16,14 @@
     "graph"
   ],
   "properties": {
-    "format": { "const": "eng-static-run-plan-v1" },
+    "format": { "const": "eng-static-run-plan-v2" },
     "runtime_version": { "type": "string" },
     "source_path": { "type": "string" },
     "source_hash": { "type": "string" },
     "execution_profile": { "enum": ["safe", "normal", "repro"] },
     "execution_stage": { "const": "pre_execution" },
-    "status": { "const": "planned" },
-    "rerun_status": { "enum": ["executed", "skipped"] },
+    "status": { "const": "ready" },
+    "rerun_status": { "enum": ["scheduled", "skipped"] },
     "rerun_decision": { "$ref": "#/$defs/rerunDecision" },
     "graph": {
       "type": "object",
@@ -73,12 +73,12 @@
         "id": { "type": "string" },
         "kind": { "type": "string" },
         "label": { "type": "string" },
-        "status": { "type": "string" },
+        "status": { "enum": ["loaded", "declared", "resolved"] },
         "phase": { "const": "static" },
         "risk": { "enum": ["low", "medium", "high"] },
         "risk_category": { "$ref": "#/$defs/reviewRiskCategory" },
         "risk_severity": { "enum": ["info", "warning", "error"] },
-        "rerun_status": { "enum": ["executed", "skipped"] },
+        "rerun_status": { "enum": ["scheduled", "skipped"] },
         "line": { "type": "integer", "minimum": 0 },
         "source_span": {
           "type": "object",
