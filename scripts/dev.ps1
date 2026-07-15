@@ -3893,6 +3893,12 @@ function Assert-VscodeExtensionContract {
         "{{KEYWORD_GROUP_MODIFIER}}", "{{KEYWORD_GROUP_REPORT}}", "{{KEYWORD_GROUP_VALIDATION}}",
         "{{KEYWORD_GROUP_SIDE_EFFECT}}",
         "{{KEYWORD_GROUP_EXTERNAL_BOUNDARY}}", "{{KEYWORD_GROUP_SOLVER}}", "{{KEYWORD_GROUP_WORKFLOW}}",
+        "{{WORKFLOW_BUILTIN_GROUP_DEPRECATED}}", "{{WORKFLOW_BUILTIN_GROUP_VALIDATION}}",
+        "{{WORKFLOW_BUILTIN_GROUP_EXTERNAL}}", "{{WORKFLOW_BUILTIN_GROUP_PATH}}",
+        "{{WORKFLOW_BUILTIN_GROUP_TEMPORAL}}", "{{WORKFLOW_BUILTIN_GROUP_MODEL}}",
+        "{{WORKFLOW_BUILTIN_GROUP_UNCERTAIN}}", "{{WORKFLOW_BUILTIN_GROUP_TIMESERIES}}",
+        "{{WORKFLOW_BUILTIN_GROUP_TIMESERIES_STATS}}", "{{WORKFLOW_BUILTIN_GROUP_SOLVER}}",
+        "{{WORKFLOW_BUILTIN_GROUP_WORKFLOW_STEP}}",
         "{{WORKFLOW_STATUS_LITERALS}}"
     )) {
         if (-not $GrammarTemplateSource.Contains($RequiredGrammarPlaceholder)) {
@@ -3916,6 +3922,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not $BuildGrammarSource.Contains("keyword_groups") -or -not $BuildGrammarSource.Contains("{{KEYWORD_GROUP_WORKFLOW}}")) {
         throw "VS Code grammar build must generate keyword groups from editor metadata"
+    }
+    if (-not $BuildGrammarSource.Contains("workflow_builtin_groups") -or -not $BuildGrammarSource.Contains("{{WORKFLOW_BUILTIN_GROUP_TIMESERIES}}")) {
+        throw "VS Code grammar build must generate workflow builtin role groups from editor metadata"
     }
     if (-not $BuildGrammarSource.Contains("workflow_status_literals") -or -not $BuildGrammarSource.Contains("{{WORKFLOW_STATUS_LITERALS}}")) {
         throw "VS Code grammar build must generate workflow status literals from editor metadata"
@@ -6354,6 +6363,13 @@ function Assert-VscodeExtensionContract {
             throw "generated VS Code editor metadata missing keyword group $RequiredKeywordGroup"
         }
     }
+    $RequiredWorkflowBuiltinGroups = @("deprecated", "validation", "external", "path", "temporal", "model", "uncertain", "timeseries", "solver", "workflow_step")
+    foreach ($RequiredWorkflowBuiltinGroup in $RequiredWorkflowBuiltinGroups) {
+        $WorkflowBuiltinGroupProperty = $EditorMetadata.syntax_catalog.workflow_builtin_groups.PSObject.Properties[$RequiredWorkflowBuiltinGroup]
+        if ($null -eq $WorkflowBuiltinGroupProperty -or @($WorkflowBuiltinGroupProperty.Value).Count -eq 0) {
+            throw "generated VS Code editor metadata missing workflow builtin group $RequiredWorkflowBuiltinGroup"
+        }
+    }
     foreach ($RequiredSyntaxKeyword in @("histogram", "parity", "residuals", "return", "if", "else")) {
         $SyntaxKeyword = @($EditorMetadata.syntax_catalog.keywords | Where-Object { $_ -eq $RequiredSyntaxKeyword }) | Select-Object -First 1
         if ($null -eq $SyntaxKeyword) {
@@ -6666,6 +6682,11 @@ function Invoke-IdeCheck {
         "syntaxCatalog",
         "normalizeSyntaxCatalog",
         "buildLexicalCatalog",
+        "workflowBuiltinGroups",
+        "workflow_builtin_groups",
+        "normalized.workflowBuiltinGroups",
+        "LEXICAL_WORKFLOW_BUILTIN_GROUP_CLASSES",
+        "lexicalWorkflowBuiltinClass",
         "operatorWords",
         "operator_words",
         "normalized.constants",

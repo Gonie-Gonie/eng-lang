@@ -51,6 +51,22 @@ const LEXICAL_KEYWORD_GROUP_CLASSES = {
   solver: "hl-keyword hl-mod-solver",
   workflow: "hl-keyword hl-mod-workflowStep"
 };
+const LEXICAL_WORKFLOW_BUILTIN_GROUP_ORDER = [
+  "deprecated", "validation", "external", "path", "temporal", "model", "uncertain",
+  "timeseries", "solver", "workflow_step"
+];
+const LEXICAL_WORKFLOW_BUILTIN_GROUP_CLASSES = {
+  deprecated: "hl-function hl-mod-deprecated",
+  validation: "hl-function hl-mod-validation",
+  external: "hl-function hl-mod-external",
+  path: "hl-function hl-mod-path",
+  temporal: "hl-function hl-mod-temporal",
+  model: "hl-function hl-mod-model",
+  uncertain: "hl-function hl-mod-uncertain",
+  timeseries: "hl-function hl-mod-timeseries",
+  solver: "hl-function hl-mod-solver",
+  workflow_step: "hl-function hl-mod-workflowStep"
+};
 
 const HOVER_KIND_LABELS = Object.freeze({
   variable: "Variable",
@@ -171,6 +187,7 @@ function emptySyntaxCatalog() {
   return {
     keywords: [],
     keywordGroups: {},
+    workflowBuiltinGroups: {},
     constants: [],
     workflowStatusLiterals: [],
     operatorWords: [],
@@ -201,6 +218,9 @@ function normalizeSyntaxCatalog(catalog) {
   return {
     keywords: stringArray(source.keywords),
     keywordGroups: catalogKeywordGroups(source.keywordGroups ?? source.keyword_groups),
+    workflowBuiltinGroups: catalogKeywordGroups(
+      source.workflowBuiltinGroups ?? source.workflow_builtin_groups
+    ),
     constants: stringArray(source.constants),
     workflowStatusLiterals: stringArray(source.workflowStatusLiterals ?? source.workflow_status_literals),
     operatorWords: stringArray(source.operatorWords ?? source.operator_words),
@@ -252,6 +272,7 @@ function buildLexicalCatalog(catalog) {
   return {
     keywords: keywordSet,
     keywordGroups: keywordGroupSets(normalized.keywordGroups),
+    workflowBuiltinGroups: keywordGroupSets(normalized.workflowBuiltinGroups),
     workflowBuiltins: workflowBuiltinSet,
     workflowStatusLiterals: new Set(normalized.workflowStatusLiterals),
     operatorWords: new Set(normalized.operatorWords),
@@ -6071,6 +6092,8 @@ function lexicalClassForWord(word, line, index) {
   if (lexical.workflowStatusLiterals?.has(word) && isWorkflowStatusLiteralContext(line, index)) {
     return "hl-keyword hl-mod-workflowStep";
   }
+  const workflowBuiltinClass = lexicalWorkflowBuiltinClass(word, line, index, lexical);
+  if (workflowBuiltinClass) return workflowBuiltinClass;
   if (lexical.constants.has(word)) return "hl-constant";
   if (lexical.operatorWords.has(word)) return "hl-operator";
   const keywordClass = lexicalKeywordGroupClass(word, lexical);
@@ -6095,6 +6118,22 @@ function lexicalKeywordGroupClass(word, lexical) {
     }
   }
   return "";
+}
+
+function lexicalWorkflowBuiltinClass(word, line, index, lexical) {
+  const suffix = String(line || "").slice(index + word.length);
+  const isCall = /^\s*\(/.test(suffix);
+  const isCanonicalSecretEnv = word === "secret" && /^\s+env\s*\(/.test(suffix);
+  const isWorkflowStepValue = word === "run_case";
+  if (!isCall && !isCanonicalSecretEnv && !isWorkflowStepValue) return "";
+
+  const groups = lexical?.workflowBuiltinGroups || {};
+  for (const group of LEXICAL_WORKFLOW_BUILTIN_GROUP_ORDER) {
+    if (groups[group]?.has(word)) {
+      return LEXICAL_WORKFLOW_BUILTIN_GROUP_CLASSES[group] || "hl-function";
+    }
+  }
+  return isCall && lexical?.workflowBuiltins?.has(word) ? "hl-function" : "";
 }
 
 function lexicalCompletionClass(word) {

@@ -95,43 +95,51 @@
                   },
                   {
                     "name": "support.function.deprecated.englang",
-                    "match": "\\bselect_first_row\\b(?=\\s*\\()"
+                    "match": "\\b({{WORKFLOW_BUILTIN_GROUP_DEPRECATED}})\\b(?=\\s*\\()"
                   },
                   {
                     "name": "support.function.validation.englang",
-                    "match": "\\bfill_missing\\b(?=\\s*\\()"
+                    "match": "\\b({{WORKFLOW_BUILTIN_GROUP_VALIDATION}})\\b(?=\\s*\\()"
                   },
                   {
                     "name": "support.function.external-boundary.englang",
-                    "match": "\\b(file|dir|url|env|secret|exists)(?=\\s*\\()"
+                    "match": "\\bsecret\\b(?=\\s+env\\s*\\()"
+                  },
+                  {
+                    "name": "support.function.external-boundary.englang",
+                    "match": "\\b({{WORKFLOW_BUILTIN_GROUP_EXTERNAL}})\\b(?=\\s*\\()"
                   },
                   {
                     "name": "support.function.path.englang",
-                    "match": "\\b(join|parent|stem|extension)\\b(?=\\s*\\()"
+                    "match": "\\b({{WORKFLOW_BUILTIN_GROUP_PATH}})\\b(?=\\s*\\()"
                   },
                   {
                     "name": "support.function.temporal.englang",
-                    "match": "\\bdate\\b(?=\\s*\\()"
+                    "match": "\\b({{WORKFLOW_BUILTIN_GROUP_TEMPORAL}})\\b(?=\\s*\\()"
                   },
                   {
                     "name": "support.function.model.englang",
-                    "match": "\\b(train_test_split|regression|train_regression|mlp|ann|regression_table|evaluate|model_card|leakage_lint)\\b(?=\\s*\\()"
+                    "match": "\\b({{WORKFLOW_BUILTIN_GROUP_MODEL}})\\b(?=\\s*\\()"
                   },
                   {
                     "name": "support.function.uncertain.englang",
-                    "match": "\\b(measured|interval|normal|uniform|distribution|propagate|ensemble|probability)\\b(?=\\s*\\()"
+                    "match": "\\b({{WORKFLOW_BUILTIN_GROUP_UNCERTAIN}})\\b(?=\\s*\\()"
                   },
                   {
                     "name": "support.function.timeseries.englang",
-                    "match": "\\b(integrate|mean|min|max|median|std|sum|time_weighted_mean|duration_above|p\\d{1,2})\\b(?=\\s*\\()"
+                    "match": "\\b({{WORKFLOW_BUILTIN_GROUP_TIMESERIES}})\\b(?=\\s*\\()"
                   },
                   {
                     "name": "support.function.solver.englang",
-                    "match": "\\b(der|delay)\\b(?=\\s*\\()"
+                    "match": "\\b({{WORKFLOW_BUILTIN_GROUP_SOLVER}})\\b(?=\\s*\\()"
+                  },
+                  {
+                    "name": "support.function.workflow-step.englang",
+                    "match": "\\b({{WORKFLOW_BUILTIN_GROUP_WORKFLOW_STEP}})\\b(?=\\s*\\()"
                   },
                   {
                     "name": "support.function.builtin.englang",
-                    "match": "\\b({{WORKFLOW_BUILTINS}})(?=\\s*\\()"
+                    "match": "\\b({{WORKFLOW_BUILTINS}})\\b(?=\\s*\\()"
                   },
                   {
                     "name": "entity.name.function.call.englang",
@@ -1611,7 +1619,7 @@
           },
           {
             "name": "meta.workflow.stat-axis-call.englang",
-            "begin": "\\b(mean|max|min|median|std|sum|time_weighted_mean|duration_above|p\\d{1,2})\\s*(\\()",
+            "begin": "\\b({{WORKFLOW_BUILTIN_GROUP_TIMESERIES_STATS}})\\s*(\\()",
             "beginCaptures": {
               "1": { "name": "support.function.timeseries.englang" },
               "2": { "name": "punctuation.section.parens.begin.englang" }
@@ -1720,7 +1728,7 @@
               { "include": "#units" },
               {
                 "name": "support.function.timeseries.englang",
-                "match": "\\b(mean|min|max|median|std|sum|time_weighted_mean|duration_above|p\\d{1,2})\\b"
+                "match": "\\b({{WORKFLOW_BUILTIN_GROUP_TIMESERIES_STATS}})\\b"
               },
               { "include": "#builtins" },
               { "include": "#constants" },
@@ -2247,31 +2255,43 @@
         "patterns": [
           {
             "name": "support.function.deprecated.englang",
-            "match": "\\bselect_first_row\\b(?=\\s*\\()"
+            "match": "\\b({{WORKFLOW_BUILTIN_GROUP_DEPRECATED}})\\b(?=\\s*\\()"
           },
           {
             "name": "support.function.validation.englang",
-            "match": "\\bfill_missing\\b(?=\\s*\\()"
+            "match": "\\b({{WORKFLOW_BUILTIN_GROUP_VALIDATION}})\\b(?=\\s*\\()"
           },
           {
             "name": "support.function.external-boundary.englang",
-            "match": "\\b(file|dir|url|env|secret|exists)\\b"
+            "match": "\\b({{WORKFLOW_BUILTIN_GROUP_EXTERNAL}})\\b"
           },
           {
             "name": "support.function.path.englang",
-            "match": "\\b(join|parent|stem|extension)\\b(?=\\s*\\()"
+            "match": "\\b({{WORKFLOW_BUILTIN_GROUP_PATH}})\\b(?=\\s*\\()"
           },
           {
             "name": "support.function.temporal.englang",
-            "match": "\\bdate\\b(?=\\s*\\()"
+            "match": "\\b({{WORKFLOW_BUILTIN_GROUP_TEMPORAL}})\\b(?=\\s*\\()"
+          },
+          {
+            "name": "support.function.model.englang",
+            "match": "\\b({{WORKFLOW_BUILTIN_GROUP_MODEL}})\\b(?=\\s*\\()"
+          },
+          {
+            "name": "support.function.uncertain.englang",
+            "match": "\\b({{WORKFLOW_BUILTIN_GROUP_UNCERTAIN}})\\b(?=\\s*\\()"
+          },
+          {
+            "name": "support.function.timeseries.englang",
+            "match": "\\b({{WORKFLOW_BUILTIN_GROUP_TIMESERIES}})\\b(?=\\s*\\()"
           },
           {
             "name": "support.function.solver.englang",
-            "match": "\\b(der|delay)\\b"
+            "match": "\\b({{WORKFLOW_BUILTIN_GROUP_SOLVER}})\\b"
           },
           {
             "name": "support.function.workflow-step.englang",
-            "match": "\\brun_case\\b"
+            "match": "\\b({{WORKFLOW_BUILTIN_GROUP_WORKFLOW_STEP}})\\b"
           },
           {
             "name": "support.function.builtin.englang",

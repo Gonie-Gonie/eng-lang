@@ -969,6 +969,34 @@ $CompletionKeywords = @($SyntaxCatalog.keywords | ForEach-Object { [string]$_ })
 $WorkflowBuiltins = @($SyntaxCatalog.workflow_builtins | ForEach-Object { [string]$_ })
 $HyphenatedWorkflowBuiltins = @($SyntaxCatalog.hyphenated_workflow_builtins | ForEach-Object { [string]$_ })
 $LegacyWorkflowBuiltinAliases = @($SyntaxCatalog.legacy_workflow_builtin_aliases | ForEach-Object { [string]$_ })
+$WorkflowBuiltinGroups = $SyntaxCatalog.workflow_builtin_groups
+if ($null -eq $WorkflowBuiltinGroups) {
+    throw "generated editor metadata syntax_catalog.workflow_builtin_groups is missing"
+}
+$WorkflowBuiltinGroupNames = @(
+    "deprecated", "validation", "external", "path", "temporal",
+    "model", "uncertain", "timeseries", "solver", "workflow_step"
+)
+$WorkflowBuiltinGroupItems = @{}
+$KnownWorkflowBuiltinLabels = @(($WorkflowBuiltins + $HyphenatedWorkflowBuiltins + $LegacyWorkflowBuiltinAliases) | Sort-Object -Unique)
+$SeenWorkflowBuiltinGroupLabels = @{}
+foreach ($WorkflowBuiltinGroupName in $WorkflowBuiltinGroupNames) {
+    $GroupProperty = $WorkflowBuiltinGroups.PSObject.Properties[$WorkflowBuiltinGroupName]
+    if ($null -eq $GroupProperty -or @($GroupProperty.Value).Count -eq 0) {
+        throw "generated editor metadata syntax_catalog.workflow_builtin_groups.$WorkflowBuiltinGroupName is missing or empty"
+    }
+    $GroupLabels = @($GroupProperty.Value | ForEach-Object { [string]$_ })
+    $WorkflowBuiltinGroupItems[$WorkflowBuiltinGroupName] = $GroupLabels
+    foreach ($GroupLabel in $GroupLabels) {
+        if ($KnownWorkflowBuiltinLabels -notcontains $GroupLabel) {
+            throw "workflow builtin group $WorkflowBuiltinGroupName contains unknown label $GroupLabel"
+        }
+        if ($SeenWorkflowBuiltinGroupLabels.ContainsKey($GroupLabel)) {
+            throw "workflow builtin label $GroupLabel appears in both $($SeenWorkflowBuiltinGroupLabels[$GroupLabel]) and $WorkflowBuiltinGroupName groups"
+        }
+        $SeenWorkflowBuiltinGroupLabels[$GroupLabel] = $WorkflowBuiltinGroupName
+    }
+}
 $WorkflowOptions = @($SyntaxCatalog.workflow_options | ForEach-Object { [string]$_.label })
 $LegacyWorkflowOptionAliases = @($SyntaxCatalog.legacy_workflow_option_aliases | ForEach-Object { [string]$_ })
 $LanguageConstants = @($SyntaxCatalog.constants | ForEach-Object { [string]$_ })
@@ -1238,16 +1266,17 @@ $KeywordFallbackScopes = @(
     "variable.parameter.property.englang"
 )
 Assert-AnyScopeMatchesLabels -Scopes $KeywordFallbackScopes -Labels $CompletionKeywords -Description "LSP completion keyword" -FixtureText $CompletionKeywordFixture
-$PathWorkflowBuiltins = @("join", "parent", "stem", "extension")
-$ExternalWorkflowBuiltins = @("file", "dir", "url", "env", "secret", "exists")
-$TemporalWorkflowBuiltins = @("date")
-$ModelWorkflowBuiltins = @("train_test_split", "regression", "train_regression", "mlp", "ann", "regression_table", "evaluate", "model_card", "leakage_lint")
-$UncertaintyWorkflowBuiltins = @("measured", "interval", "normal", "uniform", "distribution", "propagate", "ensemble", "probability")
-$TimeseriesWorkflowBuiltins = @("integrate", "mean", "min", "max", "median", "std", "sum", "time_weighted_mean", "duration_above", "p90", "p95")
-$SolverWorkflowBuiltins = @("der", "delay")
-$ValidationWorkflowBuiltins = @("fill_missing")
-$DeprecatedWorkflowBuiltins = @("select_first_row")
-$DomainScopedWorkflowBuiltins = @($PathWorkflowBuiltins + $ExternalWorkflowBuiltins + $TemporalWorkflowBuiltins + $ModelWorkflowBuiltins + $UncertaintyWorkflowBuiltins + $TimeseriesWorkflowBuiltins + $SolverWorkflowBuiltins + $ValidationWorkflowBuiltins + $DeprecatedWorkflowBuiltins)
+$PathWorkflowBuiltins = @($WorkflowBuiltinGroupItems["path"])
+$ExternalWorkflowBuiltins = @($WorkflowBuiltinGroupItems["external"])
+$TemporalWorkflowBuiltins = @($WorkflowBuiltinGroupItems["temporal"])
+$ModelWorkflowBuiltins = @($WorkflowBuiltinGroupItems["model"])
+$UncertaintyWorkflowBuiltins = @($WorkflowBuiltinGroupItems["uncertain"])
+$TimeseriesWorkflowBuiltins = @($WorkflowBuiltinGroupItems["timeseries"])
+$SolverWorkflowBuiltins = @($WorkflowBuiltinGroupItems["solver"])
+$ValidationWorkflowBuiltins = @($WorkflowBuiltinGroupItems["validation"])
+$DeprecatedWorkflowBuiltins = @($WorkflowBuiltinGroupItems["deprecated"])
+$WorkflowStepWorkflowBuiltins = @($WorkflowBuiltinGroupItems["workflow_step"])
+$DomainScopedWorkflowBuiltins = @($PathWorkflowBuiltins + $ExternalWorkflowBuiltins + $TemporalWorkflowBuiltins + $ModelWorkflowBuiltins + $UncertaintyWorkflowBuiltins + $TimeseriesWorkflowBuiltins + $SolverWorkflowBuiltins + $ValidationWorkflowBuiltins + $DeprecatedWorkflowBuiltins + $WorkflowStepWorkflowBuiltins)
 $GenericWorkflowBuiltins = @($WorkflowBuiltins | Where-Object { $DomainScopedWorkflowBuiltins -notcontains $_ })
 Assert-ScopeMatchesLabels -Scope "support.function.builtin.englang" -Labels $GenericWorkflowBuiltins -Description "LSP workflow builtin"
 Assert-ScopeMatchesLabels -Scope "support.function.external-boundary.englang" -Labels $ExternalWorkflowBuiltins -Description "LSP external boundary builtin" -Suffix "("
@@ -1259,8 +1288,10 @@ Assert-ScopeMatchesLabels -Scope "support.function.timeseries.englang" -Labels $
 Assert-ScopeMatchesLabels -Scope "support.function.solver.englang" -Labels $SolverWorkflowBuiltins -Description "LSP solver helper builtin" -Suffix "("
 Assert-ScopeMatchesLabels -Scope "support.function.validation.englang" -Labels $ValidationWorkflowBuiltins -Description "LSP validation helper builtin" -Suffix "("
 Assert-ScopeMatchesLabels -Scope "support.function.deprecated.englang" -Labels $DeprecatedWorkflowBuiltins -Description "LSP deprecated helper builtin" -Suffix "("
+Assert-ScopeMatchesLabels -Scope "support.function.workflow-step.englang" -Labels $WorkflowStepWorkflowBuiltins -Description "LSP workflow-step helper builtin" -Suffix "("
 Assert-ScopeMatchesLabels -Scope "support.function.builtin.englang" -Labels $HyphenatedWorkflowBuiltins -Description "LSP hyphenated workflow builtin"
 Assert-ScopeDoesNotMatchLabels -Scope "entity.name.function.call.englang" -Labels ($WorkflowBuiltins + $HyphenatedWorkflowBuiltins) -Description "LSP workflow builtin call" -Suffix "("
+Assert-ScopeDoesNotMatchText -Scope "support.function.timeseries.englang" -Text "p42(series)" -Description "unsupported percentile helper"
 Assert-ScopeDoesNotMatchText -Scope "meta.workflow.read-structured.englang" -Text 'read csv file("data/input.csv")' -Description "unsupported raw CSV read"
 Assert-ScopeDoesNotMatchText -Scope "meta.workflow.validation.englang" -Text 'bad_validate = validate args.Q > 0 kW' -Description "unsupported bound validate command"
 Assert-ScopeDoesNotMatchText -Scope "meta.workflow.validation.englang" -Text 'bad_assert = assert args.Q > 0 kW' -Description "unsupported bound assert command"
@@ -1321,6 +1352,7 @@ Assert-ExpectedScopedTokenTextsCoverLabels -Scope "support.function.timeseries.e
 Assert-ExpectedScopedTokenTextsCoverLabels -Scope "support.function.solver.englang" -Labels $SolverWorkflowBuiltins -Description "solver workflow builtin"
 Assert-ExpectedScopedTokenTextsCoverLabels -Scope "support.function.validation.englang" -Labels $ValidationWorkflowBuiltins -Description "validation workflow builtin"
 Assert-ExpectedScopedTokenTextsCoverLabels -Scope "support.function.deprecated.englang" -Labels $DeprecatedWorkflowBuiltins -Description "deprecated workflow builtin"
+Assert-ExpectedScopedTokenTextsCoverLabels -Scope "support.function.workflow-step.englang" -Labels $WorkflowStepWorkflowBuiltins -Description "workflow-step builtin"
 Assert-ExpectedScopedTokenTextsCoverLabels -Scope "constant.language.englang" -Labels $LanguageConstants -Description "language constant"
 Assert-ExpectedScopedTokenTextsCoverLabels -Scope "keyword.operator.word.englang" -Labels $OperatorWords -Description "operator word"
 foreach ($KeywordGroupCheck in $KeywordGroupScopeChecks) {

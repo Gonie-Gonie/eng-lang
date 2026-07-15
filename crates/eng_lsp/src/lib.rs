@@ -381,6 +381,60 @@ const WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &[
 ];
 
 const HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &["latin-hypercube"];
+const EDITOR_WORKFLOW_BUILTIN_GROUP_DEPRECATED: &[&str] = &["select_first_row"];
+const EDITOR_WORKFLOW_BUILTIN_GROUP_VALIDATION: &[&str] = &["fill_missing"];
+const EDITOR_WORKFLOW_BUILTIN_GROUP_EXTERNAL: &[&str] =
+    &["file", "dir", "url", "env", "secret", "exists"];
+const EDITOR_WORKFLOW_BUILTIN_GROUP_PATH: &[&str] = &["join", "parent", "stem", "extension"];
+const EDITOR_WORKFLOW_BUILTIN_GROUP_TEMPORAL: &[&str] = &["date"];
+const EDITOR_WORKFLOW_BUILTIN_GROUP_MODEL: &[&str] = &[
+    "train_test_split",
+    "regression",
+    "train_regression",
+    "mlp",
+    "ann",
+    "regression_table",
+    "evaluate",
+    "model_card",
+    "leakage_lint",
+];
+const EDITOR_WORKFLOW_BUILTIN_GROUP_UNCERTAIN: &[&str] = &[
+    "measured",
+    "interval",
+    "normal",
+    "uniform",
+    "distribution",
+    "propagate",
+    "ensemble",
+    "probability",
+];
+const EDITOR_WORKFLOW_BUILTIN_GROUP_TIMESERIES: &[&str] = &[
+    "integrate",
+    "mean",
+    "min",
+    "max",
+    "median",
+    "std",
+    "sum",
+    "time_weighted_mean",
+    "duration_above",
+    "p90",
+    "p95",
+];
+const EDITOR_WORKFLOW_BUILTIN_GROUP_SOLVER: &[&str] = &["der", "delay"];
+const EDITOR_WORKFLOW_BUILTIN_GROUP_WORKFLOW_STEP: &[&str] = &["apply", "run_case"];
+const EDITOR_WORKFLOW_BUILTIN_GROUPS: &[(&str, &[&str])] = &[
+    ("deprecated", EDITOR_WORKFLOW_BUILTIN_GROUP_DEPRECATED),
+    ("validation", EDITOR_WORKFLOW_BUILTIN_GROUP_VALIDATION),
+    ("external", EDITOR_WORKFLOW_BUILTIN_GROUP_EXTERNAL),
+    ("path", EDITOR_WORKFLOW_BUILTIN_GROUP_PATH),
+    ("temporal", EDITOR_WORKFLOW_BUILTIN_GROUP_TEMPORAL),
+    ("model", EDITOR_WORKFLOW_BUILTIN_GROUP_MODEL),
+    ("uncertain", EDITOR_WORKFLOW_BUILTIN_GROUP_UNCERTAIN),
+    ("timeseries", EDITOR_WORKFLOW_BUILTIN_GROUP_TIMESERIES),
+    ("solver", EDITOR_WORKFLOW_BUILTIN_GROUP_SOLVER),
+    ("workflow_step", EDITOR_WORKFLOW_BUILTIN_GROUP_WORKFLOW_STEP),
+];
 const RMSE_COMPARISON_MODIFIERS: &[&str] = &["report", "timeseries", "validation"];
 
 const PLOT_COMMAND_STYLE_WORDS: &[&str] = &[
@@ -1830,6 +1884,10 @@ pub fn editor_metadata_json() -> Value {
 
 pub fn editor_syntax_catalog_json() -> Value {
     let constants = editor_constant_keywords();
+    let workflow_builtin_groups = EDITOR_WORKFLOW_BUILTIN_GROUPS
+        .iter()
+        .copied()
+        .collect::<BTreeMap<_, _>>();
     json!({
         "keywords": COMPLETION_KEYWORDS,
         "constants": constants,
@@ -1852,6 +1910,7 @@ pub fn editor_syntax_catalog_json() -> Value {
             "workflow": EDITOR_WORKFLOW_KEYWORDS,
         },
         "workflow_builtins": WORKFLOW_BUILTIN_KEYWORDS,
+        "workflow_builtin_groups": workflow_builtin_groups,
         "hyphenated_workflow_builtins": HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS,
         "legacy_workflow_builtin_aliases": EDITOR_LEGACY_WORKFLOW_BUILTIN_ALIASES,
         "legacy_workflow_option_aliases": EDITOR_LEGACY_WORKFLOW_OPTION_ALIASES,
@@ -5932,34 +5991,54 @@ fn http_request_method_keyword(method: &str) -> &'static str {
 }
 
 fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
+    if EDITOR_WORKFLOW_BUILTIN_GROUP_EXTERNAL.contains(&keyword) {
+        return &["defaultLibrary", "external"];
+    }
+    if EDITOR_WORKFLOW_BUILTIN_GROUP_PATH.contains(&keyword) {
+        return &["defaultLibrary", "path"];
+    }
+    if EDITOR_WORKFLOW_BUILTIN_GROUP_TEMPORAL.contains(&keyword) {
+        return &["defaultLibrary", "temporal"];
+    }
+    if EDITOR_WORKFLOW_BUILTIN_GROUP_UNCERTAIN.contains(&keyword) {
+        return &["defaultLibrary", "uncertain"];
+    }
+    if EDITOR_WORKFLOW_BUILTIN_GROUP_MODEL.contains(&keyword) {
+        return &["defaultLibrary", "model"];
+    }
+    if EDITOR_WORKFLOW_BUILTIN_GROUP_TIMESERIES.contains(&keyword) {
+        return if matches!(keyword, "integrate" | "sum") {
+            &["defaultLibrary", "solver", "timeseries"]
+        } else {
+            &["defaultLibrary", "report", "timeseries"]
+        };
+    }
+    if EDITOR_WORKFLOW_BUILTIN_GROUP_SOLVER.contains(&keyword) {
+        return &["defaultLibrary", "solver", "timeseries"];
+    }
+    if EDITOR_WORKFLOW_BUILTIN_GROUP_VALIDATION.contains(&keyword) {
+        return &["defaultLibrary", "validation", "timeseries"];
+    }
+    if EDITOR_WORKFLOW_BUILTIN_GROUP_DEPRECATED.contains(&keyword) {
+        return &["defaultLibrary", "deprecated"];
+    }
+    if EDITOR_WORKFLOW_BUILTIN_GROUP_WORKFLOW_STEP.contains(&keyword) {
+        return &["defaultLibrary", "workflowStep"];
+    }
     match keyword {
-        "file" | "dir" | "url" | "env" | "secret" | "exists" => &["defaultLibrary", "external"],
-        "join" | "parent" | "stem" | "extension" => &["defaultLibrary", "path"],
-        "date" => &["defaultLibrary", "temporal"],
         "sample" | "grid" | "random" | "lhs" | "latin_hypercube" | "latin-hypercube" => {
             &["defaultLibrary", "workflowStep"]
         }
         "filter" | "select" | "derive" | "sort" | "require_one" => {
             &["defaultLibrary", "workflowStep"]
         }
-        "normal" | "uniform" | "distribution" => &["defaultLibrary", "uncertain"],
-        "materialize" | "apply" | "collect" | "run_case" => &["defaultLibrary", "workflowStep"],
-        "measured" | "interval" | "ensemble" | "propagate" | "probability" => {
-            &["defaultLibrary", "uncertain"]
-        }
-        "train" | "train_test_split" | "regression" | "regression_table" | "train_regression"
-        | "mlp" | "ann" | "evaluate" | "model_card" | "leakage_lint" | "predict" => {
-            &["defaultLibrary", "model"]
-        }
+        "materialize" | "collect" => &["defaultLibrary", "workflowStep"],
+        "train" | "predict" => &["defaultLibrary", "model"],
         "rmse" => &["defaultLibrary", "report", "timeseries", "validation"],
-        "mean" | "time_weighted_mean" | "min" | "max" | "median" | "std" | "p90" | "p95"
-        | "duration_above" => &["defaultLibrary", "report", "timeseries"],
-        "integrate" | "der" | "delay" | "sum" => &["defaultLibrary", "solver", "timeseries"],
         "fill" | "align" | "resample" => {
             &["defaultLibrary", "validation", "workflowStep", "timeseries"]
         }
-        "check" | "coverage" | "fill_missing" => &["defaultLibrary", "validation", "timeseries"],
-        "select_first_row" => &["defaultLibrary", "deprecated"],
+        "check" | "coverage" => &["defaultLibrary", "validation", "timeseries"],
         _ => &["defaultLibrary"],
     }
 }
@@ -10513,6 +10592,56 @@ mod tests {
                 "syntax catalog should expose keyword group {group} label {label}"
             );
         }
+        let workflow_builtin_groups = syntax_catalog["workflow_builtin_groups"]
+            .as_object()
+            .expect("syntax catalog workflow builtin groups should be an object");
+        assert_eq!(
+            workflow_builtin_groups.len(),
+            EDITOR_WORKFLOW_BUILTIN_GROUPS.len()
+        );
+        let known_workflow_builtins = WORKFLOW_BUILTIN_KEYWORDS
+            .iter()
+            .copied()
+            .chain(HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS.iter().copied())
+            .chain(EDITOR_LEGACY_WORKFLOW_BUILTIN_ALIASES.iter().copied())
+            .collect::<BTreeSet<_>>();
+        let mut grouped_workflow_builtins = BTreeSet::new();
+        for (group, labels) in workflow_builtin_groups {
+            let expected_modifier = match group.as_str() {
+                "workflow_step" => "workflowStep",
+                "deprecated" | "validation" | "external" | "path" | "temporal" | "model"
+                | "uncertain" | "timeseries" | "solver" => group.as_str(),
+                _ => panic!("unexpected workflow builtin group {group}"),
+            };
+            let labels = labels
+                .as_array()
+                .unwrap_or_else(|| panic!("workflow builtin group {group} should be an array"));
+            assert!(
+                !labels.is_empty(),
+                "workflow builtin group {group} is empty"
+            );
+            for label in labels {
+                let label = label.as_str().unwrap_or_else(|| {
+                    panic!("workflow builtin group {group} has a non-string label")
+                });
+                assert!(
+                    known_workflow_builtins.contains(label),
+                    "workflow builtin group {group} exposes unknown label {label}"
+                );
+                assert!(
+                    grouped_workflow_builtins.insert(label),
+                    "workflow builtin label {label} appears in more than one role group"
+                );
+                assert!(
+                    workflow_builtin_modifiers(label).contains(&expected_modifier),
+                    "workflow builtin group {group} label {label} is missing semantic modifier {expected_modifier}"
+                );
+            }
+        }
+        assert!(
+            !known_workflow_builtins.contains("datetime"),
+            "unsupported lowercase datetime helper must not appear in editor builtin metadata"
+        );
         assert!(
             syntax_catalog["workflow_builtins"]
                 .as_array()

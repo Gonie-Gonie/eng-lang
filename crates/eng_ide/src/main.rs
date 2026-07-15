@@ -3934,6 +3934,8 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
         r#"modifiers.includes("model")"#,
         r#"quantity.includes("dbconnection")"#,
         "keywordGroups: catalogKeywordGroups(source.keywordGroups ?? source.keyword_groups)",
+        "workflowBuiltinGroups: catalogKeywordGroups(",
+        "source.workflowBuiltinGroups ?? source.workflow_builtin_groups",
         "function catalogKeywordGroups(value)",
         "workflowStatusLiterals: stringArray(source.workflowStatusLiterals ?? source.workflow_status_literals)",
         "keywords: stringArray(source.keywords)",
@@ -3953,6 +3955,9 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
         "lexical.workflowStatusLiterals?.has(word)",
         "function isWorkflowStatusLiteralContext(line, index)",
         "function lexicalKeywordGroupClass(word, lexical)",
+        "function lexicalWorkflowBuiltinClass(word, line, index, lexical)",
+        "LEXICAL_WORKFLOW_BUILTIN_GROUP_CLASSES",
+        "workflowBuiltinGroups: keywordGroupSets(normalized.workflowBuiltinGroups)",
         "hl-mod-workflowStep",
         "<th>Selectors</th>",
         "function renderSemanticSelectorTable(counts)",
@@ -4338,6 +4343,22 @@ with {
         assert!(catalog["workflow_builtins"]
             .as_array()
             .is_some_and(|items| items.iter().any(|item| item.as_str() == Some("train"))));
+        for (group, label) in [
+            ("deprecated", "select_first_row"),
+            ("validation", "fill_missing"),
+            ("external", "file"),
+            ("path", "join"),
+            ("temporal", "date"),
+            ("model", "regression"),
+            ("uncertain", "normal"),
+            ("timeseries", "mean"),
+            ("solver", "der"),
+            ("workflow_step", "apply"),
+        ] {
+            assert!(catalog["workflow_builtin_groups"][group]
+                .as_array()
+                .is_some_and(|items| items.iter().any(|item| item.as_str() == Some(label))));
+        }
         assert!(catalog["workflow_status_literals"]
             .as_array()
             .is_some_and(|items| {

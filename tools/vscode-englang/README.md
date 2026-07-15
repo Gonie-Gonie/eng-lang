@@ -296,7 +296,9 @@ JavaScript does not maintain a separate keyword, type, quantity, or unit table.
 If live completion is unavailable, the extension falls back to the generated
 completion catalog from `generated/editor/englang-editor-metadata.json`. The
 same generated metadata also supplies the highlight legend and syntax catalog
-used by editor contract checks. Generic type completions keep their public labels
+used by editor contract checks. Builtin first-paint roles come from
+`syntax_catalog.workflow_builtin_groups`, rather than a separate JavaScript or
+grammar list. Generic type completions keep their public labels
 visible, but insert editable snippets such as `Array[T]` and
 `LinearOperator[From -> To]` so type arguments can be replaced immediately.
 The generated completion metadata also carries plain insert text and VS Code
@@ -348,6 +350,9 @@ written for review: `englang-semantic-legend.json`,
 provides the static completion fallback used when live completion is
 unavailable. Tooling reads the `completion_items` catalog directly; the editor
 metadata contract no longer publishes a duplicate completion seed alias.
+`syntax_catalog.workflow_builtin_groups` supplies the shared model, uncertainty,
+TimeSeries, solver, validation, boundary, path, temporal, deprecated, and
+workflow-step first-paint lists used by the generated grammar and native IDE.
 `syntax_catalog.legacy_workflow_builtin_aliases` and
 `syntax_catalog.legacy_workflow_option_aliases` contain highlight-only compatibility
 spellings that are not added back to completions. `syntax_catalog.units` contains

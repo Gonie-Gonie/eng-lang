@@ -1344,6 +1344,73 @@
                                              "quantity_hint":  "PeopleDensity"
                                          }
                                      ],
+                           "workflow_builtin_groups":  {
+                                                           "deprecated":  [
+                                                                              "select_first_row"
+                                                                          ],
+                                                           "external":  [
+                                                                            "file",
+                                                                            "dir",
+                                                                            "url",
+                                                                            "env",
+                                                                            "secret",
+                                                                            "exists"
+                                                                        ],
+                                                           "model":  [
+                                                                         "train_test_split",
+                                                                         "regression",
+                                                                         "train_regression",
+                                                                         "mlp",
+                                                                         "ann",
+                                                                         "regression_table",
+                                                                         "evaluate",
+                                                                         "model_card",
+                                                                         "leakage_lint"
+                                                                     ],
+                                                           "path":  [
+                                                                        "join",
+                                                                        "parent",
+                                                                        "stem",
+                                                                        "extension"
+                                                                    ],
+                                                           "solver":  [
+                                                                          "der",
+                                                                          "delay"
+                                                                      ],
+                                                           "temporal":  [
+                                                                            "date"
+                                                                        ],
+                                                           "timeseries":  [
+                                                                              "integrate",
+                                                                              "mean",
+                                                                              "min",
+                                                                              "max",
+                                                                              "median",
+                                                                              "std",
+                                                                              "sum",
+                                                                              "time_weighted_mean",
+                                                                              "duration_above",
+                                                                              "p90",
+                                                                              "p95"
+                                                                          ],
+                                                           "uncertain":  [
+                                                                             "measured",
+                                                                             "interval",
+                                                                             "normal",
+                                                                             "uniform",
+                                                                             "distribution",
+                                                                             "propagate",
+                                                                             "ensemble",
+                                                                             "probability"
+                                                                         ],
+                                                           "validation":  [
+                                                                              "fill_missing"
+                                                                          ],
+                                                           "workflow_step":  [
+                                                                                 "apply",
+                                                                                 "run_case"
+                                                                             ]
+                                                       },
                            "workflow_builtins":  [
                                                      "file",
                                                      "dir",

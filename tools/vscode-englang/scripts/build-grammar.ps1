@@ -104,6 +104,26 @@ $KeywordGroupItems = @{}
 foreach ($KeywordGroupName in $KeywordGroupNames) {
     $KeywordGroupItems[$KeywordGroupName] = Assert-SyntaxCatalogArray -Catalog $KeywordGroups -Name $KeywordGroupName
 }
+$WorkflowBuiltinGroups = $SyntaxCatalog.workflow_builtin_groups
+if ($null -eq $WorkflowBuiltinGroups) {
+    throw "generated editor metadata syntax_catalog is missing workflow_builtin_groups. Run .\dev.bat vscode-build-editor-metadata"
+}
+$WorkflowBuiltinGroupNames = @(
+    "deprecated",
+    "validation",
+    "external",
+    "path",
+    "temporal",
+    "model",
+    "uncertain",
+    "timeseries",
+    "solver",
+    "workflow_step"
+)
+$WorkflowBuiltinGroupItems = @{}
+foreach ($WorkflowBuiltinGroupName in $WorkflowBuiltinGroupNames) {
+    $WorkflowBuiltinGroupItems[$WorkflowBuiltinGroupName] = Assert-SyntaxCatalogArray -Catalog $WorkflowBuiltinGroups -Name $WorkflowBuiltinGroupName
+}
 $KeywordItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "keywords"
 $WorkflowBuiltinItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "workflow_builtins"
 $HyphenatedWorkflowBuiltinItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "hyphenated_workflow_builtins"
@@ -210,6 +230,7 @@ $GrammarOnlyTypeAliases = @(
 $PublicTypeBases = @($PublicTypeItems | ForEach-Object { [string]$_.base }) + $GrammarOnlyTypeAliases
 $QuantityLabels = @($QuantityItems | ForEach-Object { [string]$_.label })
 $UnitLabels = @($UnitItems | ForEach-Object { [string]$_.label }) + $LegacyUnitAliases
+$TimeseriesStatWorkflowBuiltins = @($WorkflowBuiltinGroupItems["timeseries"] | Where-Object { [string]$_ -ne "integrate" })
 $TemplateValues = @{
     "{{UNIT_LABELS}}" = ConvertTo-RegexAlternation $UnitLabels
     "{{LANGUAGE_CONSTANTS}}" = ConvertTo-RegexAlternation $LanguageConstants
@@ -228,6 +249,17 @@ $TemplateValues = @{
     "{{KEYWORD_GROUP_EXTERNAL_BOUNDARY}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["external_boundary"])
     "{{KEYWORD_GROUP_SOLVER}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["solver"])
     "{{KEYWORD_GROUP_WORKFLOW}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["workflow"])
+    "{{WORKFLOW_BUILTIN_GROUP_DEPRECATED}}" = ConvertTo-RegexAlternation @($WorkflowBuiltinGroupItems["deprecated"])
+    "{{WORKFLOW_BUILTIN_GROUP_VALIDATION}}" = ConvertTo-RegexAlternation @($WorkflowBuiltinGroupItems["validation"])
+    "{{WORKFLOW_BUILTIN_GROUP_EXTERNAL}}" = ConvertTo-RegexAlternation @($WorkflowBuiltinGroupItems["external"])
+    "{{WORKFLOW_BUILTIN_GROUP_PATH}}" = ConvertTo-RegexAlternation @($WorkflowBuiltinGroupItems["path"])
+    "{{WORKFLOW_BUILTIN_GROUP_TEMPORAL}}" = ConvertTo-RegexAlternation @($WorkflowBuiltinGroupItems["temporal"])
+    "{{WORKFLOW_BUILTIN_GROUP_MODEL}}" = ConvertTo-RegexAlternation @($WorkflowBuiltinGroupItems["model"])
+    "{{WORKFLOW_BUILTIN_GROUP_UNCERTAIN}}" = ConvertTo-RegexAlternation @($WorkflowBuiltinGroupItems["uncertain"])
+    "{{WORKFLOW_BUILTIN_GROUP_TIMESERIES}}" = ConvertTo-RegexAlternation @($WorkflowBuiltinGroupItems["timeseries"])
+    "{{WORKFLOW_BUILTIN_GROUP_TIMESERIES_STATS}}" = ConvertTo-RegexAlternation $TimeseriesStatWorkflowBuiltins
+    "{{WORKFLOW_BUILTIN_GROUP_SOLVER}}" = ConvertTo-RegexAlternation @($WorkflowBuiltinGroupItems["solver"])
+    "{{WORKFLOW_BUILTIN_GROUP_WORKFLOW_STEP}}" = ConvertTo-RegexAlternation @($WorkflowBuiltinGroupItems["workflow_step"])
     "{{PUBLIC_TYPE_BASES}}" = ConvertTo-RegexAlternation $PublicTypeBases
     "{{QUANTITY_LABELS}}" = ConvertTo-RegexAlternation $QuantityLabels
     "{{WORKFLOW_BUILTINS}}" = ConvertTo-RegexAlternation ($WorkflowBuiltins + $HyphenatedWorkflowBuiltins + $LegacyWorkflowBuiltinAliases)

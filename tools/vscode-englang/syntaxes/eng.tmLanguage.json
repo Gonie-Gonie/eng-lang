@@ -139,43 +139,51 @@
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.deprecated.englang",
-                                                                                                      "match":  "\\bselect_first_row\\b(?=\\s*\\()"
+                                                                                                      "match":  "\\b(select_first_row)\\b(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.validation.englang",
-                                                                                                      "match":  "\\bfill_missing\\b(?=\\s*\\()"
+                                                                                                      "match":  "\\b(fill_missing)\\b(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.external-boundary.englang",
-                                                                                                      "match":  "\\b(file|dir|url|env|secret|exists)(?=\\s*\\()"
+                                                                                                      "match":  "\\bsecret\\b(?=\\s+env\\s*\\()"
+                                                                                                  },
+                                                                                                  {
+                                                                                                      "name":  "support.function.external-boundary.englang",
+                                                                                                      "match":  "\\b(exists|secret|file|dir|env|url)\\b(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.path.englang",
-                                                                                                      "match":  "\\b(join|parent|stem|extension)\\b(?=\\s*\\()"
+                                                                                                      "match":  "\\b(extension|parent|join|stem)\\b(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.temporal.englang",
-                                                                                                      "match":  "\\bdate\\b(?=\\s*\\()"
+                                                                                                      "match":  "\\b(date)\\b(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.model.englang",
-                                                                                                      "match":  "\\b(train_test_split|regression|train_regression|mlp|ann|regression_table|evaluate|model_card|leakage_lint)\\b(?=\\s*\\()"
+                                                                                                      "match":  "\\b(regression_table|train_regression|train_test_split|leakage_lint|model_card|regression|evaluate|ann|mlp)\\b(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.uncertain.englang",
-                                                                                                      "match":  "\\b(measured|interval|normal|uniform|distribution|propagate|ensemble|probability)\\b(?=\\s*\\()"
+                                                                                                      "match":  "\\b(distribution|probability|propagate|ensemble|interval|measured|uniform|normal)\\b(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.timeseries.englang",
-                                                                                                      "match":  "\\b(integrate|mean|min|max|median|std|sum|time_weighted_mean|duration_above|p\\d{1,2})\\b(?=\\s*\\()"
+                                                                                                      "match":  "\\b(time_weighted_mean|duration_above|integrate|median|mean|max|min|p90|p95|std|sum)\\b(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.solver.englang",
-                                                                                                      "match":  "\\b(der|delay)\\b(?=\\s*\\()"
+                                                                                                      "match":  "\\b(delay|der)\\b(?=\\s*\\()"
+                                                                                                  },
+                                                                                                  {
+                                                                                                      "name":  "support.function.workflow-step.englang",
+                                                                                                      "match":  "\\b(run_case|apply)\\b(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.builtin.englang",
-                                                                                                      "match":  "\\b(time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|propagate|coverage|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|date|file|fill|grid|join|mean|rmse|sort|stem|ann|der|dir|env|lhs|max|min|mlp|p90|p95|std|sum|url)(?=\\s*\\()"
+                                                                                                      "match":  "\\b(time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|propagate|coverage|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|date|file|fill|grid|join|mean|rmse|sort|stem|ann|der|dir|env|lhs|max|min|mlp|p90|p95|std|sum|url)\\b(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "entity.name.function.call.englang",
@@ -2333,7 +2341,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.stat-axis-call.englang",
-                                                                    "begin":  "\\b(mean|max|min|median|std|sum|time_weighted_mean|duration_above|p\\d{1,2})\\s*(\\()",
+                                                                    "begin":  "\\b(time_weighted_mean|duration_above|median|mean|max|min|p90|p95|std|sum)\\s*(\\()",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "support.function.timeseries.englang"
@@ -2476,7 +2484,7 @@
                                                                                      },
                                                                                      {
                                                                                          "name":  "support.function.timeseries.englang",
-                                                                                         "match":  "\\b(mean|min|max|median|std|sum|time_weighted_mean|duration_above|p\\d{1,2})\\b"
+                                                                                         "match":  "\\b(time_weighted_mean|duration_above|median|mean|max|min|p90|p95|std|sum)\\b"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#builtins"
@@ -3257,31 +3265,43 @@
                                         "patterns":  [
                                                          {
                                                              "name":  "support.function.deprecated.englang",
-                                                             "match":  "\\bselect_first_row\\b(?=\\s*\\()"
+                                                             "match":  "\\b(select_first_row)\\b(?=\\s*\\()"
                                                          },
                                                          {
                                                              "name":  "support.function.validation.englang",
-                                                             "match":  "\\bfill_missing\\b(?=\\s*\\()"
+                                                             "match":  "\\b(fill_missing)\\b(?=\\s*\\()"
                                                          },
                                                          {
                                                              "name":  "support.function.external-boundary.englang",
-                                                             "match":  "\\b(file|dir|url|env|secret|exists)\\b"
+                                                             "match":  "\\b(exists|secret|file|dir|env|url)\\b"
                                                          },
                                                          {
                                                              "name":  "support.function.path.englang",
-                                                             "match":  "\\b(join|parent|stem|extension)\\b(?=\\s*\\()"
+                                                             "match":  "\\b(extension|parent|join|stem)\\b(?=\\s*\\()"
                                                          },
                                                          {
                                                              "name":  "support.function.temporal.englang",
-                                                             "match":  "\\bdate\\b(?=\\s*\\()"
+                                                             "match":  "\\b(date)\\b(?=\\s*\\()"
+                                                         },
+                                                         {
+                                                             "name":  "support.function.model.englang",
+                                                             "match":  "\\b(regression_table|train_regression|train_test_split|leakage_lint|model_card|regression|evaluate|ann|mlp)\\b(?=\\s*\\()"
+                                                         },
+                                                         {
+                                                             "name":  "support.function.uncertain.englang",
+                                                             "match":  "\\b(distribution|probability|propagate|ensemble|interval|measured|uniform|normal)\\b(?=\\s*\\()"
+                                                         },
+                                                         {
+                                                             "name":  "support.function.timeseries.englang",
+                                                             "match":  "\\b(time_weighted_mean|duration_above|integrate|median|mean|max|min|p90|p95|std|sum)\\b(?=\\s*\\()"
                                                          },
                                                          {
                                                              "name":  "support.function.solver.englang",
-                                                             "match":  "\\b(der|delay)\\b"
+                                                             "match":  "\\b(delay|der)\\b"
                                                          },
                                                          {
                                                              "name":  "support.function.workflow-step.englang",
-                                                             "match":  "\\brun_case\\b"
+                                                             "match":  "\\b(run_case|apply)\\b"
                                                          },
                                                          {
                                                              "name":  "support.function.builtin.englang",
