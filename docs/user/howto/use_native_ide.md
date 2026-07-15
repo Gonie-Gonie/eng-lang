@@ -184,7 +184,11 @@ Advanced panels
 
 Bottom Panel
   Problems and Terminal tabs. Problems can be filtered by severity, diagnostic
-  code, free text, or line; clicking a row jumps to its source line. Quick Fix...
+  code, free text, or line; clicking a row jumps to its source line. F8 and
+  Shift+F8, or the Previous/Next arrow controls, cycle through the currently
+  filtered diagnostics in source order, wrap at the file boundaries, and select
+  the exact checked range. Navigation waits for current-buffer analysis rather
+  than using stale ranges. Quick Fix...
   on a row, Quick Fix at cursor, or Ctrl+. requests compiler-provided repairs
   for the exact diagnostic from the current unsaved buffer. A single repair is
   applied immediately; multiple repairs open a choice dialog. The IDE accepts

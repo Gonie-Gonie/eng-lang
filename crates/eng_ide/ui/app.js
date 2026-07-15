@@ -1538,6 +1538,10 @@ function bindProblemActions(root) {
       render();
     };
   }
+  const previousProblemBtn = root.querySelector("#previousProblemBtn");
+  if (previousProblemBtn) previousProblemBtn.onclick = () => navigateProblem(-1);
+  const nextProblemBtn = root.querySelector("#nextProblemBtn");
+  if (nextProblemBtn) nextProblemBtn.onclick = () => navigateProblem(1);
   const problemQueryInput = root.querySelector("#problemQueryInput");
   if (problemQueryInput) {
     problemQueryInput.oninput = (event) => {
@@ -1562,7 +1566,9 @@ function bindProblemActions(root) {
   root.querySelectorAll("[data-problem-line]").forEach((row) => {
     row.onclick = (event) => {
       if (event.target.closest("button")) return;
-      selectProblemRange(row);
+      if (selectProblemRange(row)) {
+        activateProblemRow(Number(row.dataset.problemIndex ?? -1), root);
+      }
     };
   });
   root.querySelectorAll("[data-copy-problem-index]").forEach((button) => {
@@ -2275,14 +2281,59 @@ function selectSourceLine(line, column = 1) {
 }
 
 function selectProblemRange(row) {
-  const line = Number(row?.dataset?.problemLine || 0);
-  const startCharacter = Number(row?.dataset?.problemStartCharacter ?? -1);
-  const endCharacter = Number(row?.dataset?.problemEndCharacter ?? -1);
-  if (Number.isFinite(startCharacter) && Number.isFinite(endCharacter) && endCharacter > startCharacter) {
-    selectSourceCharacterRange(line, startCharacter, endCharacter);
-    return;
+  return selectProblemDiagnostic({
+    line: Number(row?.dataset?.problemLine || 0),
+    column: Number(row?.dataset?.problemColumn || 1),
+    startCharacter: Number(row?.dataset?.problemStartCharacter ?? -1),
+    endCharacter: Number(row?.dataset?.problemEndCharacter ?? -1)
+  });
+}
+
+function problemSourceSelection(diag, source = state.source) {
+  const line = Number(sourceLineValue(diag));
+  if (!Number.isInteger(line) || line < 1) return null;
+  const lineIndex = line - 1;
+  const startCharacter = Number(diag?.startCharacter ?? diag?.start_character);
+  const endCharacter = Number(diag?.endCharacter ?? diag?.end_character);
+  if (
+    Number.isInteger(startCharacter)
+    && Number.isInteger(endCharacter)
+    && startCharacter >= 0
+    && endCharacter > startCharacter
+  ) {
+    const start = sourceUtf16Offset(source, { line: lineIndex, character: startCharacter });
+    const end = sourceUtf16Offset(source, { line: lineIndex, character: endCharacter });
+    if (start !== null && end !== null && end > start) {
+      return { start, end, line: lineIndex, character: startCharacter };
+    }
   }
-  selectSourceLine(line, Number(row?.dataset?.problemColumn || 1));
+  const lineStart = sourceUtf16Offset(source, { line: lineIndex, character: 0 });
+  if (lineStart === null) return null;
+  const lineRange = sourceLineRange(source, lineIndex);
+  const character = Math.min(
+    lineRange.text.length,
+    Math.max(0, sourceColumnStart(lineRange.text, sourceColumnValue(diag)) ?? 0)
+  );
+  return {
+    start: lineStart + character,
+    end: lineRange.end,
+    line: lineIndex,
+    character
+  };
+}
+
+function selectProblemDiagnostic(diag, editor = byId("editor")) {
+  if (!editor || String(editor.value ?? "") !== String(state.source ?? "")) return false;
+  const selection = problemSourceSelection(diag, editor.value);
+  if (!selection) return false;
+  editor.focus();
+  editor.selectionStart = selection.start;
+  editor.selectionEnd = selection.end;
+  editor.scrollTop = Math.max(0, (selection.line - 3) * 20);
+  syncEditorHighlightScroll();
+  updateEditorFindStatus();
+  updateCursorInsight();
+  return true;
 }
 
 function selectSourceCharacterRange(line, startCharacter, endCharacter) {
@@ -9451,7 +9502,7 @@ function renderProblems() {
   const activeCode = activeProblemCode(diagnostics);
   const filtered = filteredProblems(activeCode);
   const rows = filtered.map((diag, index) => `
-    <tr class="problem-row" data-problem-line="${escapeAttr(diag.line || 0)}" data-problem-column="${escapeAttr(diag.column || 1)}" data-problem-start-character="${escapeAttr(diag.startCharacter ?? diag.start_character ?? -1)}" data-problem-end-character="${escapeAttr(diag.endCharacter ?? diag.end_character ?? -1)}" title="Select ${escapeAttr(diag.rangeText || diag.range_text || `line ${diag.line || "-"}`)}">
+    <tr class="problem-row" data-problem-index="${escapeAttr(index)}" data-problem-line="${escapeAttr(diag.line || 0)}" data-problem-column="${escapeAttr(diag.column || 1)}" data-problem-start-character="${escapeAttr(diag.startCharacter ?? diag.start_character ?? -1)}" data-problem-end-character="${escapeAttr(diag.endCharacter ?? diag.end_character ?? -1)}" title="Select ${escapeAttr(diag.rangeText || diag.range_text || `line ${diag.line || "-"}`)}">
       <td class="${diag.severity === "error" ? "error" : "warning"}">${escapeHtml(diag.severity)}</td>
       <td>${problemRangeCell(diag)}</td>
       <td><code>${escapeHtml(diag.code)}</code></td>
@@ -9477,6 +9528,10 @@ function renderProblems() {
         </select>
         <input id="problemQueryInput" class="problem-query" value="${escapeAttr(state.problemQuery)}" placeholder="Filter diagnostics" title="Filter by code, message, help, line, or column" />
         <button id="clearProblemFilters">Clear</button>
+        <div class="problem-navigation" role="group" aria-label="Problem navigation">
+          <button id="previousProblemBtn" title="Previous problem (Shift+F8)" aria-label="Previous problem" ${filtered.length ? "" : "disabled"}>&uarr;</button>
+          <button id="nextProblemBtn" title="Next problem (F8)" aria-label="Next problem" ${filtered.length ? "" : "disabled"}>&darr;</button>
+        </div>
         <button id="quickFixCursorProblemBtn" title="Apply a compiler quick fix to the current or nearest same-line diagnostic" ${diagnostics.length ? "" : "disabled"}>Quick Fix at cursor</button>
         <button id="copyCursorProblemBtn" title="Copy current or nearest same-line diagnostic" ${diagnostics.length ? "" : "disabled"}>Copy at cursor</button>
         <button id="copyVisibleProblemsBtn" title="Copy filtered diagnostics" ${filtered.length ? "" : "disabled"}>Copy visible</button>
@@ -9533,6 +9588,98 @@ function problemSeverityLabel(severity, diagnostics) {
   if (severity === "all") return `All ${diagnostics.length}`;
   const count = diagnostics.filter((diag) => diag.severity === severity).length;
   return `${severity === "error" ? "Errors" : "Warnings"} ${count}`;
+}
+
+function orderedNavigableProblems() {
+  const diagnostics = state.check.diagnostics || [];
+  return filteredProblems(activeProblemCode(diagnostics))
+    .map((diag, index) => ({
+      diag,
+      index,
+      selection: problemSourceSelection(diag)
+    }))
+    .filter((item) => item.selection)
+    .sort((left, right) => (
+      left.selection.start - right.selection.start
+      || left.selection.end - right.selection.end
+      || problemSeverityRank(left.diag) - problemSeverityRank(right.diag)
+      || String(left.diag.code || "").localeCompare(String(right.diag.code || ""))
+      || left.index - right.index
+    ));
+}
+
+function problemNavigationIndex(items, editor, direction) {
+  if (!items.length) return -1;
+  const step = direction < 0 ? -1 : 1;
+  const selectionStart = Number(editor?.selectionStart) || 0;
+  const selectionEnd = Number(editor?.selectionEnd) || selectionStart;
+  const activeProblemIndex = Number(document.querySelector(".problem-row.active")?.dataset?.problemIndex);
+  const active = Number.isInteger(activeProblemIndex)
+    ? items.findIndex((item) => (
+      item.index === activeProblemIndex
+      && item.selection.start === selectionStart
+      && item.selection.end === selectionEnd
+    ))
+    : -1;
+  if (active >= 0) return (active + step + items.length) % items.length;
+  const selected = items.findIndex((item) => (
+    item.selection.start === selectionStart && item.selection.end === selectionEnd
+  ));
+  if (selected >= 0) return (selected + step + items.length) % items.length;
+  if (step > 0) {
+    const next = items.findIndex((item) => item.selection.start >= selectionStart);
+    return next >= 0 ? next : 0;
+  }
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    if (items[index].selection.start < selectionStart) return index;
+  }
+  return items.length - 1;
+}
+
+function navigateProblem(direction = 1) {
+  if (state.highlightSource !== state.source) {
+    setStatus(state.check.status === "checking"
+      ? "Problems are still being analyzed"
+      : "Analyze the current buffer before navigating problems");
+    if (state.check.status !== "checking") scheduleLiveCheck();
+    return false;
+  }
+  const editor = byId("editor");
+  if (!editor || String(editor.value ?? "") !== String(state.source ?? "")) {
+    setStatus("Current editor is unavailable");
+    return false;
+  }
+  const items = orderedNavigableProblems();
+  if (!items.length) {
+    const diagnostics = state.check.diagnostics || [];
+    setStatus(diagnostics.length
+      ? "No problems match the active filters"
+      : "No problems in the current buffer");
+    return false;
+  }
+  const navigationIndex = problemNavigationIndex(items, editor, direction);
+  const item = items[navigationIndex];
+  state.bottomTab = "problems";
+  render();
+  if (!selectProblemDiagnostic(item.diag)) {
+    setStatus("Problem range is no longer available");
+    return false;
+  }
+  activateProblemRow(item.index);
+  const code = item.diag.code || "diagnostic";
+  const line = sourceLineValue(item.diag) || "-";
+  setStatus(`Problem ${navigationIndex + 1} of ${items.length}: ${code} at L${line}`);
+  return true;
+}
+
+function activateProblemRow(index, root = document) {
+  root.querySelectorAll(".problem-row.active").forEach((row) => row.classList.remove("active"));
+  if (!Number.isInteger(index) || index < 0) return false;
+  const row = root.querySelector(`[data-problem-index="${index}"]`);
+  if (!row) return false;
+  row.classList.add("active");
+  row.scrollIntoView?.({ block: "nearest" });
+  return true;
 }
 
 function problemCopyButton(index) {
@@ -10226,6 +10373,11 @@ function handleGlobalKeyDown(event) {
     if (!editorModalOpen) {
       void startSemanticRename();
     }
+    return;
+  }
+  if (event.key === "F8" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    event.preventDefault();
+    if (!editorModalOpen) navigateProblem(event.shiftKey ? -1 : 1);
     return;
   }
   if (event.key === "F12" && event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {

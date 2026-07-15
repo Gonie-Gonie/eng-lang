@@ -762,6 +762,168 @@ function quickFixShortcutUsesCurrentProblemAction() {
   assert.strictEqual(run("globalThis.quickFixShortcutCalls"), 1);
 }
 
+function problemNavigationUsesFilteredUtf16RangesAndWraps() {
+  run(`
+    globalThis.realByIdForProblemNavigation = byId;
+    globalThis.realRenderForProblemNavigation = render;
+    globalThis.realScheduleLiveCheckForProblemNavigation = scheduleLiveCheck;
+    globalThis.realProblemQuerySelector = document.querySelector;
+    globalThis.realProblemQuerySelectorAll = document.querySelectorAll;
+    state.currentPath = "main.eng";
+    state.source = "ok\\nwarn \\u{1F600}value\\nerror target\\n";
+    state.highlightSource = state.source;
+    state.problemSeverity = "all";
+    state.problemCode = "all";
+    state.problemQuery = "";
+    state.bottomTab = "terminal";
+    state.check = {
+      status: "checked",
+      diagnostics: [
+        { line: 3, column: 7, startCharacter: 6, endCharacter: 12, severity: "error", code: "E-TARGET", message: "target" },
+        { line: 2, column: 8, startCharacter: 7, endCharacter: 12, severity: "warning", code: "W-VALUE", message: "value" }
+      ],
+      documentSymbols: [],
+      hovers: [],
+      semanticTokens: { legend: {}, tokens: [] },
+      symbols: []
+    };
+    state.tabs = [{ path: "main.eng", source: state.source, savedSource: state.source, dirty: false }];
+    globalThis.problemNavigationEditor = {
+      value: state.source,
+      selectionStart: 0,
+      selectionEnd: 0,
+      scrollTop: 0,
+      focused: false,
+      focus() { this.focused = true; }
+    };
+    globalThis.problemNavigationRows = [
+      { active: false, dataset: { problemIndex: "0" }, scrolled: false },
+      { active: false, dataset: { problemIndex: "1" }, scrolled: false }
+    ];
+    globalThis.problemNavigationRows.forEach((row) => {
+      row.classList = {
+        add(name) { if (name === "active") row.active = true; },
+        remove(name) { if (name === "active") row.active = false; }
+      };
+      row.scrollIntoView = () => { row.scrolled = true; };
+    });
+    document.querySelectorAll = (selector) => selector === ".problem-row.active"
+      ? globalThis.problemNavigationRows.filter((row) => row.active)
+      : [];
+    document.querySelector = (selector) => {
+      if (selector === ".problem-row.active") {
+        return globalThis.problemNavigationRows.find((row) => row.active) || null;
+      }
+      const match = String(selector).match(/data-problem-index="(\\d+)"/);
+      return match ? globalThis.problemNavigationRows[Number(match[1])] : null;
+    };
+    byId = (id) => id === "editor" ? globalThis.problemNavigationEditor : null;
+    globalThis.problemNavigationRenderCalls = 0;
+    render = () => { globalThis.problemNavigationRenderCalls += 1; };
+    globalThis.problemNavigationCheckCalls = 0;
+    scheduleLiveCheck = () => { globalThis.problemNavigationCheckCalls += 1; };
+  `);
+
+  assert.strictEqual(run("navigateProblem(1)"), true);
+  assert.strictEqual(
+    run("globalThis.problemNavigationEditor.value.slice(globalThis.problemNavigationEditor.selectionStart, globalThis.problemNavigationEditor.selectionEnd)"),
+    "value"
+  );
+  assert.strictEqual(run("globalThis.problemNavigationRows[1].active"), true);
+  assert.strictEqual(run("state.status"), "Problem 1 of 2: W-VALUE at L2");
+
+  assert.strictEqual(run("navigateProblem(1)"), true);
+  assert.strictEqual(
+    run("globalThis.problemNavigationEditor.value.slice(globalThis.problemNavigationEditor.selectionStart, globalThis.problemNavigationEditor.selectionEnd)"),
+    "target"
+  );
+  assert.strictEqual(run("globalThis.problemNavigationRows[0].active"), true);
+  assert.strictEqual(run("state.status"), "Problem 2 of 2: E-TARGET at L3");
+
+  assert.strictEqual(run("navigateProblem(1)"), true);
+  assert.strictEqual(
+    run("globalThis.problemNavigationEditor.value.slice(globalThis.problemNavigationEditor.selectionStart, globalThis.problemNavigationEditor.selectionEnd)"),
+    "value"
+  );
+  assert.strictEqual(run("navigateProblem(-1)"), true);
+  assert.strictEqual(
+    run("globalThis.problemNavigationEditor.value.slice(globalThis.problemNavigationEditor.selectionStart, globalThis.problemNavigationEditor.selectionEnd)"),
+    "target"
+  );
+
+  run(`
+    state.problemSeverity = "warning";
+    globalThis.problemNavigationEditor.selectionStart = 0;
+    globalThis.problemNavigationEditor.selectionEnd = 0;
+  `);
+  assert.strictEqual(run("navigateProblem(1)"), true);
+  assert.strictEqual(run("state.status"), "Problem 1 of 1: W-VALUE at L2");
+  assert.ok(run('renderProblems().includes("previousProblemBtn")'));
+  assert.ok(run('renderProblems().includes("nextProblemBtn")'));
+
+  run(`
+    state.highlightSource = null;
+    state.check.status = "idle";
+  `);
+  assert.strictEqual(run("navigateProblem(1)"), false);
+  assert.strictEqual(run("globalThis.problemNavigationCheckCalls"), 1);
+  assert.strictEqual(run("state.status"), "Analyze the current buffer before navigating problems");
+
+  run(`
+    byId = globalThis.realByIdForProblemNavigation;
+    render = globalThis.realRenderForProblemNavigation;
+    scheduleLiveCheck = globalThis.realScheduleLiveCheckForProblemNavigation;
+    document.querySelector = globalThis.realProblemQuerySelector;
+    document.querySelectorAll = globalThis.realProblemQuerySelectorAll;
+    state.currentPath = "";
+    state.source = "";
+    state.highlightSource = null;
+    state.tabs = [];
+    state.problemSeverity = "all";
+    state.problemCode = "all";
+    state.problemQuery = "";
+    state.bottomTab = "terminal";
+    state.check = { diagnostics: [], symbols: [], status: "", semanticTokens: { legend: {}, tokens: [] }, hovers: [], documentSymbols: [] };
+  `);
+}
+
+function problemNavigationShortcutUsesBothDirections() {
+  run(`
+    state.pendingQuickFix = null;
+    state.pendingRename = null;
+    state.pendingWorkspaceSymbols = null;
+    state.pendingTabClose = null;
+    state.pendingWindowClose = false;
+    globalThis.problemShortcutDirections = [];
+    globalThis.realNavigateProblem = navigateProblem;
+    navigateProblem = (direction) => {
+      globalThis.problemShortcutDirections.push(direction);
+      return true;
+    };
+    globalThis.nextProblemShortcutEvent = {
+      altKey: false,
+      ctrlKey: false,
+      key: "F8",
+      metaKey: false,
+      prevented: false,
+      shiftKey: false,
+      preventDefault() { this.prevented = true; }
+    };
+    globalThis.previousProblemShortcutEvent = {
+      ...globalThis.nextProblemShortcutEvent,
+      prevented: false,
+      shiftKey: true
+    };
+    handleGlobalKeyDown(globalThis.nextProblemShortcutEvent);
+    handleGlobalKeyDown(globalThis.previousProblemShortcutEvent);
+    navigateProblem = globalThis.realNavigateProblem;
+  `);
+
+  assert.strictEqual(run("globalThis.nextProblemShortcutEvent.prevented"), true);
+  assert.strictEqual(run("globalThis.previousProblemShortcutEvent.prevented"), true);
+  assert.deepStrictEqual(Array.from(run("globalThis.problemShortcutDirections")), [1, -1]);
+}
+
 function renameShortcutUsesCurrentAction() {
   run(`
     state.pendingRename = null;
@@ -1897,6 +2059,8 @@ async function main() {
   await workspaceSymbolNavigationSelectsUtf16Range();
   documentHighlightShortcutUsesCurrentAction();
   quickFixShortcutUsesCurrentProblemAction();
+  problemNavigationUsesFilteredUtf16RangesAndWraps();
+  problemNavigationShortcutUsesBothDirections();
   renameShortcutUsesCurrentAction();
   busyRenameCanBeCancelledSafely();
   await renamePreparationAllowsOtherDirtyEngLangTabs();
