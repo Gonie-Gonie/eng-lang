@@ -66,9 +66,19 @@ const context = vm.createContext({
           invokeCalls.push({ args, command });
           if (command === "ide_save_file") {
             if (args.path === saveFailurePath) {
-              return Promise.reject(new Error(`cannot save ${args.path}`));
+              return Promise.reject(new Error(`Save conflict: ${args.path}; no files were written`));
             }
             return Promise.resolve({ path: args.path, source: args.source });
+          }
+          if (command === "ide_save_files") {
+            const failed = args.files.find((file) => file.path === saveFailurePath);
+            if (failed) {
+              return Promise.reject(new Error(`Save conflict: ${failed.path}; no files were written`));
+            }
+            return Promise.resolve(args.files.map((file) => ({
+              path: file.path,
+              source: file.source
+            })));
           }
           if (command === "ide_open_file") {
             if (!openFileSources.has(args.path)) {
@@ -90,6 +100,27 @@ const context = vm.createContext({
             return Promise.resolve(workspaceSymbolPayload || {
               format: "eng-lsp-snapshot-v1",
               symbols: []
+            });
+          }
+          if (command === "ide_run" || command === "ide_terminal") {
+            return Promise.resolve({
+              ok: true,
+              runtimeUpdated: true,
+              terminal: "run ok",
+              check: {
+                diagnostics: [],
+                symbols: [],
+                status: "ok",
+                semanticTokens: { legend: {}, tokens: [] },
+                hovers: [],
+                documentSymbols: []
+              },
+              variables: [],
+              args: [],
+              artifacts: [],
+              plotSpec: null,
+              reportTitle: "",
+              inspectors: {}
             });
           }
           return Promise.resolve({});
@@ -137,15 +168,40 @@ async function dirtyTabRequiresDecision() {
   run("openUnsavedChangesDialog = globalThis.realOpenUnsavedChangesDialog");
 }
 
+async function reopeningDirtyTabPreservesTheOpenBuffer() {
+  invokeCalls.length = 0;
+  run(`
+    state.root = "C:/Repo";
+    state.tabs = [{
+      path: "main.eng",
+      source: "editor changed",
+      savedSource: "disk baseline",
+      dirty: true
+    }];
+    state.currentPath = "main.eng";
+    state.source = "editor changed";
+    state.savedSource = "disk baseline";
+    state.dirty = true;
+  `);
+
+  await run('openFile("main.eng")');
+  assert.strictEqual(invokeCalls.some((item) => item.command === "ide_open_file"), false);
+  assert.strictEqual(run("state.source"), "editor changed");
+  assert.strictEqual(run("state.savedSource"), "disk baseline");
+  assert.strictEqual(run("state.dirty"), true);
+  run('state.root = ""');
+}
+
 async function saveDecisionPersistsThenCloses() {
   invokeCalls.length = 0;
   run(`
     state.tabs = [
-      { path: "current.eng", source: "current", dirty: false },
-      { path: "dirty.eng", source: "changed", dirty: true }
+      { path: "current.eng", source: "current", savedSource: "current", dirty: false },
+      { path: "dirty.eng", source: "changed", savedSource: "original", dirty: true }
     ];
     state.currentPath = "current.eng";
     state.source = "current";
+    state.savedSource = "current";
     state.dirty = false;
     state.pendingTabClose = "dirty.eng";
     globalThis.renderCount = 0;
@@ -159,12 +215,67 @@ async function saveDecisionPersistsThenCloses() {
   assert.strictEqual(invokeCalls[0].command, "ide_save_file");
   assert.strictEqual(invokeCalls[0].args.path, "dirty.eng");
   assert.strictEqual(invokeCalls[0].args.source, "changed");
+  assert.strictEqual(invokeCalls[0].args.expectedSource, "original");
   assert.deepStrictEqual(
     Array.from(run("state.tabs.map((tab) => tab.path)")),
     ["current.eng"]
   );
   assert.strictEqual(run("state.pendingTabClose"), null);
   assert.strictEqual(run("globalThis.renderCount"), 1);
+}
+
+async function runSafelySavesBeforeExecuting() {
+  invokeCalls.length = 0;
+  run(`
+    state.currentPath = "main.eng";
+    state.source = "value = 2";
+    state.savedSource = "value = 1";
+    state.dirty = true;
+    state.tabs = [{
+      path: "main.eng",
+      source: "value = 2",
+      savedSource: "value = 1",
+      dirty: true
+    }];
+    state.profile = "normal";
+  `);
+
+  await run("runCurrent()");
+  assert.deepStrictEqual(invokeCalls.map((item) => item.command), ["ide_save_file", "ide_run"]);
+  assert.deepStrictEqual(
+    { ...invokeCalls[0].args },
+    { path: "main.eng", source: "value = 2", expectedSource: "value = 1" }
+  );
+  assert.strictEqual(run("state.savedSource"), "value = 2");
+  assert.strictEqual(run("state.dirty"), false);
+}
+
+async function terminalRunSafelySavesBeforeExecuting() {
+  invokeCalls.length = 0;
+  run(`
+    state.currentPath = "main.eng";
+    state.source = "value = 3";
+    state.savedSource = "value = 2";
+    state.dirty = true;
+    state.tabs = [{
+      path: "main.eng",
+      source: "value = 3",
+      savedSource: "value = 2",
+      dirty: true
+    }];
+    state.runDir = ".";
+    state.profile = "normal";
+  `);
+
+  await run('sendTerminalCommand("run")');
+  assert.deepStrictEqual(invokeCalls.map((item) => item.command), ["ide_save_file", "ide_terminal"]);
+  assert.deepStrictEqual(
+    { ...invokeCalls[0].args },
+    { path: "main.eng", source: "value = 3", expectedSource: "value = 2" }
+  );
+  assert.strictEqual(invokeCalls[1].args.command, "run");
+  assert.strictEqual(run("state.savedSource"), "value = 3");
+  assert.strictEqual(run("state.dirty"), false);
 }
 
 function saveShortcutUsesCurrentAction() {
@@ -1392,23 +1503,23 @@ async function saveAllPersistsWithoutClosingWindow() {
   nativeWindowState.destroyCalls = 0;
   run(`
     state.tabs = [
-      { path: "first.eng", source: "first changed", dirty: true },
-      { path: "second.eng", source: "second changed", dirty: true }
+      { path: "first.eng", source: "first changed", savedSource: "first disk", dirty: true },
+      { path: "second.eng", source: "second changed", savedSource: "second disk", dirty: true }
     ];
     state.currentPath = "second.eng";
     state.source = "second changed";
+    state.savedSource = "second disk";
     state.dirty = true;
     state.pendingWindowClose = false;
   `);
 
   assert.strictEqual(await run("saveAllDirtyTabs()"), true);
-  assert.deepStrictEqual(
-    invokeCalls.map((item) => [item.command, item.args.path]),
-    [
-      ["ide_save_file", "first.eng"],
-      ["ide_save_file", "second.eng"]
-    ]
-  );
+  assert.strictEqual(invokeCalls.length, 1);
+  assert.strictEqual(invokeCalls[0].command, "ide_save_files");
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(invokeCalls[0].args.files)), [
+    { path: "first.eng", source: "first changed", expectedSource: "first disk" },
+    { path: "second.eng", source: "second changed", expectedSource: "second disk" }
+  ]);
   assert.deepStrictEqual(Array.from(run("state.tabs.map((tab) => tab.dirty)")), [false, false]);
   assert.strictEqual(nativeWindowState.destroyCalls, 0);
 }
@@ -1418,23 +1529,23 @@ async function saveAllDecisionPersistsThenDestroysWindow() {
   nativeWindowState.destroyCalls = 0;
   run(`
     state.tabs = [
-      { path: "first.eng", source: "first changed", dirty: true },
-      { path: "second.eng", source: "second changed", dirty: true }
+      { path: "first.eng", source: "first changed", savedSource: "first disk", dirty: true },
+      { path: "second.eng", source: "second changed", savedSource: "second disk", dirty: true }
     ];
     state.currentPath = "second.eng";
     state.source = "second changed";
+    state.savedSource = "second disk";
     state.dirty = true;
     state.pendingWindowClose = true;
   `);
 
   await run("saveAllDirtyTabsAndClose()");
-  assert.deepStrictEqual(
-    invokeCalls.map((item) => [item.command, item.args.path, item.args.source]),
-    [
-      ["ide_save_file", "first.eng", "first changed"],
-      ["ide_save_file", "second.eng", "second changed"]
-    ]
-  );
+  assert.strictEqual(invokeCalls.length, 1);
+  assert.strictEqual(invokeCalls[0].command, "ide_save_files");
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(invokeCalls[0].args.files)), [
+    { path: "first.eng", source: "first changed", expectedSource: "first disk" },
+    { path: "second.eng", source: "second changed", expectedSource: "second disk" }
+  ]);
   assert.deepStrictEqual(Array.from(run("state.tabs.map((tab) => tab.dirty)")), [false, false]);
   assert.strictEqual(run("state.dirty"), false);
   assert.strictEqual(nativeWindowState.destroyCalls, 1);
@@ -1459,11 +1570,12 @@ async function saveAllFailureKeepsRemainingDirtyFilesOpen() {
   saveFailurePath = "second.eng";
   run(`
     state.tabs = [
-      { path: "first.eng", source: "first changed", dirty: true },
-      { path: "second.eng", source: "second changed", dirty: true }
+      { path: "first.eng", source: "first changed", savedSource: "first disk", dirty: true },
+      { path: "second.eng", source: "second changed", savedSource: "second disk", dirty: true }
     ];
     state.currentPath = "second.eng";
     state.source = "second changed";
+    state.savedSource = "second disk";
     state.dirty = true;
     state.pendingWindowClose = true;
     globalThis.failureDialogOpenCount = 0;
@@ -1476,7 +1588,9 @@ async function saveAllFailureKeepsRemainingDirtyFilesOpen() {
 
   await run("saveAllDirtyTabsAndClose()");
   saveFailurePath = null;
-  assert.deepStrictEqual(Array.from(run("state.tabs.map((tab) => tab.dirty)")), [false, true]);
+  assert.strictEqual(invokeCalls.length, 1);
+  assert.strictEqual(invokeCalls[0].command, "ide_save_files");
+  assert.deepStrictEqual(Array.from(run("state.tabs.map((tab) => tab.dirty)")), [true, true]);
   assert.strictEqual(run("state.dirty"), true);
   assert.strictEqual(run("globalThis.failureDialogOpenCount"), 1);
   assert.strictEqual(nativeWindowState.destroyCalls, 0);
@@ -1508,7 +1622,10 @@ function liveCheckTracksAllDirtyImportedBuffers() {
 
 async function main() {
   await dirtyTabRequiresDecision();
+  await reopeningDirtyTabPreservesTheOpenBuffer();
   await saveDecisionPersistsThenCloses();
+  await runSafelySavesBeforeExecuting();
+  await terminalRunSafelySavesBeforeExecuting();
   saveShortcutUsesCurrentAction();
   definitionPathsNormalizeWorkspaceTargets();
   definitionRequestUsesUtf16Caret();

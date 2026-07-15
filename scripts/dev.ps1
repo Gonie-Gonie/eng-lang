@@ -7091,6 +7091,14 @@ function Invoke-IdeCheck {
         "sourceUtf16Offset",
         "saveAllDirtyTabs",
         "saveAllBtn",
+        "saveRequestForTab",
+        "applySavedFile",
+        "sameWorkspaceFilePath",
+        'call("ide_save_files", { files: requests })',
+        "expectedSource: tabSavedSource(tab)",
+        "state.savedSource = file.source",
+        "Saved previous revision of",
+        "Run cancelled; buffer changed while saving",
         "quickFixBackdrop",
         "renameBackdrop",
         "data-show-document-highlights",
@@ -7710,6 +7718,22 @@ function Invoke-IdeCheck {
     foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "document_symbols", "document_symbols_lsp_json", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_items", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completions_use_lsp_editor_items", "check_view_surfaces_lsp_semantic_tokens", "ide_definition", "--workspace-definition-stdin", "ide_document_highlights", "--document-highlights-stdin", "ide_code_actions", "--code-actions-stdin", "parse_code_actions_output", "run_lsp_source_query", "ide_prepare_rename", "--workspace-prepare-rename-stdin", "parse_prepare_rename_output", "ide_references", "--workspace-references-stdin", "ide_rename", "--workspace-rename-stdin", "workspace_navigation_payload", "parse_rename_output", "ide_workspace_symbols", "--workspace-symbols-stdin", "workspace_document_payload", "run_lsp_query", "parse_workspace_symbols_output", "workspace_symbol_output_accepts_complete_workspace_locations", "run_lsp_position_query", "parse_document_highlights_output", "bundled_lsp_executable", "parse_definition_output", "Stdio::piped()", "definition_output_accepts_null_and_complete_locations", "document_highlight_output_accepts_complete_read_and_write_ranges", "code_action_output_accepts_diagnostic_bound_insertions", "rename_output_accepts_complete_multi_file_edits", "one-line EngLang statement such as", "cd <dir>", "diagnostic_view_from_lsp", "diagnostic_view_from_parts", 'range_text: format!("L{line}:C{column}-C{end_column}")', 'include_str!("../ui/app.js")', 'include_str!("main.rs")')) {
         if (-not $IdeMainSource.Contains($RequiredIdeBackendToken)) {
             throw "Native IDE backend missing contract token $RequiredIdeBackendToken"
+        }
+    }
+    foreach ($RequiredNativeIdeSafeSaveToken in @(
+        "SaveFileInput",
+        "expected_source",
+        "ide_save_files",
+        "persist_workspace_files",
+        "canonical_workspace_file_path",
+        "No files were written",
+        "native_ide_save_writes_only_when_disk_matches_expected_source",
+        "native_ide_save_all_checks_every_file_before_writing",
+        "native_ide_save_rejects_outside_and_duplicate_files",
+        "Run cancelled:"
+    )) {
+        if (-not $IdeMainSource.Contains($RequiredNativeIdeSafeSaveToken)) {
+            throw "Native IDE safe-save contract missing token $RequiredNativeIdeSafeSaveToken"
         }
     }
     foreach ($RequiredOpenImportCheckToken in @(

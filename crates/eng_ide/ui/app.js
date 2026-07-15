@@ -117,6 +117,7 @@ const state = {
   currentPath: "",
   runDir: "",
   source: "",
+  savedSource: "",
   dirty: false,
   check: { diagnostics: [], symbols: [], status: "", semanticTokens: { legend: {}, tokens: [] }, hovers: [], documentSymbols: [] },
   highlightSource: null,
@@ -511,7 +512,13 @@ async function boot() {
     state.currentPath = data.current.path;
     state.runDir = data.currentDir || directoryOf(data.current.path);
     state.source = data.current.source;
-    state.tabs = [{ path: state.currentPath, source: state.source, dirty: false }];
+    state.savedSource = data.current.source;
+    state.tabs = [{
+      path: state.currentPath,
+      source: state.source,
+      savedSource: state.savedSource,
+      dirty: false
+    }];
     applyCheck(data.check, state.source);
     state.terminalEntries = [
       { kind: "info", text: `Workspace ${data.root}` },
@@ -779,7 +786,7 @@ function bind() {
   });
   editor.addEventListener("input", (event) => {
     state.source = event.target.value;
-    state.dirty = true;
+    state.dirty = state.source !== state.savedSource;
     clearReferenceResults();
     rememberCurrentTab();
     state.status = "Modified";
@@ -1580,24 +1587,29 @@ function refreshLiveCheckUi() {
 }
 
 async function openFile(path) {
+  rememberCurrentTab();
+  const existing = state.tabs.find((tab) => sameWorkspaceFilePath(tab.path, path));
+  if (existing) {
+    await switchTab(existing.path);
+    return;
+  }
   const navigation = beginNavigation();
   let request = null;
   try {
-    rememberCurrentTab();
     const file = await call("ide_open_file", { path });
     if (!navigationIsCurrent(navigation)) return;
     state.currentPath = file.path;
     state.runDir = directoryOf(file.path);
     openParentDirs(file.path);
     state.source = file.source;
+    state.savedSource = file.source;
     state.dirty = false;
-    const existing = tabFor(file.path);
-    if (existing) {
-      existing.source = file.source;
-      existing.dirty = false;
-    } else {
-      state.tabs.push({ path: file.path, source: file.source, dirty: false });
-    }
+    state.tabs.push({
+      path: file.path,
+      source: file.source,
+      savedSource: file.source,
+      dirty: false
+    });
     state.variables = [];
     state.args = [];
     state.artifacts = [];
@@ -1630,36 +1642,80 @@ async function openFile(path) {
 }
 
 async function saveCurrent() {
-  const request = {
-    revision: liveCheckRevision,
-    path: state.currentPath,
-    source: state.source
-  };
+  rememberCurrentTab();
+  const tab = tabFor(state.currentPath);
+  if (!tab) return;
+  const request = { revision: liveCheckRevision, ...saveRequestForTab(tab) };
   try {
-    const file = await call("ide_save_file", { path: request.path, source: request.source });
-    if (!bufferRequestIsCurrent(request)) return;
-    state.currentPath = file.path;
-    state.source = file.source;
-    state.dirty = false;
-    const tab = tabFor(file.path);
-    if (tab) {
-      tab.source = file.source;
-      tab.dirty = false;
-    }
-    state.status = `Saved ${file.path}`;
+    const file = await persistSaveRequest(request);
+    const currentTab = state.tabs.find((candidate) => sameWorkspaceFilePath(candidate.path, file.path));
+    state.status = currentTab?.dirty
+      ? `Saved previous revision of ${file.path}; current buffer remains modified`
+      : `Saved ${file.path}`;
     render();
   } catch (error) {
-    if (!bufferRequestIsCurrent(request)) return;
     state.status = String(error);
     appendTerminal("error", String(error));
-    if (state.source !== state.highlightSource) scheduleLiveCheck();
+    if (sameWorkspaceFilePath(state.currentPath, request.path) && state.source !== state.highlightSource) {
+      scheduleLiveCheck();
+    }
     render();
   }
 }
 
+function tabSavedSource(tab) {
+  return typeof tab?.savedSource === "string" ? tab.savedSource : String(tab?.source ?? "");
+}
+
+function saveRequestForTab(tab) {
+  return {
+    path: tab.path,
+    source: tab.source,
+    expectedSource: tabSavedSource(tab)
+  };
+}
+
+function sameWorkspaceFilePath(left, right) {
+  return sameDefinitionPath(definitionWorkspacePath(left), definitionWorkspacePath(right));
+}
+
+function validateSavedFile(request, file) {
+  if (
+    !file
+    || typeof file.source !== "string"
+    || !sameWorkspaceFilePath(file.path, request.path)
+    || file.source !== request.source
+  ) {
+    throw new Error(`Save returned an invalid result for ${fileName(request.path)}`);
+  }
+}
+
+function applySavedFile(request, file) {
+  validateSavedFile(request, file);
+  const tab = state.tabs.find((candidate) => sameWorkspaceFilePath(candidate.path, request.path));
+  if (!tab) throw new Error(`Saved tab is no longer open: ${fileName(request.path)}`);
+  tab.savedSource = file.source;
+  tab.dirty = tab.source !== tab.savedSource;
+  if (sameWorkspaceFilePath(state.currentPath, request.path)) {
+    state.savedSource = file.source;
+    state.dirty = state.source !== state.savedSource;
+  }
+  return !tab.dirty;
+}
+
+async function persistSaveRequest(request) {
+  const file = await call("ide_save_file", {
+    path: request.path,
+    source: request.source,
+    expectedSource: request.expectedSource
+  });
+  applySavedFile(request, file);
+  return file;
+}
+
 async function saveAllDirtyTabs() {
   rememberCurrentTab();
-  const requests = dirtyTabs().map((tab) => ({ path: tab.path, source: tab.source }));
+  const requests = dirtyTabs().map(saveRequestForTab);
   if (!requests.length) {
     setStatus("No modified files to save");
     return true;
@@ -1679,19 +1735,18 @@ async function saveAllDirtyTabs() {
 }
 
 async function persistDirtyTabRequests(requests) {
-  for (const request of requests) {
-    setStatus(`Saving ${fileName(request.path)}`);
-    const file = await call("ide_save_file", { path: request.path, source: request.source });
-    const tab = tabFor(request.path);
-    if (!tab || tab.source !== request.source) {
-      throw new Error(`Buffer changed while saving ${fileName(request.path)}`);
-    }
-    tab.source = file.source;
-    tab.dirty = false;
-    if (sameDefinitionPath(state.currentPath, request.path)) {
-      state.source = file.source;
-      state.dirty = false;
-    }
+  setStatus(`Saving ${requests.length} ${requests.length === 1 ? "file" : "files"}`);
+  const files = await call("ide_save_files", { files: requests });
+  if (!Array.isArray(files) || files.length !== requests.length) {
+    throw new Error("Save All returned an incomplete result");
+  }
+  files.forEach((file, index) => validateSavedFile(requests[index], file));
+  const changed = [];
+  files.forEach((file, index) => {
+    if (!applySavedFile(requests[index], file)) changed.push(fileName(requests[index].path));
+  });
+  if (changed.length) {
+    throw new Error(`Buffer changed while saving: ${changed.join(", ")}`);
   }
 }
 
@@ -1708,11 +1763,11 @@ async function formatCurrent() {
       return;
     }
     state.source = result.source;
-    state.dirty = true;
+    state.dirty = state.source !== state.savedSource;
     const tab = tabFor(state.currentPath);
     if (tab) {
       tab.source = state.source;
-      tab.dirty = true;
+      tab.dirty = state.dirty;
     }
     state.status = "Formatted current buffer";
     markCheckPending();
@@ -1754,10 +1809,20 @@ async function checkCurrent() {
 }
 
 async function runCurrent() {
+  rememberCurrentTab();
   const request = beginCheckRequest();
+  const tab = tabFor(request.path);
+  if (!tab) return;
+  const saveRequest = saveRequestForTab(tab);
   try {
-    rememberCurrentTab();
     appendTerminal("command", `${terminalPrompt()}run ${fileName(request.path)}`);
+    setStatus(`Saving ${fileName(request.path)} before run`);
+    await persistSaveRequest(saveRequest);
+    if (!checkRequestIsCurrent(request)) {
+      state.status = "Run cancelled; buffer changed while saving";
+      render();
+      return;
+    }
     const result = await call("ide_run", { path: request.path, source: request.source, profile: state.profile });
     const requestCurrent = checkRequestIsCurrent(request);
     applyRun(result, { mergeRuntime: false, applyCheck: requestCurrent, checkSource: request.source });
@@ -1766,16 +1831,12 @@ async function runCurrent() {
       ? (result.ok ? "Run complete" : "Run blocked")
       : (result.ok ? "Run complete; buffer changed" : "Run blocked; buffer changed");
     state.bottomTab = "terminal";
-    if (requestCurrent) {
-      state.dirty = false;
-      const tab = tabFor(state.currentPath);
-      if (tab) tab.dirty = false;
-    }
     render();
   } catch (error) {
     const requestCurrent = checkRequestIsCurrent(request);
-    appendTerminal("error", `Run failed: ${String(error)}`);
-    state.status = requestCurrent ? "Run failed" : "Run failed; buffer changed";
+    const message = `Run failed: ${compactText(String(error), 90)}`;
+    appendTerminal("error", message);
+    state.status = requestCurrent ? message : "Run failed; buffer changed";
     if (requestCurrent && state.source !== state.highlightSource) scheduleLiveCheck();
     state.bottomTab = "terminal";
     render();
@@ -1808,9 +1869,21 @@ async function sendTerminalCommand(command) {
   }
   appendTerminal("command", `${prompt}${command}`);
   const usesCurrentFile = terminalCommandUsesCurrentFile(command);
+  if (usesCurrentFile) rememberCurrentTab();
   const request = usesCurrentFile ? beginCheckRequest() : null;
   const runContext = runHistoryContext(command);
   try {
+    if (String(command || "").trim().toLowerCase() === "run") {
+      const tab = tabFor(request.path);
+      if (!tab) throw new Error("Current tab is unavailable for run");
+      await persistSaveRequest(saveRequestForTab(tab));
+      if (!checkRequestIsCurrent(request)) {
+        state.status = "Terminal run cancelled; buffer changed while saving";
+        state.bottomTab = "terminal";
+        render();
+        return;
+      }
+    }
     const result = await call("ide_terminal", {
       path: request?.path ?? state.currentPath,
       source: request?.source ?? state.source,
@@ -1829,11 +1902,12 @@ async function sendTerminalCommand(command) {
       ? (result.ok ? "Terminal command complete" : "Terminal diagnostics")
       : (result.ok ? "Terminal command complete; buffer changed" : "Terminal diagnostics; buffer changed");
   } catch (error) {
-    appendTerminal("error", String(error));
+    const message = compactText(String(error), 90);
+    appendTerminal("error", message);
     const requestCurrent = !request || checkRequestIsCurrent(request);
     state.status = request && !requestCurrent
       ? "Terminal command failed; buffer changed"
-      : "Terminal command failed";
+      : `Terminal command failed: ${message}`;
     if (request && requestCurrent && state.source !== state.highlightSource) scheduleLiveCheck();
   }
   state.bottomTab = "terminal";
@@ -2142,8 +2216,16 @@ function rememberCurrentTab() {
   if (!state.currentPath) return;
   const tab = tabFor(state.currentPath);
   if (!tab) {
-    state.tabs.push({ path: state.currentPath, source: state.source, dirty: state.dirty });
+    state.tabs.push({
+      path: state.currentPath,
+      source: state.source,
+      savedSource: state.savedSource,
+      dirty: state.dirty
+    });
     return;
+  }
+  if (typeof tab.savedSource !== "string") {
+    tab.savedSource = typeof state.savedSource === "string" ? state.savedSource : tab.source;
   }
   tab.source = state.source;
   tab.dirty = state.dirty;
@@ -2159,6 +2241,7 @@ async function switchTab(path) {
   state.runDir = directoryOf(tab.path);
   openParentDirs(tab.path);
   state.source = tab.source;
+  state.savedSource = tabSavedSource(tab);
   state.dirty = tab.dirty;
   state.variables = [];
   state.args = [];
@@ -2272,22 +2355,16 @@ async function savePendingTabAndClose() {
     closeUnsavedChangesDialog();
     return;
   }
-  const request = { path: tab.path, source: tab.source };
+  const request = saveRequestForTab(tab);
   setUnsavedChangesDialogBusy(true);
   setStatus(`Saving ${fileName(request.path)}`);
   try {
-    const file = await call("ide_save_file", { path: request.path, source: request.source });
-    const currentTab = tabFor(request.path);
-    if (!currentTab || currentTab.source !== request.source) {
+    const file = await persistSaveRequest(request);
+    const currentTab = state.tabs.find((candidate) => sameWorkspaceFilePath(candidate.path, request.path));
+    if (!currentTab || currentTab.dirty) {
       setStatus("Buffer changed while saving; close cancelled");
       setUnsavedChangesDialogBusy(false);
       return;
-    }
-    currentTab.source = file.source;
-    currentTab.dirty = false;
-    if (state.currentPath === request.path) {
-      state.source = file.source;
-      state.dirty = false;
     }
     state.status = `Saved ${file.path}`;
     closeUnsavedChangesDialog();
@@ -2367,7 +2444,7 @@ function setUnsavedWindowDialogBusy(busy, activeAction = "save") {
 }
 
 async function saveAllDirtyTabsAndClose() {
-  const requests = dirtyTabs().map((tab) => ({ path: tab.path, source: tab.source }));
+  const requests = dirtyTabs().map(saveRequestForTab);
   if (requests.length === 0) {
     closeUnsavedWindowDialog();
     await destroyNativeWindow();
@@ -2437,6 +2514,7 @@ async function closeTab(path, force = false) {
   state.runDir = directoryOf(next.path);
   openParentDirs(next.path);
   state.source = next.source;
+  state.savedSource = tabSavedSource(next);
   state.dirty = next.dirty;
   state.variables = [];
   state.args = [];
@@ -6329,7 +6407,7 @@ function replaceEditorRange(editor, start, end, text, selectionStart, selectionE
 
 function syncEditorManualEdit(editor) {
   state.source = editor.value;
-  state.dirty = true;
+  state.dirty = state.source !== state.savedSource;
   rememberCurrentTab();
   state.status = "Modified";
   const checkChanged = markCheckPending();
@@ -7017,7 +7095,7 @@ function insertCompletion(item) {
   editor.selectionStart = before.length + edit.selectionStart;
   editor.selectionEnd = before.length + edit.selectionEnd;
   state.source = editor.value;
-  state.dirty = true;
+  state.dirty = state.source !== state.savedSource;
   rememberCurrentTab();
   state.status = "Modified";
   const checkChanged = markCheckPending();
@@ -7662,19 +7740,32 @@ async function stageWorkspaceRename(pending, payload, newName, documents = []) {
       throw new Error("Rename cancelled before all files were verified.");
     }
     let source;
+    let savedSource;
+    const openTab = state.tabs.find((tab) => sameWorkspaceFilePath(tab.path, target.path));
     if (sameDefinitionPath(target.path, pending.request.path)) {
       source = pending.request.source;
+      savedSource = openTab ? tabSavedSource(openTab) : source;
     } else if (openDocuments.has(definitionPathKey(target.path))) {
       source = openDocuments.get(definitionPathKey(target.path));
+      savedSource = openTab ? tabSavedSource(openTab) : source;
+    } else if (openTab) {
+      source = openTab.source;
+      savedSource = tabSavedSource(openTab);
     } else {
       const file = await call("ide_open_file", { path: target.path });
       if (!file || !sameDefinitionPath(file.path, target.path) || typeof file.source !== "string") {
         throw new Error(`Could not verify rename source ${target.path}.`);
       }
       source = file.source;
+      savedSource = file.source;
     }
     const applied = applyWorkspaceTextEdits(source, target.edits, pending.placeholder);
-    updates.push({ ...target, source: applied.source, mappedEdits: applied.mappedEdits });
+    updates.push({
+      ...target,
+      source: applied.source,
+      savedSource,
+      mappedEdits: applied.mappedEdits
+    });
   }
   const origin = updates.find((update) => sameDefinitionPath(update.path, pending.request.path));
   const focusEdit = origin?.mappedEdits.find((edit) => sameWorkspaceRange(edit.range, pending.range));
@@ -7759,19 +7850,27 @@ function commitWorkspaceRename(pending, staged, documents = []) {
     throw new Error("Rename cancelled because another modified buffer changed.");
   }
   for (const update of staged.updates) {
-    const tab = state.tabs.find((candidate) => sameDefinitionPath(candidate.path, update.path));
+    const tab = state.tabs.find((candidate) => sameWorkspaceFilePath(candidate.path, update.path));
     if (tab) {
+      if (typeof tab.savedSource !== "string") tab.savedSource = update.savedSource;
       tab.source = update.source;
-      tab.dirty = true;
+      tab.dirty = tab.source !== tab.savedSource;
     } else {
-      state.tabs.push({ path: update.path, source: update.source, dirty: true });
+      state.tabs.push({
+        path: update.path,
+        source: update.source,
+        savedSource: update.savedSource,
+        dirty: update.source !== update.savedSource
+      });
     }
   }
   const current = staged.updates.find((update) =>
     sameDefinitionPath(update.path, pending.request.path)
   );
+  const currentTab = state.tabs.find((tab) => sameWorkspaceFilePath(tab.path, pending.request.path));
   state.source = current.source;
-  state.dirty = true;
+  state.savedSource = tabSavedSource(currentTab);
+  state.dirty = state.source !== state.savedSource;
 }
 
 async function goToDefinitionAtCaret() {
@@ -9426,9 +9525,9 @@ function applyProblemQuickFix(plan, request) {
     throw new Error("Quick fix cancelled because the current tab changed.");
   }
   state.source = applied.source;
-  state.dirty = true;
+  state.dirty = state.source !== state.savedSource;
   tab.source = applied.source;
-  tab.dirty = true;
+  tab.dirty = state.dirty;
   quickFixRequestRevision += 1;
   clearReferenceResults();
   markCheckPending();

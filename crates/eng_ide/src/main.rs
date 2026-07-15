@@ -26,6 +26,9 @@ const MAX_NATIVE_IDE_WORKSPACE_SYMBOLS: usize = 200;
 const MAX_NATIVE_IDE_WORKSPACE_DOCUMENTS: usize = 128;
 const MAX_NATIVE_IDE_WORKSPACE_DOCUMENT_BYTES: usize = 4 * 1024 * 1024;
 const MAX_NATIVE_IDE_WORKSPACE_DOCUMENT_TOTAL_BYTES: usize = 16 * 1024 * 1024;
+const MAX_NATIVE_IDE_SAVE_FILES: usize = 128;
+const MAX_NATIVE_IDE_SAVE_FILE_BYTES: usize = 4 * 1024 * 1024;
+const MAX_NATIVE_IDE_SAVE_TOTAL_BYTES: usize = 16 * 1024 * 1024;
 const MAX_NATIVE_IDE_WORKSPACE_QUERY_BYTES: usize = 512;
 const WORKSPACE_OPEN_DOCUMENT_FORMAT: &str = "eng-lsp-open-documents-v1";
 
@@ -57,7 +60,7 @@ struct FileNodeView {
     children: Vec<FileNodeView>,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct FileView {
     path: String,
@@ -69,6 +72,14 @@ struct FileView {
 struct WorkspaceDocumentInput {
     path: String,
     source: String,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SaveFileInput {
+    path: String,
+    source: String,
+    expected_source: String,
 }
 
 #[derive(Clone, Serialize)]
@@ -397,15 +408,121 @@ fn ide_open_file(path: String) -> Result<FileView, String> {
 }
 
 #[tauri::command]
-fn ide_save_file(path: String, source: String) -> Result<FileView, String> {
+fn ide_save_file(
+    path: String,
+    source: String,
+    expected_source: String,
+) -> Result<FileView, String> {
     let root = workspace_root();
-    let path = resolve_path(&root, &path);
-    create_parent(&path)?;
-    fs::write(&path, source.as_bytes()).map_err(|error| error.to_string())?;
-    Ok(FileView {
-        path: relative_to(&root, &path),
-        source,
-    })
+    persist_workspace_files(
+        &root,
+        vec![SaveFileInput {
+            path,
+            source,
+            expected_source,
+        }],
+    )?
+    .into_iter()
+    .next()
+    .ok_or_else(|| "Save did not return the requested file.".to_owned())
+}
+
+#[tauri::command]
+fn ide_save_files(files: Vec<SaveFileInput>) -> Result<Vec<FileView>, String> {
+    persist_workspace_files(&workspace_root(), files)
+}
+
+fn persist_workspace_files(
+    root: &Path,
+    files: Vec<SaveFileInput>,
+) -> Result<Vec<FileView>, String> {
+    if files.len() > MAX_NATIVE_IDE_SAVE_FILES {
+        return Err(format!(
+            "Save accepts at most {MAX_NATIVE_IDE_SAVE_FILES} files at a time."
+        ));
+    }
+    let root = root
+        .canonicalize()
+        .map_err(|error| format!("Could not resolve the EngLang workspace: {error}"))?;
+    let mut seen = HashSet::new();
+    let mut validated = Vec::with_capacity(files.len());
+    let mut conflicts = Vec::new();
+    let mut total_source_bytes = 0usize;
+    for file in files {
+        let SaveFileInput {
+            path,
+            source,
+            expected_source,
+        } = file;
+        if source.len() > MAX_NATIVE_IDE_SAVE_FILE_BYTES
+            || expected_source.len() > MAX_NATIVE_IDE_SAVE_FILE_BYTES
+        {
+            return Err(format!(
+                "Save source exceeded the {MAX_NATIVE_IDE_SAVE_FILE_BYTES}-byte per-file limit: {path}"
+            ));
+        }
+        total_source_bytes = total_source_bytes
+            .checked_add(source.len().max(expected_source.len()))
+            .ok_or_else(|| "Save source size overflowed.".to_owned())?;
+        if total_source_bytes > MAX_NATIVE_IDE_SAVE_TOTAL_BYTES {
+            return Err(format!(
+                "Save sources exceeded the {MAX_NATIVE_IDE_SAVE_TOTAL_BYTES}-byte total limit."
+            ));
+        }
+        let canonical = canonical_workspace_file_path(&root, &path, "Save")?;
+        if !seen.insert(canonical.clone()) {
+            return Err(format!("Save file was provided more than once: {path}"));
+        }
+        let disk_source = read_utf8(&canonical)?;
+        if disk_source != expected_source {
+            conflicts.push(relative_to(&root, &canonical));
+        }
+        validated.push((canonical, source));
+    }
+    if !conflicts.is_empty() {
+        let visible = conflicts
+            .iter()
+            .take(3)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join(", ");
+        let remaining = conflicts.len().saturating_sub(3);
+        let suffix = if remaining == 0 {
+            String::new()
+        } else {
+            format!(" and {remaining} more")
+        };
+        return Err(format!(
+            "Save conflict: {visible}{suffix} changed on disk after opening or the last successful save. No files were written. Choose Discard when closing the conflicted tab, then reopen it to load the disk version."
+        ));
+    }
+    let mut saved = Vec::with_capacity(validated.len());
+    for (path, source) in validated {
+        fs::write(&path, source.as_bytes())
+            .map_err(|error| format!("Could not save {}: {error}", relative_to(&root, &path)))?;
+        saved.push(FileView {
+            path: relative_to(&root, &path),
+            source,
+        });
+    }
+    Ok(saved)
+}
+
+fn canonical_workspace_file_path(
+    root: &Path,
+    path: &str,
+    operation: &str,
+) -> Result<PathBuf, String> {
+    let candidate = resolve_path(root, path);
+    let canonical = candidate
+        .canonicalize()
+        .map_err(|error| format!("Could not resolve {operation} file {path}: {error}"))?;
+    if !canonical.is_file() || !canonical.starts_with(root) {
+        return Err(format!(
+            "{operation} file is outside the current workspace or is not a file: {path}"
+        ));
+    }
+    Ok(canonical)
 }
 
 #[tauri::command]
@@ -801,11 +918,18 @@ fn ide_run(
     profile: Option<String>,
     state: State<'_, IdeState>,
 ) -> Result<RunView, String> {
-    let root = workspace_root();
-    let path = resolve_path(&root, &path);
+    let root = workspace_root()
+        .canonicalize()
+        .map_err(|error| format!("Could not resolve the EngLang workspace: {error}"))?;
+    let path = canonical_workspace_file_path(&root, &path, "Run")?;
+    let disk_source = read_utf8(&path)?;
+    if disk_source != source {
+        return Err(format!(
+            "Run cancelled: {} changed on disk after the editor saved it. Save the current buffer again before running.",
+            relative_to(&root, &path)
+        ));
+    }
     let profile = ide_profile(profile.as_deref())?;
-    create_parent(&path)?;
-    fs::write(&path, source.as_bytes()).map_err(|error| error.to_string())?;
     let check = check_view(&path, &source);
     if check
         .diagnostics
@@ -1075,6 +1199,7 @@ fn main() {
             ide_bootstrap,
             ide_open_file,
             ide_save_file,
+            ide_save_files,
             ide_check,
             ide_workspace_symbols,
             ide_code_actions,
@@ -4746,6 +4871,14 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "function workspaceRenamePlan(payload, newName, originPath = state.currentPath)",
         "function applyWorkspaceTextEdits(source, edits, expectedText)",
         "function saveAllDirtyTabs()",
+        "function saveRequestForTab(tab)",
+        "function applySavedFile(request, file)",
+        "function sameWorkspaceFilePath(left, right)",
+        r#"call("ide_save_files", { files: requests })"#,
+        "expectedSource: tabSavedSource(tab)",
+        "state.savedSource = file.source",
+        "Saved previous revision of",
+        "Run cancelled; buffer changed while saving",
         "function openWorkspaceSymbolSearch()",
         "function requestWorkspaceSymbols(pending = state.pendingWorkspaceSymbols)",
         "function workspaceSymbolItemsFromPayload(payload, query = \"\")",
@@ -6907,6 +7040,107 @@ with {
                     .and_then(Value::as_str)
                     .is_some_and(|path| path.ends_with("output_manifest.json"))
         }));
+    }
+
+    #[test]
+    fn native_ide_save_writes_only_when_disk_matches_expected_source() {
+        let root = unique_temp_root();
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("main.eng");
+        fs::write(&path, "value = 1\n").unwrap();
+
+        let saved = persist_workspace_files(
+            &root,
+            vec![SaveFileInput {
+                path: "main.eng".to_owned(),
+                source: "value = 2\n".to_owned(),
+                expected_source: "value = 1\n".to_owned(),
+            }],
+        )
+        .unwrap();
+
+        assert_eq!(saved.len(), 1);
+        assert_eq!(saved[0].path, "main.eng");
+        assert_eq!(saved[0].source, "value = 2\n");
+        assert_eq!(fs::read_to_string(&path).unwrap(), "value = 2\n");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn native_ide_save_all_checks_every_file_before_writing() {
+        let root = unique_temp_root();
+        fs::create_dir_all(&root).unwrap();
+        let first = root.join("first.eng");
+        let second = root.join("second.eng");
+        fs::write(&first, "first disk\n").unwrap();
+        fs::write(&second, "second external\n").unwrap();
+
+        let error = persist_workspace_files(
+            &root,
+            vec![
+                SaveFileInput {
+                    path: "first.eng".to_owned(),
+                    source: "first editor\n".to_owned(),
+                    expected_source: "first disk\n".to_owned(),
+                },
+                SaveFileInput {
+                    path: "second.eng".to_owned(),
+                    source: "second editor\n".to_owned(),
+                    expected_source: "second baseline\n".to_owned(),
+                },
+            ],
+        )
+        .unwrap_err();
+
+        assert!(error.contains("Save conflict: second.eng"));
+        assert!(error.contains("No files were written"));
+        assert_eq!(fs::read_to_string(first).unwrap(), "first disk\n");
+        assert_eq!(fs::read_to_string(second).unwrap(), "second external\n");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn native_ide_save_rejects_outside_and_duplicate_files() {
+        let root = unique_temp_root();
+        fs::create_dir_all(&root).unwrap();
+        let inside = root.join("inside.eng");
+        let outside = root.with_extension("outside.eng");
+        fs::write(&inside, "inside\n").unwrap();
+        fs::write(&outside, "outside\n").unwrap();
+
+        let outside_error = persist_workspace_files(
+            &root,
+            vec![SaveFileInput {
+                path: outside.to_string_lossy().into_owned(),
+                source: "changed\n".to_owned(),
+                expected_source: "outside\n".to_owned(),
+            }],
+        )
+        .unwrap_err();
+        assert!(outside_error.contains("outside the current workspace"));
+        assert_eq!(fs::read_to_string(&outside).unwrap(), "outside\n");
+
+        let duplicate_error = persist_workspace_files(
+            &root,
+            vec![
+                SaveFileInput {
+                    path: "inside.eng".to_owned(),
+                    source: "first\n".to_owned(),
+                    expected_source: "inside\n".to_owned(),
+                },
+                SaveFileInput {
+                    path: "inside.eng".to_owned(),
+                    source: "second\n".to_owned(),
+                    expected_source: "inside\n".to_owned(),
+                },
+            ],
+        )
+        .unwrap_err();
+        assert!(duplicate_error.contains("provided more than once"));
+        assert_eq!(fs::read_to_string(&inside).unwrap(), "inside\n");
+
+        fs::remove_file(outside).unwrap();
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
