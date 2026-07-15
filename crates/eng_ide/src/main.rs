@@ -16,6 +16,8 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use tauri::State;
 
+const MAX_NATIVE_IDE_RENAME_EDITS: usize = 1_000;
+
 #[derive(Default)]
 struct IdeState {
     last_output: Mutex<Option<CachedRunOutput>>,
@@ -452,6 +454,46 @@ fn ide_references(
     parse_references_output(&output)
 }
 
+#[tauri::command]
+fn ide_prepare_rename(
+    path: String,
+    source: String,
+    line: usize,
+    character: usize,
+) -> Result<Value, String> {
+    let output = run_lsp_position_query(
+        &path,
+        &source,
+        line,
+        character,
+        "--prepare-rename-stdin",
+        "Rename preparation",
+    )?;
+    parse_prepare_rename_output(&output)
+}
+
+#[tauri::command]
+fn ide_rename(
+    path: String,
+    source: String,
+    line: usize,
+    character: usize,
+    new_name: String,
+) -> Result<Value, String> {
+    let root = workspace_root();
+    let extra_arguments = vec![new_name, root.to_string_lossy().into_owned()];
+    let output = run_lsp_position_query_with_args(
+        &path,
+        &source,
+        line,
+        character,
+        "--rename-stdin",
+        "Rename",
+        &extra_arguments,
+    )?;
+    parse_rename_output(&output)
+}
+
 fn run_lsp_position_query(
     path: &str,
     source: &str,
@@ -802,6 +844,8 @@ fn main() {
             ide_definition,
             ide_document_highlights,
             ide_references,
+            ide_prepare_rename,
+            ide_rename,
             ide_format,
             ide_run,
             ide_terminal,
@@ -2662,6 +2706,81 @@ fn parse_references_output(output: &[u8]) -> Result<Value, String> {
     Ok(value)
 }
 
+fn parse_prepare_rename_output(output: &[u8]) -> Result<Value, String> {
+    let value = serde_json::from_slice::<Value>(output)
+        .map_err(|error| format!("Could not read rename preparation result: {error}"))?;
+    if value.is_null() {
+        return Err("No renameable EngLang symbol was found at the caret.".to_owned());
+    }
+    if let Some(message) = value.get("error").and_then(Value::as_str) {
+        return Err(message.to_owned());
+    }
+    let placeholder = value
+        .get("placeholder")
+        .and_then(Value::as_str)
+        .filter(|placeholder| !placeholder.is_empty());
+    if placeholder.is_none() || !non_empty_lsp_range(value.get("range")) {
+        return Err("Rename preparation returned an incomplete symbol range.".to_owned());
+    }
+    Ok(value)
+}
+
+fn parse_rename_output(output: &[u8]) -> Result<Value, String> {
+    let value = serde_json::from_slice::<Value>(output)
+        .map_err(|error| format!("Could not read rename result: {error}"))?;
+    if let Some(message) = value.get("error").and_then(Value::as_str) {
+        return Err(message.to_owned());
+    }
+    let changes = value
+        .get("changes")
+        .and_then(Value::as_object)
+        .filter(|changes| !changes.is_empty())
+        .ok_or_else(|| "Rename returned no workspace edits.".to_owned())?;
+    let mut edit_count = 0usize;
+    for (uri, edits) in changes {
+        if !uri.starts_with("file://") {
+            return Err("Rename returned a non-file workspace edit URI.".to_owned());
+        }
+        let edits = edits
+            .as_array()
+            .filter(|edits| !edits.is_empty())
+            .ok_or_else(|| "Rename returned an empty or invalid edit list.".to_owned())?;
+        for edit in edits {
+            if edit.get("newText").and_then(Value::as_str).is_none()
+                || !non_empty_lsp_range(edit.get("range"))
+            {
+                return Err("Rename returned an incomplete text edit.".to_owned());
+            }
+            edit_count += 1;
+            if edit_count > MAX_NATIVE_IDE_RENAME_EDITS {
+                return Err(format!(
+                    "Rename exceeded the {MAX_NATIVE_IDE_RENAME_EDITS}-edit native IDE safety limit."
+                ));
+            }
+        }
+    }
+    Ok(value)
+}
+
+fn non_empty_lsp_range(range: Option<&Value>) -> bool {
+    let Some(range) = range else {
+        return false;
+    };
+    let coordinates = [
+        "/start/line",
+        "/start/character",
+        "/end/line",
+        "/end/character",
+    ]
+    .map(|pointer| range.pointer(pointer).and_then(Value::as_u64));
+    let [Some(start_line), Some(start_character), Some(end_line), Some(end_character)] =
+        coordinates
+    else {
+        return false;
+    };
+    end_line > start_line || (end_line == start_line && end_character > start_character)
+}
+
 fn workspace_root() -> PathBuf {
     let current_dir = env::current_dir().ok();
     let exe_dir = env::current_exe()
@@ -4134,12 +4253,23 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "function currentWorkspaceReferences()",
         "function bindWorkspaceReferenceButtons(root)",
         "function openWorkspaceReferenceLocation(reference)",
+        "function startSemanticRename()",
+        "function workspaceRenamePlan(payload, newName, originPath = state.currentPath)",
+        "function applyWorkspaceTextEdits(source, edits, expectedText)",
+        "function saveAllDirtyTabs()",
+        "saveAllBtn",
+        "renameBackdrop",
         "function documentHighlightKindForToken(token, lineIndex)",
         r#"call("ide_document_highlights", request)"#,
         r#"call("ide_references", request)"#,
+        r#"call("ide_prepare_rename", request)"#,
+        r#"call("ide_rename", { ...pending.request, newName })"#,
         "data-show-document-highlights",
         "data-workspace-reference-uri",
+        "data-rename-symbol",
         "Save other modified EngLang files before workspace reference search",
+        "Save other modified EngLang files before workspace rename",
+        r#"event.key === "F2""#,
         r#"event.key === "F12" && event.shiftKey"#,
         "const LIVE_CHECK_DELAY_MS = 350;",
         "function scheduleLiveCheck()",
@@ -4272,6 +4402,12 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "ide_references",
         "--references-stdin",
         "parse_references_output",
+        "ide_prepare_rename",
+        "--prepare-rename-stdin",
+        "parse_prepare_rename_output",
+        "ide_rename",
+        "--rename-stdin",
+        "parse_rename_output",
     ] {
         if !main_rs.contains(required) {
             return Err(format!(
@@ -4623,6 +4759,68 @@ with {
         )
         .unwrap_err();
         assert!(error.contains("incomplete location"));
+    }
+
+    #[test]
+    fn rename_preparation_requires_symbol_and_complete_range() {
+        let prepared = json!({
+            "range": {
+                "start": { "line": 2, "character": 4 },
+                "end": { "line": 2, "character": 15 }
+            },
+            "placeholder": "SHARED_RATE"
+        });
+        assert_eq!(
+            parse_prepare_rename_output(prepared.to_string().as_bytes()).unwrap(),
+            prepared
+        );
+        assert!(parse_prepare_rename_output(b"null")
+            .unwrap_err()
+            .contains("No renameable"));
+        assert!(parse_prepare_rename_output(
+            br#"{"range":{"start":{"line":2,"character":4},"end":{"line":2,"character":4}},"placeholder":"SHARED_RATE"}"#
+        )
+        .unwrap_err()
+        .contains("incomplete symbol range"));
+    }
+
+    #[test]
+    fn rename_output_accepts_complete_multi_file_edits() {
+        let rename = json!({
+            "changes": {
+                "file:///C:/workspace/main.eng": [{
+                    "range": {
+                        "start": { "line": 1, "character": 9 },
+                        "end": { "line": 1, "character": 20 }
+                    },
+                    "newText": "RENAMED_RATE"
+                }],
+                "file:///C:/workspace/module.eng": [{
+                    "range": {
+                        "start": { "line": 0, "character": 6 },
+                        "end": { "line": 0, "character": 17 }
+                    },
+                    "newText": "RENAMED_RATE"
+                }]
+            }
+        });
+        assert_eq!(
+            parse_rename_output(rename.to_string().as_bytes()).unwrap(),
+            rename
+        );
+    }
+
+    #[test]
+    fn rename_output_rejects_backend_errors_and_partial_edits() {
+        let error =
+            parse_rename_output(br#"{"error":"`report` is reserved by EngLang."}"#).unwrap_err();
+        assert!(error.contains("reserved by EngLang"));
+
+        let partial = parse_rename_output(
+            br#"{"changes":{"file:///C:/workspace/main.eng":[{"range":{},"newText":"next"}]}}"#,
+        )
+        .unwrap_err();
+        assert!(partial.contains("incomplete text edit"));
     }
 
     #[test]

@@ -145,6 +145,7 @@ const state = {
   editorFindQuery: "",
   editorFindCaseSensitive: false,
   editorFindMatchIndex: -1,
+  pendingRename: null,
   pendingTabClose: null,
   pendingWindowClose: false,
   sideTab: "variables",
@@ -159,6 +160,7 @@ let liveCheckRevision = 0;
 let navigationRevision = 0;
 let definitionRequestRevision = 0;
 let documentHighlightRequestRevision = 0;
+let renameRequestRevision = 0;
 let nativeAppWindow = null;
 let nativeCloseListenerBound = false;
 
@@ -564,6 +566,7 @@ function renderToolbar() {
       ${toolButton("formatBtn", "Format", "Format current buffer", "format")}
       ${toolButton("findBtn", "Find", "Find in current file", "search")}
       ${toolButton("saveBtn", "Save", "Save current file", "save")}
+      ${toolButton("saveAllBtn", "Save All", "Save all modified files", "save")}
       <span class="toolbar-separator"></span>
       ${toolButton("reportBtn", "Report", "Open last report", "file")}
       ${toolButton("outputBtn", "Output", "Open output folder", "folder")}
@@ -783,6 +786,7 @@ function bind() {
   byId("formatBtn").onclick = formatCurrent;
   byId("findBtn").onclick = openEditorFind;
   byId("saveBtn").onclick = saveCurrent;
+  byId("saveAllBtn").onclick = () => void saveAllDirtyTabs();
   byId("runBtn").onclick = runCurrent;
   byId("reportBtn").onclick = () => openArtifact("report");
   byId("outputBtn").onclick = () => openArtifact("output_folder");
@@ -892,6 +896,7 @@ function bind() {
   bindSourceTokenCopyButtons(document);
   bindHighlightTokenFilterButtons(document);
   bindWorkspaceReferenceButtons(document);
+  bindRenameActions(document);
   bindInspectorTabButtons(document);
   bindShowHighlightPanelButtons(document);
   const terminalInput = byId("terminalInput");
@@ -1194,6 +1199,7 @@ function refreshCheckPanels() {
     bindSourceTokenCopyButtons(sideBody);
     bindHighlightTokenFilterButtons(sideBody);
     bindWorkspaceReferenceButtons(sideBody);
+    bindRenameActions(sideBody);
     bindInspectorTabButtons(sideBody);
     bindShowHighlightPanelButtons(sideBody);
   }
@@ -1280,6 +1286,44 @@ async function saveCurrent() {
     appendTerminal("error", String(error));
     if (state.source !== state.highlightSource) scheduleLiveCheck();
     render();
+  }
+}
+
+async function saveAllDirtyTabs() {
+  rememberCurrentTab();
+  const requests = dirtyTabs().map((tab) => ({ path: tab.path, source: tab.source }));
+  if (!requests.length) {
+    setStatus("No modified files to save");
+    return true;
+  }
+  try {
+    await persistDirtyTabRequests(requests);
+    state.status = `Saved ${requests.length} ${requests.length === 1 ? "file" : "files"}`;
+    render();
+    return true;
+  } catch (error) {
+    const message = `Save failed: ${compactText(String(error), 90)}`;
+    appendTerminal("error", message);
+    state.status = message;
+    render();
+    return false;
+  }
+}
+
+async function persistDirtyTabRequests(requests) {
+  for (const request of requests) {
+    setStatus(`Saving ${fileName(request.path)}`);
+    const file = await call("ide_save_file", { path: request.path, source: request.source });
+    const tab = tabFor(request.path);
+    if (!tab || tab.source !== request.source) {
+      throw new Error(`Buffer changed while saving ${fileName(request.path)}`);
+    }
+    tab.source = file.source;
+    tab.dirty = false;
+    if (sameDefinitionPath(state.currentPath, request.path)) {
+      state.source = file.source;
+      state.dirty = false;
+    }
   }
 }
 
@@ -1771,7 +1815,9 @@ async function switchTab(path) {
 
 function syncDialogInert() {
   const app = byId("app");
-  if (app) app.inert = Boolean(state.pendingTabClose || state.pendingWindowClose);
+  if (app) app.inert = Boolean(
+    state.pendingRename || state.pendingTabClose || state.pendingWindowClose
+  );
 }
 
 function openUnsavedChangesDialog(path) {
@@ -1949,20 +1995,7 @@ async function saveAllDirtyTabsAndClose() {
   }
   setUnsavedWindowDialogBusy(true);
   try {
-    for (const request of requests) {
-      setStatus(`Saving ${fileName(request.path)}`);
-      const file = await call("ide_save_file", { path: request.path, source: request.source });
-      const currentTab = tabFor(request.path);
-      if (!currentTab || currentTab.source !== request.source) {
-        throw new Error(`Buffer changed while saving ${fileName(request.path)}; close cancelled`);
-      }
-      currentTab.source = file.source;
-      currentTab.dirty = false;
-      if (state.currentPath === request.path) {
-        state.source = file.source;
-        state.dirty = false;
-      }
-    }
+    await persistDirtyTabRequests(requests);
   } catch (error) {
     const message = `Save failed: ${compactText(String(error), 90)}`;
     renderTabLabels();
@@ -2556,6 +2589,7 @@ function renderCaretHighlightSummary(caret, tokenCurrent) {
     sourceTokenCopyButton(token, "text", "Copy Text"),
     sourceTokenCopyButton(token, "range", "Copy Range"),
     '<button class="link-button token-range-button" data-show-document-highlights title="Highlight semantic references in this file (Shift+F12)">References</button>',
+    '<button class="link-button token-range-button" data-rename-symbol title="Rename semantic symbol (F2)">Rename</button>',
     renderInspectorTabButtons(inspectorTabsForSemanticToken(token, caret.hover))
   ].filter(Boolean).join(" ");
   const modifierCells = semanticTokenModifierChips(modifiers);
@@ -6663,6 +6697,12 @@ function bindWorkspaceReferenceButtons(root) {
   });
 }
 
+function bindRenameActions(root) {
+  root.querySelectorAll("[data-rename-symbol]").forEach((button) => {
+    button.onclick = () => void startSemanticRename();
+  });
+}
+
 function bindInspectorTabButtons(root) {
   root.querySelectorAll("[data-open-inspector-tab]").forEach((button) => {
     button.onclick = () => {
@@ -6757,6 +6797,7 @@ function renderCursorInsightActions(token, selectLabel = "Select", hover = null,
     ${sourceTokenCopyButton(token, "text", "Copy")}
     ${showDefinition ? '<button class="link-button token-range-button" data-go-to-definition title="Go to definition (F12)">Definition</button>' : ""}
     ${showDefinition ? '<button class="link-button token-range-button" data-show-document-highlights title="Highlight semantic references in this file (Shift+F12)">References</button>' : ""}
+    ${showDefinition ? '<button class="link-button token-range-button" data-rename-symbol title="Rename semantic symbol (F2)">Rename</button>' : ""}
     <button class="link-button token-range-button" data-show-highlight-panel title="Open Highlight panel">Highlight</button>
     ${renderInspectorTabButtons(inspectorTabsForSemanticToken(token, hover))}
   `;
@@ -6852,7 +6893,15 @@ function currentWorkspaceReferences() {
 }
 
 function dirtyWorkspaceReferenceTabs(originPath) {
-  return state.tabs.filter((tab) => tab.dirty && !sameDefinitionPath(tab.path, originPath));
+  return dirtyOtherEngLangTabs(originPath);
+}
+
+function dirtyOtherEngLangTabs(originPath) {
+  return state.tabs.filter((tab) =>
+    tab.dirty
+      && /\.eng$/i.test(String(tab.path || ""))
+      && !sameDefinitionPath(tab.path, originPath)
+  );
 }
 
 function clearReferenceResults() {
@@ -6960,6 +7009,383 @@ async function openWorkspaceReferenceLocation(reference) {
     appendTerminal("error", message);
     return false;
   }
+}
+
+async function startSemanticRename() {
+  if (state.pendingRename) return false;
+  const editor = byId("editor");
+  const request = editorDefinitionRequest(editor);
+  if (!request) return false;
+  rememberCurrentTab();
+  const dirtyTabs = dirtyOtherEngLangTabs(request.path);
+  if (dirtyTabs.length) {
+    const message = workspaceRenameDirtyMessage(dirtyTabs);
+    setStatus(message);
+    appendTerminal("error", message);
+    return false;
+  }
+  const revision = ++renameRequestRevision;
+  hideCompletions();
+  setStatus("Preparing rename...");
+  try {
+    const preparation = await call("ide_prepare_rename", request);
+    if (revision !== renameRequestRevision) return false;
+    if (!bufferRequestIsCurrent(request)) {
+      setStatus("Rename cancelled; buffer changed");
+      return false;
+    }
+    const range = workspaceReferenceRange(preparation);
+    const placeholder = String(preparation?.placeholder || "");
+    if (!range || !validRenameIdentifier(placeholder)) {
+      throw new Error("Rename preparation did not return a valid EngLang symbol.");
+    }
+    selectEditorUtf16Range(editor, {
+      line: range.start.line,
+      character: range.start.character,
+      endLine: range.end.line,
+      endCharacter: range.end.character
+    });
+    openSemanticRenameDialog({ request, range, placeholder, revision, busy: false });
+    return true;
+  } catch (error) {
+    if (revision !== renameRequestRevision) return false;
+    const message = String(error);
+    setStatus(message);
+    appendTerminal("error", message);
+    return false;
+  }
+}
+
+function openSemanticRenameDialog(pending) {
+  byId("renameBackdrop")?.remove();
+  state.pendingRename = pending;
+  const backdrop = document.createElement("div");
+  backdrop.id = "renameBackdrop";
+  backdrop.className = "dialog-backdrop";
+  backdrop.innerHTML = `
+    <div class="unsaved-dialog rename-dialog" role="dialog" aria-modal="true" aria-labelledby="renameTitle">
+      <h2 id="renameTitle">Rename Symbol</h2>
+      <div class="unsaved-dialog-path" title="${escapeAttr(pending.request.path)}">${escapeHtml(pending.request.path)}</div>
+      <label class="rename-dialog-label" for="renameNameInput">New name</label>
+      <input id="renameNameInput" class="rename-dialog-input" value="${escapeAttr(pending.placeholder)}" autocomplete="off" spellcheck="false" />
+      <div id="renameDialogError" class="rename-dialog-error" role="alert" hidden></div>
+      <div class="unsaved-dialog-actions">
+        <button id="renameCancelBtn">Cancel</button>
+        <button id="renameApplyBtn" class="primary">Rename</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  syncDialogInert();
+  const input = byId("renameNameInput");
+  byId("renameCancelBtn").onclick = cancelSemanticRename;
+  byId("renameApplyBtn").onclick = () => void submitSemanticRename();
+  input.onkeydown = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      event.stopPropagation();
+      void submitSemanticRename();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      cancelSemanticRename();
+    }
+  };
+  input.oninput = () => setRenameDialogError("");
+  backdrop.onclick = (event) => {
+    if (event.target === backdrop) cancelSemanticRename();
+  };
+  input.focus();
+  input.setSelectionRange(0, input.value.length);
+  setStatus(`Rename ${pending.placeholder}`);
+}
+
+function cancelSemanticRename() {
+  const pending = state.pendingRename;
+  if (!pending) return;
+  renameRequestRevision += 1;
+  byId("renameBackdrop")?.remove();
+  state.pendingRename = null;
+  syncDialogInert();
+  setStatus("Rename cancelled");
+  byId("editor")?.focus();
+}
+
+function closeSemanticRenameDialog(pending) {
+  if (state.pendingRename !== pending) return;
+  byId("renameBackdrop")?.remove();
+  state.pendingRename = null;
+  syncDialogInert();
+}
+
+function setRenameDialogBusy(busy) {
+  const pending = state.pendingRename;
+  if (!pending) return;
+  pending.busy = busy;
+  const input = byId("renameNameInput");
+  const cancel = byId("renameCancelBtn");
+  const apply = byId("renameApplyBtn");
+  if (input) input.disabled = busy;
+  if (cancel) cancel.disabled = false;
+  if (apply) {
+    apply.disabled = busy;
+    apply.textContent = busy ? "Renaming..." : "Rename";
+  }
+}
+
+function setRenameDialogError(message) {
+  const target = byId("renameDialogError");
+  if (!target) return;
+  target.textContent = String(message || "");
+  target.hidden = !message;
+}
+
+async function submitSemanticRename() {
+  const pending = state.pendingRename;
+  const input = byId("renameNameInput");
+  if (!pending || pending.busy || !input) return false;
+  const newName = String(input.value || "").trim();
+  if (!validRenameIdentifier(newName)) {
+    setRenameDialogError("Enter a valid EngLang identifier.");
+    return false;
+  }
+  if (newName === pending.placeholder) {
+    cancelSemanticRename();
+    return false;
+  }
+  const dirtyTabs = dirtyOtherEngLangTabs(pending.request.path);
+  if (dirtyTabs.length) {
+    setRenameDialogError(workspaceRenameDirtyMessage(dirtyTabs));
+    return false;
+  }
+  setRenameDialogBusy(true);
+  setRenameDialogError("");
+  setStatus(`Renaming ${pending.placeholder}...`);
+  try {
+    const payload = await call("ide_rename", { ...pending.request, newName });
+    if (state.pendingRename !== pending || pending.revision !== renameRequestRevision) return false;
+    if (!bufferRequestIsCurrent(pending.request)) {
+      throw new Error("Rename cancelled because the current buffer changed.");
+    }
+    const staged = await stageWorkspaceRename(pending, payload, newName);
+    if (state.pendingRename !== pending || pending.revision !== renameRequestRevision) return false;
+    if (!bufferRequestIsCurrent(pending.request)) {
+      throw new Error("Rename cancelled because the current buffer changed.");
+    }
+    commitWorkspaceRename(pending, staged);
+    closeSemanticRenameDialog(pending);
+    clearReferenceResults();
+    markCheckPending();
+    state.status = `Renamed ${pending.placeholder} to ${newName}: ${staged.editCount} edit${staged.editCount === 1 ? "" : "s"} across ${staged.updates.length} file${staged.updates.length === 1 ? "" : "s"}`;
+    render();
+    const nextEditor = byId("editor");
+    if (nextEditor && staged.focus) {
+      nextEditor.focus();
+      nextEditor.selectionStart = staged.focus.start;
+      nextEditor.selectionEnd = staged.focus.end;
+      syncEditorHighlightScroll();
+      updateEditorFindStatus();
+      updateCursorInsight();
+    }
+    scheduleLiveCheck();
+    return true;
+  } catch (error) {
+    if (state.pendingRename !== pending) return false;
+    const message = String(error);
+    setRenameDialogBusy(false);
+    setRenameDialogError(message);
+    setStatus(message);
+    appendTerminal("error", message);
+    return false;
+  }
+}
+
+function validRenameIdentifier(value) {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(String(value || ""));
+}
+
+function workspaceRenameDirtyMessage(tabs) {
+  const names = tabs.slice(0, 3).map((tab) => fileName(tab.path));
+  const remainder = tabs.length - names.length;
+  return `Save other modified EngLang files before workspace rename: ${names.join(", ")}${remainder > 0 ? ` and ${remainder} more` : ""}.`;
+}
+
+function workspaceRenamePlan(payload, newName, originPath = state.currentPath) {
+  if (payload?.error) throw new Error(String(payload.error));
+  const changes = payload?.changes;
+  if (!changes || typeof changes !== "object" || Array.isArray(changes)) {
+    throw new Error("Rename did not return a workspace edit.");
+  }
+  const targets = [];
+  const pathKeys = new Set();
+  let editCount = 0;
+  for (const [uri, rawEdits] of Object.entries(changes)) {
+    const absolutePath = definitionPathFromUri(uri);
+    const path = definitionWorkspacePath(absolutePath);
+    const isOrigin = sameDefinitionPath(path, originPath);
+    if (
+      !absolutePath
+      || (!definitionPathInsideWorkspace(absolutePath) && !isOrigin)
+      || !/\.eng$/i.test(absolutePath)
+    ) {
+      throw new Error("Rename returned an edit outside the EngLang workspace.");
+    }
+    const pathKey = definitionPathKey(path);
+    if (pathKeys.has(pathKey)) {
+      throw new Error("Rename returned duplicate workspace file edits.");
+    }
+    pathKeys.add(pathKey);
+    if (!Array.isArray(rawEdits) || !rawEdits.length) {
+      throw new Error(`Rename returned no edits for ${path}.`);
+    }
+    const edits = rawEdits.map((edit) => {
+      const range = workspaceReferenceRange(edit);
+      if (!range || typeof edit?.newText !== "string" || edit.newText !== newName) {
+        throw new Error(`Rename returned an invalid replacement for ${path}.`);
+      }
+      editCount += 1;
+      if (editCount > 1000) {
+        throw new Error("Rename exceeded the 1000-edit native IDE safety limit.");
+      }
+      return { range, newText: edit.newText };
+    });
+    targets.push({ uri, absolutePath, path, edits });
+  }
+  if (!targets.length || !editCount) throw new Error("Rename returned no workspace edits.");
+  if (targets.length > 1 && targets.some((target) => !definitionPathInsideWorkspace(target.absolutePath))) {
+    throw new Error("Rename cannot mix an external file with workspace edits.");
+  }
+  targets.sort((left, right) => left.path.localeCompare(right.path));
+  return { targets, editCount };
+}
+
+function definitionPathInsideWorkspace(path) {
+  const pathKey = definitionPathKey(path);
+  const rootKey = definitionPathKey(state.root);
+  return Boolean(rootKey && (pathKey === rootKey || pathKey.startsWith(`${rootKey}/`)));
+}
+
+async function stageWorkspaceRename(pending, payload, newName) {
+  const plan = workspaceRenamePlan(payload, newName, pending.request.path);
+  const updates = [];
+  for (const target of plan.targets) {
+    if (
+      pending.revision !== undefined
+      && (pending.revision !== renameRequestRevision || state.pendingRename !== pending)
+    ) {
+      throw new Error("Rename cancelled before all files were verified.");
+    }
+    let source;
+    if (sameDefinitionPath(target.path, pending.request.path)) {
+      source = pending.request.source;
+    } else {
+      const file = await call("ide_open_file", { path: target.path });
+      if (!file || !sameDefinitionPath(file.path, target.path) || typeof file.source !== "string") {
+        throw new Error(`Could not verify rename source ${target.path}.`);
+      }
+      source = file.source;
+    }
+    const applied = applyWorkspaceTextEdits(source, target.edits, pending.placeholder);
+    updates.push({ ...target, source: applied.source, mappedEdits: applied.mappedEdits });
+  }
+  const origin = updates.find((update) => sameDefinitionPath(update.path, pending.request.path));
+  const focusEdit = origin?.mappedEdits.find((edit) => sameWorkspaceRange(edit.range, pending.range));
+  if (!origin || !focusEdit) {
+    throw new Error("Rename did not include the selected symbol edit.");
+  }
+  return {
+    updates,
+    editCount: plan.editCount,
+    focus: { start: focusEdit.newStart, end: focusEdit.newEnd }
+  };
+}
+
+function applyWorkspaceTextEdits(source, edits, expectedText) {
+  const normalized = edits.map((edit) => {
+    const start = sourceUtf16Offset(source, edit.range.start);
+    const end = sourceUtf16Offset(source, edit.range.end);
+    if (start === null || end === null || end <= start) {
+      throw new Error("Rename returned a source range outside the current file.");
+    }
+    if (source.slice(start, end) !== expectedText) {
+      throw new Error("Rename source changed before all edits could be verified.");
+    }
+    return { ...edit, start, end };
+  }).sort((left, right) => left.start - right.start || left.end - right.end);
+  for (let index = 1; index < normalized.length; index += 1) {
+    if (normalized[index].start < normalized[index - 1].end) {
+      throw new Error("Rename returned overlapping source edits.");
+    }
+  }
+  let cursor = 0;
+  let changed = "";
+  const mappedEdits = [];
+  for (const edit of normalized) {
+    changed += source.slice(cursor, edit.start);
+    const newStart = changed.length;
+    changed += edit.newText;
+    mappedEdits.push({
+      range: edit.range,
+      newStart,
+      newEnd: changed.length
+    });
+    cursor = edit.end;
+  }
+  changed += source.slice(cursor);
+  return { source: changed, mappedEdits };
+}
+
+function sourceUtf16Offset(source, position) {
+  const line = Number(position?.line);
+  const character = Number(position?.character);
+  if (!Number.isInteger(line) || !Number.isInteger(character) || line < 0 || character < 0) {
+    return null;
+  }
+  const text = String(source || "");
+  const newlinePattern = /\r\n|\r|\n/g;
+  let start = 0;
+  for (let lineIndex = 0; lineIndex < line; lineIndex += 1) {
+    const match = newlinePattern.exec(text);
+    if (!match) return null;
+    start = match.index + match[0].length;
+  }
+  const nextNewline = newlinePattern.exec(text);
+  const end = nextNewline ? nextNewline.index : text.length;
+  if (character > end - start) return null;
+  return start + character;
+}
+
+function sameWorkspaceRange(left, right) {
+  return left?.start?.line === right?.start?.line
+    && left?.start?.character === right?.start?.character
+    && left?.end?.line === right?.end?.line
+    && left?.end?.character === right?.end?.character;
+}
+
+function commitWorkspaceRename(pending, staged) {
+  rememberCurrentTab();
+  if (!bufferRequestIsCurrent(pending.request)) {
+    throw new Error("Rename cancelled because the current buffer changed.");
+  }
+  const dirtyTargets = staged.updates.filter((update) => {
+    const tab = state.tabs.find((candidate) => sameDefinitionPath(candidate.path, update.path));
+    return tab?.dirty && !sameDefinitionPath(update.path, pending.request.path);
+  });
+  if (dirtyTargets.length) throw new Error(workspaceRenameDirtyMessage(dirtyTargets));
+  for (const update of staged.updates) {
+    const tab = state.tabs.find((candidate) => sameDefinitionPath(candidate.path, update.path));
+    if (tab) {
+      tab.source = update.source;
+      tab.dirty = true;
+    } else {
+      state.tabs.push({ path: update.path, source: update.source, dirty: true });
+    }
+  }
+  const current = staged.updates.find((update) =>
+    sameDefinitionPath(update.path, pending.request.path)
+  );
+  state.source = current.source;
+  state.dirty = true;
 }
 
 async function goToDefinitionAtCaret() {
@@ -8716,7 +9142,7 @@ function handleGlobalKeyDown(event) {
     && String(event.key || "").toLowerCase() === "o";
   if (outlineShortcut) {
     event.preventDefault();
-    if (!state.pendingWindowClose && !state.pendingTabClose) focusOutline();
+    if (!state.pendingRename && !state.pendingWindowClose && !state.pendingTabClose) focusOutline();
     return;
   }
   const findShortcut = (event.ctrlKey || event.metaKey)
@@ -8724,7 +9150,7 @@ function handleGlobalKeyDown(event) {
     && String(event.key || "").toLowerCase() === "f";
   if (findShortcut) {
     event.preventDefault();
-    if (!state.pendingWindowClose && !state.pendingTabClose) openEditorFind();
+    if (!state.pendingRename && !state.pendingWindowClose && !state.pendingTabClose) openEditorFind();
     return;
   }
   const saveShortcut = (event.ctrlKey || event.metaKey)
@@ -8733,30 +9159,45 @@ function handleGlobalKeyDown(event) {
     && String(event.key || "").toLowerCase() === "s";
   if (saveShortcut) {
     event.preventDefault();
+    if (state.pendingRename) return;
     if (state.pendingWindowClose) void saveAllDirtyTabsAndClose();
     else if (state.pendingTabClose) void savePendingTabAndClose();
     else void saveCurrent();
     return;
   }
+  if (event.key === "F2" && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+    event.preventDefault();
+    if (!state.pendingRename && !state.pendingWindowClose && !state.pendingTabClose) {
+      void startSemanticRename();
+    }
+    return;
+  }
   if (event.key === "F12" && event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
     event.preventDefault();
-    if (!state.pendingWindowClose && !state.pendingTabClose) void showDocumentHighlightsAtCaret();
+    if (!state.pendingRename && !state.pendingWindowClose && !state.pendingTabClose) {
+      void showDocumentHighlightsAtCaret();
+    }
     return;
   }
   if (event.key === "F12" && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
     event.preventDefault();
-    if (!state.pendingWindowClose && !state.pendingTabClose) void goToDefinitionAtCaret();
+    if (!state.pendingRename && !state.pendingWindowClose && !state.pendingTabClose) {
+      void goToDefinitionAtCaret();
+    }
     return;
   }
   if (event.key === "F3" && !event.ctrlKey && !event.metaKey && !event.altKey) {
     event.preventDefault();
-    if (!state.pendingWindowClose && !state.pendingTabClose) {
+    if (!state.pendingRename && !state.pendingWindowClose && !state.pendingTabClose) {
       if (state.editorFindQuery) findEditorMatch(event.shiftKey ? -1 : 1);
       else openEditorFind();
     }
     return;
   }
-  if (event.key === "Escape" && state.pendingWindowClose) {
+  if (event.key === "Escape" && state.pendingRename) {
+    event.preventDefault();
+    cancelSemanticRename();
+  } else if (event.key === "Escape" && state.pendingWindowClose) {
     event.preventDefault();
     cancelPendingWindowClose();
   } else if (event.key === "Escape" && state.pendingTabClose) {
@@ -8780,6 +9221,10 @@ function handleBeforeUnload(event) {
 }
 
 function handleNativeWindowClose(event) {
+  if (state.pendingRename) {
+    event.preventDefault();
+    return;
+  }
   if (!hasDirtyTabs()) return;
   event.preventDefault();
   openUnsavedWindowDialog();

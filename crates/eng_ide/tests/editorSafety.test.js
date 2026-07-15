@@ -8,6 +8,7 @@ const vm = require("vm");
 const appPath = path.join(__dirname, "..", "ui", "app.js");
 const source = fs.readFileSync(appPath, "utf8");
 const invokeCalls = [];
+const openFileSources = new Map();
 let saveFailurePath = null;
 const pendingBootstrap = new Promise(() => {});
 const nativeWindowState = {
@@ -63,6 +64,12 @@ const context = vm.createContext({
               return Promise.reject(new Error(`cannot save ${args.path}`));
             }
             return Promise.resolve({ path: args.path, source: args.source });
+          }
+          if (command === "ide_open_file") {
+            if (!openFileSources.has(args.path)) {
+              return Promise.reject(new Error(`cannot open ${args.path}`));
+            }
+            return Promise.resolve({ path: args.path, source: openFileSources.get(args.path) });
           }
           return Promise.resolve({});
         }
@@ -284,6 +291,85 @@ function documentHighlightShortcutUsesCurrentAction() {
   assert.strictEqual(run("globalThis.documentHighlightShortcutCalls"), 1);
 }
 
+function renameShortcutUsesCurrentAction() {
+  run(`
+    state.pendingRename = null;
+    state.pendingTabClose = null;
+    state.pendingWindowClose = false;
+    globalThis.renameShortcutCalls = 0;
+    globalThis.realStartSemanticRename = startSemanticRename;
+    startSemanticRename = async () => {
+      globalThis.renameShortcutCalls += 1;
+    };
+    globalThis.renameShortcutEvent = {
+      altKey: false,
+      ctrlKey: false,
+      key: "F2",
+      metaKey: false,
+      prevented: false,
+      shiftKey: false,
+      preventDefault() {
+        this.prevented = true;
+      }
+    };
+    handleGlobalKeyDown(globalThis.renameShortcutEvent);
+    startSemanticRename = globalThis.realStartSemanticRename;
+  `);
+
+  assert.strictEqual(run("globalThis.renameShortcutEvent.prevented"), true);
+  assert.strictEqual(run("globalThis.renameShortcutCalls"), 1);
+}
+
+function busyRenameCanBeCancelledSafely() {
+  run(`
+    globalThis.renameRevisionBeforeCancel = renameRequestRevision;
+    state.pendingRename = { busy: true };
+    cancelSemanticRename();
+  `);
+  assert.strictEqual(run("state.pendingRename"), null);
+  assert.strictEqual(
+    run("renameRequestRevision"),
+    run("globalThis.renameRevisionBeforeCancel + 1")
+  );
+}
+
+async function renamePreflightBlocksDirtyEngLangTabsBeforeBackendCall() {
+  invokeCalls.length = 0;
+  run(`
+    state.pendingRename = null;
+    state.currentPath = "main.eng";
+    state.source = "value = SHARED_RATE";
+    state.dirty = true;
+    state.tabs = [
+      { path: "main.eng", source: state.source, dirty: true },
+      { path: "other.eng", source: "other = SHARED_RATE", dirty: true }
+    ];
+    globalThis.realEditorDefinitionRequest = editorDefinitionRequest;
+    editorDefinitionRequest = () => ({
+      path: "main.eng",
+      source: state.source,
+      line: 0,
+      character: 10
+    });
+  `);
+  assert.strictEqual(await run("startSemanticRename()"), false);
+  assert.strictEqual(
+    invokeCalls.some((item) => item.command === "ide_prepare_rename"),
+    false
+  );
+
+  run("state.tabs[1].dirty = false");
+  assert.strictEqual(await run("startSemanticRename()"), false);
+  const preparationCall = invokeCalls.find((item) => item.command === "ide_prepare_rename");
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(preparationCall.args)), {
+    path: "main.eng",
+    source: "value = SHARED_RATE",
+    line: 0,
+    character: 10
+  });
+  run("editorDefinitionRequest = globalThis.realEditorDefinitionRequest");
+}
+
 function semanticTokenAndReferenceRangesUseUtf16Coordinates() {
   assert.strictEqual(
     run(`JSON.stringify(semanticTokenRange("\uD83D\uDE00alpha", { line: 0, start: 2, length: 5 }))`),
@@ -388,6 +474,142 @@ function workspaceReferencesRespectOpenBuffersAndDirtyPreflight() {
   assert.strictEqual(run("currentWorkspaceReferences().length"), 0);
   run("clearReferenceResults(); state.root = ''");
   assert.strictEqual(run("state.workspaceReferences.items.length"), 0);
+}
+
+async function workspaceRenameStagesVerifiedUtf16Buffers() {
+  invokeCalls.length = 0;
+  openFileSources.clear();
+  openFileSources.set("module.eng", "const SHARED_RATE: Ratio = 0.8\n");
+  run(`
+    state.root = "C:/Repo";
+    state.currentPath = "main.eng";
+    state.source = "\uD83D\uDE00 SHARED_RATE\\nagain = SHARED_RATE\\n";
+    state.dirty = true;
+    state.tabs = [
+      { path: "main.eng", source: state.source, dirty: true },
+      { path: "module.eng", source: "stale clean tab", dirty: false },
+      { path: "notes.csv", source: "changed", dirty: true }
+    ];
+    globalThis.renamePending = {
+      request: {
+        path: "main.eng",
+        source: state.source,
+        line: 0,
+        character: 3
+      },
+      range: {
+        start: { line: 0, character: 3 },
+        end: { line: 0, character: 14 }
+      },
+      placeholder: "SHARED_RATE"
+    };
+    globalThis.renamePayload = {
+      changes: {
+        "file:///C:/Repo/main.eng": [
+          {
+            range: {
+              start: { line: 0, character: 3 },
+              end: { line: 0, character: 14 }
+            },
+            newText: "RENAMED_RATE"
+          },
+          {
+            range: {
+              start: { line: 1, character: 8 },
+              end: { line: 1, character: 19 }
+            },
+            newText: "RENAMED_RATE"
+          }
+        ],
+        "file:///C:/Repo/module.eng": [{
+          range: {
+            start: { line: 0, character: 6 },
+            end: { line: 0, character: 17 }
+          },
+          newText: "RENAMED_RATE"
+        }]
+      }
+    };
+  `);
+
+  assert.strictEqual(run("dirtyOtherEngLangTabs('main.eng').length"), 0);
+  run("state.tabs[1].dirty = true");
+  assert.strictEqual(run("dirtyOtherEngLangTabs('main.eng').length"), 1);
+  assert.match(
+    run("workspaceRenameDirtyMessage(dirtyOtherEngLangTabs('main.eng'))"),
+    /Save other modified EngLang files.*module\.eng/
+  );
+  run("state.tabs[1].dirty = false");
+  assert.strictEqual(run("sourceUtf16Offset(state.source, { line: 0, character: 3 })"), 3);
+  await run(`(async () => {
+    globalThis.stagedRename = await stageWorkspaceRename(
+      globalThis.renamePending,
+      globalThis.renamePayload,
+      "RENAMED_RATE"
+    );
+  })()`);
+  assert.strictEqual(run("globalThis.stagedRename.editCount"), 3);
+  assert.strictEqual(run("globalThis.stagedRename.focus.start"), 3);
+  assert.strictEqual(run("globalThis.stagedRename.focus.end"), 15);
+  assert.deepStrictEqual(
+    invokeCalls.map((item) => [item.command, item.args.path]),
+    [["ide_open_file", "module.eng"]]
+  );
+
+  const originalSource = run("state.source");
+  const originalTabs = run("JSON.stringify(state.tabs)");
+  openFileSources.set("module.eng", "const CHANGED_RATE: Ratio = 0.8\n");
+  await assert.rejects(
+    run(`stageWorkspaceRename(
+      globalThis.renamePending,
+      globalThis.renamePayload,
+      "RENAMED_RATE"
+    )`),
+    /changed before all edits could be verified/
+  );
+  assert.strictEqual(run("state.source"), originalSource);
+  assert.strictEqual(run("JSON.stringify(state.tabs)"), originalTabs);
+  openFileSources.set("module.eng", "const SHARED_RATE: Ratio = 0.8\n");
+
+  run("commitWorkspaceRename(globalThis.renamePending, globalThis.stagedRename)");
+  assert.strictEqual(
+    run("state.source"),
+    "\uD83D\uDE00 RENAMED_RATE\nagain = RENAMED_RATE\n"
+  );
+  assert.strictEqual(
+    run("state.tabs.find((tab) => tab.path === 'module.eng').source"),
+    "const RENAMED_RATE: Ratio = 0.8\n"
+  );
+  assert.deepStrictEqual(
+    Array.from(run("state.tabs.filter((tab) => /\\.eng$/i.test(tab.path)).map((tab) => tab.dirty)")),
+    [true, true]
+  );
+
+  assert.throws(
+    () => run(`workspaceRenamePlan({ changes: {
+      "file:///C:/outside/other.eng": [{
+        range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } },
+        newText: "next"
+      }]
+    } }, "next", "main.eng")`),
+    /outside the EngLang workspace/
+  );
+  assert.throws(
+    () => run(`applyWorkspaceTextEdits("aaaa", [
+      { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, newText: "next" },
+      { range: { start: { line: 0, character: 1 }, end: { line: 0, character: 3 } }, newText: "next" }
+    ], "aa")`),
+    /overlapping source edits/
+  );
+  assert.throws(
+    () => run(`applyWorkspaceTextEdits("old", [{
+      range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },
+      newText: "next"
+    }], "name")`),
+    /changed before all edits could be verified/
+  );
+  openFileSources.clear();
+  run("state.root = ''; state.pendingRename = null");
 }
 
 function documentSymbolsNormalizeAndFilter() {
@@ -736,6 +958,32 @@ async function nativeWindowCloseRequiresDecision() {
   run("openUnsavedWindowDialog = globalThis.realOpenUnsavedWindowDialog");
 }
 
+async function saveAllPersistsWithoutClosingWindow() {
+  invokeCalls.length = 0;
+  nativeWindowState.destroyCalls = 0;
+  run(`
+    state.tabs = [
+      { path: "first.eng", source: "first changed", dirty: true },
+      { path: "second.eng", source: "second changed", dirty: true }
+    ];
+    state.currentPath = "second.eng";
+    state.source = "second changed";
+    state.dirty = true;
+    state.pendingWindowClose = false;
+  `);
+
+  assert.strictEqual(await run("saveAllDirtyTabs()"), true);
+  assert.deepStrictEqual(
+    invokeCalls.map((item) => [item.command, item.args.path]),
+    [
+      ["ide_save_file", "first.eng"],
+      ["ide_save_file", "second.eng"]
+    ]
+  );
+  assert.deepStrictEqual(Array.from(run("state.tabs.map((tab) => tab.dirty)")), [false, false]);
+  assert.strictEqual(nativeWindowState.destroyCalls, 0);
+}
+
 async function saveAllDecisionPersistsThenDestroysWindow() {
   invokeCalls.length = 0;
   nativeWindowState.destroyCalls = 0;
@@ -815,8 +1063,12 @@ async function main() {
   await definitionNavigationPreservesDirtyOpenTab();
   definitionShortcutUsesCurrentAction();
   documentHighlightShortcutUsesCurrentAction();
+  renameShortcutUsesCurrentAction();
+  busyRenameCanBeCancelledSafely();
+  await renamePreflightBlocksDirtyEngLangTabsBeforeBackendCall();
   semanticTokenAndReferenceRangesUseUtf16Coordinates();
   workspaceReferencesRespectOpenBuffersAndDirtyPreflight();
+  await workspaceRenameStagesVerifiedUtf16Buffers();
   documentSymbolsNormalizeAndFilter();
   outlineSelectionUsesUtf16Coordinates();
   outlineRefreshPreservesFilterFocus();
@@ -827,6 +1079,7 @@ async function main() {
   findNavigationWrapsBothDirections();
   dirtyWindowRequestsUnloadConfirmation();
   await nativeWindowCloseRequiresDecision();
+  await saveAllPersistsWithoutClosingWindow();
   await saveAllDecisionPersistsThenDestroysWindow();
   await discardAllDecisionDestroysWithoutSaving();
   await saveAllFailureKeepsRemainingDirtyFilesOpen();

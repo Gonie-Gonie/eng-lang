@@ -143,6 +143,48 @@ button:hover {
   gap: 8px;
 }
 
+.rename-dialog {
+  width: min(420px, calc(100vw - 40px));
+}
+
+.rename-dialog-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.rename-dialog-input {
+  width: 100%;
+  height: 34px;
+  margin-bottom: 10px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: #fff;
+  color: var(--text);
+  font: 13px/1 Consolas, "Cascadia Mono", monospace;
+}
+
+.rename-dialog-input:focus {
+  border-color: var(--accent);
+  outline: 1px solid var(--accent);
+  outline-offset: 0;
+}
+
+.rename-dialog-error {
+  min-height: 18px;
+  margin: 0 0 10px;
+  color: var(--error);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.rename-dialog-error[hidden] {
+  display: block;
+  visibility: hidden;
+}
+
 .shell {
   display: grid;
   height: 100%;
@@ -171,6 +213,7 @@ button:hover {
 }
 
 .tool {
+  flex: 0 0 auto;
   height: 26px;
   border-radius: 3px;
   padding: 0 8px;
@@ -1830,9 +1873,13 @@ button:hover {
 }
 
 .status {
+  min-width: 0;
   margin-left: auto;
   color: var(--muted);
   font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .error {

@@ -56,10 +56,10 @@ frontend is static, so setup does not install Node/npm.
 ## Interface
 
 Top toolbar
-  Compact icon-backed Run, Check, Save, Report, and Plot actions, diagnostic
-  counts, execution profile selection for `normal`, `safe`, and `repro`, output
-  folder opening, and current status. Editing refreshes diagnostics after a
-  short pause; Check forces an immediate refresh.
+  Compact icon-backed Run, Check, Save, Save All, Report, and Plot actions,
+  diagnostic counts, execution profile selection for `normal`, `safe`, and
+  `repro`, output folder opening, and current status. Editing refreshes
+  diagnostics after a short pause; Check forces an immediate refresh.
 
 Workspace bar
   Shows the resolved workspace root, current file path, and Run Dir. Files
@@ -102,16 +102,25 @@ Editor
   same declaration. Unrelated same-name symbols, comments, plain strings,
   literals, units, and same-named locals in other function scopes are excluded.
   If another open EngLang tab is modified, the IDE shows current-file results
-  only until that tab is saved, so disk-backed workspace ranges cannot be stale. The
-  `{}`, `[]`, `()`, and `"` auto-close or wrap selections. Typing `}` on an
+  only until that tab is saved, so disk-backed workspace ranges cannot be
+  stale. F2 or Rename prepares the symbol through the compiler and applies
+  verified edits for the same static-import identity. Every affected file and
+  UTF-16 range is validated before any buffer changes; the affected files then
+  remain open and modified until Save or Save All. Built-ins, members, reserved
+  names, conflicts, incomplete semantic coverage, overlapping edits, stale
+  source ranges, and cross-file edits outside the current workspace are
+  rejected. Other modified EngLang tabs must be saved before rename; the
+  current buffer itself may remain unsaved. The `{}`, `[]`, `()`, and `"`
+  auto-close or wrap selections. Typing `}` on an
   indented blank line aligns the brace with its block, and Backspace removes an
   empty pair. Format applies the same compiler-owned formatter used by VS Code
   and keeps the buffer dirty until you save or run. The editor meta bar shows
   the current caret line, column, bracket match location, highlight category,
   and quantity/unit detail when the caret is on a checked token. Closing a
   dirty tab offers Save, Discard, and Cancel. Closing the IDE with dirty tabs
-  offers Save All, Discard All, and Cancel. When the caret is between checked
-  tokens, it names the nearest highlight on the same line.
+  offers Save All, Discard All, and Cancel. The toolbar Save All action persists
+  every modified tab without closing the IDE. When the caret is between
+  checked tokens, it names the nearest highlight on the same line.
   Checked-token actions can jump directly to related sidebar panels such as
   Schema, Time, Checks, Effects, Network, Model, DB, Units, or Variables.
   Hover titles and the Highlight panel use role and status labels such as
