@@ -1,3 +1,4 @@
+- Batch 955: Added standard current-file Find All References across persistent LSP and VS Code, reusing compiler semantic occurrence scopes, honoring declaration inclusion, reading the unsaved buffer, rejecting stale responses, preserving UTF-16 ranges, and documenting the explicit no-cross-file-index limit.
 - Batch 954: Replaced seed-only case cache hit metadata with content-addressed native CaseRunResult caching, calculation-hash and expected-result-SHA validation, output resume, cache replay, invalid-entry repair, truthful per-table hit/miss counts, `not_configured` runner/scheduler state for non-executed sample tables, and editor/module wording for the verified behavior.
 - Batch 953: Promoted `eng.stats` from a planned placeholder to its existing compiler/runtime-backed TimeSeries summary implementation, added an explicit official import and end-to-end regression evidence, separated TimeSeries/statistics API ownership, aligned IDE completion wording and current docs, and replaced workflow 03's stale metadata-only smoke expectation with its native p95 propagation contract.
 - Batch 952: Filled ordinary compiler-resolved expression references into role-aware semantic tokens, marked typed binding declarations explicitly, and added safe current-file semantic rename across LSP and VS Code with stale-buffer, conflict, reserved-name, member/import, and incomplete-coverage rejection.
@@ -125,6 +126,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
   adapters remain open.
 - DB query support: typed SQLite table readback is implemented; arbitrary query APIs, parameter binding, and query transaction policy remain open.
 - Native IDE usability: keep improving token insight, source-range actions, and inspector flows for repeated debugging tasks.
+- VS Code navigation: current-file definition, highlights, references, and safe rename plus workspace symbol search are implemented; cross-file reference indexing and safe cross-file rename remain open.
 - VS Code linter/highlighting: continue expanding checked-code role-aware color coverage as more source spans become first-class metadata.
 
 ## Documentation Policy

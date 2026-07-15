@@ -5,6 +5,7 @@ const {
   documentHighlightsFromLsp,
   documentSymbolsFromSnapshot,
   prepareRenameFromLsp,
+  referenceLocationsFromLsp,
   workspaceEditFromLsp,
   workspaceSymbolInformationFromLsp
 } = require("./lspNavigation");
@@ -123,6 +124,33 @@ class EngDocumentHighlightProvider {
   }
 }
 
+class EngReferenceProvider {
+  constructor(context, options = {}) {
+    this.context = context;
+    this.isEngDocument = options.isEngDocument ?? (() => true);
+    this.referencesForPosition = options.referencesForPosition;
+    this.appendOutputLine = options.appendOutputLine ?? (() => undefined);
+  }
+
+  async provideReferences(document, position, referenceContext, cancellationToken) {
+    if (!this.isEngDocument(document)) {
+      return [];
+    }
+    const documentVersion = document.version;
+    const payload = await this.referencesForPosition?.(
+      document,
+      position,
+      referenceContext?.includeDeclaration !== false,
+      this.context,
+      cancellationToken
+    );
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return [];
+    }
+    return referenceLocationsFromLsp(payload, document.uri, this.appendOutputLine);
+  }
+}
+
 class EngRenameProvider {
   constructor(context, options = {}) {
     this.context = context;
@@ -178,6 +206,7 @@ module.exports = {
   EngDefinitionProvider,
   EngDocumentHighlightProvider,
   EngDocumentSymbolProvider,
+  EngReferenceProvider,
   EngRenameProvider,
   EngWorkspaceSymbolProvider
 };

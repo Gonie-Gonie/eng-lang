@@ -39,6 +39,27 @@ function documentHighlightsFromLsp(payload) {
     .filter((highlight) => highlight !== undefined);
 }
 
+function referenceLocationsFromLsp(payload, fallbackUri, reportError) {
+  if (!Array.isArray(payload)) {
+    return [];
+  }
+  return payload
+    .map((reference) => {
+      const range = vscodeRangeFromLsp(reference?.range);
+      if (!range) {
+        return undefined;
+      }
+      try {
+        const uri = reference.uri ? vscode.Uri.parse(reference.uri) : fallbackUri;
+        return uri ? new vscode.Location(uri, range) : undefined;
+      } catch (error) {
+        reportLspNavigationError(reportError, `Unable to parse EngLang reference URI: ${error.message}`);
+        return undefined;
+      }
+    })
+    .filter((reference) => reference !== undefined);
+}
+
 function prepareRenameFromLsp(payload) {
   const range = vscodeRangeFromLsp(payload?.range);
   if (!range) {
@@ -224,6 +245,7 @@ module.exports = {
   flattenSnapshotSymbols,
   identifierPathRangeAt,
   prepareRenameFromLsp,
+  referenceLocationsFromLsp,
   workspaceEditFromLsp,
   workspaceSymbolInformationFromLsp
 };

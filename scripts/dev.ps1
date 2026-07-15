@@ -5925,6 +5925,18 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing semantic document highlight token $RequiredDocumentHighlightToken"
         }
     }
+    foreach ($RequiredReferenceToken in @(
+        "registerReferenceProvider",
+        "EngReferenceProvider",
+        "referencesForPosition",
+        "--references-stdin",
+        "referenceLocationsFromLsp",
+        "new vscode.Location"
+    )) {
+        if (-not $NavigationSource.Contains($RequiredReferenceToken)) {
+            throw "VS Code extension missing semantic reference token $RequiredReferenceToken"
+        }
+    }
     foreach ($RequiredRenameToken in @(
         "registerRenameProvider",
         "EngRenameProvider",
@@ -5954,10 +5966,10 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing workspace symbol token $RequiredWorkspaceSymbolToken"
         }
     }
-    if (-not $ExtensionSource.Contains('require("./navigationProviders")') -or -not $NavigationProvidersSource.Contains("EngDocumentSymbolProvider") -or -not $NavigationProvidersSource.Contains("EngWorkspaceSymbolProvider") -or -not $NavigationProvidersSource.Contains("EngDefinitionProvider") -or -not $NavigationProvidersSource.Contains("EngDocumentHighlightProvider") -or -not $NavigationProvidersSource.Contains("EngRenameProvider")) {
+    if (-not $ExtensionSource.Contains('require("./navigationProviders")') -or -not $NavigationProvidersSource.Contains("EngDocumentSymbolProvider") -or -not $NavigationProvidersSource.Contains("EngWorkspaceSymbolProvider") -or -not $NavigationProvidersSource.Contains("EngDefinitionProvider") -or -not $NavigationProvidersSource.Contains("EngDocumentHighlightProvider") -or -not $NavigationProvidersSource.Contains("EngReferenceProvider") -or -not $NavigationProvidersSource.Contains("EngRenameProvider")) {
         throw "VS Code extension must load navigation provider orchestration from navigationProviders.js"
     }
-    if (-not $NavigationProvidersSource.Contains('require("./lspNavigation")') -or -not $NavigationProvidersSource.Contains("workspaceSymbolInformationFromLsp") -or -not $NavigationProvidersSource.Contains("documentSymbolsFromSnapshot") -or -not $NavigationProvidersSource.Contains("definitionLocationFromLsp") -or -not $NavigationProvidersSource.Contains("documentHighlightsFromLsp") -or -not $NavigationProvidersSource.Contains("prepareRenameFromLsp") -or -not $NavigationProvidersSource.Contains("workspaceEditFromLsp")) {
+    if (-not $NavigationProvidersSource.Contains('require("./lspNavigation")') -or -not $NavigationProvidersSource.Contains("workspaceSymbolInformationFromLsp") -or -not $NavigationProvidersSource.Contains("documentSymbolsFromSnapshot") -or -not $NavigationProvidersSource.Contains("definitionLocationFromLsp") -or -not $NavigationProvidersSource.Contains("documentHighlightsFromLsp") -or -not $NavigationProvidersSource.Contains("referenceLocationsFromLsp") -or -not $NavigationProvidersSource.Contains("prepareRenameFromLsp") -or -not $NavigationProvidersSource.Contains("workspaceEditFromLsp")) {
         throw "VS Code navigation providers must reuse shared LSP navigation conversion"
     }
     $FormattingSource = $ExtensionSource + "`n" + $FormattingProviderSource + "`n" + $LspRequestsSource
@@ -6308,10 +6320,10 @@ function Assert-VscodeExtensionContract {
     if ($ExtensionSource.Contains("class EngCompletionProvider") -or $ExtensionSource.Contains("function addCompletion") -or $ExtensionSource.Contains("function completionItemsFromPayload")) {
         throw "VS Code extension must keep completion provider helpers in completionProvider.js"
     }
-    if ($ExtensionSource.Contains("class EngDocumentSymbolProvider") -or $ExtensionSource.Contains("class EngWorkspaceSymbolProvider") -or $ExtensionSource.Contains("class EngDefinitionProvider") -or $ExtensionSource.Contains("class EngDocumentHighlightProvider")) {
+    if ($ExtensionSource.Contains("class EngDocumentSymbolProvider") -or $ExtensionSource.Contains("class EngWorkspaceSymbolProvider") -or $ExtensionSource.Contains("class EngDefinitionProvider") -or $ExtensionSource.Contains("class EngDocumentHighlightProvider") -or $ExtensionSource.Contains("class EngReferenceProvider")) {
         throw "VS Code extension must keep navigation provider orchestration in navigationProviders.js"
     }
-    if ($ExtensionSource.Contains("function definitionLocationFromLsp") -or $ExtensionSource.Contains("function definitionLocationFromSnapshotSymbols") -or $ExtensionSource.Contains("function workspaceSymbolInformationFromLsp") -or $ExtensionSource.Contains("function documentSymbolsFromSnapshot") -or $ExtensionSource.Contains("function documentHighlightsFromLsp") -or $ExtensionSource.Contains("function definitionNameCandidates") -or $ExtensionSource.Contains("function identifierPathRangeAt")) {
+    if ($ExtensionSource.Contains("function definitionLocationFromLsp") -or $ExtensionSource.Contains("function definitionLocationFromSnapshotSymbols") -or $ExtensionSource.Contains("function workspaceSymbolInformationFromLsp") -or $ExtensionSource.Contains("function documentSymbolsFromSnapshot") -or $ExtensionSource.Contains("function documentHighlightsFromLsp") -or $ExtensionSource.Contains("function referenceLocationsFromLsp") -or $ExtensionSource.Contains("function definitionNameCandidates") -or $ExtensionSource.Contains("function identifierPathRangeAt")) {
         throw "VS Code extension must keep LSP navigation conversion in lspNavigation.js"
     }
     if ($ExtensionSource.Contains("function vscodeRangeFromLsp") -or $LspCodeActionsSource.Contains("function vscodeRangeFromLsp")) {

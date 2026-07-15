@@ -231,6 +231,8 @@ unsaved active buffer until the file is saved. Direct settings changes to
 diagnostics mode or Problems settings also refresh or clear the active EngLang editor.
 
 The extension shares the same checked-code diagnostics, hover, completion, and
-role-aware highlighting data as the native IDE. It is useful when you prefer
+role-aware highlighting data as the native IDE. VS Code Find All References
+uses compiler-resolved occurrences from the current unsaved file; cross-file
+reference indexing is not included yet. The extension is useful when you prefer
 VS Code, while `eng-ide.exe` remains the primary no-install review path for the
 current release.

@@ -46,6 +46,9 @@ fn main() -> std::process::ExitCode {
     if args.first().map(String::as_str) == Some("--document-highlights-stdin") {
         return command_document_highlights_stdin(args.get(1), args.get(2), args.get(3));
     }
+    if args.first().map(String::as_str) == Some("--references-stdin") {
+        return command_references_stdin(args.get(1), args.get(2), args.get(3), args.get(4));
+    }
     if args.first().map(String::as_str) == Some("--prepare-rename-stdin") {
         return command_prepare_rename_stdin(args.get(1), args.get(2), args.get(3));
     }
@@ -372,6 +375,49 @@ fn command_document_highlights_stdin(
     std::process::ExitCode::SUCCESS
 }
 
+fn command_references_stdin(
+    path: Option<&String>,
+    line: Option<&String>,
+    character: Option<&String>,
+    include_declaration: Option<&String>,
+) -> std::process::ExitCode {
+    let Some(path) = path else {
+        eprintln!("usage: eng-lsp --references-stdin <file.eng> <line> <character> [true|false]");
+        return std::process::ExitCode::from(2);
+    };
+    let Some((line, character)) = parse_position(line, character) else {
+        eprintln!("usage: eng-lsp --references-stdin <file.eng> <line> <character> [true|false]");
+        return std::process::ExitCode::from(2);
+    };
+    let include_declaration = match include_declaration.map(String::as_str) {
+        None | Some("true") => true,
+        Some("false") => false,
+        Some(_) => {
+            eprintln!(
+                "usage: eng-lsp --references-stdin <file.eng> <line> <character> [true|false]"
+            );
+            return std::process::ExitCode::from(2);
+        }
+    };
+    let mut source = String::new();
+    if let Err(error) = std::io::stdin().read_to_string(&mut source) {
+        eprintln!("failed to read EngLang source from stdin: {error}");
+        return std::process::ExitCode::from(1);
+    }
+    let uri = file_uri_from_path(Path::new(path));
+    let request = json!({
+        "params": {
+            "textDocument": { "uri": uri },
+            "position": { "line": line, "character": character },
+            "context": { "includeDeclaration": include_declaration }
+        }
+    });
+    let mut documents = Documents::new();
+    documents.insert(uri, DocumentState::new(source, None));
+    println!("{}", references_for_request(&request, &documents));
+    std::process::ExitCode::SUCCESS
+}
+
 fn command_prepare_rename_stdin(
     path: Option<&String>,
     line: Option<&String>,
@@ -543,6 +589,7 @@ fn run_lsp() -> io::Result<()> {
                                 "hoverProvider": true,
                                 "definitionProvider": true,
                                 "documentHighlightProvider": true,
+                                "referencesProvider": true,
                                 "renameProvider": { "prepareProvider": true },
                                 "documentSymbolProvider": true,
                                 "workspaceSymbolProvider": true,
@@ -619,6 +666,13 @@ fn run_lsp() -> io::Result<()> {
                 write_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": highlights }),
+                )?;
+            }
+            "textDocument/references" => {
+                let references = references_for_request(&request, &documents);
+                write_response(
+                    &mut output,
+                    json!({ "jsonrpc": "2.0", "id": id, "result": references }),
                 )?;
             }
             "textDocument/prepareRename" => {
@@ -5494,6 +5548,49 @@ fn document_highlights_for_request(request: &Value, documents: &Documents) -> Va
         .collect::<Vec<_>>())
 }
 
+fn references_for_request(request: &Value, documents: &Documents) -> Value {
+    let Some(uri) = request_uri(request) else {
+        return json!([]);
+    };
+    let Some(text) = document_text_for_uri(uri, documents) else {
+        return json!([]);
+    };
+    let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
+    let Some((line, character)) = request_position(request) else {
+        return json!([]);
+    };
+    let include_declaration = request
+        .pointer("/params/context/includeDeclaration")
+        .and_then(Value::as_bool)
+        .unwrap_or(true);
+    let snapshot = snapshot_for_source(&path, &text);
+    let Some(symbol) = semantic_symbol_occurrences(
+        &text,
+        &snapshot.semantic_tokens.tokens,
+        &snapshot.hovers,
+        line,
+        character,
+    ) else {
+        return json!([]);
+    };
+    json!(symbol
+        .occurrences
+        .iter()
+        .filter(|token| include_declaration || !semantic_token_is_declaration(token))
+        .map(|token| json!({
+            "uri": uri,
+            "range": semantic_token_range_json(token)
+        }))
+        .collect::<Vec<_>>())
+}
+
+fn semantic_token_is_declaration(token: &eng_lsp::LspSemanticToken) -> bool {
+    token
+        .modifiers
+        .iter()
+        .any(|modifier| matches!(modifier.as_str(), "declaration" | "definition"))
+}
+
 fn semantic_symbol_occurrences(
     source: &str,
     tokens: &[eng_lsp::LspSemanticToken],
@@ -6473,6 +6570,25 @@ mod tests {
         document_highlights_for_request(&request, &documents)
     }
 
+    fn references_request(
+        source: &str,
+        line: usize,
+        character: usize,
+        include_declaration: bool,
+    ) -> Value {
+        let uri = "file:///C:/workspace/references.eng".to_owned();
+        let request = json!({
+            "params": {
+                "textDocument": { "uri": uri },
+                "position": { "line": line, "character": character },
+                "context": { "includeDeclaration": include_declaration }
+            }
+        });
+        let mut documents = Documents::new();
+        documents.insert(uri, DocumentState::new(source.to_owned(), Some(1)));
+        references_for_request(&request, &documents)
+    }
+
     fn prepare_rename_request(source: &str, line: usize, character: usize) -> Option<Value> {
         let uri = "file:///C:/workspace/rename.eng".to_owned();
         let request = json!({
@@ -6557,6 +6673,51 @@ mod tests {
         assert!(highlights[1..]
             .iter()
             .all(|highlight| highlight["kind"] == 2));
+    }
+
+    #[test]
+    fn references_return_current_file_locations_and_honor_declaration_context() {
+        let source = "Q = 5 kW\nE = integrate Q over Time\nprint \"Q={Q}\"\n# Q is a comment\n";
+        let character = source.lines().nth(1).unwrap().find('Q').unwrap();
+        let with_declaration = references_request(source, 1, character, true);
+        let with_declaration = with_declaration
+            .as_array()
+            .expect("references should be an array");
+        assert_eq!(with_declaration.len(), 3);
+        assert!(with_declaration
+            .iter()
+            .all(|location| { location["uri"] == "file:///C:/workspace/references.eng" }));
+        assert_eq!(with_declaration[0]["range"]["start"]["line"], 0);
+
+        let without_declaration = references_request(source, 1, character, false);
+        let without_declaration = without_declaration
+            .as_array()
+            .expect("references without declarations should be an array");
+        assert_eq!(without_declaration.len(), 2);
+        assert!(without_declaration
+            .iter()
+            .all(|location| location["range"]["start"]["line"] != 0));
+    }
+
+    #[test]
+    fn references_keep_function_locals_in_their_semantic_scope() {
+        let source = r#"fn first(x: Real) -> Real {
+    local_value = x
+    return local_value
+}
+fn second(x: Real) -> Real {
+    local_value = x
+    return local_value
+}
+"#;
+        let references = references_request(source, 2, 12, true);
+        let references = references
+            .as_array()
+            .expect("local references should be an array");
+        assert_eq!(references.len(), 2);
+        assert!(references
+            .iter()
+            .all(|location| location["range"]["start"]["line"].as_u64().unwrap() < 4));
     }
 
     #[test]

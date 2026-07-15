@@ -37,6 +37,8 @@ embedding compiler logic in JavaScript.
   functions, and user-defined types
 - compiler-backed same-symbol read/write highlighting in the current file, excluding
   strings, comments, literals, units, and same-named locals in other function scopes
+- standard Find All References results for compiler-resolved occurrences in the
+  current unsaved file, with declaration inclusion controlled by VS Code
 - workspace symbol search across `.eng` files in the open workspace
 - compiler-owned snippets from generated editor metadata, plus non-overlapping static snippets from `snippets/eng.json`
 - quick fixes for `:=`, boolean `==`, stale `struct Args`, removable `script` wrapper
@@ -164,9 +166,10 @@ englang.lspPath = C:\path\to\eng-lsp.exe
 The extension is a local editor client for the bundled EngLang tooling. It uses
 on-demand live editor checks for live Problems, hover, completion, document
 symbols, workspace symbols, folding, role-aware color data, same-symbol highlights, definition, formatting,
-semantic rename, and quick fixes. Rename is intentionally limited to symbols
-declared in the current file; built-ins, imports, member fields, conflicts, and
-any symbol with incomplete semantic occurrence coverage are rejected. This
+current-file references, semantic rename, and quick fixes. References return
+semantic occurrences from the current file. Rename is intentionally limited to
+symbols declared in that file; built-ins, imports, member fields, conflicts,
+and any symbol with incomplete semantic occurrence coverage are rejected. This
 keeps VS Code behavior aligned with the compiler while
 the long-running editor protocol continues to evolve. The default diagnostics
 mode runs stable file checks on open/save and manual check. Set
@@ -329,7 +332,9 @@ bundled `use eng.<module>` imports can resolve to their source files. If live
 definition lookup is unavailable, the extension falls back to document symbols
 from the current buffer for top-level symbols and nested symbols such as schema
 fields, class fields, component ports, and object members. VS Code's workspace
-symbol search scans `.eng` files under each open workspace folder.
+symbol search scans `.eng` files under each open workspace folder. Find All
+References uses the current unsaved buffer and returns semantically matched
+locations from that file; it does not claim cross-file reference indexing yet.
 
 ## Grammar Maintenance
 

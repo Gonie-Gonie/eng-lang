@@ -294,10 +294,14 @@ Use this JSON contract for:
 Use the stdio LSP server for:
 
 - real editor clients
-- unsaved buffer diagnostics
-- cursor-position completion
-- hover requests in an editor
-- conservative line-based go-to-definition for symbols whose definition line is
-  in the current document
+- unsaved-buffer diagnostics, hover, completion, quick fixes, and formatting
+- go-to-definition for current-file, static-import, and bundled stdlib symbols
+- document symbols, workspace symbols, folding ranges, and semantic tokens
+- same-symbol document highlights and current-file Find All References results
+- safe current-file rename for compiler-resolved declarations
+
+`textDocument/references` returns semantic occurrences from the current unsaved
+document and honors `context.includeDeclaration`. It does not provide a
+cross-file reference index yet.
 
 This JSON contract is not a replacement for full LSP editor validation.

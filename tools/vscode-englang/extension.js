@@ -13,6 +13,7 @@ const {
   EngDefinitionProvider,
   EngDocumentHighlightProvider,
   EngDocumentSymbolProvider,
+  EngReferenceProvider,
   EngRenameProvider,
   EngWorkspaceSymbolProvider
 } = require("./navigationProviders");
@@ -368,6 +369,14 @@ function activate(context) {
       new EngDocumentHighlightProvider(context, {
         isEngDocument,
         documentHighlightsForPosition: lspRequests.documentHighlightsForPosition
+      })
+    ),
+    vscode.languages.registerReferenceProvider(
+      LANGUAGE_ID,
+      new EngReferenceProvider(context, {
+        isEngDocument,
+        referencesForPosition: lspRequests.referencesForPosition,
+        appendOutputLine
       })
     ),
     vscode.languages.registerRenameProvider(

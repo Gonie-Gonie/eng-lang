@@ -251,6 +251,27 @@ function createLspRequests(options = {}) {
     });
   }
 
+  function referencesForPosition(
+    document,
+    position,
+    includeDeclaration,
+    context,
+    cancellationToken
+  ) {
+    return stdinJsonRequest(document, context, cancellationToken, {
+      args: [
+        "--references-stdin",
+        document.uri.fsPath,
+        String(position.line),
+        String(position.character),
+        includeDeclaration ? "true" : "false"
+      ],
+      errorMessage: "Reference lookup failed",
+      parseMessage: "Unable to parse EngLang reference data",
+      normalize: (payload) => Array.isArray(payload) ? payload : []
+    });
+  }
+
   function prepareRenameForPosition(document, position, context, cancellationToken) {
     return stdinJsonRequest(document, context, cancellationToken, {
       args: [
@@ -359,6 +380,7 @@ function createLspRequests(options = {}) {
     completionSnapshotForPosition,
     definitionSnapshotForPosition,
     documentHighlightsForPosition,
+    referencesForPosition,
     prepareRenameForPosition,
     renameForPosition,
     formatDocumentSource,

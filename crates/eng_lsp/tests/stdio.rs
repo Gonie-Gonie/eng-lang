@@ -81,6 +81,10 @@ fn stdio_server_round_trips_core_lsp_requests() {
         true
     );
     assert_eq!(
+        initialize["result"]["capabilities"]["referencesProvider"],
+        true
+    );
+    assert_eq!(
         initialize["result"]["capabilities"]["renameProvider"]["prepareProvider"],
         true
     );
@@ -255,6 +259,34 @@ fn stdio_server_round_trips_core_lsp_requests() {
     assert!(document_highlights.iter().any(|highlight| {
         highlight["range"]["start"]["line"] == q_coil_usage_line && highlight["kind"] == 2
     }));
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 18,
+            "method": "textDocument/references",
+            "params": {
+                "textDocument": { "uri": uri },
+                "position": { "line": q_coil_usage_line, "character": q_coil_usage_char },
+                "context": { "includeDeclaration": true }
+            }
+        }),
+    );
+    let references = read_message(&mut stdout);
+    assert_eq!(references["id"], 18);
+    let references = references["result"]
+        .as_array()
+        .expect("references should be an array");
+    assert!(references.len() >= 2);
+    assert!(references.iter().all(|location| location["uri"] == uri));
+    assert!(references.iter().any(|location| {
+        location["range"]["start"]["line"] == q_coil_line
+            && location["range"]["start"]["character"] == q_coil_definition_char
+    }));
+    assert!(references
+        .iter()
+        .any(|location| { location["range"]["start"]["line"] == q_coil_usage_line }));
 
     write_message(
         &mut stdin,
