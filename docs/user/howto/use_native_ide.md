@@ -68,8 +68,11 @@ Workspace bar
 
 Left Explorer
   Dense collapsible workspace browser for `examples/`, `stdlib/`, and `docs/`,
-  plus Open Editors. Files open into editor tabs, and the active Run Dir is
-  highlighted.
+  plus Open Editors. The compiler-backed Outline lists declarations and local
+  symbols from the current unsaved buffer; filter by name, kind, or detail and
+  select a row to jump to its exact source range. Ctrl+Shift+O focuses the
+  Outline filter, and Enter opens its first result. Files open into editor tabs,
+  and the active Run Dir is highlighted.
 
 Editor
   Multi-file tabs support switching and closing files. The editor keeps dirty

@@ -117,7 +117,7 @@ const state = {
   runDir: "",
   source: "",
   dirty: false,
-  check: { diagnostics: [], symbols: [], status: "", semanticTokens: { legend: {}, tokens: [] }, hovers: [] },
+  check: { diagnostics: [], symbols: [], status: "", semanticTokens: { legend: {}, tokens: [] }, hovers: [], documentSymbols: [] },
   highlightSource: null,
   variables: [],
   args: [],
@@ -136,6 +136,8 @@ const state = {
   problemQuery: "",
   moduleCategory: "all",
   moduleQuery: "",
+  outlineOpen: true,
+  outlineQuery: "",
   highlightTokenQuery: "",
   editorFindOpen: false,
   editorFindQuery: "",
@@ -464,6 +466,9 @@ function normalizeCheck(check) {
     symbols: Array.isArray(check?.symbols) ? check.symbols : [],
     status: check?.status || "",
     hovers: Array.isArray(check?.hovers) ? check.hovers : [],
+    documentSymbols: Array.isArray(check?.documentSymbols)
+      ? check.documentSymbols
+      : (Array.isArray(check?.document_symbols) ? check.document_symbols : []),
     semanticTokens: {
       legend: semanticTokens.legend || {},
       tokens: Array.isArray(semanticTokens.tokens) ? semanticTokens.tokens : []
@@ -591,6 +596,7 @@ function renderExplorer() {
         <div class="mini-title">Open Editors</div>
         ${renderOpenEditors()}
       </div>
+      ${renderOutlinePanel()}
       <div class="tree-head">
         <span>Workspace</span>
         <button id="collapseExplorerBtn" title="Collapse folders">Collapse</button>
@@ -606,6 +612,95 @@ function renderOpenEditors() {
       <span>${escapeHtml(fileName(tab.path))}${tab.dirty ? " *" : ""}</span>
     </button>
   `).join("");
+}
+
+function renderOutlinePanel() {
+  const allItems = flattenDocumentSymbols(state.check.documentSymbols);
+  const items = filteredOutlineItems(allItems, state.outlineQuery);
+  const count = state.outlineQuery.trim() ? `${items.length}/${allItems.length}` : String(allItems.length);
+  return `
+    <section id="outlinePanel" class="outline-panel">
+      <div class="tree-head outline-head">
+        <span>Outline <small>${escapeHtml(count)}</small></span>
+        <button id="toggleOutlineBtn" class="outline-toggle" title="${state.outlineOpen ? "Collapse" : "Expand"} current file outline" aria-label="${state.outlineOpen ? "Collapse" : "Expand"} current file outline" aria-expanded="${state.outlineOpen}">${state.outlineOpen ? "v" : ">"}</button>
+      </div>
+      ${state.outlineOpen ? `
+        <div class="outline-body">
+          <input id="outlineQueryInput" class="outline-query" value="${escapeAttr(state.outlineQuery)}" placeholder="Filter symbols" aria-label="Filter current file symbols" autocomplete="off" spellcheck="false" />
+          <div id="outlineList" class="outline-list">${renderOutlineItems(items)}</div>
+        </div>
+      ` : ""}
+    </section>
+  `;
+}
+
+function flattenDocumentSymbols(symbols, depth = 0, items = []) {
+  for (const symbol of arrayOrEmpty(symbols)) {
+    if (!symbol || typeof symbol !== "object") continue;
+    const selection = symbol.selectionRange ?? symbol.selection_range ?? symbol.range ?? {};
+    const start = selection.start ?? {};
+    const end = selection.end ?? start;
+    const name = String(symbol.name || "").trim();
+    if (name) {
+      const kind = documentSymbolCoordinate(symbol.kind, 0);
+      items.push({
+        name,
+        detail: String(symbol.detail || "").trim(),
+        kind,
+        depth,
+        line: documentSymbolCoordinate(start.line, 0),
+        character: documentSymbolCoordinate(start.character, 0),
+        endLine: documentSymbolCoordinate(end.line, documentSymbolCoordinate(start.line, 0)),
+        endCharacter: documentSymbolCoordinate(end.character, documentSymbolCoordinate(start.character, 0) + name.length)
+      });
+    }
+    flattenDocumentSymbols(symbol.children, depth + 1, items);
+  }
+  return items;
+}
+
+function documentSymbolCoordinate(value, fallback = 0) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.max(0, Math.trunc(numeric)) : fallback;
+}
+
+function filteredOutlineItems(items, query = state.outlineQuery) {
+  const needle = String(query || "").trim().toLowerCase();
+  if (!needle) return items;
+  return items.filter((item) => [item.name, item.detail, outlineKindMeta(item.kind).label]
+    .some((value) => String(value || "").toLowerCase().includes(needle)));
+}
+
+function renderOutlineItems(items) {
+  if (!items.length) {
+    const message = state.check.status === "checking"
+      ? "Analyzing current buffer..."
+      : (state.outlineQuery.trim() ? "No matching symbols" : "No symbols");
+    return `<div class="outline-empty">${escapeHtml(message)}</div>`;
+  }
+  const flattenDepth = Boolean(state.outlineQuery.trim());
+  return items.map((item) => {
+    const kind = outlineKindMeta(item.kind);
+    const depth = flattenDepth ? 0 : Math.min(item.depth, 8);
+    const title = `${kind.label}: ${item.name}${item.detail ? ` - ${item.detail}` : ""} - line ${item.line + 1}`;
+    return `
+      <button class="outline-item" style="--outline-depth: ${depth}" data-outline-line="${item.line}" data-outline-character="${item.character}" data-outline-end-line="${item.endLine}" data-outline-end-character="${item.endCharacter}" data-outline-name="${escapeAttr(item.name)}" title="${escapeAttr(title)}">
+        <span class="outline-kind ${kind.className}" title="${escapeAttr(kind.label)}">${escapeHtml(kind.short)}</span>
+        <span class="outline-name">${escapeHtml(item.name)}</span>
+        <small class="outline-detail">${escapeHtml(item.detail || kind.label)}</small>
+      </button>
+    `;
+  }).join("");
+}
+
+function outlineKindMeta(kind) {
+  if ([5, 10, 11, 23, 26].includes(kind)) return { label: "Type", short: "T", className: "type" };
+  if ([6, 9, 12].includes(kind)) return { label: "Function", short: "F", className: "function" };
+  if ([7, 8, 20, 22].includes(kind)) return { label: "Property", short: "P", className: "property" };
+  if (kind === 14) return { label: "Constant", short: "C", className: "constant" };
+  if (kind === 13) return { label: "Variable", short: "V", className: "variable" };
+  if ([2, 3, 4].includes(kind)) return { label: "Module", short: "M", className: "module" };
+  return { label: "Symbol", short: "S", className: "symbol" };
 }
 
 function toolButton(id, label, title, iconName, primary = false) {
@@ -695,6 +790,7 @@ function bind() {
     if (event.key === "Enter") setRunDir(event.currentTarget.value);
   });
   bindEditorFindControls();
+  bindOutlineControls(document);
   const collapseExplorerBtn = byId("collapseExplorerBtn");
   if (collapseExplorerBtn) {
     collapseExplorerBtn.onclick = () => {
@@ -809,6 +905,110 @@ function bind() {
     };
   }
   bindSplitters();
+}
+
+function bindOutlineControls(root) {
+  const toggle = root.querySelector("#toggleOutlineBtn");
+  if (toggle) {
+    toggle.onclick = () => {
+      state.outlineOpen = !state.outlineOpen;
+      refreshOutlinePanel();
+    };
+  }
+  const input = root.querySelector("#outlineQueryInput");
+  if (input) {
+    input.oninput = (event) => {
+      const cursor = event.target.selectionStart ?? event.target.value.length;
+      state.outlineQuery = event.target.value;
+      refreshOutlinePanel({ start: cursor, end: cursor });
+    };
+    input.onkeydown = (event) => {
+      if (event.key === "Enter") {
+        const first = byId("outlineList")?.querySelector("[data-outline-line]");
+        if (first) {
+          event.preventDefault();
+          selectOutlineSymbol(first);
+        }
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        if (state.outlineQuery) {
+          state.outlineQuery = "";
+          refreshOutlinePanel({ start: 0, end: 0 });
+        } else {
+          byId("editor")?.focus();
+        }
+      }
+    };
+  }
+  root.querySelectorAll("[data-outline-line]").forEach((button) => {
+    button.onclick = () => selectOutlineSymbol(button);
+  });
+}
+
+function refreshOutlinePanel(focus = null) {
+  const panel = byId("outlinePanel");
+  if (!panel) return;
+  const active = document.activeElement;
+  const nextFocus = focus || (active?.id === "outlineQueryInput" ? {
+    start: active.selectionStart ?? active.value.length,
+    end: active.selectionEnd ?? active.value.length
+  } : null);
+  panel.outerHTML = renderOutlinePanel();
+  bindOutlineControls(document);
+  if (!nextFocus) return;
+  const input = byId("outlineQueryInput");
+  if (!input) return;
+  input.focus();
+  input.setSelectionRange(nextFocus.start, nextFocus.end);
+}
+
+function focusOutline() {
+  state.editorFindOpen = false;
+  byId("editorFindBar")?.classList.add("hidden");
+  hideCompletions();
+  if (!state.outlineOpen) {
+    state.outlineOpen = true;
+    refreshOutlinePanel();
+  }
+  const input = byId("outlineQueryInput");
+  if (!input) return;
+  input.focus();
+  input.select();
+}
+
+function selectOutlineSymbol(button) {
+  const editor = byId("editor");
+  if (!editor) return false;
+  const selected = selectEditorUtf16Range(editor, {
+    line: Number(button.dataset.outlineLine || 0),
+    character: Number(button.dataset.outlineCharacter || 0),
+    endLine: Number(button.dataset.outlineEndLine || button.dataset.outlineLine || 0),
+    endCharacter: Number(button.dataset.outlineEndCharacter || button.dataset.outlineCharacter || 0)
+  });
+  if (!selected) return false;
+  hideCompletions();
+  syncEditorHighlightScroll();
+  updateEditorFindStatus();
+  updateCursorInsight();
+  setStatus(`Outline: ${button.dataset.outlineName || "symbol"}`);
+  return true;
+}
+
+function selectEditorUtf16Range(editor, range) {
+  const line = documentSymbolCoordinate(range?.line, 0);
+  const endLine = documentSymbolCoordinate(range?.endLine, line);
+  const startRange = sourceLineRange(editor.value, line);
+  const endRange = sourceLineRange(editor.value, endLine);
+  const character = Math.min(startRange.text.length, documentSymbolCoordinate(range?.character, 0));
+  const endCharacter = Math.min(endRange.text.length, documentSymbolCoordinate(range?.endCharacter, character + 1));
+  const start = startRange.start + character;
+  const end = Math.max(start + 1, endRange.start + endCharacter);
+  editor.focus();
+  editor.selectionStart = Math.min(start, editor.value.length);
+  editor.selectionEnd = Math.min(end, editor.value.length);
+  editor.scrollTop = Math.max(0, (line - 3) * 20);
+  return { start: editor.selectionStart, end: editor.selectionEnd };
 }
 
 function bindProblemActions(root) {
@@ -981,6 +1181,7 @@ function refreshCheckPanels() {
     bindInspectorTabButtons(sideBody);
     bindShowHighlightPanelButtons(sideBody);
   }
+  refreshOutlinePanel();
   restoreCheckPanelInputFocus(focus);
 }
 
@@ -8037,6 +8238,15 @@ function bindSplitters() {
 }
 
 function handleGlobalKeyDown(event) {
+  const outlineShortcut = (event.ctrlKey || event.metaKey)
+    && event.shiftKey
+    && !event.altKey
+    && String(event.key || "").toLowerCase() === "o";
+  if (outlineShortcut) {
+    event.preventDefault();
+    if (!state.pendingWindowClose && !state.pendingTabClose) focusOutline();
+    return;
+  }
   const findShortcut = (event.ctrlKey || event.metaKey)
     && !event.altKey
     && String(event.key || "").toLowerCase() === "f";

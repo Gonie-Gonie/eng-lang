@@ -164,6 +164,147 @@ function saveShortcutUsesCurrentAction() {
   assert.strictEqual(run("globalThis.saveShortcutCalls"), 1);
 }
 
+function documentSymbolsNormalizeAndFilter() {
+  const flattened = run(`JSON.stringify(flattenDocumentSymbols(normalizeCheck({
+    document_symbols: [{
+      name: "RoomThermal",
+      detail: "system",
+      kind: 5,
+      selectionRange: {
+        start: { line: 3, character: 7 },
+        end: { line: 3, character: 18 }
+      },
+      children: [{
+        name: "T_room",
+        detail: "state",
+        kind: 8,
+        selectionRange: {
+          start: { line: 4, character: 10 },
+          end: { line: 4, character: 16 }
+        },
+        children: []
+      }]
+    }]
+  }).documentSymbols).map((item) => ({
+    name: item.name,
+    detail: item.detail,
+    kind: item.kind,
+    depth: item.depth,
+    line: item.line,
+    character: item.character,
+    endCharacter: item.endCharacter
+  })))`);
+  assert.strictEqual(
+    flattened,
+    '[{"name":"RoomThermal","detail":"system","kind":5,"depth":0,"line":3,"character":7,"endCharacter":18},{"name":"T_room","detail":"state","kind":8,"depth":1,"line":4,"character":10,"endCharacter":16}]'
+  );
+  assert.strictEqual(
+    run(`JSON.stringify(filteredOutlineItems(flattenDocumentSymbols([{
+      name: "RoomThermal",
+      detail: "system",
+      kind: 5,
+      selectionRange: { start: { line: 3, character: 7 }, end: { line: 3, character: 18 } },
+      children: [{
+        name: "T_room",
+        detail: "state",
+        kind: 8,
+        selectionRange: { start: { line: 4, character: 10 }, end: { line: 4, character: 16 } },
+        children: []
+      }]
+    }]), "state").map((item) => item.name))`),
+    '["T_room"]'
+  );
+}
+
+function outlineSelectionUsesUtf16Coordinates() {
+  run(`
+    globalThis.outlineEditor = {
+      value: "head\\n  😀alpha = 1\\nlast",
+      selectionStart: 0,
+      selectionEnd: 0,
+      scrollTop: 50,
+      focused: false,
+      focus() {
+        this.focused = true;
+      }
+    };
+    globalThis.outlineSelection = selectEditorUtf16Range(globalThis.outlineEditor, {
+      line: 1,
+      character: 4,
+      endLine: 1,
+      endCharacter: 9
+    });
+  `);
+  assert.strictEqual(run("globalThis.outlineEditor.value.slice(globalThis.outlineEditor.selectionStart, globalThis.outlineEditor.selectionEnd)"), "alpha");
+  assert.strictEqual(run("globalThis.outlineEditor.focused"), true);
+  assert.strictEqual(run("JSON.stringify(globalThis.outlineSelection)"), '{"start":9,"end":14}');
+}
+
+function outlineRefreshPreservesFilterFocus() {
+  run(`
+    globalThis.realByIdForOutlineRefresh = byId;
+    globalThis.outlinePanel = { outerHTML: "" };
+    globalThis.outlineInput = {
+      value: "room",
+      focused: false,
+      selectionStart: 1,
+      selectionEnd: 3,
+      focus() {
+        this.focused = true;
+      },
+      setSelectionRange(start, end) {
+        this.selectionStart = start;
+        this.selectionEnd = end;
+      }
+    };
+    document.activeElement = globalThis.outlineInput;
+    document.activeElement.id = "outlineQueryInput";
+    byId = (id) => ({
+      outlinePanel: globalThis.outlinePanel,
+      outlineQueryInput: globalThis.outlineInput
+    })[id] || null;
+    state.outlineOpen = true;
+    state.outlineQuery = "room";
+    state.check.documentSymbols = [];
+    refreshOutlinePanel();
+  `);
+
+  assert.strictEqual(run("globalThis.outlineInput.focused"), true);
+  assert.strictEqual(run("JSON.stringify([globalThis.outlineInput.selectionStart, globalThis.outlineInput.selectionEnd])"), "[1,3]");
+  run(`
+    byId = globalThis.realByIdForOutlineRefresh;
+    document.activeElement = null;
+  `);
+}
+
+function outlineShortcutFocusesCurrentFileSymbols() {
+  run(`
+    state.pendingTabClose = null;
+    state.pendingWindowClose = false;
+    globalThis.outlineShortcutCalls = 0;
+    globalThis.realFocusOutline = focusOutline;
+    focusOutline = () => {
+      globalThis.outlineShortcutCalls += 1;
+    };
+    globalThis.outlineShortcutEvent = {
+      altKey: false,
+      ctrlKey: true,
+      key: "o",
+      metaKey: false,
+      prevented: false,
+      shiftKey: true,
+      preventDefault() {
+        this.prevented = true;
+      }
+    };
+    handleGlobalKeyDown(globalThis.outlineShortcutEvent);
+    focusOutline = globalThis.realFocusOutline;
+  `);
+
+  assert.strictEqual(run("globalThis.outlineShortcutEvent.prevented"), true);
+  assert.strictEqual(run("globalThis.outlineShortcutCalls"), 1);
+}
+
 function findRangesRespectCaseMode() {
   assert.strictEqual(
     run(`JSON.stringify(editorFindRanges("Alpha alpha ALPHA", "alpha", false))`),
@@ -443,6 +584,10 @@ async function main() {
   await dirtyTabRequiresDecision();
   await saveDecisionPersistsThenCloses();
   saveShortcutUsesCurrentAction();
+  documentSymbolsNormalizeAndFilter();
+  outlineSelectionUsesUtf16Coordinates();
+  outlineRefreshPreservesFilterFocus();
+  outlineShortcutFocusesCurrentFileSymbols();
   findRangesRespectCaseMode();
   findShortcutOpensCurrentFileSearch();
   openingFindDismissesCompletions();

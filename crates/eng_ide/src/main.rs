@@ -58,6 +58,7 @@ struct CheckView {
     status: String,
     semantic_tokens: Value,
     hovers: Value,
+    document_symbols: Value,
 }
 
 #[derive(Clone, Serialize)]
@@ -478,6 +479,7 @@ fn ide_terminal(
                 status: "ok".to_owned(),
                 semantic_tokens: empty_semantic_tokens_view(),
                 hovers: empty_hovers_view(),
+                document_symbols: empty_document_symbols_view(),
             },
             variables: Vec::new(),
             args: Vec::new(),
@@ -656,6 +658,7 @@ impl RunView {
                 status: "ok".to_owned(),
                 semantic_tokens: empty_semantic_tokens_view(),
                 hovers: empty_hovers_view(),
+                document_symbols: empty_document_symbols_view(),
             },
             variables: Vec::new(),
             args: Vec::new(),
@@ -863,13 +866,14 @@ fn check_view_from_report(report: &CheckReport, source: Option<&str>) -> CheckVi
         .collect();
     let errors = report.diagnostic_count(Severity::Error);
     let warnings = report.diagnostic_count(Severity::Warning);
-    let (semantic_tokens, hovers) = editor_payload_view(report, source);
+    let (semantic_tokens, hovers, document_symbols) = editor_payload_view(report, source);
     CheckView {
         diagnostics,
         symbols,
         status: format!("{errors} error(s), {warnings} warning(s)"),
         semantic_tokens,
         hovers,
+        document_symbols,
     }
 }
 
@@ -936,14 +940,19 @@ fn diagnostic_view_from_parts(
     }
 }
 
-fn editor_payload_view(report: &CheckReport, source: Option<&str>) -> (Value, Value) {
+fn editor_payload_view(report: &CheckReport, source: Option<&str>) -> (Value, Value, Value) {
     let Some(source) = source else {
-        return (empty_semantic_tokens_view(), empty_hovers_view());
+        return (
+            empty_semantic_tokens_view(),
+            empty_hovers_view(),
+            empty_document_symbols_view(),
+        );
     };
     let snapshot = eng_lsp::snapshot_from_report_with_source(report, Some(source));
     (
         eng_lsp::semantic_tokens_json(&snapshot.semantic_tokens),
         Value::Array(snapshot.hovers.iter().map(eng_lsp::hover_json).collect()),
+        eng_lsp::document_symbols_lsp_json(&snapshot.document_symbols),
     )
 }
 
@@ -952,6 +961,10 @@ fn empty_semantic_tokens_view() -> Value {
 }
 
 fn empty_hovers_view() -> Value {
+    Value::Array(Vec::new())
+}
+
+fn empty_document_symbols_view() -> Value {
     Value::Array(Vec::new())
 }
 
@@ -2330,6 +2343,7 @@ fn terminal_command_error(command: &str) -> Option<CheckView> {
         status: "1 error(s), 0 warning(s)".to_owned(),
         semantic_tokens: empty_semantic_tokens_view(),
         hovers: empty_hovers_view(),
+        document_symbols: empty_document_symbols_view(),
     })
 }
 
@@ -2356,6 +2370,7 @@ fn terminal_unrecognized_command_error(command: &str, run_dir: &Path) -> Option<
         status: "1 error(s), 0 warning(s)".to_owned(),
         semantic_tokens: empty_semantic_tokens_view(),
         hovers: empty_hovers_view(),
+        document_symbols: empty_document_symbols_view(),
     })
 }
 
@@ -4221,6 +4236,15 @@ mod tests {
             .hovers
             .as_array()
             .is_some_and(|hovers| hovers.iter().any(|hover| hover["name"] == "Q_coil")));
+        let document_symbols = check.document_symbols.as_array().expect("document symbols");
+        assert!(document_symbols.iter().any(|symbol| {
+            symbol["name"] == "SensorData"
+                && symbol["detail"] == "schema"
+                && symbol.pointer("/selectionRange/start/line") == Some(&json!(0))
+        }));
+        assert!(document_symbols
+            .iter()
+            .any(|symbol| symbol["name"] == "Q_coil" && symbol["kind"] == 13));
 
         let rich_source = r#"designs = sample lhs
 with {

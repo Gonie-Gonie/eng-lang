@@ -458,6 +458,138 @@ button:hover {
   white-space: nowrap;
 }
 
+.outline-panel {
+  flex: 0 0 auto;
+  min-width: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.outline-head small {
+  margin-left: 4px;
+  color: var(--muted);
+  font: 10px/1 Consolas, "Cascadia Mono", monospace;
+}
+
+.outline-toggle {
+  width: 24px;
+  min-width: 24px;
+  padding: 0;
+  border-color: transparent;
+  font: 12px/1 Consolas, "Cascadia Mono", monospace;
+}
+
+.outline-body {
+  min-width: 0;
+  padding: 3px 5px 6px;
+}
+
+.outline-query {
+  width: 100%;
+  min-width: 0;
+  height: 25px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  outline: none;
+  color: var(--text);
+  background: #fbfcfe;
+}
+
+.outline-query:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.outline-list {
+  max-height: 190px;
+  min-height: 24px;
+  margin-top: 3px;
+  overflow: auto;
+}
+
+.outline-item {
+  --outline-depth: 0;
+  width: 100%;
+  height: 25px;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 19px minmax(54px, 1fr) minmax(0, 0.8fr);
+  align-items: center;
+  gap: 4px;
+  padding: 0 5px 0 calc(4px + (var(--outline-depth) * 11px));
+  border: 0;
+  border-radius: 3px;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+}
+
+.outline-item:hover,
+.outline-item:focus-visible {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.outline-kind {
+  width: 17px;
+  height: 17px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font: 10px/1 "Segoe UI", system-ui, sans-serif;
+  font-weight: 700;
+}
+
+.outline-kind.type {
+  color: #266d52;
+}
+
+.outline-kind.function {
+  color: #73429b;
+}
+
+.outline-kind.property,
+.outline-kind.variable {
+  color: #2f62a3;
+}
+
+.outline-kind.constant {
+  color: #9a5a15;
+}
+
+.outline-kind.module {
+  color: #087578;
+}
+
+.outline-kind.symbol {
+  color: #5f6875;
+}
+
+.outline-name,
+.outline-detail {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.outline-name {
+  font: 12px/1 Consolas, "Cascadia Mono", monospace;
+}
+
+.outline-detail {
+  color: var(--muted);
+  font-size: 10px;
+  text-align: right;
+}
+
+.outline-empty {
+  padding: 5px 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .inspector {
   background: #fbfcfe;
 }

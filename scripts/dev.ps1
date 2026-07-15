@@ -6847,6 +6847,16 @@ function Invoke-IdeCheck {
         "updateEditorFindStatus",
         'String(event.key || "").toLowerCase() === "f"',
         'event.key === "F3"',
+        "documentSymbols",
+        "renderOutlinePanel",
+        "flattenDocumentSymbols",
+        "filteredOutlineItems",
+        "bindOutlineControls",
+        "refreshOutlinePanel",
+        "focusOutline",
+        "selectOutlineSymbol",
+        "selectEditorUtf16Range",
+        'String(event.key || "").toLowerCase() === "o"',
         "editorHighlight",
         "renderHighlightedSource",
         "renderLexicalHighlightedLine",
@@ -7373,6 +7383,16 @@ function Invoke-IdeCheck {
             throw "Native IDE CSS missing editor find style $RequiredEditorFindStyle"
         }
     }
+    foreach ($RequiredOutlineStyle in @(
+        ".outline-panel",
+        ".outline-query",
+        ".outline-item",
+        ".outline-kind"
+    )) {
+        if (-not $IdeUiStyles.Contains($RequiredOutlineStyle)) {
+            throw "Native IDE CSS missing outline style $RequiredOutlineStyle"
+        }
+    }
     foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "problem-message", "problem-actions", "problem-copy-button", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-interpolation", "hl-constant", "hl-punctuation", "hl-mod-unit", "hl-mod-solver", "hl-mod-validation", "hl-mod-report", "hl-mod-sideEffect", "hl-mod-external", "hl-mod-riskHigh", "semantic-token-table", "highlight-coverage-table", ".semantic-token-table th:last-child", "token-chip", "--token-role-color", "token-filter-chip", "token-missing", "token-range-button", "cursor-insight", "variable-source-line", "button.danger", "dialog-backdrop", "unsaved-dialog", "unsaved-file-list", "unsaved-dialog-actions")) {
         if (-not $IdeUiStyles.Contains($RequiredIdeStyle)) {
             throw "Native IDE UI missing contract style $RequiredIdeStyle"
@@ -7412,7 +7432,7 @@ function Invoke-IdeCheck {
         }
     }
     $IdeMainSource = Get-Content -LiteralPath $TauriMainPath -Raw
-    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_items", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completions_use_lsp_editor_items", "check_view_surfaces_lsp_semantic_tokens", "one-line EngLang statement such as", "cd <dir>", "diagnostic_view_from_lsp", "diagnostic_view_from_parts", 'range_text: format!("L{line}:C{column}-C{end_column}")', 'include_str!("../ui/app.js")', 'include_str!("main.rs")')) {
+    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "document_symbols", "document_symbols_lsp_json", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_items", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completions_use_lsp_editor_items", "check_view_surfaces_lsp_semantic_tokens", "one-line EngLang statement such as", "cd <dir>", "diagnostic_view_from_lsp", "diagnostic_view_from_parts", 'range_text: format!("L{line}:C{column}-C{end_column}")', 'include_str!("../ui/app.js")', 'include_str!("main.rs")')) {
         if (-not $IdeMainSource.Contains($RequiredIdeBackendToken)) {
             throw "Native IDE backend missing contract token $RequiredIdeBackendToken"
         }

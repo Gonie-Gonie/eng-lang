@@ -1,3 +1,4 @@
+- Batch 944: Added a compiler-backed native IDE Outline with unsaved-buffer document symbols, hierarchy and kind colors, name/kind/detail filtering, exact UTF-16 source navigation, Ctrl+Shift+O and Enter keyboard flow, and Rust/JavaScript contract coverage.
 - Batch 943: Added native IDE current-file search with toolbar and Ctrl+F entry, selected-text prefill, wraparound Enter/Shift+Enter and F3 navigation, case matching, live match counts, completion-popup dismissal, and executable range/shortcut/navigation coverage.
 - Batch 942: Colored builtin calls in args defaults, missing-policy options before their equals signs, and supported compound derivative units such as `K/s`, with actual TextMate role assertions across all examples.
 - Batch 941: Fixed `interpolate` first-paint coloring inside schema missing-policy rows and added an actual VS Code tokenizer audit across every example keyword occurrence and both bundled themes.
