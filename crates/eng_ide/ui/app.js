@@ -119,6 +119,7 @@ const state = {
   dirty: false,
   check: { diagnostics: [], symbols: [], status: "", semanticTokens: { legend: {}, tokens: [] }, hovers: [], documentSymbols: [] },
   highlightSource: null,
+  documentHighlights: { path: "", source: "", items: [] },
   variables: [],
   args: [],
   artifacts: [],
@@ -156,6 +157,7 @@ let liveCheckTimer = null;
 let liveCheckRevision = 0;
 let navigationRevision = 0;
 let definitionRequestRevision = 0;
+let documentHighlightRequestRevision = 0;
 let nativeAppWindow = null;
 let nativeCloseListenerBound = false;
 
@@ -1651,8 +1653,11 @@ function selectSourceTokenRange(line, startByte, lengthBytes) {
     return;
   }
   const lineRange = sourceLineRange(editor.value, line - 1);
-  const startColumn = byteOffsetToCodeUnit(lineRange.text, startByte);
-  const endColumn = byteOffsetToCodeUnit(lineRange.text, startByte + lengthBytes);
+  const startColumn = Math.min(lineRange.text.length, Math.max(0, Math.trunc(startByte)));
+  const endColumn = Math.min(
+    lineRange.text.length,
+    Math.max(startColumn, Math.trunc(startByte + lengthBytes))
+  );
   editor.focus();
   editor.selectionStart = lineRange.start + startColumn;
   editor.selectionEnd = lineRange.start + Math.max(startColumn, endColumn);
@@ -2344,6 +2349,8 @@ function renderHighlightPanel() {
       ${renderHighlightCoverageTable(coverageRows)}
       <div class="panel-title compact">Caret Highlight</div>
       <div id="caretHighlightSummary">${renderCaretHighlightSummary(caretToken, tokenCurrent)}</div>
+      <div class="panel-title compact">Semantic References</div>
+      ${renderDocumentHighlightReferences()}
       <div class="panel-title compact">Categories</div>
       ${renderSemanticLegendTable(arrayOrEmpty(legend.token_types || legend.tokenTypes), typeCounts, "type")}
       <div class="panel-title compact">Details</div>
@@ -2544,6 +2551,7 @@ function renderCaretHighlightSummary(caret, tokenCurrent) {
   const actionButtons = [
     sourceTokenCopyButton(token, "text", "Copy Text"),
     sourceTokenCopyButton(token, "range", "Copy Range"),
+    '<button class="link-button token-range-button" data-show-document-highlights title="Highlight semantic references in this file (Shift+F12)">References</button>',
     renderInspectorTabButtons(inspectorTabsForSemanticToken(token, caret.hover))
   ].filter(Boolean).join(" ");
   const modifierCells = semanticTokenModifierChips(modifiers);
@@ -5360,6 +5368,51 @@ function renderTabLabels() {
   });
 }
 
+function renderDocumentHighlightReferences() {
+  const highlights = currentDocumentHighlights();
+  if (!highlights.length) {
+    return '<div class="empty-state">Place the caret on a symbol and use References or Shift+F12.</div>';
+  }
+  const rows = highlights.slice(0, 100).map((highlight) => {
+    const token = documentHighlightToken(highlight);
+    if (!token) return "";
+    const kind = Number(highlight.kind) === 3 ? "Write" : Number(highlight.kind) === 2 ? "Read" : "Text";
+    return `
+      <tr>
+        <td>${sourceTokenButton(token, `L${token.line + 1}`)}</td>
+        <td><span class="status-pill">${escapeHtml(kind)}</span></td>
+        <td><code>${escapeHtml(semanticTokenText(token))}</code></td>
+      </tr>
+    `;
+  }).filter(Boolean).join("");
+  return `
+    <div class="badges"><span class="badge">References ${highlights.length}</span></div>
+    <table class="var-table semantic-reference-table">
+      <thead><tr><th>Range</th><th>Access</th><th>Symbol</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function documentHighlightToken(highlight) {
+  const start = highlight?.range?.start;
+  const end = highlight?.range?.end;
+  const line = Number(start?.line);
+  const startCharacter = Number(start?.character);
+  const endLine = Number(end?.line);
+  const endCharacter = Number(end?.character);
+  if (
+    !Number.isInteger(line)
+    || !Number.isInteger(startCharacter)
+    || endLine !== line
+    || !Number.isInteger(endCharacter)
+    || endCharacter <= startCharacter
+  ) {
+    return null;
+  }
+  return { line, start: startCharacter, length: endCharacter - startCharacter };
+}
+
 function bindEditorFindControls() {
   const input = byId("editorFindInput");
   if (!input) return;
@@ -6491,7 +6544,14 @@ function bindCursorInsightActions() {
   target.querySelectorAll("[data-go-to-definition]").forEach((button) => {
     button.onclick = () => void goToDefinitionAtCaret();
   });
+  bindDocumentHighlightActions(target);
   bindInspectorTabButtons(target);
+}
+
+function bindDocumentHighlightActions(root) {
+  root.querySelectorAll("[data-show-document-highlights]").forEach((button) => {
+    button.onclick = () => void showDocumentHighlightsAtCaret();
+  });
 }
 
 function bindInspectorTabButtons(root) {
@@ -6515,6 +6575,7 @@ function updateCaretHighlightSummary() {
   bindSourceTokenRangeButtons(nextTarget);
   bindSourceTokenCopyButtons(nextTarget);
   bindHighlightTokenFilterButtons(nextTarget);
+  bindDocumentHighlightActions(nextTarget);
   bindInspectorTabButtons(nextTarget);
   nextTarget.querySelectorAll("[data-show-highlight-panel]").forEach((button) => {
     button.onclick = () => {
@@ -6586,6 +6647,7 @@ function renderCursorInsightActions(token, selectLabel = "Select", hover = null,
     ${sourceTokenButton(token, selectLabel)}
     ${sourceTokenCopyButton(token, "text", "Copy")}
     ${showDefinition ? '<button class="link-button token-range-button" data-go-to-definition title="Go to definition (F12)">Definition</button>' : ""}
+    ${showDefinition ? '<button class="link-button token-range-button" data-show-document-highlights title="Highlight semantic references in this file (Shift+F12)">References</button>' : ""}
     <button class="link-button token-range-button" data-show-highlight-panel title="Open Highlight panel">Highlight</button>
     ${renderInspectorTabButtons(inspectorTabsForSemanticToken(token, hover))}
   `;
@@ -6662,6 +6724,47 @@ function editorDefinitionRequest(editor) {
     line: position.line,
     character: position.column
   };
+}
+
+function currentDocumentHighlights() {
+  const payload = state.documentHighlights || {};
+  if (payload.path !== state.currentPath || payload.source !== state.source) return [];
+  return arrayOrEmpty(payload.items);
+}
+
+async function showDocumentHighlightsAtCaret() {
+  const editor = byId("editor");
+  const request = editorDefinitionRequest(editor);
+  if (!request) return false;
+  const revision = ++documentHighlightRequestRevision;
+  hideCompletions();
+  setStatus("Finding references...");
+  try {
+    const highlights = await call("ide_document_highlights", request);
+    if (revision !== documentHighlightRequestRevision) return false;
+    if (!bufferRequestIsCurrent(request)) {
+      setStatus("References cancelled; buffer changed");
+      return false;
+    }
+    const items = Array.isArray(highlights) ? highlights : [];
+    state.documentHighlights = {
+      path: request.path,
+      source: request.source,
+      items
+    };
+    state.sideTab = "highlight";
+    state.status = items.length
+      ? `References: ${items.length} in current file`
+      : "No semantic references found";
+    render();
+    return items.length > 0;
+  } catch (error) {
+    if (revision !== documentHighlightRequestRevision) return false;
+    const message = String(error);
+    setStatus(message);
+    appendTerminal("error", message);
+    return false;
+  }
 }
 
 async function goToDefinitionAtCaret() {
@@ -6977,10 +7080,10 @@ function renderHighlightedSource() {
     return lines.map(renderLexicalHighlightedLine).join("\n") || "\n";
   }
   const tokensByLine = semanticTokensByLine(semanticTokenPayload().tokens || []);
-  return lines.map((line, index) => renderHighlightedLine(line, tokensByLine.get(index) || [])).join("\n") || "\n";
+  return lines.map((line, index) => renderHighlightedLine(line, tokensByLine.get(index) || [], index)).join("\n") || "\n";
 }
 
-function renderHighlightedLine(line, tokens) {
+function renderHighlightedLine(line, tokens, lineIndex) {
   if (!tokens.length) return renderLexicalHighlightedLine(line);
   const ranges = tokens
     .map((token) => semanticTokenRange(line, token))
@@ -6991,11 +7094,33 @@ function renderHighlightedLine(line, tokens) {
   for (const range of ranges) {
     if (range.start < cursor || range.end <= range.start) continue;
     html += renderLexicalHighlightedLine(line.slice(cursor, range.start));
-    html += `<span class="${escapeAttr(semanticTokenClass(range.token))}">${escapeHtml(line.slice(range.start, range.end))}</span>`;
+    const referenceKind = documentHighlightKindForToken(range.token, lineIndex);
+    const referenceClass = referenceKind === 3
+      ? " hl-reference hl-reference-write"
+      : referenceKind === 2
+        ? " hl-reference hl-reference-read"
+        : referenceKind === 1
+          ? " hl-reference"
+          : "";
+    html += `<span class="${escapeAttr(`${semanticTokenClass(range.token)}${referenceClass}`)}">${escapeHtml(line.slice(range.start, range.end))}</span>`;
     cursor = range.end;
   }
   html += renderLexicalHighlightedLine(line.slice(cursor));
   return html;
+}
+
+function documentHighlightKindForToken(token, lineIndex) {
+  const line = Number(token?.line ?? lineIndex);
+  const start = Number(token?.start);
+  const length = Number(token?.length);
+  const highlight = currentDocumentHighlights().find((item) => {
+    const candidate = documentHighlightToken(item);
+    return candidate
+      && candidate.line === line
+      && candidate.start === start
+      && candidate.length === length;
+  });
+  return Number(highlight?.kind || 0);
 }
 
 function renderLexicalHighlightedLine(line) {
@@ -7275,14 +7400,14 @@ function semanticTokensByLine(tokens) {
 }
 
 function semanticTokenRange(line, token) {
-  const startByte = Number(token.start ?? 0);
-  const lengthBytes = Number(token.length ?? 0);
-  if (!Number.isFinite(startByte) || !Number.isFinite(lengthBytes) || lengthBytes <= 0) {
+  const start = Number(token.start ?? 0);
+  const length = Number(token.length ?? 0);
+  if (!Number.isFinite(start) || !Number.isFinite(length) || length <= 0) {
     return null;
   }
-  const start = byteOffsetToCodeUnit(line, startByte);
-  const end = byteOffsetToCodeUnit(line, startByte + lengthBytes);
-  return { start, end, token };
+  const startColumn = Math.min(line.length, Math.max(0, Math.trunc(start)));
+  const endColumn = Math.min(line.length, Math.max(startColumn, Math.trunc(start + length)));
+  return { start: startColumn, end: endColumn, token };
 }
 
 function semanticTokenText(token) {
@@ -7747,8 +7872,11 @@ async function copySourceTokenRange(line, startByte, lengthBytes, mode = "text")
   const editor = byId("editor");
   if (!editor || !validSourceTokenRange(line, startByte, lengthBytes)) return;
   const lineRange = sourceLineRange(editor.value, line - 1);
-  const startColumn = byteOffsetToCodeUnit(lineRange.text, startByte);
-  const endColumn = byteOffsetToCodeUnit(lineRange.text, startByte + lengthBytes);
+  const startColumn = Math.min(lineRange.text.length, Math.max(0, Math.trunc(startByte)));
+  const endColumn = Math.min(
+    lineRange.text.length,
+    Math.max(startColumn, Math.trunc(startByte + lengthBytes))
+  );
   const tokenText = lineRange.text.slice(startColumn, Math.max(startColumn, endColumn));
   const rangeText = `L${line}:${startByte}:${lengthBytes}`;
   const selectorText = mode === "selector" ? semanticTokenPrimarySelector(line, startByte, lengthBytes) : "";
@@ -8413,6 +8541,11 @@ function handleGlobalKeyDown(event) {
     if (state.pendingWindowClose) void saveAllDirtyTabsAndClose();
     else if (state.pendingTabClose) void savePendingTabAndClose();
     else void saveCurrent();
+    return;
+  }
+  if (event.key === "F12" && event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    event.preventDefault();
+    if (!state.pendingWindowClose && !state.pendingTabClose) void showDocumentHighlightsAtCaret();
     return;
   }
   if (event.key === "F12" && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {

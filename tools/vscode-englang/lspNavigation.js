@@ -19,6 +19,26 @@ function definitionLocationFromLsp(payload, fallbackUri, reportError) {
   }
 }
 
+function documentHighlightsFromLsp(payload) {
+  if (!Array.isArray(payload)) {
+    return [];
+  }
+  return payload
+    .map((highlight) => {
+      const range = vscodeRangeFromLsp(highlight?.range);
+      if (!range) {
+        return undefined;
+      }
+      const kind = highlight.kind === 3
+        ? vscode.DocumentHighlightKind.Write
+        : highlight.kind === 2
+          ? vscode.DocumentHighlightKind.Read
+          : vscode.DocumentHighlightKind.Text;
+      return new vscode.DocumentHighlight(range, kind);
+    })
+    .filter((highlight) => highlight !== undefined);
+}
+
 function workspaceSymbolInformationFromLsp(symbol, reportError) {
   if (!symbol?.name) {
     return undefined;
@@ -156,6 +176,7 @@ module.exports = {
   definitionLocationFromLsp,
   definitionLocationFromSnapshotSymbols,
   definitionNameCandidates,
+  documentHighlightsFromLsp,
   documentSymbolsFromSnapshot,
   flattenSnapshotSymbols,
   identifierPathRangeAt,

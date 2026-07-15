@@ -256,6 +256,70 @@ function definitionShortcutUsesCurrentAction() {
   assert.strictEqual(run("globalThis.definitionShortcutCalls"), 1);
 }
 
+function documentHighlightShortcutUsesCurrentAction() {
+  run(`
+    state.pendingTabClose = null;
+    state.pendingWindowClose = false;
+    globalThis.documentHighlightShortcutCalls = 0;
+    globalThis.realShowDocumentHighlightsAtCaret = showDocumentHighlightsAtCaret;
+    showDocumentHighlightsAtCaret = async () => {
+      globalThis.documentHighlightShortcutCalls += 1;
+    };
+    globalThis.documentHighlightShortcutEvent = {
+      altKey: false,
+      ctrlKey: false,
+      key: "F12",
+      metaKey: false,
+      prevented: false,
+      shiftKey: true,
+      preventDefault() {
+        this.prevented = true;
+      }
+    };
+    handleGlobalKeyDown(globalThis.documentHighlightShortcutEvent);
+    showDocumentHighlightsAtCaret = globalThis.realShowDocumentHighlightsAtCaret;
+  `);
+
+  assert.strictEqual(run("globalThis.documentHighlightShortcutEvent.prevented"), true);
+  assert.strictEqual(run("globalThis.documentHighlightShortcutCalls"), 1);
+}
+
+function semanticTokenAndReferenceRangesUseUtf16Coordinates() {
+  assert.strictEqual(
+    run(`JSON.stringify(semanticTokenRange("\uD83D\uDE00alpha", { line: 0, start: 2, length: 5 }))`),
+    '{"start":2,"end":7,"token":{"line":0,"start":2,"length":5}}'
+  );
+  assert.strictEqual(
+    run(`"\uD83D\uDE00alpha".slice(...(() => {
+      const range = semanticTokenRange("\uD83D\uDE00alpha", { line: 0, start: 2, length: 5 });
+      return [range.start, range.end];
+    })())`),
+    "alpha"
+  );
+  run(`
+    state.currentPath = "unicode.eng";
+    state.source = "\uD83D\uDE00alpha";
+    state.highlightSource = state.source;
+    state.documentHighlights = {
+      path: state.currentPath,
+      source: state.source,
+      items: [{
+        range: {
+          start: { line: 0, character: 2 },
+          end: { line: 0, character: 7 }
+        },
+        kind: 2
+      }]
+    };
+  `);
+  assert.strictEqual(
+    run("documentHighlightKindForToken({ line: 0, start: 2, length: 5 }, 0)"),
+    2
+  );
+  run("state.documentHighlights.source = 'stale'");
+  assert.strictEqual(run("currentDocumentHighlights().length"), 0);
+}
+
 function documentSymbolsNormalizeAndFilter() {
   const flattened = run(`JSON.stringify(flattenDocumentSymbols(normalizeCheck({
     document_symbols: [{
@@ -680,6 +744,8 @@ async function main() {
   definitionRequestUsesUtf16Caret();
   await definitionNavigationPreservesDirtyOpenTab();
   definitionShortcutUsesCurrentAction();
+  documentHighlightShortcutUsesCurrentAction();
+  semanticTokenAndReferenceRangesUseUtf16Coordinates();
   documentSymbolsNormalizeAndFilter();
   outlineSelectionUsesUtf16Coordinates();
   outlineRefreshPreservesFilterFocus();

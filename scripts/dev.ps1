@@ -3738,6 +3738,7 @@ function Assert-VscodeExtensionContract {
     $RuntimeDiscoveryPath = Join-Path $ExtensionRoot "runtimeDiscovery.js"
     $ReviewPanelRendererPath = Join-Path $ExtensionRoot "reviewPanelRenderer.js"
     $CaseRunCompletionTestPath = Join-Path $ExtensionRoot "test\caseRunCompletion.test.js"
+    $DocumentHighlightsTestPath = Join-Path $ExtensionRoot "test\documentHighlights.test.js"
     $EditorRequestRaceTestPath = Join-Path $ExtensionRoot "test\editorRequestRace.test.js"
     $TextMateExampleCoverageTestPath = Join-Path $ExtensionRoot "test\textmateExampleCoverage.test.js"
     $SnippetsPath = Join-Path $ExtensionRoot "snippets\eng.json"
@@ -3840,6 +3841,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $CaseRunCompletionTestPath)) {
         throw "missing VS Code native case run completion smoke at $CaseRunCompletionTestPath"
+    }
+    if (-not (Test-Path $DocumentHighlightsTestPath)) {
+        throw "missing VS Code semantic document highlight smoke at $DocumentHighlightsTestPath"
     }
     if (-not (Test-Path $EditorRequestRaceTestPath)) {
         throw "missing VS Code editor request race smoke at $EditorRequestRaceTestPath"
@@ -5904,6 +5908,18 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing live definition token $RequiredDefinitionToken"
         }
     }
+    foreach ($RequiredDocumentHighlightToken in @(
+        "registerDocumentHighlightProvider",
+        "EngDocumentHighlightProvider",
+        "documentHighlightsForPosition",
+        "--document-highlights-stdin",
+        "documentHighlightsFromLsp",
+        "new vscode.DocumentHighlight"
+    )) {
+        if (-not $NavigationSource.Contains($RequiredDocumentHighlightToken)) {
+            throw "VS Code extension missing semantic document highlight token $RequiredDocumentHighlightToken"
+        }
+    }
     foreach ($RequiredWorkspaceSymbolToken in @(
         "registerWorkspaceSymbolProvider",
         "EngWorkspaceSymbolProvider",
@@ -5918,10 +5934,10 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing workspace symbol token $RequiredWorkspaceSymbolToken"
         }
     }
-    if (-not $ExtensionSource.Contains('require("./navigationProviders")') -or -not $NavigationProvidersSource.Contains("EngDocumentSymbolProvider") -or -not $NavigationProvidersSource.Contains("EngWorkspaceSymbolProvider") -or -not $NavigationProvidersSource.Contains("EngDefinitionProvider")) {
+    if (-not $ExtensionSource.Contains('require("./navigationProviders")') -or -not $NavigationProvidersSource.Contains("EngDocumentSymbolProvider") -or -not $NavigationProvidersSource.Contains("EngWorkspaceSymbolProvider") -or -not $NavigationProvidersSource.Contains("EngDefinitionProvider") -or -not $NavigationProvidersSource.Contains("EngDocumentHighlightProvider")) {
         throw "VS Code extension must load navigation provider orchestration from navigationProviders.js"
     }
-    if (-not $NavigationProvidersSource.Contains('require("./lspNavigation")') -or -not $NavigationProvidersSource.Contains("workspaceSymbolInformationFromLsp") -or -not $NavigationProvidersSource.Contains("documentSymbolsFromSnapshot") -or -not $NavigationProvidersSource.Contains("definitionLocationFromLsp")) {
+    if (-not $NavigationProvidersSource.Contains('require("./lspNavigation")') -or -not $NavigationProvidersSource.Contains("workspaceSymbolInformationFromLsp") -or -not $NavigationProvidersSource.Contains("documentSymbolsFromSnapshot") -or -not $NavigationProvidersSource.Contains("definitionLocationFromLsp") -or -not $NavigationProvidersSource.Contains("documentHighlightsFromLsp")) {
         throw "VS Code navigation providers must reuse shared LSP navigation conversion"
     }
     $FormattingSource = $ExtensionSource + "`n" + $FormattingProviderSource + "`n" + $LspRequestsSource
@@ -6272,10 +6288,10 @@ function Assert-VscodeExtensionContract {
     if ($ExtensionSource.Contains("class EngCompletionProvider") -or $ExtensionSource.Contains("function addCompletion") -or $ExtensionSource.Contains("function completionItemsFromPayload")) {
         throw "VS Code extension must keep completion provider helpers in completionProvider.js"
     }
-    if ($ExtensionSource.Contains("class EngDocumentSymbolProvider") -or $ExtensionSource.Contains("class EngWorkspaceSymbolProvider") -or $ExtensionSource.Contains("class EngDefinitionProvider")) {
+    if ($ExtensionSource.Contains("class EngDocumentSymbolProvider") -or $ExtensionSource.Contains("class EngWorkspaceSymbolProvider") -or $ExtensionSource.Contains("class EngDefinitionProvider") -or $ExtensionSource.Contains("class EngDocumentHighlightProvider")) {
         throw "VS Code extension must keep navigation provider orchestration in navigationProviders.js"
     }
-    if ($ExtensionSource.Contains("function definitionLocationFromLsp") -or $ExtensionSource.Contains("function definitionLocationFromSnapshotSymbols") -or $ExtensionSource.Contains("function workspaceSymbolInformationFromLsp") -or $ExtensionSource.Contains("function documentSymbolsFromSnapshot") -or $ExtensionSource.Contains("function definitionNameCandidates") -or $ExtensionSource.Contains("function identifierPathRangeAt")) {
+    if ($ExtensionSource.Contains("function definitionLocationFromLsp") -or $ExtensionSource.Contains("function definitionLocationFromSnapshotSymbols") -or $ExtensionSource.Contains("function workspaceSymbolInformationFromLsp") -or $ExtensionSource.Contains("function documentSymbolsFromSnapshot") -or $ExtensionSource.Contains("function documentHighlightsFromLsp") -or $ExtensionSource.Contains("function definitionNameCandidates") -or $ExtensionSource.Contains("function identifierPathRangeAt")) {
         throw "VS Code extension must keep LSP navigation conversion in lspNavigation.js"
     }
     if ($ExtensionSource.Contains("function vscodeRangeFromLsp") -or $LspCodeActionsSource.Contains("function vscodeRangeFromLsp")) {
@@ -6362,6 +6378,18 @@ function Assert-VscodeExtensionContract {
     )) {
         if (-not $LspCliSource.Contains($RequiredLspDefinitionToken)) {
             throw "eng-lsp CLI missing stdin definition token $RequiredLspDefinitionToken"
+        }
+    }
+    foreach ($RequiredLspDocumentHighlightToken in @(
+        '"documentHighlightProvider": true',
+        "textDocument/documentHighlight",
+        "--document-highlights-stdin",
+        "command_document_highlights_stdin",
+        "document_highlights_for_request",
+        "semantic_symbol_scope"
+    )) {
+        if (-not $LspCliSource.Contains($RequiredLspDocumentHighlightToken)) {
+            throw "eng-lsp CLI missing semantic document highlight token $RequiredLspDocumentHighlightToken"
         }
     }
     foreach ($RequiredLspSemanticToken in @(
@@ -6847,11 +6875,13 @@ function Assert-VscodeExtensionContract {
         $RuntimeDiscoveryPath,
         $ReviewPanelRendererPath,
         $CaseRunCompletionTestPath,
+        $DocumentHighlightsTestPath,
         $EditorRequestRaceTestPath,
         $TextMateExampleCoverageTestPath
     )
     Invoke-JavaScriptSyntaxCheck -Paths $VscodeJavaScriptPaths -Label "VS Code extension"
     Invoke-JavaScriptProgram -Path $CaseRunCompletionTestPath -Label "VS Code native case run completion smoke"
+    Invoke-JavaScriptProgram -Path $DocumentHighlightsTestPath -Label "VS Code semantic document highlight smoke"
     Invoke-JavaScriptProgram -Path $EditorRequestRaceTestPath -Label "VS Code editor request race smoke"
     Invoke-JavaScriptProgram -Path $TextMateExampleCoverageTestPath -Label "VS Code TextMate example coverage smoke"
 
@@ -7015,6 +7045,13 @@ function Invoke-IdeCheck {
         "data-go-to-definition",
         'call("ide_definition", request)',
         'event.key === "F12"',
+        "showDocumentHighlightsAtCaret",
+        "currentDocumentHighlights",
+        "renderDocumentHighlightReferences",
+        "documentHighlightKindForToken",
+        "data-show-document-highlights",
+        'call("ide_document_highlights", request)',
+        'event.key === "F12" && event.shiftKey',
         "editorHighlight",
         "renderHighlightedSource",
         "renderLexicalHighlightedLine",
@@ -7253,6 +7290,7 @@ function Invoke-IdeCheck {
         "data-copy-source-token",
         "setStatus",
         "selectSourceTokenRange",
+        "Math.trunc(startByte + lengthBytes)",
         "data-source-token-line",
         "sourceLineRange",
         "sourceColumnStart",
@@ -7597,8 +7635,16 @@ function Invoke-IdeCheck {
             throw "Native IDE CSS missing semantic modifier style $ModifierStyle"
         }
     }
+    foreach ($DocumentHighlightStyle in @(".hl-reference", ".hl-reference-read", ".hl-reference-write")) {
+        if (-not $IdeUiStyles.Contains($DocumentHighlightStyle)) {
+            throw "Native IDE CSS missing semantic document highlight style $DocumentHighlightStyle"
+        }
+    }
+    if ($IdeUiSource.Contains("byteOffsetToCodeUnit(line, startByte)") -or $IdeUiSource.Contains("byteOffsetToCodeUnit(lineRange.text, startByte)")) {
+        throw "Native IDE semantic token ranges must use LSP UTF-16 offsets directly"
+    }
     $IdeMainSource = Get-Content -LiteralPath $TauriMainPath -Raw
-    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "document_symbols", "document_symbols_lsp_json", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_items", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completions_use_lsp_editor_items", "check_view_surfaces_lsp_semantic_tokens", "ide_definition", "--definition-stdin", "bundled_lsp_executable", "parse_definition_output", "Stdio::piped()", "definition_output_accepts_null_and_complete_locations", "one-line EngLang statement such as", "cd <dir>", "diagnostic_view_from_lsp", "diagnostic_view_from_parts", 'range_text: format!("L{line}:C{column}-C{end_column}")', 'include_str!("../ui/app.js")', 'include_str!("main.rs")')) {
+    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "document_symbols", "document_symbols_lsp_json", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_items", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completions_use_lsp_editor_items", "check_view_surfaces_lsp_semantic_tokens", "ide_definition", "--definition-stdin", "ide_document_highlights", "--document-highlights-stdin", "run_lsp_position_query", "parse_document_highlights_output", "bundled_lsp_executable", "parse_definition_output", "Stdio::piped()", "definition_output_accepts_null_and_complete_locations", "document_highlight_output_accepts_complete_read_and_write_ranges", "one-line EngLang statement such as", "cd <dir>", "diagnostic_view_from_lsp", "diagnostic_view_from_parts", 'range_text: format!("L{line}:C{column}-C{end_column}")', 'include_str!("../ui/app.js")', 'include_str!("main.rs")')) {
         if (-not $IdeMainSource.Contains($RequiredIdeBackendToken)) {
             throw "Native IDE backend missing contract token $RequiredIdeBackendToken"
         }

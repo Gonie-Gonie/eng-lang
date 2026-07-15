@@ -2,6 +2,7 @@ const {
   definitionLocationFromLsp,
   definitionLocationFromSnapshotSymbols,
   definitionNameCandidates,
+  documentHighlightsFromLsp,
   documentSymbolsFromSnapshot,
   workspaceSymbolInformationFromLsp
 } = require("./lspNavigation");
@@ -95,8 +96,34 @@ class EngDefinitionProvider {
   }
 }
 
+class EngDocumentHighlightProvider {
+  constructor(context, options = {}) {
+    this.context = context;
+    this.isEngDocument = options.isEngDocument ?? (() => true);
+    this.documentHighlightsForPosition = options.documentHighlightsForPosition;
+  }
+
+  async provideDocumentHighlights(document, position, cancellationToken) {
+    if (!this.isEngDocument(document)) {
+      return [];
+    }
+    const documentVersion = document.version;
+    const payload = await this.documentHighlightsForPosition?.(
+      document,
+      position,
+      this.context,
+      cancellationToken
+    );
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return [];
+    }
+    return documentHighlightsFromLsp(payload);
+  }
+}
+
 module.exports = {
   EngDefinitionProvider,
+  EngDocumentHighlightProvider,
   EngDocumentSymbolProvider,
   EngWorkspaceSymbolProvider
 };

@@ -402,11 +402,48 @@ fn ide_definition(
     line: usize,
     character: usize,
 ) -> Result<Value, String> {
+    let output = run_lsp_position_query(
+        &path,
+        &source,
+        line,
+        character,
+        "--definition-stdin",
+        "Definition lookup",
+    )?;
+    parse_definition_output(&output)
+}
+
+#[tauri::command]
+fn ide_document_highlights(
+    path: String,
+    source: String,
+    line: usize,
+    character: usize,
+) -> Result<Value, String> {
+    let output = run_lsp_position_query(
+        &path,
+        &source,
+        line,
+        character,
+        "--document-highlights-stdin",
+        "Document highlight lookup",
+    )?;
+    parse_document_highlights_output(&output)
+}
+
+fn run_lsp_position_query(
+    path: &str,
+    source: &str,
+    line: usize,
+    character: usize,
+    command: &str,
+    operation: &str,
+) -> Result<Vec<u8>, String> {
     let root = workspace_root();
-    let source_path = resolve_path(&root, &path);
+    let source_path = resolve_path(&root, path);
     let runtime = bundled_lsp_executable()?;
     let mut child = Command::new(&runtime)
-        .arg("--definition-stdin")
+        .arg(command)
         .arg(&source_path)
         .arg(line.to_string())
         .arg(character.to_string())
@@ -419,21 +456,21 @@ fn ide_definition(
     child
         .stdin
         .take()
-        .ok_or_else(|| "Definition lookup input was unavailable.".to_owned())?
+        .ok_or_else(|| format!("{operation} input was unavailable."))?
         .write_all(source.as_bytes())
-        .map_err(|error| format!("Could not send current buffer for definition lookup: {error}"))?;
+        .map_err(|error| format!("{operation} could not receive the current buffer: {error}"))?;
     let output = child
         .wait_with_output()
-        .map_err(|error| format!("Definition lookup did not finish: {error}"))?;
+        .map_err(|error| format!("{operation} did not finish: {error}"))?;
     if !output.status.success() {
         let detail = String::from_utf8_lossy(&output.stderr).trim().to_owned();
         return Err(if detail.is_empty() {
-            format!("Definition lookup failed with {}.", output.status)
+            format!("{operation} failed with {}.", output.status)
         } else {
-            format!("Definition lookup failed: {detail}")
+            format!("{operation} failed: {detail}")
         });
     }
-    parse_definition_output(&output.stdout)
+    Ok(output.stdout)
 }
 
 #[tauri::command]
@@ -729,6 +766,7 @@ fn main() {
             ide_save_file,
             ide_check,
             ide_definition,
+            ide_document_highlights,
             ide_format,
             ide_run,
             ide_terminal,
@@ -2539,6 +2577,34 @@ fn parse_definition_output(output: &[u8]) -> Result<Value, String> {
     Ok(value)
 }
 
+fn parse_document_highlights_output(output: &[u8]) -> Result<Value, String> {
+    let value = serde_json::from_slice::<Value>(output)
+        .map_err(|error| format!("Could not read document highlight result: {error}"))?;
+    let highlights = value
+        .as_array()
+        .ok_or_else(|| "Document highlight lookup returned a non-array result.".to_owned())?;
+    for highlight in highlights {
+        let complete_range = [
+            "/range/start/line",
+            "/range/start/character",
+            "/range/end/line",
+            "/range/end/character",
+        ]
+        .iter()
+        .all(|pointer| highlight.pointer(pointer).and_then(Value::as_u64).is_some());
+        let valid_kind = highlight
+            .get("kind")
+            .and_then(Value::as_u64)
+            .is_some_and(|kind| (1..=3).contains(&kind));
+        if !complete_range || !valid_kind {
+            return Err(
+                "Document highlight lookup returned an incomplete range or kind.".to_owned(),
+            );
+        }
+    }
+    Ok(value)
+}
+
 fn workspace_root() -> PathBuf {
     let current_dir = env::current_dir().ok();
     let exe_dir = env::current_exe()
@@ -4006,6 +4072,12 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         r#"parts.push(`overlaps ${lineOverlaps.length}`)"#,
         "function renderSemanticOverlapSummary(overlaps)",
         "No overlapping semantic highlight ranges for the current check.",
+        "function showDocumentHighlightsAtCaret()",
+        "function renderDocumentHighlightReferences()",
+        "function documentHighlightKindForToken(token, lineIndex)",
+        r#"call("ide_document_highlights", request)"#,
+        "data-show-document-highlights",
+        r#"event.key === "F12" && event.shiftKey"#,
         "const LIVE_CHECK_DELAY_MS = 350;",
         "function scheduleLiveCheck()",
         "function runLiveCheck(request)",
@@ -4131,6 +4203,9 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "diagnostic_view_from_parts",
         r#"range_text: format!("L{line}:C{column}-C{end_column}")"#,
         "snapshot_from_report_with_source(report, Some(source))",
+        "ide_document_highlights",
+        "--document-highlights-stdin",
+        "parse_document_highlights_output",
     ] {
         if !main_rs.contains(required) {
             return Err(format!(
@@ -4154,6 +4229,13 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         return Err(
             "native IDE keyword fallback must use syntax_catalog keywords and keyword_groups instead of a JS fallback list"
                 .to_owned(),
+        );
+    }
+    if app_js.contains("byteOffsetToCodeUnit(line, startByte)")
+        || app_js.contains("byteOffsetToCodeUnit(lineRange.text, startByte)")
+    {
+        return Err(
+            "native IDE semantic token ranges must use LSP UTF-16 offsets directly".to_owned(),
         );
     }
     if app_js.contains("FALLBACK_LEXICAL_CONSTANTS") {
@@ -4405,6 +4487,39 @@ with {
         )
         .unwrap_err();
         assert!(error.contains("incomplete source location"));
+    }
+
+    #[test]
+    fn document_highlight_output_accepts_complete_read_and_write_ranges() {
+        let highlights = json!([
+            {
+                "range": {
+                    "start": { "line": 1, "character": 4 },
+                    "end": { "line": 1, "character": 10 }
+                },
+                "kind": 3
+            },
+            {
+                "range": {
+                    "start": { "line": 4, "character": 12 },
+                    "end": { "line": 4, "character": 18 }
+                },
+                "kind": 2
+            }
+        ]);
+        assert_eq!(
+            parse_document_highlights_output(highlights.to_string().as_bytes()).unwrap(),
+            highlights
+        );
+    }
+
+    #[test]
+    fn document_highlight_output_rejects_incomplete_items() {
+        let error = parse_document_highlights_output(
+            br#"[{"range":{"start":{"line":1,"character":2}},"kind":2}]"#,
+        )
+        .unwrap_err();
+        assert!(error.contains("incomplete range or kind"));
     }
 
     #[test]

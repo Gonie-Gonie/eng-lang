@@ -96,7 +96,10 @@ Editor
   jumps to the compiler-resolved definition using the current unsaved buffer.
   Definitions in the current file, static imports, and bundled stdlib modules
   open at their exact UTF-16 source range; an already-open dirty target tab is
-  reused without reloading it from disk. The
+  reused without reloading it from disk. Shift+F12 or References highlights
+  compiler-recognized reads and writes for the caret symbol in the current file;
+  comments, plain strings, literals, units, and same-named locals in other
+  function scopes are excluded. The
   `{}`, `[]`, `()`, and `"` auto-close or wrap selections. Typing `}` on an
   indented blank line aligns the brace with its block, and Backspace removes an
   empty pair. Format applies the same compiler-owned formatter used by VS Code
@@ -121,7 +124,9 @@ Right Sidebar
   artifact outlines are summarized in tables. The Highlight tab shows whether
   analysis is current, in progress, or unavailable, plus filtered counts,
   color-coded domain coverage, highlight categories, source ranges, and
-  per-highlight copy actions from the latest buffer analysis. The Network
+  per-highlight copy actions from the latest buffer analysis. It also lists
+  current-file semantic references requested from the caret and lets each read
+  or write range jump back into the editor. The Network
   tab summarizes network boundaries, network events, cache events, hashes, and
   cache keys for workflows that use `eng.net` or `eng.cache`. Uncertain scalar
   bindings also appear in the variable view with their representation and

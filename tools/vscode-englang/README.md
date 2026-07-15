@@ -11,7 +11,7 @@ embedding compiler logic in JavaScript.
 - stable file diagnostics from the EngLang CLI checker, with code links,
   token-precise ranges, option-value underlines, and legacy/deprecated tags in VS Code Problems
 - optional live editor diagnostics, hover, completion, document/workspace
-  symbols, and folding for the current unsaved buffer
+  symbols, semantic same-symbol highlights, and folding for the current unsaved buffer
 - debounced diagnostics for unsaved buffers after a short typing pause
 - a clickable EngLang Problems status bar item showing file/live mode,
   current error/warning/info/hint counts, and a Tooling Status shortcut
@@ -33,6 +33,8 @@ embedding compiler logic in JavaScript.
 - hover from compiler review metadata
 - position-aware completion from compiler/editor metadata
 - current-file go-to-definition from document symbols
+- compiler-backed same-symbol read/write highlighting in the current file, excluding
+  strings, comments, literals, units, and same-named locals in other function scopes
 - workspace symbol search across `.eng` files in the open workspace
 - compiler-owned snippets from generated editor metadata, plus non-overlapping static snippets from `snippets/eng.json`
 - quick fixes for `:=`, boolean `==`, stale `struct Args`, removable `script` wrapper
@@ -159,7 +161,7 @@ englang.lspPath = C:\path\to\eng-lsp.exe
 
 The extension is a local editor client for the bundled EngLang tooling. It uses
 on-demand live editor checks for live Problems, hover, completion, document
-symbols, workspace symbols, folding, role-aware highlight data, definition, formatting,
+symbols, workspace symbols, folding, role-aware color data, same-symbol highlights, definition, formatting,
 and quick fixes. This keeps VS Code behavior aligned with the compiler while
 the long-running editor protocol continues to evolve. The default diagnostics
 mode runs stable file checks on open/save and manual check. Set

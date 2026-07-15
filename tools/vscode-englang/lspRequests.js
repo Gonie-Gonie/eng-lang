@@ -237,6 +237,20 @@ function createLspRequests(options = {}) {
     });
   }
 
+  function documentHighlightsForPosition(document, position, context, cancellationToken) {
+    return stdinJsonRequest(document, context, cancellationToken, {
+      args: [
+        "--document-highlights-stdin",
+        document.uri.fsPath,
+        String(position.line),
+        String(position.character)
+      ],
+      errorMessage: "Document highlight lookup failed",
+      parseMessage: "Unable to parse EngLang document highlight data",
+      normalize: (payload) => Array.isArray(payload) ? payload : []
+    });
+  }
+
   function formatDocumentSource(document, context, cancellationToken) {
     return stdinJsonRequest(document, context, cancellationToken, {
       args: ["--format-stdin", document.uri.fsPath],
@@ -317,6 +331,7 @@ function createLspRequests(options = {}) {
     workspaceSymbolsForQuery,
     completionSnapshotForPosition,
     definitionSnapshotForPosition,
+    documentHighlightsForPosition,
     formatDocumentSource,
     codeActionsForDocumentSource
   };

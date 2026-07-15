@@ -11,6 +11,7 @@ const { EngFormattingProvider } = require("./formattingProvider");
 const { EngHoverProvider } = require("./hoverProvider");
 const {
   EngDefinitionProvider,
+  EngDocumentHighlightProvider,
   EngDocumentSymbolProvider,
   EngWorkspaceSymbolProvider
 } = require("./navigationProviders");
@@ -359,6 +360,13 @@ function activate(context) {
         cachedSnapshotForDocument: (document) => reviewCache.get(document.uri.fsPath),
         cacheSnapshotForDocument: (document, snapshot) => reviewCache.set(document.uri.fsPath, snapshot),
         appendOutputLine
+      })
+    ),
+    vscode.languages.registerDocumentHighlightProvider(
+      LANGUAGE_ID,
+      new EngDocumentHighlightProvider(context, {
+        isEngDocument,
+        documentHighlightsForPosition: lspRequests.documentHighlightsForPosition
       })
     ),
     vscode.languages.registerFoldingRangeProvider(

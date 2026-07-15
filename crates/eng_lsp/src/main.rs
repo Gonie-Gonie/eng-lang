@@ -43,6 +43,9 @@ fn main() -> std::process::ExitCode {
     if args.first().map(String::as_str) == Some("--definition-stdin") {
         return command_definition_stdin(args.get(1), args.get(2), args.get(3));
     }
+    if args.first().map(String::as_str) == Some("--document-highlights-stdin") {
+        return command_document_highlights_stdin(args.get(1), args.get(2), args.get(3));
+    }
     if args.first().map(String::as_str) == Some("--workspace-symbols") {
         return command_workspace_symbols(args.get(1), args.get(2));
     }
@@ -332,6 +335,37 @@ fn command_definition_stdin(
     std::process::ExitCode::SUCCESS
 }
 
+fn command_document_highlights_stdin(
+    path: Option<&String>,
+    line: Option<&String>,
+    character: Option<&String>,
+) -> std::process::ExitCode {
+    let Some(path) = path else {
+        eprintln!("usage: eng-lsp --document-highlights-stdin <file.eng> <line> <character>");
+        return std::process::ExitCode::from(2);
+    };
+    let Some((line, character)) = parse_position(line, character) else {
+        eprintln!("usage: eng-lsp --document-highlights-stdin <file.eng> <line> <character>");
+        return std::process::ExitCode::from(2);
+    };
+    let mut source = String::new();
+    if let Err(error) = std::io::stdin().read_to_string(&mut source) {
+        eprintln!("failed to read EngLang source from stdin: {error}");
+        return std::process::ExitCode::from(1);
+    }
+    let uri = file_uri_from_path(Path::new(path));
+    let request = json!({
+        "params": {
+            "textDocument": { "uri": uri },
+            "position": { "line": line, "character": character }
+        }
+    });
+    let mut documents = Documents::new();
+    documents.insert(uri, DocumentState::new(source, None));
+    println!("{}", document_highlights_for_request(&request, &documents));
+    std::process::ExitCode::SUCCESS
+}
+
 fn parse_position(line: Option<&String>, character: Option<&String>) -> Option<(usize, usize)> {
     Some((
         line?.parse::<usize>().ok()?,
@@ -428,6 +462,7 @@ fn run_lsp() -> io::Result<()> {
                                 },
                                 "hoverProvider": true,
                                 "definitionProvider": true,
+                                "documentHighlightProvider": true,
                                 "documentSymbolProvider": true,
                                 "workspaceSymbolProvider": true,
                                 "foldingRangeProvider": true,
@@ -496,6 +531,13 @@ fn run_lsp() -> io::Result<()> {
                 write_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": definition }),
+                )?;
+            }
+            "textDocument/documentHighlight" => {
+                let highlights = document_highlights_for_request(&request, &documents);
+                write_response(
+                    &mut output,
+                    json!({ "jsonrpc": "2.0", "id": id, "result": highlights }),
                 )?;
             }
             "textDocument/codeAction" => {
@@ -5284,6 +5326,235 @@ fn definition_for_request(request: &Value, documents: &Documents) -> Option<Valu
     Some(definition_location_json(&target))
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct DocumentHighlightTarget {
+    line: usize,
+    start_character: usize,
+    end_character: usize,
+    kind: u8,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct DocumentHighlightScope {
+    start_line: usize,
+    end_line: usize,
+}
+
+fn document_highlights_for_request(request: &Value, documents: &Documents) -> Value {
+    let Some(uri) = request_uri(request) else {
+        return json!([]);
+    };
+    let Some(text) = document_text_for_uri(uri, documents) else {
+        return json!([]);
+    };
+    let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
+    let line = request
+        .pointer("/params/position/line")
+        .and_then(Value::as_u64)
+        .unwrap_or(0) as usize;
+    let character = request
+        .pointer("/params/position/character")
+        .and_then(Value::as_u64)
+        .unwrap_or(0) as usize;
+    let snapshot = snapshot_for_source(&path, &text);
+    let Some(selected) =
+        semantic_symbol_token_at_position(&snapshot.semantic_tokens.tokens, line, character)
+    else {
+        return json!([]);
+    };
+    let Some(label) = semantic_token_text(&text, selected) else {
+        return json!([]);
+    };
+    let Some(family) = semantic_symbol_family(&selected.token_type, &selected.modifiers) else {
+        return json!([]);
+    };
+    let selected_is_local = has_semantic_modifier(selected, "local");
+    let selected_member_receiver = semantic_member_receiver(&text, selected);
+    let scope = semantic_symbol_scope(&text, &snapshot.hovers, selected, &label);
+    let highlights = snapshot
+        .semantic_tokens
+        .tokens
+        .iter()
+        .filter(|token| {
+            semantic_symbol_family(&token.token_type, &token.modifiers) == Some(family)
+                && has_semantic_modifier(token, "local") == selected_is_local
+                && (!matches!(family, "property" | "method")
+                    || semantic_member_receiver(&text, token) == selected_member_receiver)
+                && scope.is_none_or(|scope| {
+                    token.line >= scope.start_line && token.line <= scope.end_line
+                })
+                && semantic_token_text(&text, token).as_deref() == Some(label.as_str())
+        })
+        .map(|token| DocumentHighlightTarget {
+            line: token.line,
+            start_character: token.start,
+            end_character: token.start + token.length,
+            kind: document_highlight_kind(&text, token),
+        })
+        .collect::<Vec<_>>();
+    json!(highlights
+        .iter()
+        .map(document_highlight_json)
+        .collect::<Vec<_>>())
+}
+
+fn has_semantic_modifier(token: &eng_lsp::LspSemanticToken, modifier: &str) -> bool {
+    token
+        .modifiers
+        .iter()
+        .any(|candidate| candidate == modifier)
+}
+
+fn semantic_symbol_token_at_position<'a>(
+    tokens: &'a [eng_lsp::LspSemanticToken],
+    line: usize,
+    character: usize,
+) -> Option<&'a eng_lsp::LspSemanticToken> {
+    tokens
+        .iter()
+        .filter(|token| {
+            token.line == line
+                && semantic_symbol_family(&token.token_type, &token.modifiers).is_some()
+                && character >= token.start
+                && character < token.start + token.length
+        })
+        .min_by_key(|token| token.length)
+        .or_else(|| {
+            tokens
+                .iter()
+                .filter(|token| {
+                    token.line == line
+                        && semantic_symbol_family(&token.token_type, &token.modifiers).is_some()
+                        && character == token.start + token.length
+                })
+                .min_by_key(|token| token.length)
+        })
+}
+
+fn semantic_symbol_family<'a>(token_type: &'a str, modifiers: &[String]) -> Option<&'a str> {
+    if modifiers.iter().any(|modifier| modifier == "unit") {
+        return None;
+    }
+    match token_type {
+        "type" | "class" | "interface" => Some("type"),
+        "namespace" | "parameter" | "variable" | "property" | "function" | "method" => {
+            Some(token_type)
+        }
+        _ => None,
+    }
+}
+
+fn semantic_token_text(source: &str, token: &eng_lsp::LspSemanticToken) -> Option<String> {
+    let line = source.lines().nth(token.line)?;
+    let start = utf16_character_to_byte(line, token.start);
+    let end = utf16_character_to_byte(line, token.start + token.length);
+    (start < end && end <= line.len()).then(|| line[start..end].to_owned())
+}
+
+fn semantic_member_receiver(source: &str, token: &eng_lsp::LspSemanticToken) -> Option<String> {
+    if !matches!(token.token_type.as_str(), "property" | "method") {
+        return None;
+    }
+    let line = source.lines().nth(token.line)?;
+    let start = utf16_character_to_byte(line, token.start);
+    let bytes = line.as_bytes();
+    if start == 0 || bytes.get(start - 1) != Some(&b'.') {
+        return None;
+    }
+    let mut receiver_start = start - 1;
+    while receiver_start > 0 && is_symbol_byte(bytes[receiver_start - 1]) {
+        receiver_start -= 1;
+    }
+    let receiver = line[receiver_start..start - 1].trim_matches('.');
+    (!receiver.is_empty()).then(|| receiver.to_owned())
+}
+
+fn semantic_symbol_scope(
+    source: &str,
+    hovers: &[eng_lsp::LspHover],
+    selected: &eng_lsp::LspSemanticToken,
+    label: &str,
+) -> Option<DocumentHighlightScope> {
+    let is_local = has_semantic_modifier(selected, "local");
+    if !is_local && selected.token_type != "parameter" {
+        return None;
+    }
+
+    let lines = source.lines().collect::<Vec<_>>();
+    let mut scopes = Vec::new();
+    for hover in hovers
+        .iter()
+        .filter(|hover| matches!(hover.kind.as_str(), "function" | "component") && hover.line > 0)
+    {
+        let start_line = hover.line - 1;
+        let Some(end_line) = matching_block_end_line(&lines, start_line) else {
+            continue;
+        };
+        if selected.line >= start_line && selected.line <= end_line {
+            scopes.push(DocumentHighlightScope {
+                start_line,
+                end_line,
+            });
+        }
+    }
+
+    if hovers.iter().any(|hover| {
+        hover.kind == "where_local"
+            && definition_label_for_hover_name(&hover.name) == label
+            && hover.line > 0
+    }) {
+        for start_line in 0..lines.len() {
+            if !is_where_block_start(lines[start_line]) {
+                continue;
+            }
+            let Some(end_line) = matching_block_end_line(&lines, start_line) else {
+                continue;
+            };
+            let scope_start = start_line.saturating_sub(1);
+            if selected.line >= scope_start && selected.line <= end_line {
+                scopes.push(DocumentHighlightScope {
+                    start_line: scope_start,
+                    end_line,
+                });
+            }
+        }
+    }
+
+    scopes
+        .into_iter()
+        .min_by_key(|scope| scope.end_line.saturating_sub(scope.start_line))
+}
+
+fn document_highlight_kind(source: &str, token: &eng_lsp::LspSemanticToken) -> u8 {
+    if token
+        .modifiers
+        .iter()
+        .any(|modifier| matches!(modifier.as_str(), "declaration" | "definition"))
+    {
+        return 3;
+    }
+    let Some(line) = source.lines().nth(token.line) else {
+        return 2;
+    };
+    let end = utf16_character_to_byte(line, token.start + token.length);
+    let suffix = line.get(end..).unwrap_or("").trim_start();
+    if suffix.starts_with('=') && !suffix.starts_with("==") && !suffix.starts_with("=>") {
+        3
+    } else {
+        2
+    }
+}
+
+fn document_highlight_json(target: &DocumentHighlightTarget) -> Value {
+    json!({
+        "range": {
+            "start": { "line": target.line, "character": target.start_character },
+            "end": { "line": target.line, "character": target.end_character }
+        },
+        "kind": target.kind
+    })
+}
+
 fn hover_for_symbol<'a>(
     hovers: &'a [eng_lsp::LspHover],
     symbol: &str,
@@ -5743,6 +6014,19 @@ fn write_response<W: Write>(output: &mut W, value: Value) -> io::Result<()> {
 mod tests {
     use super::*;
 
+    fn document_highlight_request(source: &str, line: usize, character: usize) -> Value {
+        let uri = "file:///C:/workspace/highlights.eng".to_owned();
+        let request = json!({
+            "params": {
+                "textDocument": { "uri": uri },
+                "position": { "line": line, "character": character }
+            }
+        });
+        let mut documents = Documents::new();
+        documents.insert(uri, DocumentState::new(source.to_owned(), Some(1)));
+        document_highlights_for_request(&request, &documents)
+    }
+
     #[test]
     fn option_assignment_range_preserves_trailing_line_comments() {
         let slash_line = "    timeout = 90 s // keep this note";
@@ -5778,5 +6062,96 @@ mod tests {
         assert_eq!(symbol_at_position(source, 0, 9).as_deref(), Some("Q_coil"));
         assert_eq!(symbol_at_position(source, 0, 2), None);
         assert_eq!(symbol_at_position("alpha  beta", 0, 6), None);
+    }
+
+    #[test]
+    fn document_highlights_follow_semantic_identifiers_not_strings_or_comments() {
+        let source = "Q = 5 kW\nE = integrate Q over Time\nprint \"Q={Q}\"\n# Q is a comment\n";
+        let highlights = document_highlight_request(source, 1, 14);
+        let highlights = highlights
+            .as_array()
+            .expect("document highlights should be an array");
+        assert_eq!(highlights.len(), 3);
+        assert_eq!(highlights[0]["range"]["start"]["line"], 0);
+        assert_eq!(highlights[0]["kind"], 3);
+        assert_eq!(highlights[1]["range"]["start"]["line"], 1);
+        assert_eq!(highlights[2]["range"]["start"]["line"], 2);
+        assert!(highlights[1..]
+            .iter()
+            .all(|highlight| highlight["kind"] == 2));
+    }
+
+    #[test]
+    fn document_highlights_keep_local_names_inside_their_function() {
+        let source = r#"fn first(x: Real) -> Real {
+    local_value = x
+    return local_value
+}
+fn second(x: Real) -> Real {
+    local_value = x
+    return local_value
+}
+"#;
+        let highlights = document_highlight_request(source, 2, 12);
+        let highlights = highlights
+            .as_array()
+            .expect("document highlights should be an array");
+        assert_eq!(highlights.len(), 2);
+        assert!(highlights
+            .iter()
+            .all(|highlight| highlight["range"]["start"]["line"].as_u64().unwrap() < 4));
+    }
+
+    #[test]
+    fn document_highlights_do_not_mix_global_and_local_bindings() {
+        let source = r#"value = 5 kW
+energy = integrate value over Time
+fn normalize(x: Real) -> Real {
+    value = x
+    return value
+}
+"#;
+        let highlights = document_highlight_request(source, 1, 19);
+        let highlights = highlights
+            .as_array()
+            .expect("document highlights should be an array");
+        assert_eq!(highlights.len(), 2);
+        assert!(highlights
+            .iter()
+            .all(|highlight| highlight["range"]["start"]["line"].as_u64().unwrap() < 2));
+    }
+
+    #[test]
+    fn document_highlights_ignore_literals_and_units() {
+        let source = "Q = 5 kW\n";
+        assert_eq!(document_highlight_request(source, 0, 4), json!([]));
+        assert_eq!(document_highlight_request(source, 0, 7), json!([]));
+    }
+
+    #[test]
+    fn semantic_member_receiver_uses_the_caret_member_path_and_utf16_offsets() {
+        let source = "\u{1f600}alpha.result + beta.result";
+        let alpha = eng_lsp::LspSemanticToken {
+            line: 0,
+            start: 8,
+            length: 6,
+            token_type: "property".to_owned(),
+            modifiers: Vec::new(),
+        };
+        let beta = eng_lsp::LspSemanticToken {
+            line: 0,
+            start: 22,
+            length: 6,
+            token_type: "property".to_owned(),
+            modifiers: Vec::new(),
+        };
+        assert_eq!(
+            semantic_member_receiver(source, &alpha).as_deref(),
+            Some("alpha")
+        );
+        assert_eq!(
+            semantic_member_receiver(source, &beta).as_deref(),
+            Some("beta")
+        );
     }
 }

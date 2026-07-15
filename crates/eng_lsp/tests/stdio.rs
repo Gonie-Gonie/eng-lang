@@ -77,6 +77,10 @@ fn stdio_server_round_trips_core_lsp_requests() {
         true
     );
     assert_eq!(
+        initialize["result"]["capabilities"]["documentHighlightProvider"],
+        true
+    );
+    assert_eq!(
         initialize["result"]["capabilities"]["documentSymbolProvider"],
         true
     );
@@ -222,6 +226,31 @@ fn stdio_server_round_trips_core_lsp_requests() {
         definition["result"]["range"]["end"]["character"],
         q_coil_definition_char + "Q_coil".len()
     );
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 15,
+            "method": "textDocument/documentHighlight",
+            "params": {
+                "textDocument": { "uri": uri },
+                "position": { "line": q_coil_usage_line, "character": q_coil_usage_char }
+            }
+        }),
+    );
+    let document_highlights = read_message(&mut stdout);
+    assert_eq!(document_highlights["id"], 15);
+    let document_highlights = document_highlights["result"]
+        .as_array()
+        .expect("document highlights should be an array");
+    assert!(document_highlights.len() >= 2);
+    assert!(document_highlights.iter().any(|highlight| {
+        highlight["range"]["start"]["line"] == q_coil_line && highlight["kind"] == 3
+    }));
+    assert!(document_highlights.iter().any(|highlight| {
+        highlight["range"]["start"]["line"] == q_coil_usage_line && highlight["kind"] == 2
+    }));
 
     write_message(
         &mut stdin,
