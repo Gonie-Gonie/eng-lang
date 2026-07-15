@@ -55,7 +55,7 @@ APIs unless a status document says so.
 | `eng.db` | Supported SQLite write scope | Native SQLite append/upsert/replace writes for typed tables with schema metadata, DB manifests, hash before/after records, transaction status, and safe-profile rejection. |
 | `eng.table` | Planned broader APIs | Derived-value execution, fill operations, and richer schema-aware transforms. |
 | `eng.sampling` | Planned broader APIs | Additional design-of-experiments strategies and richer sample manifests. |
-| `eng.case` | Native workflow support; broader runner planned | CaseTable/CaseManifest records and native `apply ... over cases`; run/collect scheduler execution and parallel dispatch remain planned. |
+| `eng.case` | Supported sequential native scope | CaseTable/CaseOutput/CaseRunResult/CaseResultCollection records, native template rendering, typed per-case result expressions, result/run manifests, hash-based resume, and fail/continue policy; parallel and automatic external-adapter dispatch remain planned. |
 | `eng.model` | Supported model-spec and predict-table scope | ModelSpec, FeatureSpec, TargetSpec, model-card, native prediction table, prediction-manifest, confidence, metric, residual, and hash review vocabulary. |
 | `eng.uncertainty` | Native workflow support | Narrow uncertainty constructors, linear propagation metadata, sensor_std TimeSeries review metadata, probability/statistic validation, and report confidence-band artifacts; broad probabilistic propagation remains planned. |
 | `eng.building` | Planned | Building/Zone/Construction object vocabulary before simulation adapters. |

@@ -807,6 +807,7 @@ pub struct SemanticProgram {
     pub config_promotions: Vec<ConfigPromotion>,
     pub sample_generations: Vec<SampleGenerationInfo>,
     pub table_transforms: Vec<TableTransformInfo>,
+    pub case_runs: Vec<crate::case::CaseRunInfo>,
     pub net_requests: Vec<NetRequestInfo>,
     pub net_downloads: Vec<NetDownloadInfo>,
     pub cache_records: Vec<CacheRecordInfo>,
@@ -1539,6 +1540,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             config_promotions: Vec::new(),
             sample_generations,
             table_transforms: Vec::new(),
+            case_runs: Vec::new(),
             net_requests: Vec::new(),
             net_downloads: Vec::new(),
             cache_records: Vec::new(),
@@ -2324,7 +2326,11 @@ fn analyze_with_blocks(
                 command_styles,
                 block.owner_line,
             ));
-            extra_known_options.extend(with_owner_apply_options(command_styles, block.owner_line));
+            extra_known_options.extend(with_owner_apply_options(
+                program,
+                command_styles,
+                block.owner_line,
+            ));
             extra_known_options.extend(with_owner_materialize_options(program, block.owner_line));
             extra_known_options.extend(with_owner_process_options(program, block.owner_line));
             extra_known_options.extend(with_owner_sample_options(program, block.owner_line));
@@ -2480,6 +2486,7 @@ fn with_owner_template_options(
 }
 
 fn with_owner_apply_options(
+    program: &ParsedProgram,
     command_styles: &[CommandStyleInfo],
     owner_line: Option<usize>,
 ) -> HashSet<String> {
@@ -2495,7 +2502,7 @@ fn with_owner_apply_options(
     if command.verb != "apply" {
         return HashSet::new();
     }
-    [
+    let mut options = [
         "template",
         "values",
         "output",
@@ -2505,7 +2512,21 @@ fn with_owner_apply_options(
     ]
     .into_iter()
     .map(str::to_owned)
-    .collect()
+    .collect::<HashSet<_>>();
+    if command.target == "run_case" {
+        options.extend(program.items.iter().filter_map(|item| match item {
+            AstItem::WithOption(option) if option.owner_line == Some(owner_line) => {
+                Some(option.key.clone())
+            }
+            _ => None,
+        }));
+        options.extend(
+            ["results", "result", "manifest", "on_error", "resume"]
+                .into_iter()
+                .map(str::to_owned),
+        );
+    }
+    options
 }
 
 fn with_owner_materialize_options(
@@ -5969,7 +5990,10 @@ fn table_metadata_field_semantic_type(
         "case_count"
             if matches!(
                 quantity_kind,
-                "Table[Case]" | "Table[CaseOutput]" | "Table[CaseResultCollection]"
+                "Table[Case]"
+                    | "Table[CaseOutput]"
+                    | "Table[CaseRunResult]"
+                    | "Table[CaseResultCollection]"
             ) =>
         {
             semantic_type("Count", "count")
@@ -5983,10 +6007,15 @@ fn table_metadata_field_semantic_type(
         "expected_count" | "rendered_count" if quantity_kind == "Table[CaseOutput]" => {
             semantic_type("Count", "count")
         }
-        "blocked_count"
+        "ready_count" | "succeeded_count" | "failed_count" | "skipped_count"
+            if quantity_kind == "Table[CaseRunResult]" =>
+        {
+            semantic_type("Count", "count")
+        }
+        "blocked_count" | "waiting_count"
             if matches!(
                 quantity_kind,
-                "Table[CaseOutput]" | "Table[CaseResultCollection]"
+                "Table[CaseOutput]" | "Table[CaseRunResult]" | "Table[CaseResultCollection]"
             ) =>
         {
             semantic_type("Count", "count")
@@ -5994,7 +6023,7 @@ fn table_metadata_field_semantic_type(
         "output_count" | "manifest_count"
             if matches!(
                 quantity_kind,
-                "Table[CaseOutput]" | "Table[CaseResultCollection]"
+                "Table[CaseOutput]" | "Table[CaseRunResult]" | "Table[CaseResultCollection]"
             ) =>
         {
             semantic_type("Count", "count")
@@ -6010,7 +6039,10 @@ fn table_metadata_field_semantic_type(
         "status"
             if matches!(
                 quantity_kind,
-                "Table[Case]" | "Table[CaseOutput]" | "Table[CaseResultCollection]"
+                "Table[Case]"
+                    | "Table[CaseOutput]"
+                    | "Table[CaseRunResult]"
+                    | "Table[CaseResultCollection]"
             ) =>
         {
             semantic_type("String", "")
@@ -12051,9 +12083,12 @@ fn exposed_workflow_option_key(key: &str) -> bool {
                 | "mode"
                 | "n"
                 | "offset"
+                | "on_error"
                 | "output_root"
                 | "query"
                 | "relative_error"
+                | "result"
+                | "results"
                 | "response_body_limit"
                 | "return_column"
                 | "scale"
@@ -12063,6 +12098,7 @@ fn exposed_workflow_option_key(key: &str) -> bool {
                 | "status"
                 | "status_code"
                 | "step"
+                | "manifest"
                 | "target"
                 | "template"
                 | "test"
@@ -12574,6 +12610,10 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
         return semantic_type("Table[CaseOutput]", "eng.case");
     }
 
+    if case_run_source_binding(expression).is_some() {
+        return semantic_type("Table[CaseRunResult]", "eng.case");
+    }
+
     if collect_results_source_binding(expression).is_some() {
         return semantic_type("Table[CaseResultCollection]", "eng.case");
     }
@@ -12734,24 +12774,21 @@ fn case_apply_cases_binding(expression: &str) -> Option<&str> {
     }
 }
 
+fn case_run_source_binding(expression: &str) -> Option<&str> {
+    let apply = case_apply_expression(expression)?;
+    (apply.step == "run_case").then_some(apply.cases)
+}
+
 fn unsupported_case_apply_step_diagnostic(binding: &FastBinding) -> Option<Diagnostic> {
     let apply = case_apply_expression(&binding.expression)?;
-    if apply.step == "case_input_template" {
+    if matches!(apply.step, "case_input_template" | "run_case") {
         return None;
-    }
-    if apply.step == "run_case" {
-        return Some(Diagnostic::error(
-            "E-CASE-RUN-SCHEDULER-UNSUPPORTED",
-            binding.line,
-            "`apply run_case over ...` is not supported by the native scheduler yet.",
-            Some("Use `apply case_input_template over cases` plus `collect results ...`; use an explicit process adapter when a real external runner is required."),
-        ));
     }
     Some(Diagnostic::error(
         "E-CASE-APPLY-STEP-UNSUPPORTED",
         binding.line,
         &format!("Case apply step `{}` is not supported.", apply.step),
-        Some("Use `apply case_input_template over cases` for the current native case path."),
+        Some("Use `apply case_input_template over cases` or `apply run_case over case_inputs`."),
     ))
 }
 

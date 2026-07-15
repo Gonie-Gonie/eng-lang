@@ -259,10 +259,13 @@ separate.
   `train regression`, legacy-compatible `regression_table`, and `predict <model> using <table>` materialize
   Table[Prediction] rows and `typed_payload.prediction_manifests[]`; live
   HTTP(S) GET/download execution materializes pinned response/download bodies
-  with cache replay; current native `materialize cases`, `apply ... over cases`,
-  and `collect results <CaseOutput>` syntax materializes CaseTable, CaseOutput,
-  and CaseResultCollection rows for the supported case-table path; `Planned` for general run-case scheduler/resume/cache/failure policy beyond that path, broad DB support, and broader
-  model train syntax.
+  with cache replay; native `materialize cases`, template `apply`, sequential
+  `apply run_case`, and `collect results` materialize CaseTable, CaseOutput,
+  CaseRunResult, and CaseResultCollection rows plus per-case result/run
+  manifests. Hash-based resume, overwrite, and fail/continue policies are
+  implemented for the native expression runner; parallel scheduling,
+  automatic external-adapter dispatch, broad DB support, and broader model
+  train syntax remain `Planned`.
 - User-facing scope: generic module boundaries only. Domain-specific KMA, EPW,
   EnergyPlus, CFD, FEM, or database adapters are examples layered above the
   core, not core language identity.
@@ -283,8 +286,9 @@ separate.
   inspector smoke coverage, and
   `docs/current/workflow_modules.md`.
   The native surrogate workflow now records native sample rows,
-  CaseOutput rows from `apply ... over cases`, CaseResultCollection rows from
-  `collect results case_inputs`, preserved typed source/result columns across
+  CaseOutput rows from template `apply`, CaseRunResult rows from
+  `apply run_case over case_inputs`, CaseResultCollection rows from
+  `collect results case_runs`, and preserved typed source/result columns across
   every case stage, case_input artifacts, surrogate model specs/cards trained
   from the final collection,
   prediction manifests with output quantity/unit and
@@ -294,7 +298,7 @@ separate.
 - Not included: request bodies/auth beyond `secret env` and broader cache
   invalidation/reuse API,
   general table derived-value execution/fill transforms,
-  broader case collection policies and parallel scheduler, domain weather
+  automatic external-adapter dispatch and parallel case scheduling, domain weather
   adapters, EPW writer, EnergyPlus IDF parser, broad DB engines/query
   APIs/migrations, or ML framework
   support.

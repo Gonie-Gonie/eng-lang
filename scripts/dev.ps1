@@ -909,15 +909,22 @@ function Invoke-WorkflowsTest {
             $ObjectStoreTables = @($ResultData.object_store.objects | Where-Object {
                 [string]$_.kind -eq "table"
             })
-            $TrainingResultsObject = @($ObjectStoreTables | Where-Object {
-                [string]$_.name -eq "training_results"
+            $TrainingDesignsObject = @($ObjectStoreTables | Where-Object {
+                [string]$_.name -eq "training_designs"
             }) | Select-Object -First 1
-            if ($null -eq $TrainingResultsObject) {
-                throw "Workflow 02 native result missing training_results object-store table"
+            if ($null -eq $TrainingDesignsObject) {
+                throw "Workflow 02 native result missing training_designs object-store table"
+            }
+            $CaseRunObject = @($ObjectStoreTables | Where-Object {
+                [string]$_.name -eq "case_runs"
+            }) | Select-Object -First 1
+            if ($null -eq $CaseRunObject) {
+                throw "Workflow 02 native result missing case_runs object-store table"
             }
             $CasePipelineStages = @(
                 @{ Binding = "cases"; StatusColumn = "status"; StatusValue = "pending" },
                 @{ Binding = "case_inputs"; StatusColumn = "status"; StatusValue = "rendered" },
+                @{ Binding = "case_runs"; StatusColumn = "status"; StatusValue = "succeeded" },
                 @{ Binding = "case_result_collection"; StatusColumn = "status"; StatusValue = "collected" }
             )
             foreach ($CasePipelineStage in $CasePipelineStages) {
@@ -927,19 +934,26 @@ function Invoke-WorkflowsTest {
                 if ($null -eq $StageTable) {
                     throw "Workflow 02 native result missing case pipeline table $($CasePipelineStage.Binding)"
                 }
-                foreach ($PreservedColumnName in @(
+                $PreservedColumns = @(
                     "people_density",
                     "lighting_power_density",
                     "equipment_power_density",
                     "cooling_cop",
                     "envelope_load_index",
-                    "occupancy_schedule_index",
-                    "annual_electricity",
-                    "annual_cooling",
-                    "peak_cooling",
-                    "unmet_hours"
-                )) {
-                    $SourceColumn = @($TrainingResultsObject.columns | Where-Object {
+                    "occupancy_schedule_index"
+                )
+                $SourceTable = $TrainingDesignsObject
+                if ($CasePipelineStage.Binding -in @("case_runs", "case_result_collection")) {
+                    $PreservedColumns += @(
+                        "annual_electricity",
+                        "annual_cooling",
+                        "peak_cooling",
+                        "unmet_hours"
+                    )
+                    $SourceTable = $CaseRunObject
+                }
+                foreach ($PreservedColumnName in $PreservedColumns) {
+                    $SourceColumn = @($SourceTable.columns | Where-Object {
                         [string]$_.name -eq $PreservedColumnName
                     }) | Select-Object -First 1
                     $StageColumn = @($StageTable.columns | Where-Object {
@@ -982,6 +996,12 @@ function Invoke-WorkflowsTest {
             }) | Select-Object -First 1
             if ($null -eq $InputStatusColumn -or @($InputStatusColumn.values | Where-Object { [string]$_ -ne "rendered" }).Count -ne 0) {
                 throw "Workflow 02 CaseResultCollection must retain CaseOutput status as input_status"
+            }
+            $RunStatusColumn = @($CaseResultObject.columns | Where-Object {
+                [string]$_.name -eq "run_status"
+            }) | Select-Object -First 1
+            if ($null -eq $RunStatusColumn -or @($RunStatusColumn.values | Where-Object { [string]$_ -ne "succeeded" }).Count -ne 0) {
+                throw "Workflow 02 CaseResultCollection must retain native CaseRunResult status as run_status"
             }
             $CaseSelectionTransform = @($TypedPayload.table_transforms | Where-Object {
                 [string]$_.binding -eq "case_001_rows" -and
@@ -1056,28 +1076,39 @@ function Invoke-WorkflowsTest {
             }
             $CaseManifests = @($TypedPayload.case_manifests)
             foreach ($RequiredCaseManifestGroup in @(
-                @{ SampleTable = "training_designs"; Count = 8 },
-                @{ SampleTable = "designs"; Count = 3 }
+                @{ SampleTable = "training_designs"; Count = 8; Status = "succeeded" },
+                @{ SampleTable = "designs"; Count = 3; Status = "pending" }
             )) {
                 $MatchingCaseManifests = @($CaseManifests | Where-Object {
                     [string]$_.sample_table -eq $RequiredCaseManifestGroup.SampleTable -and
                     [string]$_.source -eq "sample lhs" -and
-                    [string]$_.status -eq "pending"
+                    [string]$_.status -eq $RequiredCaseManifestGroup.Status
                 })
                 if ($MatchingCaseManifests.Count -ne $RequiredCaseManifestGroup.Count) {
                     throw "Workflow 02 native result missing generated case manifests for $($RequiredCaseManifestGroup.SampleTable)"
                 }
             }
-            $AllowedCaseManifestTables = @("training_designs", "designs")
             $UnexpectedCaseManifests = @($CaseManifests | Where-Object {
-                $AllowedCaseManifestTables -notcontains [string]$_.sample_table -or
+                [string]$_.sample_table -notin @("training_designs", "designs") -or
                 [string]$_.source -ne "sample lhs" -or
-                [string]$_.status -ne "pending" -or
                 @($_.process_bindings).Count -ne 0 -or
-                @($_.process_statuses).Count -ne 0
+                ([string]$_.sample_table -eq "training_designs" -and (
+                    [string]$_.status -ne "succeeded" -or
+                    @($_.process_statuses | Where-Object {
+                        [string]$_.name -eq "run_case" -and
+                        [string]$_.command -like "native_expression*" -and
+                        [string]$_.status -eq "succeeded"
+                    }).Count -ne 1 -or
+                    @($_.metrics).Count -ne 4 -or
+                    @($_.result_files).Count -ne 1
+                )) -or
+                ([string]$_.sample_table -eq "designs" -and (
+                    [string]$_.status -ne "pending" -or
+                    @($_.process_statuses).Count -ne 0
+                ))
             } | Select-Object -First 1)
             if ($UnexpectedCaseManifests.Count -gt 0) {
-                throw "Workflow 02 native case manifests must come from sample lhs without process bindings"
+                throw "Workflow 02 native case manifests must expose native run_case results only for training designs"
             }
             foreach ($RequiredSurrogateResultToken in @(
                 '"sample_tables"',
@@ -1087,9 +1118,12 @@ function Invoke-WorkflowsTest {
                 '"binding": "case_inputs"',
                 '"schema_name": "CaseOutput"',
                 '"status": "rendered"',
+                '"binding": "case_runs"',
+                '"schema_name": "CaseRunResult"',
+                '"source": "apply run_case over case_inputs"',
                 '"binding": "case_result_collection"',
                 '"schema_name": "CaseResultCollection"',
-                '"source": "collect results case_inputs"',
+                '"source": "collect results case_runs"',
                 '"model_cards"',
                 '"prediction_manifests"',
                 '"schema_name": "PredictionResult"',
@@ -1109,6 +1143,9 @@ function Invoke-WorkflowsTest {
                 'output = join(args.output, "training_designs_standard.txt")',
                 'write standard_text designs',
                 'output = join(args.output, "prediction_designs_standard.txt")',
+                'case_runs = apply run_case over case_inputs',
+                'results = {',
+                'case_result_collection = collect results case_runs',
                 'train regression case_result_collection',
                 'filter case_result_collection',
                 'write case_result_collection to db.table("simulation_results")'
@@ -1131,6 +1168,8 @@ function Invoke-WorkflowsTest {
             foreach ($RequiredSurrogateOutputToken in @(
                 '"kind": "case_input"',
                 '"kind": "template_render_manifest"',
+                '"kind": "native_case_result"',
+                '"kind": "native_case_run_manifest"',
                 '"kind": "sqlite_database"',
                 '"kind": "db_write_manifest"',
                 '"path": "outputs/training_designs_standard.txt"',

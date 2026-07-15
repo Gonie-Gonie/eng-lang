@@ -6533,7 +6533,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !native_workflow_has_sample_table(&output.result_json, "designs", "84", 3)
                 || !output
                     .result_json
-                    .contains("\"binding\": \"training_results\"")
+                    .contains("\"binding\": \"training_designs\"")
                 || !output.result_json.contains("\"binding\": \"cases\"")
                 || !output
                     .result_json
@@ -6542,6 +6542,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .result_json
                     .contains("\"schema_name\": \"CaseOutput\"")
+                || !output.result_json.contains("\"binding\": \"case_runs\"")
+                || !output
+                    .result_json
+                    .contains("\"schema_name\": \"CaseRunResult\"")
                 || !output
                     .result_json
                     .contains("\"binding\": \"case_result_collection\"")
@@ -6550,13 +6554,16 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"schema_name\": \"CaseResultCollection\"")
                 || !output
                     .result_json
-                    .contains("\"source\": \"collect results case_inputs\"")
+                    .contains("\"source\": \"collect results case_runs\"")
                 || !output
                     .result_json
                     .contains("\"source\": \"apply(case_input_template, over=cases)\"")
                 || !output
                     .result_json
-                    .contains("\"source\": \"materialize cases training_results\"")
+                    .contains("\"source\": \"apply run_case over case_inputs\"")
+                || !output
+                    .result_json
+                    .contains("\"source\": \"materialize cases training_designs\"")
                 || !output
                     .result_json
                     .contains("\"generation\": \"sample_lhs\"")
@@ -6575,6 +6582,12 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .output_manifest_json
                     .contains("\"kind\": \"case_input\"")
+                || !output
+                    .output_manifest_json
+                    .contains("\"kind\": \"native_case_result\"")
+                || !output
+                    .output_manifest_json
+                    .contains("\"kind\": \"native_case_run_manifest\"")
                 || !output
                     .output_manifest_json
                     .contains("outputs/case_003/input.txt.render_manifest.json")
@@ -6620,6 +6633,8 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.review_json.contains("persisted_predictions.rows")
                 || !output.review_json.contains("cases.rows")
                 || !output.review_json.contains("case_inputs.rows")
+                || !output.review_json.contains("case_runs.rows")
+                || !output.review_json.contains("case_run_succeeded_count")
                 || !output.review_json.contains("case_result_collection.rows")
                 || !output.review_json.contains("predictions.rows")
                 || !output.review_json.contains("db_tables_written")
@@ -6631,7 +6646,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"display_unit\": \"person/m2\"")
             {
                 eprintln!(
-                    "expected native surrogate workflow to produce case, prediction, DB, review, output manifest, and report artifacts"
+                    "expected native surrogate workflow to produce case-run, prediction, DB, review, output manifest, and report artifacts"
                 );
                 return ExitCode::from(2);
             }

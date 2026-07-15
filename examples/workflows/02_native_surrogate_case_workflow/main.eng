@@ -32,11 +32,7 @@ with {
     overwrite = true
 }
 
-electricity_results = derive training_designs column annual_electricity = 10200 kWh + envelope_load_index * 2600 kWh + occupancy_schedule_index * 1600 kWh - cooling_cop * 750 kWh
-cooling_results = derive electricity_results column annual_cooling = 3200 kWh + envelope_load_index * 1700 kWh + occupancy_schedule_index * 450 kWh - cooling_cop * 280 kWh
-peak_cooling_results = derive cooling_results column peak_cooling = 7 kW + envelope_load_index * 7 kW + occupancy_schedule_index * 2 kW - cooling_cop * 0.6 kW
-training_results = derive peak_cooling_results column unmet_hours = 3 h + envelope_load_index * 1.2 h - cooling_cop * 0.7 h
-cases = materialize cases training_results
+cases = materialize cases training_designs
 case_count = cases.case_count
 case_manifest_pending_count = cases.pending_count
 case_manifest_failed_count = cases.failed_count
@@ -52,7 +48,25 @@ case_input_expected_count = case_inputs.expected_count
 case_input_rendered_count = case_inputs.rendered_count
 case_input_blocked_count = case_inputs.blocked_count
 case_input_manifest_count = case_inputs.manifest_count
-case_result_collection = collect results case_inputs
+case_runs = apply run_case over case_inputs
+with {
+    results = {
+        annual_electricity = 10200 kWh + envelope_load_index * 2600 kWh + occupancy_schedule_index * 1600 kWh - cooling_cop * 750 kWh
+        annual_cooling = 3200 kWh + envelope_load_index * 1700 kWh + occupancy_schedule_index * 450 kWh - cooling_cop * 280 kWh
+        peak_cooling = 7 kW + envelope_load_index * 7 kW + occupancy_schedule_index * 2 kW - cooling_cop * 0.6 kW
+        unmet_hours = 3 h + envelope_load_index * 1.2 h - cooling_cop * 0.7 h
+    }
+    result = "{case_dir}/result.json"
+    manifest = "{case_dir}/case_run_manifest.json"
+    on_error = fail
+    resume = true
+    overwrite = true
+}
+case_run_ready_count = case_runs.ready_count
+case_run_succeeded_count = case_runs.succeeded_count
+case_run_failed_count = case_runs.failed_count
+case_run_status = case_runs.status
+case_result_collection = collect results case_runs
 case_result_collected_count = case_result_collection.collected_count
 case_result_missing_count = case_result_collection.missing_count
 case_result_blocked_count = case_result_collection.blocked_count
@@ -102,8 +116,8 @@ summary_case_id: String = case_001.case_id
 annual_electricity: Energy [kWh] = case_001.annual_electricity
 peak_cooling: HeatRate [kW] = case_001.peak_cooling
 unmet_hours: Duration [h] = case_001.unmet_hours
-native_case_status = "case inputs rendered by applying a native template step over the materialized case table"
-native_model_status = "training designs, derived results, regression model, predictions, and DB writes materialized natively"
+native_case_status = "case inputs rendered, native expressions executed per case, and result manifests collected by the sequential scheduler"
+native_model_status = "native case results, regression model, predictions, and DB writes materialized with zero external processes"
 db = open sqlite args.database_target
 write case_result_collection to db.table("simulation_results")
 with {
@@ -134,14 +148,14 @@ print "Training sample preview = {training_sample_preview}"
 print "Design sample method = {prediction_sample_method} seed={prediction_sample_seed} count={prediction_sample_count}"
 print "Design sample preview = {prediction_sample_preview}"
 print "Design samples = {designs.rows}"
-print "Training result rows = {training_results.rows}"
 print "Case manifest = {cases.rows} initial_pending={case_manifest_pending_count} initial_failed={case_manifest_failed_count} initial_status={case_manifest_initial_status}"
 print "Case inputs = {case_inputs.rows} expected={case_input_expected_count} rendered={case_input_rendered_count} blocked={case_input_blocked_count}"
+print "Case runs = {case_runs.rows} ready={case_run_ready_count} succeeded={case_run_succeeded_count} failed={case_run_failed_count} status={case_run_status}"
 print "Case result collection = {case_result_collection.rows} collected={case_result_collected_count} missing={case_result_missing_count} blocked={case_result_blocked_count} status={case_result_collection_status}"
 print "Predictions = {predictions.rows}"
 print "Persisted predictions readback = {persisted_predictions.rows}"
 print "DB summary = {db_summary}"
-log info "surrogate workflow uses native sampling/derive/template/model/predict/db records"
+log info "surrogate workflow uses native sampling/template/case-run/model/predict/db records"
 
 export summary to csv join(args.output, "workflow_summary.csv") {
     annual_electricity as kWh with ".1"
@@ -172,14 +186,18 @@ report {
     show case_input_rendered_count
     show case_input_blocked_count
     show case_input_manifest_count
+    show case_run_ready_count
+    show case_run_succeeded_count
+    show case_run_failed_count
+    show case_run_status
     show case_result_collected_count
     show case_result_missing_count
     show case_result_blocked_count
     show case_result_collection_status
     show designs.rows
-    show training_results.rows
     show cases.rows
     show case_inputs.rows
+    show case_runs.rows
     show case_result_collection.rows
     show predictions.rows
     show native_case_status

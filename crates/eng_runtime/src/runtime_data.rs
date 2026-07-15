@@ -3114,6 +3114,9 @@ pub(crate) fn materialize_runtime_data_with_result_dir(
     let case_apply_output_tables =
         materialize_case_apply_output_tables(report, &data.tables, result_dir);
     data.tables.extend(case_apply_output_tables);
+    let case_run_result_tables =
+        materialize_case_run_result_tables(report, &data.tables, result_dir);
+    data.tables.extend(case_run_result_tables);
     let case_result_collection_tables =
         materialize_case_result_collection_tables(report, &data.tables);
     data.tables.extend(case_result_collection_tables);
@@ -7680,6 +7683,231 @@ fn materialize_case_apply_output_table(
     }
 }
 
+fn materialize_case_run_result_tables(
+    report: &CheckReport,
+    tables: &[RuntimeTable],
+    result_dir: Option<&Path>,
+) -> Vec<RuntimeTable> {
+    report
+        .semantic_program
+        .case_runs
+        .iter()
+        .filter(|run| run.status == "declared")
+        .filter_map(|run| {
+            let source_table = tables
+                .iter()
+                .find(|table| table.binding == run.source_table)?;
+            Some(materialize_case_run_result_table(
+                run,
+                source_table,
+                result_dir,
+            ))
+        })
+        .collect()
+}
+
+fn materialize_case_run_result_table(
+    run: &eng_compiler::CaseRunInfo,
+    source_table: &RuntimeTable,
+    result_dir: Option<&Path>,
+) -> RuntimeTable {
+    let mut table = RuntimeTable {
+        binding: run.binding.clone(),
+        schema_name: "CaseRunResult".to_owned(),
+        source: format!("apply run_case over {}", run.source_table),
+        source_hash: None,
+        row_count: source_table.row_count,
+        columns: source_table.columns.clone(),
+        parse_failures: source_table.parse_failures.clone(),
+        line: run.line,
+    };
+
+    for output in run
+        .outputs
+        .iter()
+        .filter(|output| output.status == "accepted")
+    {
+        let column = eng_compiler::TableDerivedColumnInfo {
+            name: output.name.clone(),
+            expression: output.expression.clone(),
+            source_columns: output.source_columns.clone(),
+            status: output.status.clone(),
+            line: output.line,
+        };
+        let derived = materialize_derived_column(&column, &table);
+        table.columns = runtime_columns_with_overrides(&table.columns, vec![derived]);
+    }
+
+    let case_ids = text_column_values_by_name(source_table, "case_id").unwrap_or_default();
+    let case_dirs = text_column_values_by_name(source_table, "case_dir").unwrap_or_default();
+    let source_statuses = text_column_values_by_name(source_table, "status").unwrap_or_default();
+    let source_failure_reasons =
+        text_column_values_by_name(source_table, "failure_reason").unwrap_or_default();
+    let source_output_paths =
+        text_column_values_by_name(source_table, "output_path").unwrap_or_default();
+    let source_manifest_paths =
+        text_column_values_by_name(source_table, "manifest_path").unwrap_or_default();
+
+    let mut output_case_ids = Vec::new();
+    let mut output_case_dirs = Vec::new();
+    let mut input_statuses = Vec::new();
+    let mut input_paths = Vec::new();
+    let mut input_manifest_paths = Vec::new();
+    let mut result_paths = Vec::new();
+    let mut manifest_paths = Vec::new();
+    let mut result_hashes = Vec::new();
+    let mut failure_reasons = Vec::new();
+    let mut statuses = Vec::new();
+
+    for row_index in 0..source_table.row_count {
+        let case_id = case_ids.get(row_index).cloned().unwrap_or_default();
+        let case_dir = case_dirs
+            .get(row_index)
+            .cloned()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| default_case_dir(&case_id));
+        let input_status = source_statuses.get(row_index).cloned().unwrap_or_default();
+        let input_path = source_output_paths
+            .get(row_index)
+            .cloned()
+            .unwrap_or_default();
+        let input_manifest_path = source_manifest_paths
+            .get(row_index)
+            .cloned()
+            .unwrap_or_default();
+        let result_path =
+            render_case_output_pattern(&run.result_path, &case_id, &case_dir, row_index);
+        let manifest_path =
+            render_case_output_pattern(&run.manifest_path, &case_id, &case_dir, row_index);
+        let outputs_complete = run.outputs.iter().all(|output| {
+            table
+                .columns
+                .iter()
+                .find(|column| column.name == output.name)
+                .and_then(|column| numeric_column_value(column, row_index))
+                .is_some_and(f64::is_finite)
+        });
+        let result_hash = case_run_result_hash(run, &table, row_index);
+        let source_blocked = match source_table.schema_name.as_str() {
+            "CaseOutput" => input_status == "blocked",
+            _ => input_status == "failed" || input_status == "blocked",
+        };
+        let source_waiting = source_table.schema_name == "CaseOutput"
+            && !matches!(input_status.as_str(), "rendered" | "succeeded" | "skipped");
+        let artifacts_exist = result_dir.is_some_and(|result_dir| {
+            result_relative_file_exists(result_dir, &result_path)
+                && result_relative_file_exists(result_dir, &manifest_path)
+        });
+        let (status, failure_reason) = if source_blocked {
+            (
+                "blocked",
+                source_failure_reasons
+                    .get(row_index)
+                    .cloned()
+                    .filter(|value| !value.trim().is_empty() && value != "none")
+                    .unwrap_or_else(|| "case input stage is blocked".to_owned()),
+            )
+        } else if source_waiting {
+            (
+                "waiting_input",
+                "case input artifact has not been rendered".to_owned(),
+            )
+        } else if !outputs_complete {
+            (
+                "failed",
+                "one or more native result expressions could not be evaluated".to_owned(),
+            )
+        } else if artifacts_exist {
+            ("succeeded", "none".to_owned())
+        } else {
+            ("ready", "none".to_owned())
+        };
+
+        output_case_ids.push(case_id);
+        output_case_dirs.push(case_dir);
+        input_statuses.push(input_status);
+        input_paths.push(input_path);
+        input_manifest_paths.push(input_manifest_path);
+        result_paths.push(result_path);
+        manifest_paths.push(manifest_path);
+        result_hashes.push(result_hash);
+        failure_reasons.push(failure_reason);
+        statuses.push(status.to_owned());
+    }
+
+    table.columns = runtime_columns_with_overrides(
+        &table.columns,
+        vec![
+            text_runtime_column("case_id", "String", output_case_ids),
+            text_runtime_column("case_dir", "DirectoryPath", output_case_dirs),
+            text_runtime_column("input_status", "String", input_statuses),
+            text_runtime_column("input_path", "FilePath", input_paths),
+            text_runtime_column("input_manifest_path", "FilePath", input_manifest_paths),
+            text_runtime_column("result_path", "FilePath", result_paths),
+            text_runtime_column("manifest_path", "FilePath", manifest_paths),
+            text_runtime_column("result_hash", "String", result_hashes),
+            text_runtime_column("failure_reason", "String", failure_reasons),
+            text_runtime_column(
+                "runner",
+                "String",
+                vec![run.runner.clone(); source_table.row_count],
+            ),
+            text_runtime_column(
+                "scheduler",
+                "String",
+                vec![run.scheduler.clone(); source_table.row_count],
+            ),
+            text_runtime_column("status", "String", statuses),
+        ],
+    );
+    let mut hash_payload = format!(
+        "{}|{}|{}|{}|{}",
+        run.binding,
+        run.source_table,
+        source_table.source_hash.clone().unwrap_or_default(),
+        run.runner,
+        run.scheduler
+    );
+    for row in 0..table.row_count {
+        hash_payload.push_str(&format!("|row={row}"));
+        for column in &table.columns {
+            hash_payload.push_str(&format!(
+                ";{}={}",
+                column.name,
+                table_cell_text(column, row)
+            ));
+        }
+    }
+    table.source_hash = Some(stable_hash_text(&hash_payload));
+    table
+}
+
+fn case_run_result_hash(
+    run: &eng_compiler::CaseRunInfo,
+    table: &RuntimeTable,
+    row_index: usize,
+) -> String {
+    let mut payload = format!(
+        "{}|{}|{}",
+        run.binding,
+        run.source_table,
+        text_column_values_by_name(table, "sample_row_hash")
+            .and_then(|values| values.get(row_index))
+            .cloned()
+            .unwrap_or_default()
+    );
+    for output in &run.outputs {
+        let value = table
+            .columns
+            .iter()
+            .find(|column| column.name == output.name)
+            .map(|column| table_cell_text(column, row_index))
+            .unwrap_or_default();
+        payload.push_str(&format!("|{}:{}={}", output.name, output.expression, value));
+    }
+    stable_hash_text(&payload)
+}
+
 fn materialize_case_result_collection_tables(
     report: &CheckReport,
     tables: &[RuntimeTable],
@@ -7691,7 +7919,8 @@ fn materialize_case_result_collection_tables(
         .filter_map(|declaration| {
             let source_binding = collect_results_source_binding(&declaration.expression)?;
             let output_table = tables.iter().find(|table| {
-                table.binding == source_binding && table.schema_name == "CaseOutput"
+                table.binding == source_binding
+                    && matches!(table.schema_name.as_str(), "CaseOutput" | "CaseRunResult")
             })?;
             Some(materialize_case_result_collection_table(
                 declaration,
@@ -7707,7 +7936,11 @@ fn materialize_case_result_collection_table(
 ) -> RuntimeTable {
     let case_ids = text_column_values_by_name(output_table, "case_id").unwrap_or_default();
     let case_dirs = text_column_values_by_name(output_table, "case_dir").unwrap_or_default();
-    let output_paths = text_column_values_by_name(output_table, "output_path").unwrap_or_default();
+    let output_paths = if output_table.schema_name == "CaseRunResult" {
+        text_column_values_by_name(output_table, "result_path").unwrap_or_default()
+    } else {
+        text_column_values_by_name(output_table, "output_path").unwrap_or_default()
+    };
     let manifest_paths =
         text_column_values_by_name(output_table, "manifest_path").unwrap_or_default();
     let input_statuses = text_column_values_by_name(output_table, "status").unwrap_or_default();
@@ -7724,7 +7957,12 @@ fn materialize_case_result_collection_table(
         let output_path = output_paths.get(row_index).cloned().unwrap_or_default();
         let manifest_path = manifest_paths.get(row_index).cloned().unwrap_or_default();
         let input_status = input_statuses.get(row_index).cloned().unwrap_or_default();
-        let status = case_result_collection_row_status(&input_status, &output_path, &manifest_path);
+        let status = case_result_collection_row_status(
+            &output_table.schema_name,
+            &input_status,
+            &output_path,
+            &manifest_path,
+        );
         collection_case_ids.push(case_id);
         collection_case_dirs.push(case_dir);
         collection_output_paths.push(output_path);
@@ -7752,8 +7990,17 @@ fn materialize_case_result_collection_table(
                 text_runtime_column("case_id", "String", collection_case_ids),
                 text_runtime_column("case_dir", "DirectoryPath", collection_case_dirs),
                 text_runtime_column("output_path", "FilePath", collection_output_paths),
+                text_runtime_column("result_path", "FilePath", output_paths.to_vec()),
                 text_runtime_column("manifest_path", "FilePath", collection_manifest_paths),
-                text_runtime_column("input_status", "String", collection_input_statuses),
+                text_runtime_column(
+                    if output_table.schema_name == "CaseRunResult" {
+                        "run_status"
+                    } else {
+                        "input_status"
+                    },
+                    "String",
+                    collection_input_statuses,
+                ),
                 text_runtime_column("status", "String", collection_statuses),
             ],
         ),
@@ -7763,14 +8010,16 @@ fn materialize_case_result_collection_table(
 }
 
 fn case_result_collection_row_status(
+    source_schema: &str,
     input_status: &str,
     output_path: &str,
     manifest_path: &str,
 ) -> String {
     let input_status = input_status.trim();
-    if input_status == "blocked" {
+    if input_status == "blocked" || input_status == "failed" {
         "blocked".to_owned()
-    } else if input_status != "rendered"
+    } else if (source_schema == "CaseRunResult" && !matches!(input_status, "succeeded" | "skipped"))
+        || (source_schema != "CaseRunResult" && input_status != "rendered")
         || output_path.trim().is_empty()
         || manifest_path.trim().is_empty()
     {
@@ -21488,6 +21737,7 @@ mod tests {
     fn case_result_collection_requires_rendered_case_output() {
         assert_eq!(
             case_result_collection_row_status(
+                "CaseOutput",
                 "blocked",
                 "outputs/case_001/input.txt",
                 "outputs/case_001/input.txt.render_manifest.json"
@@ -21496,6 +21746,7 @@ mod tests {
         );
         assert_eq!(
             case_result_collection_row_status(
+                "CaseOutput",
                 "planned",
                 "outputs/case_001/input.txt",
                 "outputs/case_001/input.txt.render_manifest.json"
@@ -21504,6 +21755,7 @@ mod tests {
         );
         assert_eq!(
             case_result_collection_row_status(
+                "CaseOutput",
                 "rendered",
                 "",
                 "outputs/case_001/input.txt.render_manifest.json"
@@ -21512,11 +21764,30 @@ mod tests {
         );
         assert_eq!(
             case_result_collection_row_status(
+                "CaseOutput",
                 "rendered",
                 "outputs/case_001/input.txt",
                 "outputs/case_001/input.txt.render_manifest.json"
             ),
             "collected"
+        );
+        assert_eq!(
+            case_result_collection_row_status(
+                "CaseRunResult",
+                "succeeded",
+                "outputs/case_001/result.json",
+                "outputs/case_001/case_run_manifest.json"
+            ),
+            "collected"
+        );
+        assert_eq!(
+            case_result_collection_row_status(
+                "CaseRunResult",
+                "ready",
+                "outputs/case_001/result.json",
+                "outputs/case_001/case_run_manifest.json"
+            ),
+            "missing"
         );
     }
 

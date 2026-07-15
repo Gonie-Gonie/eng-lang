@@ -1,6 +1,7 @@
 mod ast;
 mod bytecode;
 mod cache;
+mod case;
 mod expected;
 mod formatter;
 mod hover;
@@ -43,6 +44,7 @@ pub use bytecode::{
     BytecodeParseError, BytecodeProgram, BYTECODE_FORMAT, BYTECODE_VERSION,
 };
 pub use cache::CacheRecordInfo;
+pub use case::{CaseRunInfo, CaseRunOutputInfo};
 pub use expected::{ExpectedType, ExpectedTypeSource};
 pub use formatter::{format_source, format_source_with_options, FormatOptions, FormatResult};
 pub use hover::HoverHint;
@@ -376,6 +378,15 @@ pub fn check_source(path: impl AsRef<Path>, source: &str, options: &CheckOptions
         .diagnostics
         .extend(table_analysis.diagnostics);
     semantic_output.semantic_program.table_transforms = table_analysis.transforms;
+    let case_analysis = case::analyze_case_runs(
+        &parsed,
+        &semantic_output.semantic_program,
+        &semantic_output.inferred_declarations,
+    );
+    semantic_output
+        .diagnostics
+        .extend(case_analysis.diagnostics);
+    semantic_output.semantic_program.case_runs = case_analysis.runs;
     let net_analysis = net::analyze_net_boundaries(
         &parsed,
         source_path.parent(),
@@ -10976,20 +10987,90 @@ write csv "outputs/q.csv", Q
     }
 
     #[test]
-    fn run_case_scheduler_is_explicitly_unsupported() {
+    fn run_case_scheduler_lowers_native_result_contract() {
         let report = check_source(
             "run_case.eng",
-            "case_results = apply run_case over cases\n",
+            concat!(
+                "designs = sample lhs\n",
+                "with {\n",
+                "    count = 2\n",
+                "    seed = 42\n",
+                "    cooling_cop = uniform(2.5, 5.0)\n",
+                "}\n",
+                "cases = materialize cases designs\n",
+                "case_runs = apply run_case over cases\n",
+                "with {\n",
+                "    results = {\n",
+                "        annual_electricity = 10000 kWh - cooling_cop * 500 kWh\n",
+                "        unmet_hours = 3 h - cooling_cop * 0.5 h\n",
+                "    }\n",
+                "    result = \"{case_dir}/result.json\"\n",
+                "    manifest = \"{case_dir}/case_run_manifest.json\"\n",
+                "    on_error = fail\n",
+                "    resume = true\n",
+                "    overwrite = true\n",
+                "}\n",
+            ),
             &CheckOptions::default(),
         );
 
-        assert!(report.diagnostics.iter().any(|diagnostic| {
-            diagnostic.code == "E-CASE-RUN-SCHEDULER-UNSUPPORTED"
-                && diagnostic.message.contains("native scheduler")
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report.inferred_declarations.iter().any(|declaration| {
+            declaration.name == "case_runs" && declaration.quantity_kind == "Table[CaseRunResult]"
         }));
-        assert!(!report.inferred_declarations.iter().any(|declaration| {
-            declaration.name == "case_results" && declaration.quantity_kind == "Table[CaseOutput]"
-        }));
+        let run = report.semantic_program.case_runs.first().expect("case run");
+        assert_eq!(run.binding, "case_runs");
+        assert_eq!(run.source_table, "cases");
+        assert_eq!(run.runner, "native_expression");
+        assert_eq!(run.scheduler, "sequential");
+        assert_eq!(run.on_error, "fail");
+        assert!(run.resume);
+        assert!(run.overwrite);
+        assert_eq!(run.outputs.len(), 2);
+        assert_eq!(run.outputs[0].name, "annual_electricity");
+        assert_eq!(run.outputs[1].name, "unmet_hours");
+    }
+
+    #[test]
+    fn run_case_scheduler_requires_native_result_expressions() {
+        let report = check_source(
+            "run_case_missing_results.eng",
+            "designs = sample grid\nwith { count = 1 }\ncases = materialize cases designs\ncase_runs = apply run_case over cases\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-CASE-RUN-RESULTS-MISSING"));
+    }
+
+    #[test]
+    fn run_case_scheduler_requires_distinct_per_case_paths() {
+        let report = check_source(
+            "run_case_paths.eng",
+            concat!(
+                "designs = sample grid\n",
+                "with { count = 1 }\n",
+                "cases = materialize cases designs\n",
+                "case_runs = apply run_case over cases\n",
+                "with {\n",
+                "    results = { energy = 1 kWh }\n",
+                "    result = \"outputs/shared.json\"\n",
+                "    manifest = \"outputs/shared.json\"\n",
+                "}\n",
+            ),
+            &CheckOptions::default(),
+        );
+
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == "E-CASE-RUN-PATH")
+                .count()
+                >= 3
+        );
     }
 
     #[test]

@@ -939,7 +939,7 @@ fn table_predicate_type_diagnostic(
     )
 }
 
-fn expression_columns(expression: &str) -> Vec<String> {
+pub(crate) fn expression_columns(expression: &str) -> Vec<String> {
     let mut columns = Vec::new();
     let chars = expression.char_indices().collect::<Vec<_>>();
     let mut index = 0usize;

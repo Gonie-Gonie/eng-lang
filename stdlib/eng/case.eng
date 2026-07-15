@@ -1,5 +1,5 @@
 # module: eng.case
-# status: native case-table, manifest, and apply support; broader runner planned
+# status: native case-table, template, sequential calculation, and collection support
 # purpose: per-case manifests for sample-to-run workflows.
 #
 # Current implementation:
@@ -21,10 +21,14 @@
 #   `materialize cases <table>` creates reviewable CaseTable and CaseManifest
 #   records. `apply case_input_template over cases` renders native per-case
 #   template inputs and records CaseOutput rows plus render manifests.
+#   `apply run_case over <Case|CaseOutput>` evaluates a required map of typed
+#   result expressions sequentially, writes result.json and
+#   case_run_manifest.json, and records CaseRunResult rows. `collect results`
+#   accepts those rows and records the final CaseResultCollection table.
 #
-# Native run/collect scheduler execution and automatic adapter dispatch remain
-# planned. Current workflow examples use materialize/apply to expose the same
-# reviewable CaseTable and CaseManifest contract without external runners.
+# The native expression runner supports hash- and result-SHA-verified resume,
+# explicit overwrite, and fail/continue error policy without starting an
+# external process. Result and manifest paths must be distinct per-case paths.
 #
 # Current CaseManifest fields:
 #   case_id
@@ -47,8 +51,9 @@
 #   cache hit/miss counts and resume policy
 #
 # Planned extensions:
-#   native run/collect scheduler execution
 #   parallel scheduler implementation
+#   automatic external-adapter dispatch
+#   case-result cache policy
 #
 # Non-goal:
 #   loops that mutate files without a case manifest should not become the

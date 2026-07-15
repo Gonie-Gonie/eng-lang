@@ -1,3 +1,4 @@
+- Batch 948: Implemented native sequential `apply run_case over ...` execution with typed per-case result expressions, `CaseRunResult` tables, result and run-manifest artifacts, calculation/result-hash-verified resume, collision-safe path validation, overwrite and fail/continue policies, final result collection, and workflow 02 coverage with zero external processes.
 - Batch 947: Separated system solver `jacobian_sparsity` entries from the legacy `jacobian_seed` alias, gave each field an accurate status/schema contract, and replaced remaining report/docs seed wording for computed sparsity metadata.
 - Batch 946: Preserved sampled and derived typed columns through native CaseTable, CaseOutput, and CaseResultCollection stages, separated case/input/collection status columns, made workflow 02 train/select/persist from the final collection, and corrected materialized table bytecode/result objects that were mislabeled as scalars.
 - Batch 945: Added compiler-backed native IDE go-to-definition for the current unsaved buffer with F12, Ctrl+click, and checked-token actions; current-file, imported, and stdlib targets use exact UTF-16 ranges, token-start carets resolve correctly, and already-open dirty tabs are preserved.
@@ -109,10 +110,11 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Cache replay and invalidation: network offline-response cache materialization/replay and `eng cache invalidate` manifest-path deletion are implemented with hash/path safety checks; broader process/model replay and cross-artifact invalidation design remain open.
 - Live network execution: live HTTP(S) GET/download and POST/PUT/PATCH string request bodies are implemented with timeout, retry, body limits, SHA-256 verification, body hashes, cache replay, and redacted Secret query/header records; broader live secret injection and auth schemes still need a public contract.
 - Model training surface: native `train regression <table>` feeds model-card, metrics, and prediction-table paths; broader algorithm coverage and clearer multi-model naming remain open.
-- Case orchestration: current materialize cases, apply ... over cases, and
-  collect results paths materialize CaseTable/CaseOutput/CaseResultCollection
-  records; the remaining work is a general run-case scheduler/resume/cache/failure
-  policy.
+- Case orchestration: native `materialize cases`, template `apply`, sequential
+  `apply run_case`, and `collect results` now materialize
+  CaseTable/CaseOutput/CaseRunResult/CaseResultCollection records and per-case
+  result manifests. Parallel scheduling, automatic external-adapter dispatch,
+  and a real case-result cache remain open.
 - DB query support: typed SQLite table readback is implemented; arbitrary query APIs, parameter binding, and query transaction policy remain open.
 - Native IDE usability: keep improving token insight, source-range actions, and inspector flows for repeated debugging tasks.
 - VS Code linter/highlighting: continue expanding checked-code role-aware color coverage as more source spans become first-class metadata.
