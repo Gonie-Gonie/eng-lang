@@ -2660,6 +2660,42 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.stat-axis-call.englang",
+    "text": "sum(Q_series, axis=Time)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.stat-axis-call.englang",
+    "text": "time_weighted_mean(Q_series)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.stat-axis-call.englang",
+    "text": "median(Q_series)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.stat-axis-call.englang",
+    "text": "std(Q_series)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.stat-axis-call.englang",
+    "text": "p95(Q_series)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.stat-axis-call.englang",
+    "text": "duration_above(Q_series, 4 kW)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "support.function.timeseries.englang",
     "text": "mean",
     "fullMatch": true
@@ -2674,6 +2710,48 @@
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "support.function.timeseries.englang",
     "text": "max",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.timeseries.englang",
+    "text": "sum",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.timeseries.englang",
+    "text": "time_weighted_mean",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.timeseries.englang",
+    "text": "median",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.timeseries.englang",
+    "text": "std",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.timeseries.englang",
+    "text": "p95",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.timeseries.englang",
+    "text": "duration_above",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.solver.englang",
+    "text": "delay",
     "fullMatch": true
   },
   {

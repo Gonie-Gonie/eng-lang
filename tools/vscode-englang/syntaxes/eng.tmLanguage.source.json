@@ -111,11 +111,11 @@
                   },
                   {
                     "name": "support.function.timeseries.englang",
-                    "match": "\\b(integrate|mean|min|max|sum|time_weighted_mean|p\\d{1,2})\\b(?=\\s*\\()"
+                    "match": "\\b(integrate|mean|min|max|median|std|sum|time_weighted_mean|duration_above|p\\d{1,2})\\b(?=\\s*\\()"
                   },
                   {
                     "name": "support.function.solver.englang",
-                    "match": "\\bder\\b(?=\\s*\\()"
+                    "match": "\\b(der|delay)\\b(?=\\s*\\()"
                   },
                   {
                     "name": "support.function.builtin.englang",
@@ -1599,7 +1599,7 @@
           },
           {
             "name": "meta.workflow.stat-axis-call.englang",
-            "begin": "\\b(mean|max|min|sum)\\s*(\\()",
+            "begin": "\\b(mean|max|min|median|std|sum|time_weighted_mean|duration_above|p\\d{1,2})\\s*(\\()",
             "beginCaptures": {
               "1": { "name": "support.function.timeseries.englang" },
               "2": { "name": "punctuation.section.parens.begin.englang" }
@@ -1617,6 +1617,9 @@
                 "name": "variable.parameter.property.englang",
                 "match": "\\baxis\\b(?=\\s*=)"
               },
+              { "include": "#units" },
+              { "include": "#constants" },
+              { "include": "#numbers" },
               { "include": "#operators" },
               { "include": "#punctuation" },
               { "include": "#members" },
@@ -1705,7 +1708,7 @@
               { "include": "#units" },
               {
                 "name": "support.function.timeseries.englang",
-                "match": "\\b(mean|min|max|sum|time_weighted_mean|p\\d{1,2})\\b"
+                "match": "\\b(mean|min|max|median|std|sum|time_weighted_mean|duration_above|p\\d{1,2})\\b"
               },
               { "include": "#builtins" },
               { "include": "#constants" },
@@ -2240,7 +2243,7 @@
           },
           {
             "name": "support.function.solver.englang",
-            "match": "\\bder\\b"
+            "match": "\\b(der|delay)\\b"
           },
           {
             "name": "support.function.workflow-step.englang",

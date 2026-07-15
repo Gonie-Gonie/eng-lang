@@ -1237,8 +1237,8 @@ Assert-AnyScopeMatchesLabels -Scopes $KeywordFallbackScopes -Labels $CompletionK
 $PathWorkflowBuiltins = @("join", "parent", "stem", "extension")
 $ModelWorkflowBuiltins = @("train_test_split", "regression", "train_regression", "mlp", "ann", "regression_table", "evaluate", "model_card", "leakage_lint")
 $UncertaintyWorkflowBuiltins = @("measured", "interval", "normal", "uniform", "distribution", "propagate", "ensemble", "probability")
-$TimeseriesWorkflowBuiltins = @("integrate", "mean", "min", "max", "sum", "time_weighted_mean", "p90", "p95")
-$SolverWorkflowBuiltins = @("der")
+$TimeseriesWorkflowBuiltins = @("integrate", "mean", "min", "max", "median", "std", "sum", "time_weighted_mean", "duration_above", "p90", "p95")
+$SolverWorkflowBuiltins = @("der", "delay")
 $DomainScopedWorkflowBuiltins = @($PathWorkflowBuiltins + $ModelWorkflowBuiltins + $UncertaintyWorkflowBuiltins + $TimeseriesWorkflowBuiltins + $SolverWorkflowBuiltins)
 $GenericWorkflowBuiltins = @($WorkflowBuiltins | Where-Object { $DomainScopedWorkflowBuiltins -notcontains $_ -and $_ -ne "exists" })
 Assert-ScopeMatchesLabels -Scope "support.function.builtin.englang" -Labels $GenericWorkflowBuiltins -Description "LSP workflow builtin"
@@ -1304,6 +1304,8 @@ Assert-ScopeMatchesLabels -Scope "variable.parameter.function.englang" -Labels (
 Assert-ExpectedTokenTextsCoverLabels -Labels $CompletionKeywords -Description "generated keyword"
 Assert-ExpectedTokenTextsCoverLabels -Labels $HyphenatedWorkflowBuiltins -Description "hyphenated workflow builtin"
 Assert-ExpectedScopedTokenTextsCoverLabels -Scope "support.function.path.englang" -Labels $PathWorkflowBuiltins -Description "path workflow builtin"
+Assert-ExpectedScopedTokenTextsCoverLabels -Scope "support.function.timeseries.englang" -Labels $TimeseriesWorkflowBuiltins -Description "TimeSeries workflow builtin"
+Assert-ExpectedScopedTokenTextsCoverLabels -Scope "support.function.solver.englang" -Labels $SolverWorkflowBuiltins -Description "solver workflow builtin"
 Assert-ExpectedScopedTokenTextsCoverLabels -Scope "constant.language.englang" -Labels $LanguageConstants -Description "language constant"
 Assert-ExpectedScopedTokenTextsCoverLabels -Scope "keyword.operator.word.englang" -Labels $OperatorWords -Description "operator word"
 foreach ($KeywordGroupCheck in $KeywordGroupScopeChecks) {

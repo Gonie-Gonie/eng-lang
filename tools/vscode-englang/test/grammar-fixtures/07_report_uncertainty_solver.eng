@@ -44,6 +44,13 @@ E_series_command = integrate Q_series over Time
 mean_Q_series = mean(Q_series, axis=Time)
 low_Q_series = min(Q_series, axis=Time)
 peak_Q_series = max(Q_series, axis=Time)
+sum_Q_series = sum(Q_series, axis=Time)
+time_weighted_Q_series = time_weighted_mean(Q_series)
+median_Q_series = median(Q_series)
+std_Q_series = std(Q_series)
+p95_Q_series = p95(Q_series)
+duration_above_Q_series = duration_above(Q_series, 4 kW)
+lagged_Q_series = delay(Q_series, 1 h)
 mean_Q_command = mean Q_series over Time
 with {
     sensor_std = 0.2 kW
