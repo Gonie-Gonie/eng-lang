@@ -222,6 +222,7 @@ function emptySyntaxCatalog() {
     dbConnectionFields: [],
     caseTableFields: [],
     caseOutputTableFields: [],
+    caseRunResultTableFields: [],
     caseResultCollectionTableFields: [],
     modelFields: [],
     predictionTableFields: []
@@ -261,6 +262,9 @@ function normalizeSyntaxCatalog(catalog) {
     dbConnectionFields: catalogFieldItems(source.dbConnectionFields ?? source.db_connection_fields),
     caseTableFields: catalogFieldItems(source.caseTableFields ?? source.case_table_fields),
     caseOutputTableFields: catalogFieldItems(source.caseOutputTableFields ?? source.case_output_table_fields),
+    caseRunResultTableFields: catalogFieldItems(
+      source.caseRunResultTableFields ?? source.case_run_result_table_fields
+    ),
     caseResultCollectionTableFields: catalogFieldItems(
       source.caseResultCollectionTableFields ?? source.case_result_collection_table_fields
     ),
@@ -2405,6 +2409,7 @@ function highlightCoverageCatalog() {
     ...catalogItemLabels(catalog.dbConnectionFields),
     ...catalogItemLabels(catalog.caseTableFields),
     ...catalogItemLabels(catalog.caseOutputTableFields),
+    ...catalogItemLabels(catalog.caseRunResultTableFields),
     ...catalogItemLabels(catalog.caseResultCollectionTableFields),
     ...catalogItemLabels(catalog.modelFields),
     ...catalogItemLabels(catalog.predictionTableFields)
@@ -5954,6 +5959,11 @@ function localMemberCompletionCandidates(prefix) {
       matchesReceiver: isCaseOutputTableLikeReceiver
     },
     {
+      fields: workflowCatalog.caseRunResultTableFields,
+      detail: "Native case run result field",
+      matchesReceiver: isCaseRunResultTableLikeReceiver
+    },
+    {
       fields: workflowCatalog.caseResultCollectionTableFields,
       detail: "Case result collection field",
       matchesReceiver: isCaseResultCollectionLikeReceiver
@@ -6119,6 +6129,16 @@ function workflowBindingFieldCompletionsFromSource(source, catalog) {
       detail: "Case output table field"
     },
     {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*apply\s+run_case\s+over\s+[A-Za-z_][A-Za-z0-9_.-]*\b/gm,
+      fields: normalizedCatalog.caseRunResultTableFields,
+      detail: "Native case run result field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*apply\s*\(\s*run_case\s*,\s*over\s*=\s*[A-Za-z_][A-Za-z0-9_.-]*\s*\)/gm,
+      fields: normalizedCatalog.caseRunResultTableFields,
+      detail: "Native case run result field"
+    },
+    {
       pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*collect\s+results\s+[A-Za-z_][A-Za-z0-9_.]*\b/gm,
       fields: normalizedCatalog.caseResultCollectionTableFields,
       detail: "Case result collection field"
@@ -6187,6 +6207,7 @@ function isSampleTableLikeReceiver(receiver) {
 function isCaseOutputTableLikeReceiver(receiver) {
   const normalized = String(receiver || "").toLowerCase();
   return (
+    !isCaseRunResultTableLikeReceiver(receiver) &&
     normalized.includes("case") &&
     (
       normalized.includes("input") ||
@@ -6199,11 +6220,26 @@ function isCaseOutputTableLikeReceiver(receiver) {
   );
 }
 
+function isCaseRunResultTableLikeReceiver(receiver) {
+  const normalized = String(receiver || "").toLowerCase();
+  return (
+    !normalized.includes("collection") &&
+    (
+      normalized === "case_runs" ||
+      normalized.endsWith("_case_runs") ||
+      normalized.includes("case_run_result")
+    )
+  );
+}
+
 function isCaseResultCollectionLikeReceiver(receiver) {
   const normalized = String(receiver || "").toLowerCase();
   return (
-    normalized.includes("collection") ||
-    (normalized.includes("case") && normalized.includes("result"))
+    !isCaseRunResultTableLikeReceiver(receiver) &&
+    (
+      normalized.includes("collection") ||
+      (normalized.includes("case") && normalized.includes("result"))
+    )
   );
 }
 
@@ -6211,6 +6247,7 @@ function isCaseTableLikeReceiver(receiver) {
   const normalized = String(receiver || "").toLowerCase();
   return (
     !isCaseOutputTableLikeReceiver(receiver) &&
+    !isCaseRunResultTableLikeReceiver(receiver) &&
     !isCaseResultCollectionLikeReceiver(receiver) &&
     (
       normalized === "case" ||

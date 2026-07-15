@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v2",
-    "completion_items_count":  423,
+    "completion_items_count":  427,
     "completion_items":  [
                              {
                                  "detail":  "Schema array value",
@@ -1586,6 +1586,12 @@
                                  "lsp_kind":  10
                              },
                              {
+                                 "detail":  "native case run manifest path",
+                                 "kind":  "property",
+                                 "label":  "manifest",
+                                 "lsp_kind":  10
+                             },
+                             {
                                  "detail":  "solver mass-matrix policy",
                                  "kind":  "property",
                                  "label":  "mass_matrix",
@@ -1625,6 +1631,12 @@
                                  "detail":  "What to do when `require_one` finds no rows",
                                  "kind":  "property",
                                  "label":  "on_none",
+                                 "lsp_kind":  10
+                             },
+                             {
+                                 "detail":  "native case run failure policy",
+                                 "kind":  "property",
+                                 "label":  "on_error",
                                  "lsp_kind":  10
                              },
                              {
@@ -1691,6 +1703,12 @@
                                  "detail":  "HTTP download body size limit",
                                  "kind":  "property",
                                  "label":  "response_body_limit",
+                                 "lsp_kind":  10
+                             },
+                             {
+                                 "detail":  "native calculated case result path",
+                                 "kind":  "property",
+                                 "label":  "result",
                                  "lsp_kind":  10
                              },
                              {
@@ -2324,9 +2342,17 @@
                                  "lsp_kind":  9
                              },
                              {
+                                 "detail":  "eng.case execute typed native result expressions over case rows",
+                                 "insert":  "apply run_case over case_inputs",
+                                 "insert_snippet":  "apply run_case over ${1:case_inputs}\nwith {\n    results = {\n        ${2:annual_energy} = ${3:load * 1 kWh}\n    }\n    result = \"{case_dir}/result.json\"\n    manifest = \"{case_dir}/case_run_manifest.json\"\n    on_error = fail\n    resume = true\n    overwrite = true\n}",
+                                 "kind":  "stdlib",
+                                 "label":  "apply run_case",
+                                 "lsp_kind":  9
+                             },
+                             {
                                  "detail":  "eng.case collect per-case outputs into a table",
-                                 "insert":  "collect results case_results",
-                                 "insert_snippet":  "collect results ${1:case_results}",
+                                 "insert":  "collect results case_runs",
+                                 "insert_snippet":  "collect results ${1:case_runs}",
                                  "kind":  "stdlib",
                                  "label":  "collect results",
                                  "lsp_kind":  9

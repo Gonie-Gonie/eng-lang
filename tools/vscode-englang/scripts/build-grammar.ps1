@@ -144,6 +144,7 @@ $SampleTableFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name
 $DbConnectionFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "db_connection_fields"
 $CaseTableFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "case_table_fields"
 $CaseOutputTableFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "case_output_table_fields"
+$CaseRunResultTableFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "case_run_result_table_fields"
 $CaseResultCollectionTableFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "case_result_collection_table_fields"
 $ModelFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "model_fields"
 $PredictionTableFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "prediction_table_fields"
@@ -158,6 +159,7 @@ Assert-CatalogItemsHaveProperty -Items $SampleTableFieldItems -CatalogName "samp
 Assert-CatalogItemsHaveProperty -Items $DbConnectionFieldItems -CatalogName "db_connection_fields" -PropertyName "label"
 Assert-CatalogItemsHaveProperty -Items $CaseTableFieldItems -CatalogName "case_table_fields" -PropertyName "label"
 Assert-CatalogItemsHaveProperty -Items $CaseOutputTableFieldItems -CatalogName "case_output_table_fields" -PropertyName "label"
+Assert-CatalogItemsHaveProperty -Items $CaseRunResultTableFieldItems -CatalogName "case_run_result_table_fields" -PropertyName "label"
 Assert-CatalogItemsHaveProperty -Items $CaseResultCollectionTableFieldItems -CatalogName "case_result_collection_table_fields" -PropertyName "label"
 Assert-CatalogItemsHaveProperty -Items $ModelFieldItems -CatalogName "model_fields" -PropertyName "label"
 Assert-CatalogItemsHaveProperty -Items $PredictionTableFieldItems -CatalogName "prediction_table_fields" -PropertyName "label"
@@ -178,6 +180,7 @@ $PublicMemberFields = @(
     $DbConnectionFieldItems +
     $CaseTableFieldItems +
     $CaseOutputTableFieldItems +
+    $CaseRunResultTableFieldItems +
     $CaseResultCollectionTableFieldItems +
     $ModelFieldItems +
     $PredictionTableFieldItems

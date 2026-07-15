@@ -864,6 +864,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("key", "database upsert key"),
     ("line_search_steps", "solver line-search step limit"),
     ("lower", "lower uncertainty or range bound"),
+    ("manifest", "native case run manifest path"),
     ("mass_matrix", "solver mass-matrix policy"),
     ("max_gap", "maximum allowed gap option"),
     ("max_iter", "solver maximum iteration count"),
@@ -877,6 +878,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
         "What to do when `require_one` finds multiple rows",
     ),
     ("on_none", "What to do when `require_one` finds no rows"),
+    ("on_error", "native case run failure policy"),
     ("offset", "uncertainty propagation offset"),
     ("output", "generated output path"),
     ("output_root", "case output root directory"),
@@ -889,6 +891,8 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("residual_scales", "solver residual scale list"),
     ("resume", "case resume policy"),
     ("response_body_limit", "HTTP download body size limit"),
+    ("result", "native calculated case result path"),
+    ("results", "native case result expression map"),
     ("retry", "external command retry policy"),
     ("return_column", "projection return column"),
     ("samples", "uncertainty sample count"),
@@ -1016,6 +1020,23 @@ const CASE_OUTPUT_TABLE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
     ("output_count", "rendered output path count"),
     ("manifest_count", "render manifest path count"),
     ("status", "case output aggregate status"),
+    ("row_count", "table row count"),
+    ("column_count", "table column count"),
+    ("schema_name", "runtime table schema name"),
+    ("source_hash", "runtime table source hash"),
+];
+
+const CASE_RUN_RESULT_TABLE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
+    ("case_count", "native case run row count"),
+    ("ready_count", "case runs ready for native execution"),
+    ("succeeded_count", "succeeded native case run count"),
+    ("failed_count", "failed native case run count"),
+    ("skipped_count", "skipped native case run count"),
+    ("waiting_count", "case runs waiting for rendered input"),
+    ("blocked_count", "blocked native case run count"),
+    ("output_count", "native case result path count"),
+    ("manifest_count", "native case run manifest path count"),
+    ("status", "native case run aggregate status"),
     ("row_count", "table row count"),
     ("column_count", "table column count"),
     ("schema_name", "runtime table schema name"),
@@ -1970,6 +1991,13 @@ pub fn editor_syntax_catalog_json() -> Value {
                 "detail": detail,
             }))
             .collect::<Vec<_>>(),
+        "case_run_result_table_fields": CASE_RUN_RESULT_TABLE_FIELD_COMPLETIONS
+            .iter()
+            .map(|(label, detail)| json!({
+                "label": label,
+                "detail": detail,
+            }))
+            .collect::<Vec<_>>(),
         "case_result_collection_table_fields": CASE_RESULT_COLLECTION_TABLE_FIELD_COMPLETIONS
             .iter()
             .map(|(label, detail)| json!({
@@ -2345,6 +2373,24 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         }
     }
 
+    for run in &program.case_runs {
+        builder.push_on_line(
+            run.line,
+            &run.binding,
+            "variable",
+            &["declaration", "workflowStep"],
+        );
+        for output in &run.outputs {
+            builder.push_on_line(output.line, &output.name, "property", &["workflowStep"]);
+            for column in &output.source_columns {
+                if all_unit_infos().iter().any(|unit| unit.symbol == column) {
+                    continue;
+                }
+                builder.push_on_line(output.line, column, "property", &["workflowStep"]);
+            }
+        }
+    }
+
     for binding in &program.typed_bindings {
         if binding.semantic_type.quantity_kind.starts_with("Table[")
             || binding
@@ -2368,6 +2414,11 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             "Table[CaseOutput]" => builder.push_member_fields(
                 &binding.name,
                 CASE_OUTPUT_TABLE_FIELD_COMPLETIONS,
+                &["workflowStep"],
+            ),
+            "Table[CaseRunResult]" => builder.push_member_fields(
+                &binding.name,
+                CASE_RUN_RESULT_TABLE_FIELD_COMPLETIONS,
                 &["workflowStep"],
             ),
             "Table[CaseResultCollection]" => builder.push_member_fields(
@@ -2989,6 +3040,15 @@ fn with_option_semantic_modifiers(
         | "variable_scale"
         | "variable_scales" => &["solver", "workflowStep"],
         "mode" if is_db_write_with_block(program, block.owner_line) => &["db"],
+        "result" | "manifest" if is_case_run_with_block(program, block.owner_line) => {
+            &["sideEffect", "workflowStep"]
+        }
+        "overwrite" if is_case_run_with_block(program, block.owner_line) => {
+            &["sideEffect", "workflowStep"]
+        }
+        "results" | "on_error" if is_case_run_with_block(program, block.owner_line) => {
+            &["workflowStep"]
+        }
         "overwrite" | "mode" | "confirm" | "recursive" | "output" => &["sideEffect"],
         "args"
         | "query"
@@ -3157,6 +3217,12 @@ fn with_option_value_semantic_class(
             ))
         }
         "resume" if matches!(value, "true" | "false") => Some(("keyword", &["workflowStep"])),
+        "on_error"
+            if is_case_run_with_block(program, block.owner_line)
+                && matches!(value, "fail" | "continue") =>
+        {
+            Some(("keyword", &["workflowStep"]))
+        }
         "status"
             if is_workflow_status_option_block(program, block)
                 && is_workflow_status_literal(value) =>
@@ -3233,6 +3299,13 @@ fn is_db_write_with_block(program: &SemanticProgram, owner_line: Option<usize>) 
         .writes
         .iter()
         .any(|write| write.line == owner_line && write.quantity_kind == "DbWrite")
+}
+
+fn is_case_run_with_block(program: &SemanticProgram, owner_line: Option<usize>) -> bool {
+    let Some(owner_line) = owner_line else {
+        return false;
+    };
+    program.case_runs.iter().any(|run| run.line == owner_line)
 }
 
 fn is_model_with_block(program: &SemanticProgram, owner_line: Option<usize>) -> bool {
@@ -7395,6 +7468,7 @@ fn hover_kind_label(kind: &str) -> String {
         "db_connection_field" => "DB connection field".to_owned(),
         "case_table_field" => "Case table field".to_owned(),
         "case_output_table_field" => "Case output field".to_owned(),
+        "case_run_result_table_field" => "Case run result field".to_owned(),
         "case_result_collection_table_field" => "Case result collection field".to_owned(),
         "model_field" => "Model field".to_owned(),
         "prediction_table_field" => "Prediction table field".to_owned(),
@@ -7482,6 +7556,10 @@ fn public_member_hover_fields(
         "Table[CaseOutput]" => Some((
             CASE_OUTPUT_TABLE_FIELD_COMPLETIONS,
             "case_output_table_field",
+        )),
+        "Table[CaseRunResult]" => Some((
+            CASE_RUN_RESULT_TABLE_FIELD_COMPLETIONS,
+            "case_run_result_table_field",
         )),
         "Table[CaseResultCollection]" => Some((
             CASE_RESULT_COLLECTION_TABLE_FIELD_COMPLETIONS,
@@ -7983,6 +8061,10 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
             "eng.case apply a template or workflow step over case rows",
         ),
         (
+            "apply run_case",
+            "eng.case execute typed native result expressions over case rows",
+        ),
+        (
             "collect results",
             "eng.case collect per-case outputs into a table",
         ),
@@ -8104,6 +8186,17 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         }
         if binding.semantic_type.quantity_kind == "Table[CaseOutput]" {
             for (field, detail) in CASE_OUTPUT_TABLE_FIELD_COMPLETIONS {
+                push_completion(
+                    &mut items,
+                    &mut seen,
+                    &format!("{}.{}", binding.name, field),
+                    "property",
+                    detail,
+                );
+            }
+        }
+        if binding.semantic_type.quantity_kind == "Table[CaseRunResult]" {
+            for (field, detail) in CASE_RUN_RESULT_TABLE_FIELD_COMPLETIONS {
                 push_completion(
                     &mut items,
                     &mut seen,
@@ -8528,6 +8621,7 @@ pub fn completion_items_at(
                 match binding.semantic_type.quantity_kind.as_str() {
                     "Table[Case]" => Some(CASE_TABLE_FIELD_COMPLETIONS),
                     "Table[CaseOutput]" => Some(CASE_OUTPUT_TABLE_FIELD_COMPLETIONS),
+                    "Table[CaseRunResult]" => Some(CASE_RUN_RESULT_TABLE_FIELD_COMPLETIONS),
                     "Table[CaseResultCollection]" => {
                         Some(CASE_RESULT_COLLECTION_TABLE_FIELD_COMPLETIONS)
                     }
@@ -8862,6 +8956,16 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
             "cache",
             "cache_key",
             "cache_dir",
+        ]);
+    }
+    if owner.contains("apply run_case") || owner.contains("apply(run_case") {
+        return Some(&[
+            "results",
+            "result",
+            "manifest",
+            "on_error",
+            "resume",
+            "overwrite",
         ]);
     }
     if owner.contains("apply ") || owner.contains("apply(") {
@@ -9341,7 +9445,8 @@ fn completion_insert_for_label(label: &str) -> Option<&'static str> {
         "fill missing" => Some("fill missing weather.value"),
         "materialize cases" => Some("materialize cases designs"),
         "apply cases" => Some("apply case_input_template over cases"),
-        "collect results" => Some("collect results case_results"),
+        "apply run_case" => Some("apply run_case over case_inputs"),
+        "collect results" => Some("collect results case_runs"),
         "predict model using" => Some("predict model using designs"),
         _ => None,
     }
@@ -9440,7 +9545,11 @@ fn completion_insert_snippet_for_label(label: &str) -> Option<String> {
             "apply ${1:case_input_template} over ${2:cases}\nwith {\n    template = file(\"${3:model/native_case_template.txt}\")\n    output = \"{case_dir}/${4:input.txt}\"\n    missing = error\n    overwrite = true\n}"
                 .to_owned(),
         ),
-        "collect results" => Some("collect results ${1:case_results}".to_owned()),
+        "apply run_case" => Some(
+            "apply run_case over ${1:case_inputs}\nwith {\n    results = {\n        ${2:annual_energy} = ${3:load * 1 kWh}\n    }\n    result = \"{case_dir}/result.json\"\n    manifest = \"{case_dir}/case_run_manifest.json\"\n    on_error = fail\n    resume = true\n    overwrite = true\n}"
+                .to_owned(),
+        ),
+        "collect results" => Some("collect results ${1:case_runs}".to_owned()),
         "train regression" => Some(
             "train regression ${1:training_results}\nwith {\n    target = ${2:annual_electricity}\n    features = [${3:cooling_cop}]\n    test = ${4:0.25}\n    seed = ${5:7}\n}"
                 .to_owned(),
@@ -10336,11 +10445,16 @@ mod tests {
             "materialize cases",
             "apply",
             "apply cases",
+            "apply run_case",
             "collect",
             "collect results",
             "predict model using",
             "case_id",
+            "manifest",
+            "on_error",
             "output_root",
+            "result",
+            "results",
             "resume",
             "step",
             "args",
@@ -10762,6 +10876,14 @@ mod tests {
             "syntax catalog should hide compatibility alias planned_count from editor suggestions"
         );
         assert!(
+            syntax_catalog["case_run_result_table_fields"]
+                .as_array()
+                .is_some_and(|fields| fields
+                    .iter()
+                    .any(|field| field["label"] == "succeeded_count")),
+            "syntax catalog should expose native case run result fields"
+        );
+        assert!(
             syntax_catalog["case_result_collection_table_fields"]
                 .as_array()
                 .is_some_and(|fields| fields
@@ -10825,6 +10947,7 @@ mod tests {
             ("export summary to csv", "stdlib"),
             ("materialize cases", "stdlib"),
             ("apply cases", "stdlib"),
+            ("apply run_case", "stdlib"),
             ("collect results", "stdlib"),
             ("train regression", "function"),
             ("predict model using", "stdlib"),
@@ -10921,6 +11044,14 @@ mod tests {
         assert_eq!(
             apply_cases_completion["insert_snippet"],
             "apply ${1:case_input_template} over ${2:cases}\nwith {\n    template = file(\"${3:model/native_case_template.txt}\")\n    output = \"{case_dir}/${4:input.txt}\"\n    missing = error\n    overwrite = true\n}"
+        );
+        let apply_run_case_completion = completions
+            .iter()
+            .find(|completion| completion["label"] == "apply run_case")
+            .expect("editor metadata should include native case run completion");
+        assert_eq!(
+            apply_run_case_completion["insert_snippet"],
+            "apply run_case over ${1:case_inputs}\nwith {\n    results = {\n        ${2:annual_energy} = ${3:load * 1 kWh}\n    }\n    result = \"{case_dir}/result.json\"\n    manifest = \"{case_dir}/case_run_manifest.json\"\n    on_error = fail\n    resume = true\n    overwrite = true\n}"
         );
         let read_json_completion = completions
             .iter()
@@ -15623,6 +15754,120 @@ gap = coverage.max_gap_hours
     }
 
     #[test]
+    fn snapshot_exposes_native_case_run_members_and_roles() {
+        let source = r#"samples = sample lhs
+with {
+    count = 2
+    seed = 42
+    cooling_cop = uniform(2.5, 5.0)
+}
+
+cases = materialize cases samples
+case_inputs = apply case_input_template over cases
+with {
+    template = file("model/native_case_template.txt")
+    output = "{case_dir}/input.txt"
+    overwrite = true
+}
+case_runs = apply run_case over case_inputs
+with {
+    results = {
+        annual_energy = 1000 kWh + cooling_cop * 100 kWh
+    }
+    result = "{case_dir}/result.json"
+    manifest = "{case_dir}/case_run_manifest.json"
+    on_error = fail
+    resume = true
+    overwrite = true
+}
+
+succeeded = case_runs.succeeded_count
+waiting = case_runs.waiting_count
+"#;
+        let snapshot = snapshot_for_source(Path::new("case_run_members.eng"), source);
+
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "case_runs.succeeded_count"));
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "case_runs.waiting_count"));
+        let succeeded_line = source
+            .lines()
+            .position(|line| line.contains("succeeded ="))
+            .expect("succeeded line");
+        let member_completions = completion_items_for_source_position(
+            Path::new("case_run_members.eng"),
+            source,
+            succeeded_line,
+            "succeeded = case_runs.".len(),
+        );
+        let succeeded_completion = member_completions
+            .iter()
+            .find(|completion| completion.label == "succeeded_count")
+            .expect("native case run member completion");
+        assert_eq!(
+            succeeded_completion.detail,
+            "succeeded native case run count"
+        );
+        assert!(snapshot.hovers.iter().any(|hover| {
+            hover.name == "case_runs.succeeded_count" && hover.kind == "case_run_result_table_field"
+        }));
+
+        for (line, label, token_type, modifier) in [
+            (
+                "case_runs = apply run_case over case_inputs",
+                "case_runs",
+                "variable",
+                "workflowStep",
+            ),
+            ("    results = {", "results", "property", "workflowStep"),
+            (
+                "        annual_energy =",
+                "annual_energy",
+                "property",
+                "workflowStep",
+            ),
+            (
+                "        annual_energy =",
+                "cooling_cop",
+                "property",
+                "workflowStep",
+            ),
+            ("    result =", "result", "property", "workflowStep"),
+            ("    result =", "result", "property", "sideEffect"),
+            ("    manifest =", "manifest", "property", "workflowStep"),
+            ("    manifest =", "manifest", "property", "sideEffect"),
+            ("    on_error =", "on_error", "property", "workflowStep"),
+            ("    on_error =", "fail", "keyword", "workflowStep"),
+            ("    resume =", "resume", "property", "workflowStep"),
+            (
+                "succeeded = case_runs.succeeded_count",
+                "succeeded_count",
+                "property",
+                "workflowStep",
+            ),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, label, token_type, modifier,
+            );
+        }
+        for modifier in ["workflowStep", "sideEffect"] {
+            assert_semantic_token_after_line_with_modifier(
+                &snapshot,
+                source,
+                "case_runs = apply run_case over case_inputs",
+                "    overwrite =",
+                "overwrite",
+                "property",
+                modifier,
+            );
+        }
+    }
+
+    #[test]
     fn table_row_member_completion_uses_require_one_schema() {
         let source = "schema StationMap {\n    region: String\n    station_id: String\n    latitude: DimensionlessNumber [1]\n}\n\nstations = promote csv file(\"data/stations.csv\") as StationMap\ncandidates = filter stations\nwhere {\n    region == \"demo\"\n}\nstation = require_one candidates\nselected_station_id: String = station.\n";
         let snapshot = snapshot_for_source(Path::new("table_row.eng"), source);
@@ -16459,6 +16704,50 @@ with {
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "expected_sha256"));
+    }
+
+    #[test]
+    fn with_block_completion_uses_native_case_run_context() {
+        let source = r#"case_runs = apply run_case over case_inputs
+with {
+
+}
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.trim().is_empty())
+            .unwrap();
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("run_case_with_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        for label in [
+            "results",
+            "result",
+            "manifest",
+            "on_error",
+            "resume",
+            "overwrite",
+        ] {
+            assert!(
+                completions
+                    .iter()
+                    .any(|completion| completion.label == label),
+                "run_case with-block completion should include {label}"
+            );
+        }
+        for unrelated in ["template", "artifact_kind", "cache", "cache_key"] {
+            assert!(
+                !completions
+                    .iter()
+                    .any(|completion| completion.label == unrelated),
+                "run_case with-block completion should exclude {unrelated}"
+            );
+        }
     }
 
     #[test]

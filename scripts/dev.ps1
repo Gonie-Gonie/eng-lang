@@ -1545,9 +1545,11 @@ function Invoke-WorkflowNativeStatus {
             Path = Join-Path $WorkflowRoot "02_native_surrogate_case_workflow\main.eng"
             Required = @(
                 @{ Label = "sample lhs"; Pattern = "\bsample\s+lhs\b" },
-                @{ Label = "derive"; Pattern = "\bderive\b" },
                 @{ Label = "materialize cases"; Pattern = "\bmaterialize\s+cases\b" },
-                @{ Label = "apply over"; Pattern = "\bapply\b.*\bover\b" },
+                @{ Label = "apply template over cases"; Pattern = "\bapply\s+case_input_template\s+over\s+cases\b" },
+                @{ Label = "apply run_case over case inputs"; Pattern = "\bapply\s+run_case\s+over\s+case_inputs\b" },
+                @{ Label = "typed native result expressions"; Pattern = "\bresults\s*=\s*\{" },
+                @{ Label = "CaseRunResult status"; Pattern = "\bcase_runs\.succeeded_count\b" },
                 @{ Label = "collect results"; Pattern = "\bcollect\s+results\b" },
                 @{ Label = "train regression"; Pattern = "\btrain\s+regression\b" },
                 @{ Label = "predict using"; Pattern = "\bpredict\b.*\busing\b" },
@@ -3735,6 +3737,7 @@ function Assert-VscodeExtensionContract {
     $ModuleStatusPath = Join-Path $ExtensionRoot "moduleStatus.js"
     $RuntimeDiscoveryPath = Join-Path $ExtensionRoot "runtimeDiscovery.js"
     $ReviewPanelRendererPath = Join-Path $ExtensionRoot "reviewPanelRenderer.js"
+    $CaseRunCompletionTestPath = Join-Path $ExtensionRoot "test\caseRunCompletion.test.js"
     $EditorRequestRaceTestPath = Join-Path $ExtensionRoot "test\editorRequestRace.test.js"
     $TextMateExampleCoverageTestPath = Join-Path $ExtensionRoot "test\textmateExampleCoverage.test.js"
     $SnippetsPath = Join-Path $ExtensionRoot "snippets\eng.json"
@@ -3834,6 +3837,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $ReviewPanelRendererPath)) {
         throw "missing VS Code review panel renderer at $ReviewPanelRendererPath"
+    }
+    if (-not (Test-Path $CaseRunCompletionTestPath)) {
+        throw "missing VS Code native case run completion smoke at $CaseRunCompletionTestPath"
     }
     if (-not (Test-Path $EditorRequestRaceTestPath)) {
         throw "missing VS Code editor request race smoke at $EditorRequestRaceTestPath"
@@ -5478,8 +5484,8 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./editorMetadata")') -or -not $ExtensionSource.Contains("loadEditorMetadata(__dirname)")) {
         throw "VS Code extension must load editor metadata through editorMetadata.js"
     }
-    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("constants") -or -not $EditorMetadataLoaderSource.Contains("workflow_status_literals") -or -not $EditorMetadataLoaderSource.Contains("operator_words") -or -not $EditorMetadataLoaderSource.Contains("legacy_unit_aliases") -or -not $EditorMetadataLoaderSource.Contains("keyword_groups") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_builtin_aliases") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_option_aliases") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("coverage_result_fields") -or -not $EditorMetadataLoaderSource.Contains("table_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("db_connection_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields") -or -not $EditorMetadataLoaderSource.Contains("model_fields") -or -not $EditorMetadataLoaderSource.Contains("prediction_table_fields")) {
-        throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, workflow status literal, workflow builtin, legacy workflow aliases, public type, quantity, unit, HTTP response field, coverage result field, table field, sample table field, case table field, case result collection field, model field, prediction table field, and completion item metadata"
+    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("constants") -or -not $EditorMetadataLoaderSource.Contains("workflow_status_literals") -or -not $EditorMetadataLoaderSource.Contains("operator_words") -or -not $EditorMetadataLoaderSource.Contains("legacy_unit_aliases") -or -not $EditorMetadataLoaderSource.Contains("keyword_groups") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_builtin_aliases") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_option_aliases") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("coverage_result_fields") -or -not $EditorMetadataLoaderSource.Contains("table_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("db_connection_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_run_result_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields") -or -not $EditorMetadataLoaderSource.Contains("model_fields") -or -not $EditorMetadataLoaderSource.Contains("prediction_table_fields")) {
+        throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, workflow status literal, workflow builtin, legacy workflow aliases, public type, quantity, unit, HTTP response field, coverage result field, table field, sample table field, case table field, case run result field, case result collection field, model field, prediction table field, and completion item metadata"
     }
     if ($EditorMetadataLoaderSource.Contains("metadata.completion_items ??") -or $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("const completionItems = metadata.completion_items") -or -not $EditorMetadataLoaderSource.Contains("metadata.completion_items_count !== completionItems.length")) {
         throw "VS Code editor metadata loader must require completion_items as the only runtime completion catalog"
@@ -5525,6 +5531,8 @@ function Assert-VscodeExtensionContract {
         "latin[_-]hypercube|grid|random|uniform",
         "caseTableFields",
         "caseOutputTableFields",
+        "caseRunResultTableFields",
+        "run_case",
         "normalized.includes(""rendered"")",
         "normalized.includes(""blocked"")",
         "caseResultCollectionTableFields",
@@ -5533,6 +5541,7 @@ function Assert-VscodeExtensionContract {
         "train\s+regression",
         "predict\s+",
         "isCaseResultCollectionLikeReceiver",
+        "isCaseRunResultTableLikeReceiver",
         "isModelLikeReceiver",
         "isPredictionTableLikeReceiver",
         "httpResponseFieldCompletionsForContext",
@@ -5555,6 +5564,7 @@ function Assert-VscodeExtensionContract {
         "receiverLookupCandidates",
         "httpResponseFieldCompletionsForContext",
         "localMemberCompletionsForContext",
+        "isCaseRunResultTableLikeReceiver",
         "isCaseResultCollectionLikeReceiver",
         "isModelLikeReceiver",
         "isPredictionTableLikeReceiver"
@@ -6753,6 +6763,15 @@ function Assert-VscodeExtensionContract {
     if ($null -ne $PlannedCaseOutputTableField) {
         throw "generated VS Code editor metadata must not suggest compatibility-only case_inputs.planned_count; use expected_count"
     }
+    foreach ($RequiredCaseRunResultTableField in @("ready_count", "succeeded_count", "failed_count", "waiting_count", "blocked_count", "manifest_count", "status")) {
+        $CaseRunResultTableField = @($EditorMetadata.syntax_catalog.case_run_result_table_fields | Where-Object { $_.label -eq $RequiredCaseRunResultTableField }) | Select-Object -First 1
+        if ($null -eq $CaseRunResultTableField) {
+            throw "generated VS Code editor metadata missing native case run result field $RequiredCaseRunResultTableField"
+        }
+        if ([string]::IsNullOrWhiteSpace($CaseRunResultTableField.detail)) {
+            throw "generated VS Code editor metadata native case run result field $RequiredCaseRunResultTableField missing detail"
+        }
+    }
     $CompilerSemanticSource = Get-Content -LiteralPath (Join-Path $RepoRoot "crates\eng_compiler\src\semantic.rs") -Raw
     $RuntimeSource = Get-Content -LiteralPath (Join-Path $RepoRoot "crates\eng_runtime\src\lib.rs") -Raw
     if ($CompilerSemanticSource.Contains('"expected_count" | "planned_count"') -or $RuntimeSource.Contains('"planned_count" if table.schema_name == "CaseOutput"')) {
@@ -6827,10 +6846,12 @@ function Assert-VscodeExtensionContract {
         $ModuleStatusPath,
         $RuntimeDiscoveryPath,
         $ReviewPanelRendererPath,
+        $CaseRunCompletionTestPath,
         $EditorRequestRaceTestPath,
         $TextMateExampleCoverageTestPath
     )
     Invoke-JavaScriptSyntaxCheck -Paths $VscodeJavaScriptPaths -Label "VS Code extension"
+    Invoke-JavaScriptProgram -Path $CaseRunCompletionTestPath -Label "VS Code native case run completion smoke"
     Invoke-JavaScriptProgram -Path $EditorRequestRaceTestPath -Label "VS Code editor request race smoke"
     Invoke-JavaScriptProgram -Path $TextMateExampleCoverageTestPath -Label "VS Code TextMate example coverage smoke"
 
@@ -7110,6 +7131,8 @@ function Invoke-IdeCheck {
         "latin[_-]hypercube|grid|random|uniform",
         "caseTableFields",
         "caseOutputTableFields",
+        "caseRunResultTableFields",
+        "run_case",
         "normalized.includes(""rendered"")",
         "normalized.includes(""blocked"")",
         "schemaFieldsForBinding",
@@ -7129,6 +7152,7 @@ function Invoke-IdeCheck {
         'filter: "property"',
         "const publicFieldWords = [",
         "catalogItemLabels(catalog.predictionTableFields)",
+        "catalogItemLabels(catalog.caseRunResultTableFields)",
         "renderHighlightCoverageTable",
         "copyHighlightSummary",
         "highlightSummaryCopyText",
@@ -7270,6 +7294,7 @@ function Invoke-IdeCheck {
         "workflowBindingFieldCompletionsFromSource",
         "workflowFieldsForBinding",
         "workflowMemberCompletionFields",
+        "isCaseRunResultTableLikeReceiver",
         "schemaFieldCompletionsFromBody"
     )) {
         $FunctionDeclarationCount = [regex]::Matches($IdeUiSource, "function\s+$UniqueNativeCompletionFunction\s*\(").Count
@@ -7281,6 +7306,7 @@ function Invoke-IdeCheck {
         "dbConnectionFields: catalogFieldItems(source.dbConnectionFields ?? source.db_connection_fields)",
         "coverageResultFields: catalogFieldItems(source.coverageResultFields ?? source.coverage_result_fields)",
         "tableFields: catalogFieldItems(source.tableFields ?? source.table_fields)",
+        "caseRunResultTableFields: catalogFieldItems(",
         "modelFields: catalogFieldItems(source.modelFields ?? source.model_fields)",
         "predictionTableFields: catalogFieldItems(source.predictionTableFields ?? source.prediction_table_fields)",
         "function receiverLookupCandidates(receiver)",
@@ -7290,16 +7316,19 @@ function Invoke-IdeCheck {
         "workflowCatalog.dbConnectionFields",
         "workflowCatalog.coverageResultFields",
         "workflowCatalog.tableFields",
+        "workflowCatalog.caseRunResultTableFields",
         "workflowCatalog.modelFields",
         "workflowCatalog.predictionTableFields",
         "normalizedCatalog.dbConnectionFields",
         "normalizedCatalog.coverageResultFields",
         "normalizedCatalog.tableFields",
+        "normalizedCatalog.caseRunResultTableFields",
         "normalizedCatalog.modelFields",
         "normalizedCatalog.predictionTableFields",
         "function isDbConnectionLikeReceiver(receiver)",
         "function isCoverageResultLikeReceiver(receiver)",
         "function isTableLikeReceiver(receiver)",
+        "function isCaseRunResultTableLikeReceiver(receiver)",
         "function isModelLikeReceiver(receiver)",
         "function isPredictionTableLikeReceiver(receiver)"
     )) {

@@ -12,6 +12,9 @@ class EngCompletionProvider {
     this.dbConnectionFields = Array.isArray(options.dbConnectionFields) ? options.dbConnectionFields : [];
     this.caseTableFields = Array.isArray(options.caseTableFields) ? options.caseTableFields : [];
     this.caseOutputTableFields = Array.isArray(options.caseOutputTableFields) ? options.caseOutputTableFields : [];
+    this.caseRunResultTableFields = Array.isArray(options.caseRunResultTableFields)
+      ? options.caseRunResultTableFields
+      : [];
     this.caseResultCollectionTableFields = Array.isArray(options.caseResultCollectionTableFields)
       ? options.caseResultCollectionTableFields
       : [];
@@ -45,6 +48,7 @@ class EngCompletionProvider {
         dbConnectionFields: this.dbConnectionFields,
         caseTableFields: this.caseTableFields,
         caseOutputTableFields: this.caseOutputTableFields,
+        caseRunResultTableFields: this.caseRunResultTableFields,
         caseResultCollectionTableFields: this.caseResultCollectionTableFields,
         modelFields: this.modelFields,
         predictionTableFields: this.predictionTableFields
@@ -56,6 +60,7 @@ class EngCompletionProvider {
       dbConnectionFields: this.dbConnectionFields,
       caseTableFields: this.caseTableFields,
       caseOutputTableFields: this.caseOutputTableFields,
+      caseRunResultTableFields: this.caseRunResultTableFields,
       caseResultCollectionTableFields: this.caseResultCollectionTableFields,
       modelFields: this.modelFields,
       predictionTableFields: this.predictionTableFields
@@ -200,6 +205,16 @@ function workflowBindingFieldCompletionsFromSource(source, catalogs) {
       pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*apply\s*\(\s*[A-Za-z_][A-Za-z0-9_.-]*\s*,\s*over\s*=\s*[A-Za-z_][A-Za-z0-9_.-]*\s*\)/gm,
       fields: catalogs?.caseOutputTableFields,
       detail: "Case output table field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*apply\s+run_case\s+over\s+[A-Za-z_][A-Za-z0-9_.-]*\b/gm,
+      fields: catalogs?.caseRunResultTableFields,
+      detail: "Native case run result field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*apply\s*\(\s*run_case\s*,\s*over\s*=\s*[A-Za-z_][A-Za-z0-9_.-]*\s*\)/gm,
+      fields: catalogs?.caseRunResultTableFields,
+      detail: "Native case run result field"
     },
     {
       pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*collect\s+results\s+[A-Za-z_][A-Za-z0-9_.]*\b/gm,
@@ -412,6 +427,11 @@ function localMemberCompletionsForContext(document, position, catalogs) {
       matchesReceiver: isCaseOutputTableLikeReceiver
     },
     {
+      fields: catalogs?.caseRunResultTableFields,
+      detail: "Native case run result field",
+      matchesReceiver: isCaseRunResultTableLikeReceiver
+    },
+    {
       fields: catalogs?.caseResultCollectionTableFields,
       detail: "Case result collection field",
       matchesReceiver: isCaseResultCollectionLikeReceiver
@@ -572,6 +592,7 @@ function isPredictionTableLikeReceiver(receiver) {
 function isCaseOutputTableLikeReceiver(receiver) {
   const normalized = receiver.toLowerCase();
   return (
+    !isCaseRunResultTableLikeReceiver(receiver) &&
     normalized.includes("case") &&
     (
       normalized.includes("input") ||
@@ -584,11 +605,26 @@ function isCaseOutputTableLikeReceiver(receiver) {
   );
 }
 
+function isCaseRunResultTableLikeReceiver(receiver) {
+  const normalized = receiver.toLowerCase();
+  return (
+    !normalized.includes("collection") &&
+    (
+      normalized === "case_runs" ||
+      normalized.endsWith("_case_runs") ||
+      normalized.includes("case_run_result")
+    )
+  );
+}
+
 function isCaseResultCollectionLikeReceiver(receiver) {
   const normalized = receiver.toLowerCase();
   return (
-    normalized.includes("collection") ||
-    (normalized.includes("case") && normalized.includes("result"))
+    !isCaseRunResultTableLikeReceiver(receiver) &&
+    (
+      normalized.includes("collection") ||
+      (normalized.includes("case") && normalized.includes("result"))
+    )
   );
 }
 
@@ -596,6 +632,7 @@ function isCaseTableLikeReceiver(receiver) {
   const normalized = receiver.toLowerCase();
   return (
     !isCaseOutputTableLikeReceiver(receiver) &&
+    !isCaseRunResultTableLikeReceiver(receiver) &&
     !isCaseResultCollectionLikeReceiver(receiver) &&
     (
       normalized === "case" ||

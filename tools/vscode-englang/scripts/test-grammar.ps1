@@ -1092,6 +1092,7 @@ $PublicWorkflowMemberFields = @(
     $SyntaxCatalog.db_connection_fields +
     $SyntaxCatalog.case_table_fields +
     $SyntaxCatalog.case_output_table_fields +
+    $SyntaxCatalog.case_run_result_table_fields +
     $SyntaxCatalog.case_result_collection_table_fields +
     $SyntaxCatalog.model_fields +
     $SyntaxCatalog.prediction_table_fields

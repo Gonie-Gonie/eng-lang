@@ -4539,6 +4539,20 @@ with {
             .is_some_and(|items| items
                 .iter()
                 .any(|item| item["label"].as_str() == Some("offline_response"))));
+        assert!(catalog["workflow_options"].as_array().is_some_and(|items| {
+            ["results", "result", "manifest", "on_error"]
+                .iter()
+                .all(|label| {
+                    items
+                        .iter()
+                        .any(|item| item["label"].as_str() == Some(*label))
+                })
+        }));
+        assert!(catalog["case_run_result_table_fields"]
+            .as_array()
+            .is_some_and(|items| items
+                .iter()
+                .any(|item| item["label"].as_str() == Some("succeeded_count"))));
         assert!(catalog["public_types"].as_array().is_some_and(|items| items
             .iter()
             .any(|item| item["base"].as_str() == Some("Table")

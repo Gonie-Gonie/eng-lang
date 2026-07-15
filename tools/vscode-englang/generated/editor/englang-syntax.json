@@ -93,6 +93,64 @@
                                                                            "label":  "source_hash"
                                                                        }
                                                                    ],
+                           "case_run_result_table_fields":  [
+                                                                {
+                                                                    "detail":  "native case run row count",
+                                                                    "label":  "case_count"
+                                                                },
+                                                                {
+                                                                    "detail":  "case runs ready for native execution",
+                                                                    "label":  "ready_count"
+                                                                },
+                                                                {
+                                                                    "detail":  "succeeded native case run count",
+                                                                    "label":  "succeeded_count"
+                                                                },
+                                                                {
+                                                                    "detail":  "failed native case run count",
+                                                                    "label":  "failed_count"
+                                                                },
+                                                                {
+                                                                    "detail":  "skipped native case run count",
+                                                                    "label":  "skipped_count"
+                                                                },
+                                                                {
+                                                                    "detail":  "case runs waiting for rendered input",
+                                                                    "label":  "waiting_count"
+                                                                },
+                                                                {
+                                                                    "detail":  "blocked native case run count",
+                                                                    "label":  "blocked_count"
+                                                                },
+                                                                {
+                                                                    "detail":  "native case result path count",
+                                                                    "label":  "output_count"
+                                                                },
+                                                                {
+                                                                    "detail":  "native case run manifest path count",
+                                                                    "label":  "manifest_count"
+                                                                },
+                                                                {
+                                                                    "detail":  "native case run aggregate status",
+                                                                    "label":  "status"
+                                                                },
+                                                                {
+                                                                    "detail":  "table row count",
+                                                                    "label":  "row_count"
+                                                                },
+                                                                {
+                                                                    "detail":  "table column count",
+                                                                    "label":  "column_count"
+                                                                },
+                                                                {
+                                                                    "detail":  "runtime table schema name",
+                                                                    "label":  "schema_name"
+                                                                },
+                                                                {
+                                                                    "detail":  "runtime table source hash",
+                                                                    "label":  "source_hash"
+                                                                }
+                                                            ],
                            "case_table_fields":  [
                                                      {
                                                          "detail":  "case row count",
@@ -1651,6 +1709,10 @@
                                                         "label":  "lower"
                                                     },
                                                     {
+                                                        "detail":  "native case run manifest path",
+                                                        "label":  "manifest"
+                                                    },
+                                                    {
                                                         "detail":  "solver mass-matrix policy",
                                                         "label":  "mass_matrix"
                                                     },
@@ -1689,6 +1751,10 @@
                                                     {
                                                         "detail":  "What to do when `require_one` finds no rows",
                                                         "label":  "on_none"
+                                                    },
+                                                    {
+                                                        "detail":  "native case run failure policy",
+                                                        "label":  "on_error"
                                                     },
                                                     {
                                                         "detail":  "uncertainty propagation offset",
@@ -1737,6 +1803,14 @@
                                                     {
                                                         "detail":  "HTTP download body size limit",
                                                         "label":  "response_body_limit"
+                                                    },
+                                                    {
+                                                        "detail":  "native calculated case result path",
+                                                        "label":  "result"
+                                                    },
+                                                    {
+                                                        "detail":  "native case result expression map",
+                                                        "label":  "results"
                                                     },
                                                     {
                                                         "detail":  "external command retry policy",

@@ -933,6 +933,7 @@ function createCommandHandlers(options = {}) {
       ...catalogItemLabels(syntaxCatalog.db_connection_fields),
       ...catalogItemLabels(syntaxCatalog.case_table_fields),
       ...catalogItemLabels(syntaxCatalog.case_output_table_fields),
+      ...catalogItemLabels(syntaxCatalog.case_run_result_table_fields),
       ...catalogItemLabels(syntaxCatalog.case_result_collection_table_fields),
       ...catalogItemLabels(syntaxCatalog.model_fields),
       ...catalogItemLabels(syntaxCatalog.prediction_table_fields)

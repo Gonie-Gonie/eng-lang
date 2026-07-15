@@ -47,6 +47,7 @@ const SAMPLE_TABLE_FIELDS = editorMetadata.syntaxCatalog.sample_table_fields;
 const DB_CONNECTION_FIELDS = editorMetadata.syntaxCatalog.db_connection_fields;
 const CASE_TABLE_FIELDS = editorMetadata.syntaxCatalog.case_table_fields;
 const CASE_OUTPUT_TABLE_FIELDS = editorMetadata.syntaxCatalog.case_output_table_fields;
+const CASE_RUN_RESULT_TABLE_FIELDS = editorMetadata.syntaxCatalog.case_run_result_table_fields;
 const CASE_RESULT_COLLECTION_TABLE_FIELDS = editorMetadata.syntaxCatalog.case_result_collection_table_fields;
 const MODEL_FIELDS = editorMetadata.syntaxCatalog.model_fields;
 const PREDICTION_TABLE_FIELDS = editorMetadata.syntaxCatalog.prediction_table_fields;
@@ -318,6 +319,7 @@ function activate(context) {
         dbConnectionFields: DB_CONNECTION_FIELDS,
         caseTableFields: CASE_TABLE_FIELDS,
         caseOutputTableFields: CASE_OUTPUT_TABLE_FIELDS,
+        caseRunResultTableFields: CASE_RUN_RESULT_TABLE_FIELDS,
         caseResultCollectionTableFields: CASE_RESULT_COLLECTION_TABLE_FIELDS,
         modelFields: MODEL_FIELDS,
         predictionTableFields: PREDICTION_TABLE_FIELDS,
