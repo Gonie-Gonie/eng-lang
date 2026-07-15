@@ -22267,6 +22267,16 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         let report = check_file(&source_path, &CheckOptions::default()).unwrap();
         let runtime = materialize_runtime_data(&report, &source);
 
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report
+            .semantic_program
+            .imports
+            .iter()
+            .any(|import| import.target == "eng.stats"));
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "W-STDLIB-MODULE-PLANNED"));
         assert_eq!(runtime.tables[0].row_count, 4);
         assert_eq!(runtime.time_series[0].points.len(), 4);
         assert_eq!(runtime.time_series[0].points[1].x, 300.0);

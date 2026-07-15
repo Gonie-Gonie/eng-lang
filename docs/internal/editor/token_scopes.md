@@ -340,8 +340,9 @@ Core semantic role expectations:
 | String interpolation expression | `variable`/`parameter` plus `property` path segments inside `{...}` fields; format precision digits use `number`, and format units use `type` with `unit`. |
 
 `planned` is currently emitted for source-visible planned stdlib module imports
-such as `use eng.stats`; internal stdlib imports such as `use eng.system` carry
-`internal`.
+such as `use eng.building`; internal stdlib imports such as `use eng.system`
+carry `internal`. Native imports such as `use eng.stats` do not carry either
+status modifier.
 
 ## VS Code Fallback Mapping
 

@@ -915,7 +915,7 @@ fn stdio_code_actions_offer_linter_quick_fixes() {
         .expect("fixture directory should be writable");
     std::fs::write(&fixture_path, "{\"ok\":true}\n").expect("fixture should be writable");
     let source = r#"use eng.nte
-use eng.stats
+use eng.building
 use eng.system
 power = 10 kW
 Q_total = 10 + 2 kW
@@ -1353,7 +1353,7 @@ report {
     assert_action_edit(actions, &uri, "Replace eng.nte with eng.net", "eng.net");
     let planned_stdlib_line = source
         .lines()
-        .position(|line| line.trim_start() == "use eng.stats")
+        .position(|line| line.trim_start() == "use eng.building")
         .expect("source should include planned stdlib import");
     let internal_stdlib_line = source
         .lines()
@@ -1869,7 +1869,7 @@ fn code_actions_stdin_returns_linter_quick_fixes_for_unsaved_source() {
     let server = env!("CARGO_BIN_EXE_eng-lsp");
     let source_path = repo_root().join("build/editor-tests/code_actions_stdin.eng");
     let uri = file_uri(&source_path);
-    let source = r#"use eng.stats
+    let source = r#"use eng.building
 use eng.system
 power = 10 kW
 Q_total = 10 + 2 kW
@@ -2039,7 +2039,7 @@ report {
         .expect("actions should be an array");
     let planned_stdlib_line = source
         .lines()
-        .position(|line| line.trim_start() == "use eng.stats")
+        .position(|line| line.trim_start() == "use eng.building")
         .expect("source should include planned stdlib import");
     let internal_stdlib_line = source
         .lines()

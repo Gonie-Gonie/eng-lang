@@ -1,0 +1,27 @@
+# module: eng.stats
+# status: native-workflow-support-timeseries-summary-runtime
+# purpose: Compiler-checked TimeSeries summaries with runtime-computed values and review/report artifacts.
+#
+# Current implementation:
+#   `report { summarize <series> by [...] }` validates the summary source and
+#   statistic vocabulary. Runtime execution computes values from materialized
+#   TimeSeries points and writes typed_payload.statistics[] plus
+#   report_spec.computed_statistics[] records.
+#
+# Supported summary vocabulary:
+#   mean
+#   time_weighted_mean
+#   min
+#   max
+#   median
+#   std (population standard deviation)
+#   pNN (nearest-rank percentile, including p90 and p95)
+#   duration_above(<quantity threshold>)
+#
+# Review contract:
+#   source binding, axis, quantity kind, requested statistic names, computed
+#   values and units, cache key, source span, and execution status.
+#
+# Non-goal:
+#   Arbitrary table grouping, rolling windows, and broad statistical modeling
+#   are not implied by this module boundary.

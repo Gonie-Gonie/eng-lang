@@ -4403,11 +4403,15 @@ mod tests {
             .hovers
             .as_array()
             .is_some_and(|hovers| hovers.iter().any(|hover| hover["name"] == "Q_coil")));
+        let sensor_schema_line = source
+            .lines()
+            .position(|line| line.trim_start().starts_with("schema SensorData"))
+            .expect("SensorData schema line");
         let document_symbols = check.document_symbols.as_array().expect("document symbols");
         assert!(document_symbols.iter().any(|symbol| {
             symbol["name"] == "SensorData"
                 && symbol["detail"] == "schema"
-                && symbol.pointer("/selectionRange/start/line") == Some(&json!(0))
+                && symbol.pointer("/selectionRange/start/line") == Some(&json!(sensor_schema_line))
         }));
         assert!(document_symbols
             .iter()

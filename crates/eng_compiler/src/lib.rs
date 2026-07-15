@@ -10257,12 +10257,22 @@ system Envelope {
     }
 
     #[test]
-    fn records_timeseries_axis_summary_and_integrate_metadata() {
+    fn native_stats_import_records_timeseries_summary_and_integrate_metadata() {
         let report = check_source(
             "ok.eng",
-            "sensor = promote csv \"data/sensor.csv\" as SensorData\ncp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nE_coil = integrate(Q_coil, over=Time)\n\nreport {\n    summarize Q_coil by [mean, max, p95]\n}\n",
+            "use eng.stats\n\nsensor = promote csv \"data/sensor.csv\" as SensorData\ncp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nE_coil = integrate(Q_coil, over=Time)\n\nreport {\n    summarize Q_coil by [mean, max, p95]\n}\n",
             &CheckOptions::default(),
         );
+
+        assert!(report
+            .semantic_program
+            .imports
+            .iter()
+            .any(|import| import.target == "eng.stats"));
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "W-STDLIB-MODULE-PLANNED"));
 
         let q_type = report
             .semantic_program
@@ -13022,7 +13032,7 @@ write csv "outputs/q.csv", Q
     fn planned_and_internal_stdlib_module_imports_are_warnings() {
         let report = check_source(
             "warn.eng",
-            "use eng.stats\nuse eng.system\nQ = 1 kW\n",
+            "use eng.building\nuse eng.system\nQ = 1 kW\n",
             &CheckOptions::default(),
         );
 

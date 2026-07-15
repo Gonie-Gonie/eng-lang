@@ -1,10 +1,10 @@
 # module: eng.timeseries
-# status: supported-narrow-builtins-coverage-fill-quality-alignment-artifacts
-# purpose: TimeSeries statistics, generic coverage artifacts, explicit fill/interpolation artifacts, quality summaries, alignment/resampling hooks, and planned richer resampling helpers.
+# status: native-workflow-support-coverage-fill-quality-alignment-integration
+# purpose: TimeSeries axis metadata, generic coverage artifacts, explicit fill/interpolation artifacts, quality summaries, alignment/resampling hooks, integration, and planned richer resampling helpers.
 #
 # Current implementation:
-#   TimeSeries statistics, integration, axis metadata, promoted-table coverage
-#   diagnostics, typed_payload.timeseries_coverage[] records for DateTime-indexed
+#   TimeSeries integration, axis metadata, promoted-table coverage diagnostics,
+#   typed_payload.timeseries_coverage[] records for DateTime-indexed
 #   promoted tables, explicit `check coverage <table>.<time>` with
 #   `expected_step` and optional `year`, explicit `fill missing <table>.<column>`
 #   records in typed_payload.timeseries_fill[], interpolation into filled
@@ -15,6 +15,7 @@
 #   and selected alignment metadata are
 #   supported for documented public workflows.
 #   Uncertainty confidence-band metadata is internal/preview.
+#   Summary statistics belong to eng.stats.
 #
 # Supported helper vocabulary:
 #   check coverage
@@ -28,7 +29,8 @@
 # Review contract:
 #   start/end, expected count, actual count, missing intervals, max gap,
 #   leap-year policy, fill policy, quality result, quality score, remaining
-#   missing count, alignment/resampling strategy, and warnings.
+#   missing count, alignment/resampling strategy, integration axis/result, and
+#   warnings.
 #
 # Non-goal:
 #   richer resampling/fill APIs should not silently change data. They must

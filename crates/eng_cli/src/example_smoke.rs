@@ -6391,7 +6391,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .result_json
                     .contains("\"statistic\": \"duration_above(5 kW)\"")
-                || !output.result_json.contains("\"status\": \"metadata_only\"")
+                || !output.result_json.contains(
+                    "\"method\": \"independent_pointwise_sensor_std_percentile_finite_difference\"",
+                )
+                || !output.result_json.contains("\"statistic\": \"p95\"")
                 || !native_workflow_has_zero_process_results(&output.process_results_json)
                 || !native_workflow_run_graphs_avoid_external_processes(
                     &output.static_run_plan_json,

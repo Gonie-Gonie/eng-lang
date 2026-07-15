@@ -522,61 +522,61 @@
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "eng.timeseries mean",
+                                 "detail":  "eng.stats mean",
                                  "kind":  "function",
                                  "label":  "mean",
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "eng.timeseries time-weighted mean",
+                                 "detail":  "eng.stats time-weighted mean",
                                  "kind":  "function",
                                  "label":  "time_weighted_mean",
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "eng.timeseries minimum",
+                                 "detail":  "eng.stats minimum",
                                  "kind":  "function",
                                  "label":  "min",
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "eng.timeseries maximum",
+                                 "detail":  "eng.stats maximum",
                                  "kind":  "function",
                                  "label":  "max",
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "eng.timeseries median",
+                                 "detail":  "eng.stats median",
                                  "kind":  "function",
                                  "label":  "median",
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "eng.timeseries standard deviation",
+                                 "detail":  "eng.stats population standard deviation",
                                  "kind":  "function",
                                  "label":  "std",
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "eng.timeseries 90th percentile",
+                                 "detail":  "eng.stats nearest-rank 90th percentile",
                                  "kind":  "function",
                                  "label":  "p90",
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "eng.timeseries 95th percentile",
+                                 "detail":  "eng.stats nearest-rank 95th percentile",
                                  "kind":  "function",
                                  "label":  "p95",
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "eng.timeseries root mean square error",
+                                 "detail":  "eng.quality root mean square error",
                                  "kind":  "function",
                                  "label":  "rmse",
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "eng.timeseries threshold duration",
+                                 "detail":  "eng.stats threshold duration",
                                  "kind":  "function",
                                  "label":  "duration_above",
                                  "lsp_kind":  3
@@ -2054,7 +2054,7 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Planned: Semantic statistics helpers for TimeSeries and tables.",
+                                 "detail":  "Native: Compiler-checked TimeSeries summarize directives with runtime-computed mean, time-weighted mean, min, max, median, population standard deviation, nearest-rank percentiles, and duration-above values.",
                                  "kind":  "stdlib",
                                  "label":  "eng.stats",
                                  "lsp_kind":  9
@@ -2084,7 +2084,7 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native: TimeSeries statistics, coverage checks, explicit fill/interpolation metadata, quality summaries, alignment/resampling hooks, and integration.",
+                                 "detail":  "Native: TimeSeries axis metadata, coverage checks, explicit fill/interpolation metadata, quality summaries, alignment/resampling hooks, and integration.",
                                  "kind":  "stdlib",
                                  "label":  "eng.timeseries",
                                  "lsp_kind":  9

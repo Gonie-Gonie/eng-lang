@@ -33,7 +33,8 @@ is still future work.
 | `eng.table` | Promoted table diagnostics and schema-aware filter/select/derive/sort/require_one/join transform records with row-level diagnostics. |
 | `eng.sampling` | Deterministic grid/random/LHS sample generation, promoted sample-table metadata, parameter ranges, duplicate case IDs, seeds, row hashes, and row-value previews. |
 | `eng.case` | CaseTable summaries, per-case manifests, collection status, scheduler hooks, cache hit/miss metadata, diagnostics, and process-output enrichment. |
-| `eng.timeseries` | Coverage metadata, statistics, and integration above core TimeSeries semantics. |
+| `eng.timeseries` | Axis, coverage, fill, quality, alignment/resampling, and integration metadata above core TimeSeries semantics. |
+| `eng.stats` | Compiler-checked TimeSeries summaries with native runtime values and report/review artifacts. |
 | `eng.review` | Review IR, risk/fallback, and semantic diff vocabulary. |
 | `eng.workflow` | Static/runtime RunPlan, run lock, dependency graph, rerun decisions, and workflow node status artifacts. |
 
@@ -44,7 +45,6 @@ APIs unless a status document says so.
 
 | Area | Status | Public meaning |
 |---|---|---|
-| `eng.stats` | Planned | Semantic statistics helpers for TimeSeries and tables. |
 | `eng.plot` | Native workflow support | PlotSpec, plot manifest, and SVG artifacts from report directives; broader helper vocabulary remains planned. |
 | `eng.report` | Native workflow support | Report block projection to report, review, and output artifacts; broader helper vocabulary remains planned. |
 | `eng.config` | Supported narrow scope | Typed JSON/TOML file promotion with schema validation, optional field policy, source hashes, and config summaries. |

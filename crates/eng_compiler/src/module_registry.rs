@@ -387,6 +387,19 @@ mod tests {
                     .iter()
                     .any(|artifact| artifact == "report_spec.confidence_band")
         }));
+        assert!(registry.modules.iter().any(|module| {
+            module.name == "eng.stats"
+                && module.status == "native_preview"
+                && module.backing == "compiler_runtime_builtin"
+                && module
+                    .artifacts
+                    .iter()
+                    .any(|artifact| artifact == "typed_payload.statistics")
+                && module
+                    .tests
+                    .iter()
+                    .any(|test| test.contains("computes_heat_rate_statistics_and_integral"))
+        }));
         assert!(registry
             .modules
             .iter()

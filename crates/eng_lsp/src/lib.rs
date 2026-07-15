@@ -795,16 +795,16 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     ("model_card", "Create a model-card review artifact"),
     ("leakage_lint", "Check model features for leakage risk"),
     ("predict", "Create predictions from a model and input table"),
-    ("mean", "eng.timeseries mean"),
-    ("time_weighted_mean", "eng.timeseries time-weighted mean"),
-    ("min", "eng.timeseries minimum"),
-    ("max", "eng.timeseries maximum"),
-    ("median", "eng.timeseries median"),
-    ("std", "eng.timeseries standard deviation"),
-    ("p90", "eng.timeseries 90th percentile"),
-    ("p95", "eng.timeseries 95th percentile"),
-    ("rmse", "eng.timeseries root mean square error"),
-    ("duration_above", "eng.timeseries threshold duration"),
+    ("mean", "eng.stats mean"),
+    ("time_weighted_mean", "eng.stats time-weighted mean"),
+    ("min", "eng.stats minimum"),
+    ("max", "eng.stats maximum"),
+    ("median", "eng.stats median"),
+    ("std", "eng.stats population standard deviation"),
+    ("p90", "eng.stats nearest-rank 90th percentile"),
+    ("p95", "eng.stats nearest-rank 95th percentile"),
+    ("rmse", "eng.quality root mean square error"),
+    ("duration_above", "eng.stats threshold duration"),
     ("integrate", "eng.timeseries integration helper"),
     ("der", "eng.timeseries derivative helper"),
     ("delay", "eng.timeseries delay helper"),
@@ -10630,12 +10630,15 @@ mod tests {
         assert!(snapshot.completions.iter().any(|completion| {
             completion.label == "eng.uncertainty" && completion.detail.starts_with("Native:")
         }));
+        assert!(snapshot.completions.iter().any(|completion| {
+            completion.label == "eng.stats" && completion.detail.starts_with("Native:")
+        }));
         for (label, detail_part) in [
             ("require_one", "exactly one row"),
             ("uniform", "eng.sampling"),
             ("train regression", "regression model"),
             ("predict", "predictions"),
-            ("time_weighted_mean", "eng.timeseries"),
+            ("time_weighted_mean", "eng.stats"),
         ] {
             let completion = snapshot
                 .completions
@@ -13530,8 +13533,15 @@ fn coil_heat(m_dot: MassFlowRate, dT: TemperatureDelta) -> HeatRate {
         assert_semantic_token_modifier(&snapshot, source, "eng.table", "declaration");
         assert_semantic_token_modifier(&snapshot, source, "eng.table", "defaultLibrary");
         assert_semantic_token_type(&snapshot, source, "eng.stats", "namespace");
-        assert_semantic_token_modifier(&snapshot, source, "eng.stats", "planned");
+        assert_semantic_token_modifier(&snapshot, source, "eng.stats", "imported");
+        assert_semantic_token_modifier(&snapshot, source, "eng.stats", "declaration");
         assert_semantic_token_modifier(&snapshot, source, "eng.stats", "defaultLibrary");
+        assert!(!snapshot.semantic_tokens.tokens.iter().any(|token| {
+            source.lines().nth(token.line).is_some_and(|line| {
+                line.get(token.start..token.start + token.length) == Some("eng.stats")
+                    && token.modifiers.iter().any(|modifier| modifier == "planned")
+            })
+        }));
         assert_semantic_token_type(&snapshot, source, "eng.system", "namespace");
         assert_semantic_token_modifier(&snapshot, source, "eng.system", "internal");
         assert_semantic_token_modifier(&snapshot, source, "eng.system", "defaultLibrary");

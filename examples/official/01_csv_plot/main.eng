@@ -1,3 +1,5 @@
+use eng.stats
+
 schema SensorData {
     time: DateTime index
     T_supply: AbsoluteTemperature [degC]
