@@ -94,7 +94,9 @@ Editor
   short typing pause. Live analysis resolves recursive static imports from
   every other modified open EngLang tab before disk, and discards a result if
   any participating tab changes during the check. Check and Run still force an
-  immediate refresh.
+  immediate refresh. A fixed line-number gutter stays aligned with the editable
+  and highlighted source while scrolling, updates as lines are added or
+  removed, and widens automatically for long files.
   Tab and Shift+Tab indent or outdent the current line or selected block,
   Ctrl+S saves the active buffer, and Ctrl+/ toggles `#` line comments.
   Find in the toolbar or Ctrl+F searches the current buffer, preloading a

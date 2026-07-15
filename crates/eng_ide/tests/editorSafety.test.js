@@ -1623,6 +1623,79 @@ function editorViewStatePersistsAcrossRendersAndTabs() {
   `);
 }
 
+function editorLineNumbersTrackSourceAndScroll() {
+  assert.strictEqual(run('renderEditorLineNumbers("")'), "1");
+  assert.strictEqual(run('renderEditorLineNumbers("one\\ntwo\\n")'), "1\n2\n3");
+  assert.strictEqual(run('editorGutterWidth("x\\n".repeat(98) + "x")'), 38);
+  assert.strictEqual(run('editorGutterWidth("x\\n".repeat(99) + "x")'), 42);
+  assert.strictEqual(run('editorGutterWidth("x\\n".repeat(9999) + "x")'), 58);
+
+  run(`
+    globalThis.realByIdForLineNumbers = byId;
+    state.source = "one\\ntwo\\nthree";
+    globalThis.lineNumberEditor = {
+      scrollTop: 73,
+      scrollLeft: 29
+    };
+    globalThis.lineNumberHighlight = {
+      scrollTop: 0,
+      scrollLeft: 0
+    };
+    globalThis.lineNumberGutterLines = {
+      textContent: "",
+      style: { top: "", left: "0px" }
+    };
+    globalThis.lineNumberShell = {
+      style: {
+        values: {},
+        setProperty(name, value) {
+          this.values[name] = value;
+        }
+      }
+    };
+    byId = (id) => ({
+      editor: globalThis.lineNumberEditor,
+      editorHighlight: globalThis.lineNumberHighlight,
+      editorGutterLines: globalThis.lineNumberGutterLines,
+      editorShell: globalThis.lineNumberShell
+    })[id] || null;
+    updateEditorLineNumbers();
+    syncEditorHighlightScroll();
+    globalThis.lineNumberCaret = caretOverlayPosition({
+      value: "ab\\ncd",
+      selectionStart: 5,
+      clientWidth: 900,
+      clientHeight: 500,
+      scrollLeft: 0,
+      scrollTop: 0
+    });
+  `);
+
+  assert.strictEqual(run("globalThis.lineNumberGutterLines.textContent"), "1\n2\n3");
+  assert.strictEqual(run('globalThis.lineNumberShell.style.values["--editor-gutter-width"]'), "38px");
+  assert.strictEqual(run("globalThis.lineNumberGutterLines.style.top"), "-73px");
+  assert.strictEqual(run("globalThis.lineNumberGutterLines.style.left"), "0px");
+  assert.deepStrictEqual(
+    Array.from(run("[globalThis.lineNumberHighlight.scrollTop, globalThis.lineNumberHighlight.scrollLeft]")),
+    [73, 29]
+  );
+  assert.deepStrictEqual(
+    JSON.parse(run("JSON.stringify(globalThis.lineNumberCaret)")),
+    { left: 68.4, top: 52 }
+  );
+
+  run(`
+    state.source = Array.from({ length: 100 }, (_, index) => "line " + (index + 1)).join("\\n");
+    updateEditorLineNumbers();
+  `);
+  assert.strictEqual(run('globalThis.lineNumberShell.style.values["--editor-gutter-width"]'), "42px");
+  assert.strictEqual(run('globalThis.lineNumberGutterLines.textContent.split("\\n").at(-1)'), "100");
+  run(`
+    byId = globalThis.realByIdForLineNumbers;
+    state.source = "";
+  `);
+}
+
 function outlineSelectionUsesUtf16Coordinates() {
   run(`
     globalThis.outlineEditor = {
@@ -2072,6 +2145,7 @@ async function main() {
   documentBreadcrumbsTrackNestedSymbolsAndFreshness();
   documentBreadcrumbNavigationUsesUtf16Coordinates();
   editorViewStatePersistsAcrossRendersAndTabs();
+  editorLineNumbersTrackSourceAndScroll();
   outlineSelectionUsesUtf16Coordinates();
   outlineRefreshPreservesFilterFocus();
   outlineShortcutFocusesCurrentFileSymbols();

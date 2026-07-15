@@ -547,8 +547,11 @@ function render() {
         <span id="cursorInsight" class="cursor-insight">${renderCursorInsight()}</span>
         <span id="editorLineCount">${lineCount(state.source)} lines</span>
       </div>
-      <div class="editor-shell">
+      <div id="editorShell" class="editor-shell" style="--editor-gutter-width: ${editorGutterWidth()}px">
         ${renderEditorFindBar()}
+        <div id="editorGutter" class="editor-gutter" aria-hidden="true">
+          <pre id="editorGutterLines" class="editor-gutter-lines">${renderEditorLineNumbers()}</pre>
+        </div>
         <pre id="editorHighlight" class="editor-highlight" aria-hidden="true">${renderHighlightedSource()}</pre>
         <textarea id="editor" class="editor" spellcheck="false" wrap="off">${escapeHtml(state.source)}</textarea>
         <div id="completionOverlay" class="completion-popover hidden"></div>
@@ -8467,12 +8470,17 @@ function caretOverlayPosition(editor) {
   const column = lines[lines.length - 1].length;
   const lineHeight = 20;
   const charWidth = 8.2;
-  const left = Math.max(8, Math.min(editor.clientWidth - 280, 12 + column * charWidth - editor.scrollLeft));
+  const textInset = editorTextInset();
+  const left = Math.max(
+    textInset,
+    Math.min(editor.clientWidth - 280, textInset + column * charWidth - editor.scrollLeft)
+  );
   const top = Math.max(8, Math.min(editor.clientHeight - 210, 12 + (line + 1) * lineHeight - editor.scrollTop));
   return { left, top };
 }
 
 function updateEditorHighlight() {
+  updateEditorLineNumbers();
   const highlight = byId("editorHighlight");
   if (!highlight) return;
   highlight.innerHTML = renderHighlightedSource();
@@ -8482,9 +8490,33 @@ function updateEditorHighlight() {
 function syncEditorHighlightScroll() {
   const editor = byId("editor");
   const highlight = byId("editorHighlight");
-  if (!editor || !highlight) return;
-  highlight.scrollTop = editor.scrollTop;
-  highlight.scrollLeft = editor.scrollLeft;
+  const gutterLines = byId("editorGutterLines");
+  if (!editor) return;
+  if (highlight) {
+    highlight.scrollTop = editor.scrollTop;
+    highlight.scrollLeft = editor.scrollLeft;
+  }
+  if (gutterLines) gutterLines.style.top = `${-Math.max(0, Number(editor.scrollTop) || 0)}px`;
+}
+
+function editorGutterWidth(source = state.source) {
+  const digits = String(lineCount(String(source ?? ""))).length;
+  return Math.max(38, 18 + digits * 8);
+}
+
+function editorTextInset(source = state.source) {
+  return editorGutterWidth(source) + 14;
+}
+
+function renderEditorLineNumbers(source = state.source) {
+  return Array.from({ length: lineCount(String(source ?? "")) }, (_, index) => String(index + 1)).join("\n");
+}
+
+function updateEditorLineNumbers() {
+  const gutterLines = byId("editorGutterLines");
+  if (gutterLines) gutterLines.textContent = renderEditorLineNumbers();
+  const shell = byId("editorShell");
+  shell?.style?.setProperty("--editor-gutter-width", `${editorGutterWidth()}px`);
 }
 
 function renderHighlightedSource() {
