@@ -3,10 +3,10 @@ use std::path::Path;
 
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, bundled_module_registry, check_source,
-    classify_diagnostic_review_risk, classify_review_risk, db_read_expression,
-    read_only_io_expression, CheckOptions, CheckReport, ClassFieldInfo, CommandStyleInfo,
-    Diagnostic, DomainTypeParameterInfo, FileOperationInfo, FunctionInfo, SemanticProgram,
-    Severity, WithBlockInfo, WithOptionInfo,
+    check_source_with_import_overrides, classify_diagnostic_review_risk, classify_review_risk,
+    db_read_expression, read_only_io_expression, CheckOptions, CheckReport, ClassFieldInfo,
+    CommandStyleInfo, Diagnostic, DomainTypeParameterInfo, FileOperationInfo, FunctionInfo,
+    ImportSourceOverrides, SemanticProgram, Severity, WithBlockInfo, WithOptionInfo,
 };
 use serde_json::{json, Value};
 
@@ -1121,6 +1121,20 @@ pub fn snapshot_for_source(path: &Path, source: &str) -> LspSnapshot {
     snapshot_from_report_with_source(&report, Some(source))
 }
 
+pub fn snapshot_for_source_with_import_overrides(
+    path: &Path,
+    source: &str,
+    import_overrides: &ImportSourceOverrides,
+) -> LspSnapshot {
+    let report = check_source_with_import_overrides(
+        path,
+        source,
+        import_overrides,
+        &CheckOptions::default(),
+    );
+    snapshot_from_report_with_source(&report, Some(source))
+}
+
 pub fn completion_items_for_path_position(
     path: &Path,
     line: usize,
@@ -1139,6 +1153,22 @@ pub fn completion_items_for_source_position(
     character: usize,
 ) -> Vec<LspCompletion> {
     let report = check_source(path, source, &CheckOptions::default());
+    completion_items_at(&report, source, line, character)
+}
+
+pub fn completion_items_for_source_position_with_import_overrides(
+    path: &Path,
+    source: &str,
+    line: usize,
+    character: usize,
+    import_overrides: &ImportSourceOverrides,
+) -> Vec<LspCompletion> {
+    let report = check_source_with_import_overrides(
+        path,
+        source,
+        import_overrides,
+        &CheckOptions::default(),
+    );
     completion_items_at(&report, source, line, character)
 }
 

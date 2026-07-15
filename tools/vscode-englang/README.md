@@ -11,8 +11,10 @@ embedding compiler logic in JavaScript.
 - stable file diagnostics from the EngLang CLI checker, with code links,
   token-precise ranges, option-value underlines, and legacy/deprecated tags in VS Code Problems
 - optional live editor diagnostics, hover, completion, document/workspace
-  symbols, semantic same-symbol highlights, and folding for the current unsaved buffer
-- debounced diagnostics for unsaved buffers after a short typing pause
+  symbols, semantic same-symbol highlights, and folding from the current
+  unsaved buffer plus every modified open EngLang import in the workspace
+- debounced diagnostics for unsaved buffers after a short typing pause,
+  including open dependent EngLang files when an imported buffer changes
 - a clickable EngLang Problems status bar item showing file/live mode,
   current error/warning/info/hint counts, and a Tooling Status shortcut
 - role-aware highlighting for unsaved buffers, covering roles such as

@@ -3,12 +3,17 @@ use std::collections::{HashMap, HashSet};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
-use eng_compiler::{bundled_module_registry, format_source, parse_source, AstItem, ParseContext};
+use eng_compiler::{
+    bundled_module_registry, format_source, parse_source, AstItem, ImportSourceOverrides,
+    ParseContext,
+};
 use eng_lsp::{
-    completion_items_for_path_position, completion_items_for_source_position, completion_json,
-    diagnostic_json, document_symbols_lsp_json, editor_metadata_json, editor_syntax_catalog_json,
+    completion_items_for_path_position, completion_items_for_source_position,
+    completion_items_for_source_position_with_import_overrides, completion_json, diagnostic_json,
+    document_symbols_lsp_json, editor_metadata_json, editor_syntax_catalog_json,
     folding_ranges_lsp_json, hover_json, semantic_legend, semantic_tokens_lsp_json,
-    snapshot_for_path, snapshot_for_source, workflow_option_label_exists, LSP_SNAPSHOT_FORMAT,
+    snapshot_for_path, snapshot_for_source, snapshot_for_source_with_import_overrides,
+    workflow_option_label_exists, LSP_SNAPSHOT_FORMAT,
 };
 use serde_json::{json, Value};
 
@@ -26,6 +31,9 @@ fn main() -> std::process::ExitCode {
     if args.first().map(String::as_str) == Some("--snapshot-stdin") {
         return command_snapshot_stdin(args.get(1));
     }
+    if args.first().map(String::as_str) == Some("--workspace-snapshot-stdin") {
+        return command_workspace_snapshot_stdin(args.get(1), args.get(2));
+    }
     if args.first().map(String::as_str) == Some("--snapshot-check") {
         return command_snapshot_check(args.get(1));
     }
@@ -40,6 +48,14 @@ fn main() -> std::process::ExitCode {
     }
     if args.first().map(String::as_str) == Some("--completion-stdin") {
         return command_completion_stdin(args.get(1), args.get(2), args.get(3));
+    }
+    if args.first().map(String::as_str) == Some("--workspace-completion-stdin") {
+        return command_workspace_completion_stdin(
+            args.get(1),
+            args.get(2),
+            args.get(3),
+            args.get(4),
+        );
     }
     if args.first().map(String::as_str) == Some("--definition-stdin") {
         return command_definition_stdin(args.get(1), args.get(2), args.get(3));
@@ -225,6 +241,32 @@ fn command_snapshot_stdin(path: Option<&String>) -> std::process::ExitCode {
     std::process::ExitCode::SUCCESS
 }
 
+fn command_workspace_snapshot_stdin(
+    root: Option<&String>,
+    path: Option<&String>,
+) -> std::process::ExitCode {
+    const USAGE: &str = "usage: eng-lsp --workspace-snapshot-stdin <workspace-root> <file.eng>";
+    let Some(path) = path else {
+        eprintln!("{USAGE}");
+        return std::process::ExitCode::from(2);
+    };
+    let (root, documents) = match read_workspace_documents_stdin(root, USAGE) {
+        Ok(result) => result,
+        Err(code) => return code,
+    };
+    let (path, source) = match selected_workspace_document(&root, path, &documents) {
+        Ok(result) => result,
+        Err(error) => {
+            eprintln!("invalid workspace snapshot request: {error}");
+            return std::process::ExitCode::from(2);
+        }
+    };
+    let import_overrides = import_source_overrides_from_documents(&documents);
+    let snapshot = snapshot_for_source_with_import_overrides(&path, &source, &import_overrides);
+    println!("{}", eng_lsp::snapshot_json(&snapshot));
+    std::process::ExitCode::SUCCESS
+}
+
 fn command_snapshot_check(path: Option<&String>) -> std::process::ExitCode {
     let Some(path) = path else {
         eprintln!("usage: eng-lsp --snapshot-check <file.eng>");
@@ -354,6 +396,44 @@ fn command_completion_stdin(
         return std::process::ExitCode::from(1);
     }
     let items = completion_items_for_source_position(Path::new(path), &source, line, character);
+    println!("{}", completion_payload_json(items));
+    std::process::ExitCode::SUCCESS
+}
+
+fn command_workspace_completion_stdin(
+    root: Option<&String>,
+    path: Option<&String>,
+    line: Option<&String>,
+    character: Option<&String>,
+) -> std::process::ExitCode {
+    const USAGE: &str = "usage: eng-lsp --workspace-completion-stdin <workspace-root> <file.eng> <line> <character>";
+    let Some(path) = path else {
+        eprintln!("{USAGE}");
+        return std::process::ExitCode::from(2);
+    };
+    let Some((line, character)) = parse_position(line, character) else {
+        eprintln!("{USAGE}");
+        return std::process::ExitCode::from(2);
+    };
+    let (root, documents) = match read_workspace_documents_stdin(root, USAGE) {
+        Ok(result) => result,
+        Err(code) => return code,
+    };
+    let (path, source) = match selected_workspace_document(&root, path, &documents) {
+        Ok(result) => result,
+        Err(error) => {
+            eprintln!("invalid workspace completion request: {error}");
+            return std::process::ExitCode::from(2);
+        }
+    };
+    let import_overrides = import_source_overrides_from_documents(&documents);
+    let items = completion_items_for_source_position_with_import_overrides(
+        &path,
+        &source,
+        line,
+        character,
+        &import_overrides,
+    );
     println!("{}", completion_payload_json(items));
     std::process::ExitCode::SUCCESS
 }
@@ -934,6 +1014,30 @@ fn workspace_request_uri(root: &Path, path: &str, documents: &Documents) -> Resu
     Ok(uri)
 }
 
+fn selected_workspace_document(
+    root: &Path,
+    path: &str,
+    documents: &Documents,
+) -> Result<(PathBuf, String), String> {
+    let uri = workspace_request_uri(root, path, documents)?;
+    let path = path_from_uri(&uri)
+        .ok_or_else(|| format!("could not convert workspace document URI to a path: {uri}"))?;
+    let source = document_text_for_uri(&uri, documents)
+        .ok_or_else(|| format!("workspace document source was unavailable: {uri}"))?;
+    Ok((path, source))
+}
+
+fn import_source_overrides_from_documents(documents: &Documents) -> ImportSourceOverrides {
+    let mut overrides = ImportSourceOverrides::new();
+    for (uri, state) in documents {
+        let Some(path) = path_from_uri(uri) else {
+            continue;
+        };
+        let _ = overrides.insert(path, state.text.clone());
+    }
+    overrides
+}
+
 #[derive(Clone, Debug)]
 struct DocumentState {
     text: String,
@@ -1032,7 +1136,24 @@ fn run_lsp() -> io::Result<()> {
             "textDocument/didOpen" | "textDocument/didChange" | "textDocument/didSave" => {
                 if let Some((uri, state)) = document_state_from_notification(&request, &documents) {
                     documents.insert(uri.clone(), state.clone());
-                    publish_diagnostics(&mut output, &uri, &state)?;
+                    for (open_uri, open_state) in
+                        diagnostic_documents_after_change(&uri, &documents)
+                    {
+                        publish_diagnostics(&mut output, &open_uri, &open_state, &documents)?;
+                    }
+                }
+            }
+            "textDocument/didClose" => {
+                if let Some(uri) = request_uri(&request).map(str::to_owned) {
+                    let dependents = diagnostic_documents_after_change(&uri, &documents)
+                        .into_iter()
+                        .filter(|(open_uri, _)| open_uri != &uri)
+                        .collect::<Vec<_>>();
+                    documents.remove(&uri);
+                    clear_diagnostics(&mut output, &uri)?;
+                    for (open_uri, open_state) in dependents {
+                        publish_diagnostics(&mut output, &open_uri, &open_state, &documents)?;
+                    }
                 }
             }
             "textDocument/completion" => {
@@ -1185,9 +1306,10 @@ fn publish_diagnostics<W: Write>(
     output: &mut W,
     uri: &str,
     state: &DocumentState,
+    documents: &Documents,
 ) -> io::Result<()> {
     let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
-    let snapshot = snapshot_for_source(&path, &state.text);
+    let snapshot = snapshot_for_open_documents(&path, &state.text, documents);
     let diagnostics = snapshot
         .diagnostics
         .iter()
@@ -1207,6 +1329,94 @@ fn publish_diagnostics<W: Write>(
             "params": Value::Object(params)
         }),
     )
+}
+
+fn clear_diagnostics<W: Write>(output: &mut W, uri: &str) -> io::Result<()> {
+    write_response(
+        output,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/publishDiagnostics",
+            "params": {
+                "uri": uri,
+                "diagnostics": []
+            }
+        }),
+    )
+}
+
+fn diagnostic_documents_after_change(
+    changed_uri: &str,
+    documents: &Documents,
+) -> Vec<(String, DocumentState)> {
+    let changed_path = path_from_uri(changed_uri).map(|path| path.canonicalize().unwrap_or(path));
+    let mut dependents = documents
+        .iter()
+        .filter_map(|(uri, state)| {
+            if uri == changed_uri {
+                return None;
+            }
+            let changed_path = changed_path.as_deref()?;
+            let source_path = path_from_uri(uri)?;
+            source_depends_on_import_path(
+                &source_path,
+                &state.text,
+                changed_path,
+                documents,
+                &mut HashSet::new(),
+            )
+            .then(|| (uri.clone(), state.clone()))
+        })
+        .collect::<Vec<_>>();
+    dependents.sort_by(|left, right| left.0.cmp(&right.0));
+    if let Some(state) = documents.get(changed_uri) {
+        dependents.push((changed_uri.to_owned(), state.clone()));
+    }
+    dependents
+}
+
+fn source_depends_on_import_path(
+    source_path: &Path,
+    source: &str,
+    target_path: &Path,
+    documents: &Documents,
+    visited: &mut HashSet<PathBuf>,
+) -> bool {
+    let Some(base_dir) = source_path.parent() else {
+        return false;
+    };
+    for item in parse_source(source).items {
+        let AstItem::Import(import) = item else {
+            continue;
+        };
+        if import.kind != "file" {
+            continue;
+        }
+        let Some(import_path) = resolve_static_import_path(base_dir, &import.target) else {
+            continue;
+        };
+        if import_path == target_path {
+            return true;
+        }
+        if !visited.insert(import_path.clone()) {
+            continue;
+        }
+        let imported_source = workspace_document_for_path(documents, &import_path)
+            .map(|(_, state)| Cow::Borrowed(state.text.as_str()))
+            .or_else(|| std::fs::read_to_string(&import_path).ok().map(Cow::Owned));
+        if imported_source.is_some_and(|source| {
+            source_depends_on_import_path(
+                &import_path,
+                source.as_ref(),
+                target_path,
+                documents,
+                visited,
+            )
+        }) {
+            return true;
+        }
+    }
+    false
 }
 
 fn semantic_tokens_for_request(
@@ -5627,7 +5837,16 @@ fn snapshot_for_request(request: &Value, documents: &Documents) -> Option<eng_ls
     let uri = request_uri(request)?;
     let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
     let text = document_text_for_uri(uri, documents)?;
-    Some(snapshot_for_source(&path, &text))
+    Some(snapshot_for_open_documents(&path, &text, documents))
+}
+
+fn snapshot_for_open_documents(
+    path: &Path,
+    source: &str,
+    documents: &Documents,
+) -> eng_lsp::LspSnapshot {
+    let import_overrides = import_source_overrides_from_documents(documents);
+    snapshot_for_source_with_import_overrides(path, source, &import_overrides)
 }
 
 const MAX_WORKSPACE_INDEX_FILES: usize = 500;
@@ -5881,7 +6100,14 @@ fn completions_for_request(request: &Value, documents: &Documents) -> Vec<eng_ls
         .and_then(Value::as_u64)
         .unwrap_or(0) as usize;
     if let Some(text) = document_text_for_uri(uri, documents) {
-        return completion_items_for_source_position(&path, &text, line, character);
+        let import_overrides = import_source_overrides_from_documents(documents);
+        return completion_items_for_source_position_with_import_overrides(
+            &path,
+            &text,
+            line,
+            character,
+            &import_overrides,
+        );
     }
     completion_items_for_path_position(&path, line, character).unwrap_or_default()
 }
@@ -5900,7 +6126,7 @@ fn hover_for_request(request: &Value, documents: &Documents) -> Option<eng_lsp::
     let text = document_text_for_uri(uri, documents);
     let snapshot = text
         .as_deref()
-        .map(|text| snapshot_for_source(&path, text))
+        .map(|text| snapshot_for_open_documents(&path, text, documents))
         .or_else(|| snapshot_for_path(&path).ok())?;
     if let Some(symbol) = text
         .as_deref()
@@ -5926,7 +6152,7 @@ fn definition_for_request(request: &Value, documents: &Documents) -> Option<Valu
         .and_then(Value::as_u64)
         .unwrap_or(0) as usize;
     let text = document_text_for_uri(uri, documents)?;
-    let snapshot = snapshot_for_source(&path, &text);
+    let snapshot = snapshot_for_open_documents(&path, &text, documents);
     let symbol = symbol_at_position(&text, line_zero_based, character)?;
     if let Some(target) = stdlib_module_definition_target(&symbol) {
         return Some(definition_location_json(&target));
@@ -6008,7 +6234,7 @@ fn document_highlights_for_request(request: &Value, documents: &Documents) -> Va
         .pointer("/params/position/character")
         .and_then(Value::as_u64)
         .unwrap_or(0) as usize;
-    let snapshot = snapshot_for_source(&path, &text);
+    let snapshot = snapshot_for_open_documents(&path, &text, documents);
     let Some(symbol) = workspace_semantic_symbol_occurrences(
         &path,
         &text,
@@ -6086,7 +6312,7 @@ fn references_for_request(
         .pointer("/params/context/includeDeclaration")
         .and_then(Value::as_bool)
         .unwrap_or(true);
-    let snapshot = snapshot_for_source(&path, &text);
+    let snapshot = snapshot_for_open_documents(&path, &text, documents);
     let Some(symbol) = workspace_semantic_symbol_occurrences(
         &path,
         &text,
@@ -6251,7 +6477,7 @@ fn workspace_reference_locations(
         {
             continue;
         }
-        let snapshot = snapshot_for_source(&source.path, &source.text);
+        let snapshot = snapshot_for_open_documents(&source.path, &source.text, documents);
         let Some(symbol) = semantic_symbol_occurrences_for_workspace_identity(
             &source.text,
             &snapshot.semantic_tokens.tokens,
@@ -6514,7 +6740,7 @@ fn prepare_rename_for_request(request: &Value, documents: &Documents) -> Option<
     let text = document_text_for_uri(uri, documents)?;
     let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
     let (line, character) = request_position(request)?;
-    let snapshot = snapshot_for_source(&path, &text);
+    let snapshot = snapshot_for_open_documents(&path, &text, documents);
     let symbol = workspace_semantic_symbol_occurrences(
         &path,
         &text,
@@ -6551,7 +6777,7 @@ fn rename_for_request(
         .and_then(Value::as_str)
         .map(str::trim)
         .ok_or_else(|| "Rename request is missing the new symbol name.".to_owned())?;
-    let snapshot = snapshot_for_source(&path, &text);
+    let snapshot = snapshot_for_open_documents(&path, &text, documents);
     let symbol = workspace_semantic_symbol_occurrences(
         &path,
         &text,
@@ -6680,7 +6906,7 @@ fn workspace_rename_for_symbol(
         {
             continue;
         }
-        let snapshot = snapshot_for_source(&source.path, &source.text);
+        let snapshot = snapshot_for_open_documents(&source.path, &source.text, documents);
         let Some(symbol) = semantic_symbol_occurrences_for_workspace_identity(
             &source.text,
             &snapshot.semantic_tokens.tokens,
@@ -7966,6 +8192,100 @@ mod tests {
             PathBuf::from("/tmp/한 % #.eng")
         };
         assert_eq!(path_from_uri(&file_uri_from_path(&path)), Some(path));
+    }
+
+    #[test]
+    fn changed_import_republishes_only_recursive_open_dependents() {
+        let root = std::env::temp_dir().join(format!(
+            "eng_lsp_open_import_diagnostics_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("diagnostic fixture should be created");
+        let module_path = root.join("module.eng");
+        let bridge_path = root.join("bridge.eng");
+        let current_path = root.join("current.eng");
+        let unrelated_path = root.join("unrelated.eng");
+        let sources = [
+            (&module_path, "const SHARED_GAIN: Ratio = 0.9\n"),
+            (&bridge_path, "use \"module.eng\"\n"),
+            (&current_path, "use \"bridge.eng\"\nvalue = SHARED_GAIN\n"),
+            (&unrelated_path, "value = 1\n"),
+        ];
+        let mut documents = Documents::new();
+        for (path, source) in sources {
+            std::fs::write(path, source).expect("diagnostic source should be written");
+            let path = path.canonicalize().expect("diagnostic source should exist");
+            documents.insert(
+                file_uri_from_path(&path),
+                DocumentState::new(source.to_owned(), Some(1)),
+            );
+        }
+        let module_uri = file_uri_from_path(&module_path.canonicalize().unwrap());
+        let bridge_uri = file_uri_from_path(&bridge_path.canonicalize().unwrap());
+        let current_uri = file_uri_from_path(&current_path.canonicalize().unwrap());
+        let unrelated_uri = file_uri_from_path(&unrelated_path.canonicalize().unwrap());
+
+        let affected = diagnostic_documents_after_change(&module_uri, &documents);
+        let affected_uris = affected
+            .iter()
+            .map(|(uri, _)| uri.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(affected_uris.contains(&bridge_uri.as_str()));
+        assert!(affected_uris.contains(&current_uri.as_str()));
+        assert!(!affected_uris.contains(&unrelated_uri.as_str()));
+        assert_eq!(affected_uris.last().copied(), Some(module_uri.as_str()));
+        std::fs::remove_dir_all(&root).expect("diagnostic fixture should be removed");
+    }
+
+    #[test]
+    fn closed_import_falls_back_to_disk_for_open_document_snapshots() {
+        let root = std::env::temp_dir().join(format!(
+            "eng_lsp_closed_import_snapshot_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("snapshot fixture should be created");
+        let module_path = root.join("module.eng");
+        let current_path = root.join("current.eng");
+        let saved_module =
+            "fn saved_gain(value: HeatRate [kW]) -> HeatRate [kW] {\n    return value\n}\n";
+        let open_module =
+            "fn open_gain(value: HeatRate [kW]) -> HeatRate [kW] {\n    return value\n}\n";
+        let current_source = "use \"module.eng\"\nadjusted = open_gain(5 kW)\n";
+        std::fs::write(&module_path, saved_module).expect("saved module should be written");
+        std::fs::write(&current_path, current_source).expect("current source should be written");
+
+        let module_path = module_path.canonicalize().expect("module should exist");
+        let current_path = current_path
+            .canonicalize()
+            .expect("current source should exist");
+        let module_uri = file_uri_from_path(&module_path);
+        let current_uri = file_uri_from_path(&current_path);
+        let mut documents = Documents::new();
+        documents.insert(
+            module_uri.clone(),
+            DocumentState::new(open_module.to_owned(), Some(2)),
+        );
+        documents.insert(
+            current_uri,
+            DocumentState::new(current_source.to_owned(), Some(1)),
+        );
+
+        let open_snapshot = snapshot_for_open_documents(&current_path, current_source, &documents);
+        assert!(!open_snapshot
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-FN-CALL-001"));
+
+        documents.remove(&module_uri);
+        let disk_snapshot = snapshot_for_open_documents(&current_path, current_source, &documents);
+        assert!(disk_snapshot
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-FN-CALL-001"));
+        std::fs::remove_dir_all(&root).expect("snapshot fixture should be removed");
     }
 
     fn document_highlight_request(source: &str, line: usize, character: usize) -> Value {

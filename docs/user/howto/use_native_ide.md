@@ -91,7 +91,10 @@ Editor
   workflow operations, and review-risk highlighting. As the buffer changes,
   the editor keeps immediate shared syntax colors and automatically refreshes
   precise colors and Problems diagnostics from the unsaved buffer after a
-  short typing pause. Check and Run still force an immediate refresh.
+  short typing pause. Live analysis resolves recursive static imports from
+  every other modified open EngLang tab before disk, and discards a result if
+  any participating tab changes during the check. Check and Run still force an
+  immediate refresh.
   Tab and Shift+Tab indent or outdent the current line or selected block,
   Ctrl+S saves the active buffer, and Ctrl+/ toggles `#` line comments.
   Find in the toolbar or Ctrl+F searches the current buffer, preloading a
@@ -258,10 +261,13 @@ unsaved active buffer until the file is saved. Direct settings changes to
 diagnostics mode or Problems settings also refresh or clear the active EngLang editor.
 
 The extension shares the same checked-code diagnostics, hover, completion, and
-role-aware highlighting data as the native IDE. VS Code Find All References,
-rename preparation, and rename pass the current file plus every modified open
-EngLang file in the workspace to the compiler. Saved workspace files are added
-when their static file-import chain resolves the symbol to the same declaration;
+role-aware highlighting data as the native IDE. Live diagnostics, hover,
+completion, go-to-definition, Find All References, rename preparation, and
+rename pass the current file plus every modified open EngLang file in the
+workspace to the compiler. Recursive static imports use open text before disk,
+and results are discarded if the participating document set, dirty state, or
+version changes. Saved workspace files are added when their static file-import
+chain resolves the symbol to the same declaration;
 unrelated same-name symbols are excluded. Rename rejects the whole operation
 when a participating buffer changes, any affected file has incomplete semantic
 coverage, or a conflict is found. Local variables and parameters remain

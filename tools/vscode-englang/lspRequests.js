@@ -13,16 +13,18 @@ function createLspRequests(options = {}) {
   const snapshotResultTtlMs = options.snapshotResultTtlMs ?? 2000;
 
   function clearSnapshotCache(document) {
-    const key = snapshotCacheKey(document);
-    snapshotPromiseCache.delete(key);
-    snapshotResultCache.delete(key);
+    void document;
+    snapshotPromiseCache.clear();
+    snapshotResultCache.clear();
   }
 
   function snapshotDocumentSource(document, context, cancellationToken) {
     if (cancellationToken?.isCancellationRequested) {
       return Promise.resolve(undefined);
     }
-    const key = snapshotCacheKey(document);
+    const root = workspaceRoot(document) || nodePath.dirname(document.uri.fsPath);
+    const openDocuments = workspaceNavigationDocuments(document, root);
+    const key = snapshotCacheKey(document, root, openDocuments);
     const cachedResult = snapshotResultCache.get(key);
     if (cachedResult && cachedResult.expiresAt > Date.now()) {
       return snapshotResultForCaller(Promise.resolve(cachedResult.value), cancellationToken);
@@ -35,57 +37,26 @@ function createLspRequests(options = {}) {
       return snapshotResultForCaller(cached, cancellationToken);
     }
 
-    const promise = new Promise((resolve) => {
-      const runtime = findLspRuntime(context, document);
-      const cwd = workspaceRoot(document);
-      const documentVersion = document.version;
-      const documentText = document.getText();
-      let settled = false;
-      const finish = (value) => {
-        if (settled) {
-          return;
+    const promise = workspaceNavigationJsonRequest(document, context, undefined, {
+      args: ["--workspace-snapshot-stdin", root, document.uri.fsPath],
+      errorMessage: "Live editor check failed",
+      parseMessage: "Unable to parse EngLang live editor data",
+      root,
+      normalize: (payload) => {
+        if (payload?.format !== "eng-lsp-snapshot-v1") {
+          throw new Error("compiler response did not contain an EngLang editor snapshot");
         }
-        settled = true;
-        if (document.version !== documentVersion) {
-          snapshotPromiseCache.delete(key);
-          snapshotResultCache.delete(key);
-          resolve(undefined);
-          return;
-        }
-        if (value) {
-          snapshotResultCache.set(key, {
-            value,
-            expiresAt: Date.now() + snapshotResultTtlMs
-          });
-        }
-        resolve(value);
-      };
-
-      const child = cp.execFile(
-        runtime,
-        ["--snapshot-stdin", document.uri.fsPath],
-        { cwd, maxBuffer: 10 * 1024 * 1024 },
-        (error, stdout, stderr) => {
-          if (stderr && stderr.trim().length > 0) {
-            appendOutputLine(stderr.trim());
-          }
-          if (error) {
-            appendOutputLine(`Live editor check failed: ${error.message}`);
-            finish(undefined);
-            return;
-          }
-          try {
-            finish(JSON.parse(stdout));
-          } catch (parseError) {
-            appendOutputLine(`Unable to parse EngLang live editor data: ${parseError.message}`);
-            finish(undefined);
-          }
-        }
-      );
-
-      if (child.stdin) {
-        child.stdin.end(documentText);
+        return payload;
       }
+    }).then((value) => {
+      const currentDocuments = workspaceNavigationDocuments(document, root);
+      if (value && snapshotCacheKey(document, root, currentDocuments) === key) {
+        snapshotResultCache.set(key, {
+          value,
+          expiresAt: Date.now() + snapshotResultTtlMs
+        });
+      }
+      return value;
     });
     snapshotPromiseCache.set(key, promise);
     promise.finally(() => {
@@ -128,8 +99,12 @@ function createLspRequests(options = {}) {
     });
   }
 
-  function snapshotCacheKey(document) {
-    return `${document.uri.toString()}@${document.version}`;
+  function snapshotCacheKey(document, root, openDocuments) {
+    const states = openDocuments
+      .map((candidate) => `${candidate.uri.toString()}@${candidate.version}:${candidate.isDirty ? 1 : 0}`)
+      .sort()
+      .join("|");
+    return `${nodePath.resolve(root)}\n${document.uri.toString()}@${document.version}\n${states}`;
   }
 
   async function workspaceSymbolsForQuery(query, context, cancellationToken) {
@@ -264,16 +239,19 @@ function createLspRequests(options = {}) {
   }
 
   function completionSnapshotForPosition(document, position, context, cancellationToken) {
-    return stdinJsonRequest(document, context, cancellationToken, {
+    const root = workspaceRoot(document) || nodePath.dirname(document.uri.fsPath);
+    return workspaceNavigationJsonRequest(document, context, cancellationToken, {
       args: [
-        "--completion-stdin",
+        "--workspace-completion-stdin",
+        root,
         document.uri.fsPath,
         String(position.line),
         String(position.character)
       ],
       errorMessage: "Completion lookup failed",
       parseMessage: "Unable to parse EngLang completion data",
-      normalize: (payload) => Array.isArray(payload) ? { completions: payload } : payload
+      normalize: (payload) => Array.isArray(payload) ? { completions: payload } : payload,
+      root
     });
   }
 

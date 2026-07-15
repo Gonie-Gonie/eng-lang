@@ -21,10 +21,12 @@ mod uncertainty;
 mod units;
 mod workflow;
 
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fmt;
 use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
 pub use ast::{
@@ -339,6 +341,35 @@ pub struct ArgOverride {
     pub value: String,
 }
 
+/// Unsaved UTF-8 source text to use instead of reading a static file import from disk.
+#[derive(Clone, Debug, Default)]
+pub struct ImportSourceOverrides {
+    sources: HashMap<PathBuf, String>,
+}
+
+impl ImportSourceOverrides {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn insert(
+        &mut self,
+        path: impl AsRef<Path>,
+        source: impl Into<String>,
+    ) -> io::Result<Option<String>> {
+        let path = path.as_ref().canonicalize()?;
+        Ok(self.sources.insert(path, source.into()))
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.sources.is_empty()
+    }
+
+    fn get(&self, path: &Path) -> Option<&str> {
+        self.sources.get(path).map(String::as_str)
+    }
+}
+
 pub fn check_file(path: impl AsRef<Path>, options: &CheckOptions) -> std::io::Result<CheckReport> {
     let path = path.as_ref();
     let source = fs::read_to_string(path)?;
@@ -346,14 +377,32 @@ pub fn check_file(path: impl AsRef<Path>, options: &CheckOptions) -> std::io::Re
 }
 
 pub fn check_source(path: impl AsRef<Path>, source: &str, options: &CheckOptions) -> CheckReport {
+    check_source_with_import_overrides(path, source, &ImportSourceOverrides::default(), options)
+}
+
+/// Checks source while resolving matching static file imports from the supplied in-memory text.
+///
+/// Paths inserted into `import_overrides` are canonicalized, and imports without an override keep
+/// the normal disk-backed behavior used by `check_source` and runtime execution.
+pub fn check_source_with_import_overrides(
+    path: impl AsRef<Path>,
+    source: &str,
+    import_overrides: &ImportSourceOverrides,
+    options: &CheckOptions,
+) -> CheckReport {
     let source_path = path.as_ref();
     let source_hash = hash_text(source);
     let mut parsed = parser::parse_source(source);
     let mut import_diagnostics = Vec::new();
     if let Some(base_dir) = source_path.parent() {
         let mut visited = HashSet::new();
-        let imported_items =
-            resolve_file_imports(&parsed, base_dir, &mut visited, &mut import_diagnostics);
+        let imported_items = resolve_file_imports(
+            &parsed,
+            base_dir,
+            import_overrides,
+            &mut visited,
+            &mut import_diagnostics,
+        );
         if !imported_items.is_empty() {
             parsed.items.splice(0..0, imported_items);
         }
@@ -457,6 +506,7 @@ fn validate_db_read_schemas(semantic_output: &mut semantic::SemanticOutput) {
 fn resolve_file_imports(
     parsed: &ParsedProgram,
     base_dir: &Path,
+    import_overrides: &ImportSourceOverrides,
     visited: &mut HashSet<PathBuf>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<AstItem> {
@@ -503,20 +553,23 @@ fn resolve_file_imports(
             ));
             continue;
         }
-        let source = match fs::read_to_string(&import_path) {
-            Ok(source) => source,
-            Err(error) => {
-                diagnostics.push(Diagnostic::error(
-                    "E-IMPORT-003",
-                    import.line,
-                    &format!("Could not read import `{}`: {error}.", import.target),
-                    Some("Check the relative path and file encoding. EngLang sources should be UTF-8."),
-                ));
-                visited.remove(&import_path);
-                continue;
-            }
+        let source = match import_overrides.get(&import_path) {
+            Some(source) => Cow::Borrowed(source),
+            None => match fs::read_to_string(&import_path) {
+                Ok(source) => Cow::Owned(source),
+                Err(error) => {
+                    diagnostics.push(Diagnostic::error(
+                        "E-IMPORT-003",
+                        import.line,
+                        &format!("Could not read import `{}`: {error}.", import.target),
+                        Some("Check the relative path and file encoding. EngLang sources should be UTF-8."),
+                    ));
+                    visited.remove(&import_path);
+                    continue;
+                }
+            },
         };
-        let imported = parser::parse_source(&source);
+        let imported = parser::parse_source(source.as_ref());
         if imported_has_args_block(&imported) {
             diagnostics.push(Diagnostic::warning(
                 "W-MODULE-ARGS-NOT-IMPORTED-001",
@@ -533,6 +586,7 @@ fn resolve_file_imports(
             imported_items.extend(resolve_file_imports(
                 &imported,
                 import_base_dir,
+                import_overrides,
                 visited,
                 diagnostics,
             ));
@@ -12974,6 +13028,69 @@ write csv "outputs/q.csv", Q
         let review = review_json(&report);
         assert!(review.contains("\"function_summary\""));
         assert!(review.contains("\"heat_loss\""));
+    }
+
+    #[test]
+    fn import_source_overrides_apply_recursively_without_changing_disk_checks() {
+        let root = std::env::temp_dir().join(format!(
+            "englang-import-source-override-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("temp dir");
+        let nested_path = root.join("nested.eng");
+        let module_path = root.join("module.eng");
+        let main_path = root.join("main.eng");
+        fs::write(&nested_path, "const SAVED_GAIN: Ratio = 0.7\n").expect("nested source");
+        fs::write(
+            &module_path,
+            "use \"nested.eng\"\nconst SAVED_MODULE_GAIN: Ratio = SAVED_GAIN\n",
+        )
+        .expect("module source");
+        let main_source = "use \"module.eng\"\ngain = SHARED_GAIN\n";
+        fs::write(&main_path, main_source).expect("main source");
+
+        let disk_report = check_file(&main_path, &CheckOptions::default()).expect("disk check");
+        assert!(disk_report
+            .semantic_program
+            .consts
+            .iter()
+            .all(|constant| constant.name != "SHARED_GAIN"));
+
+        let mut overrides = ImportSourceOverrides::new();
+        overrides
+            .insert(
+                &nested_path,
+                "const SHARED_GAIN: Ratio = 0.9\nconst SAVED_GAIN: Ratio = 0.7\n",
+            )
+            .expect("nested override");
+        overrides
+            .insert(
+                &module_path,
+                "use \"nested.eng\"\nconst OPEN_MODULE_GAIN: Ratio = SHARED_GAIN\n",
+            )
+            .expect("module override");
+        assert!(!overrides.is_empty());
+
+        let report = check_source_with_import_overrides(
+            &main_path,
+            main_source,
+            &overrides,
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report
+            .semantic_program
+            .consts
+            .iter()
+            .any(|constant| constant.name == "SHARED_GAIN"));
+        assert!(report
+            .semantic_program
+            .consts
+            .iter()
+            .any(|constant| constant.name == "OPEN_MODULE_GAIN"));
+        fs::remove_dir_all(&root).expect("temp dir cleanup");
     }
 
     #[test]

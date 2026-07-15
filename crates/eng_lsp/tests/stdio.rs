@@ -681,6 +681,9 @@ fn stdio_server_round_trips_core_lsp_requests() {
 fn stdio_document_cache_tracks_versions_for_diagnostics() {
     let server = env!("CARGO_BIN_EXE_eng-lsp");
     let source_path = repo_root().join("build/editor-tests/versioned_diagnostics.eng");
+    if source_path.exists() {
+        std::fs::remove_file(&source_path).expect("stale diagnostic fixture should be removable");
+    }
     let uri = file_uri(&source_path);
     let bad_source = "Q := 2 kW\n";
     let fixed_source = "Q = 2 kW\n";
@@ -779,12 +782,43 @@ fn stdio_document_cache_tracks_versions_for_diagnostics() {
         &mut stdin,
         json!({
             "jsonrpc": "2.0",
+            "method": "textDocument/didClose",
+            "params": {
+                "textDocument": { "uri": uri }
+            }
+        }),
+    );
+    let closed = read_message(&mut stdout);
+    assert_eq!(closed["method"], "textDocument/publishDiagnostics");
+    assert_eq!(closed["params"]["uri"], uri);
+    assert_eq!(closed["params"]["diagnostics"], json!([]));
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
             "id": 2,
+            "method": "textDocument/hover",
+            "params": {
+                "textDocument": { "uri": uri },
+                "position": { "line": 0, "character": 0 }
+            }
+        }),
+    );
+    let hover = read_message(&mut stdout);
+    assert_eq!(hover["id"], 2);
+    assert!(hover["result"].is_null());
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 3,
             "method": "shutdown"
         }),
     );
     let shutdown = read_message(&mut stdout);
-    assert_eq!(shutdown["id"], 2);
+    assert_eq!(shutdown["id"], 3);
     assert!(shutdown["result"].is_null());
 
     write_message(
@@ -3129,16 +3163,19 @@ fn workspace_reference_and_rename_stdin_prefer_all_open_documents() {
     let module_path = workspace_root.join("module.eng");
     let current_path = workspace_root.join("current.eng");
     let other_path = workspace_root.join("other.eng");
+    let analysis_path = workspace_root.join("analysis.eng");
     let saved_module_source = "const SAVED_GAIN: Ratio = 0.8\n";
     let current_source =
         "use \"module.eng\"\ncurrent_gain = SHARED_GAIN\ncurrent_again = SHARED_GAIN\n";
     let saved_other_source = "saved_other = 1\n";
-    let open_module_source = "# shifted in the open buffer\n\nconst SHARED_GAIN: Ratio = 0.9\n";
+    let analysis_source = "use \"module.eng\"\nadjusted = apply_gain(5 kW)\n";
+    let open_module_source = "# shifted in the open buffer\n\nconst SHARED_GAIN: Ratio = 0.9\n\nfn apply_gain(value: HeatRate [kW]) -> HeatRate [kW] {\n    return value * SHARED_GAIN\n}\n";
     let open_other_source = "use \"module.eng\"\nunsaved_other = SHARED_GAIN\n";
     for (path, source) in [
         (&module_path, saved_module_source),
         (&current_path, current_source),
         (&other_path, saved_other_source),
+        (&analysis_path, analysis_source),
     ] {
         std::fs::write(path, source).expect("workspace source should be writable");
     }
@@ -3152,6 +3189,9 @@ fn workspace_reference_and_rename_stdin_prefer_all_open_documents() {
     let other_path = other_path
         .canonicalize()
         .expect("other source should exist");
+    let analysis_path = analysis_path
+        .canonicalize()
+        .expect("analysis source should exist");
     let module_uri = file_uri(&module_path);
     let current_uri = file_uri(&current_path);
     let other_uri = file_uri(&other_path);
@@ -3166,7 +3206,8 @@ fn workspace_reference_and_rename_stdin_prefer_all_open_documents() {
         "documents": [
             { "path": current_path, "source": current_source },
             { "path": module_path, "source": open_module_source },
-            { "path": other_path, "source": open_other_source }
+            { "path": other_path, "source": open_other_source },
+            { "path": analysis_path, "source": analysis_source }
         ]
     });
 
@@ -3190,6 +3231,44 @@ fn workspace_reference_and_rename_stdin_prefer_all_open_documents() {
             .wait_with_output()
             .expect("workspace navigation CLI should finish")
     };
+
+    let snapshot_output = run(
+        "--workspace-snapshot-stdin",
+        &[analysis_path.to_string_lossy().into_owned()],
+    );
+    assert!(
+        snapshot_output.status.success(),
+        "workspace snapshot failed: {}",
+        String::from_utf8_lossy(&snapshot_output.stderr)
+    );
+    let snapshot: Value = serde_json::from_slice(&snapshot_output.stdout)
+        .expect("workspace snapshot stdout should be JSON");
+    assert_eq!(snapshot["format"], "eng-lsp-snapshot-v1");
+    assert!(snapshot["completions"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item["label"] == "apply_gain")));
+    assert!(snapshot["hovers"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item["name"] == "apply_gain")));
+
+    let completion_output = run(
+        "--workspace-completion-stdin",
+        &[
+            analysis_path.to_string_lossy().into_owned(),
+            "1".to_owned(),
+            analysis_source.lines().nth(1).unwrap().len().to_string(),
+        ],
+    );
+    assert!(
+        completion_output.status.success(),
+        "workspace completion failed: {}",
+        String::from_utf8_lossy(&completion_output.stderr)
+    );
+    let completion: Value = serde_json::from_slice(&completion_output.stdout)
+        .expect("workspace completion stdout should be JSON");
+    assert!(completion["completions"]
+        .as_array()
+        .is_some_and(|items| items.iter().any(|item| item["label"] == "apply_gain")));
 
     let definition_output = run(
         "--workspace-definition-stdin",
@@ -3299,7 +3378,7 @@ fn workspace_reference_and_rename_stdin_prefer_all_open_documents() {
         assert!(edits.iter().all(|edit| edit["newText"] == "RENAMED_GAIN"));
     }
     assert_eq!(changes[&current_uri].as_array().unwrap().len(), 2);
-    assert_eq!(changes[&module_uri].as_array().unwrap().len(), 1);
+    assert_eq!(changes[&module_uri].as_array().unwrap().len(), 2);
     assert_eq!(changes[&other_uri].as_array().unwrap().len(), 1);
     assert!(changes[&module_uri].as_array().unwrap().iter().any(|edit| {
         edit["range"]["start"]["line"] == 2 && edit["range"]["start"]["character"] == 6

@@ -339,16 +339,25 @@ The single-buffer compatibility definition form is
 buffer from stdin and unchanged imported files from disk. Use the workspace
 form when other open imports may be modified.
 
+The equivalent single-buffer live-analysis compatibility forms are
+`--snapshot-stdin <file.eng>` and
+`--completion-stdin <file.eng> <line> <character>`. Both read only the selected
+buffer from stdin and resolve imports from disk.
+
 On-demand editor clients with multiple modified buffers use the workspace forms:
 
 ```text
+--workspace-snapshot-stdin <workspace-root> <file.eng>
+--workspace-completion-stdin <workspace-root> <file.eng> <line> <character>
 --workspace-definition-stdin <workspace-root> <file.eng> <line> <character>
 --workspace-references-stdin <workspace-root> <file.eng> <line> <character> [true|false]
 --workspace-prepare-rename-stdin <workspace-root> <file.eng> <line> <character>
 --workspace-rename-stdin <workspace-root> <file.eng> <line> <character> <new-name>
 ```
 
-All four read the same strict JSON payload from stdin:
+All six read the same strict JSON payload from stdin. Workspace snapshot emits
+the full `eng-lsp-snapshot-v1` object; workspace completion emits its bounded
+position-aware `completions` payload:
 
 ```json
 {
@@ -365,9 +374,13 @@ The selected file must be present. Other entries should be modified open
 to existing files inside `workspace-root`, duplicates are rejected, and open
 text takes precedence throughout the static-import graph. The contract accepts
 at most 128 documents, 4 MiB per document, and 16 MiB of document source in
-total. Editor clients must discard the result if the participating document set,
-dirty state, or version changes while the subprocess is running. Persistent LSP
-clients continue to provide open document versions through `didOpen` and
-`didChange`.
+total, inside a 100 MiB serialized payload limit. Editor clients must discard
+the result if the participating document set, dirty state, or version changes
+while the subprocess is running. Persistent LSP clients provide open document
+versions through `didOpen` and `didChange`; editor snapshots and position
+requests resolve imports from that full open-document set, and a document
+change republishes diagnostics for open dependents. `didClose` removes that
+buffer override, clears its diagnostics, and rechecks open dependents against
+the remaining open buffers and saved files.
 
 This JSON contract is not a replacement for full LSP editor validation.

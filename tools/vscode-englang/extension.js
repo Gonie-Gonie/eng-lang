@@ -217,7 +217,7 @@ function activate(context) {
     }),
     vscode.workspace.onDidChangeTextDocument((event) => {
       clearCachedEditorSnapshot(event.document);
-      diagnosticController.scheduleChangedCheck(event.document);
+      diagnosticController.scheduleWorkspaceChangedChecks(event.document);
       updateDiagnosticsStatusBarForDocument(event.document);
     }),
     vscode.workspace.onDidSaveTextDocument((document) => {
@@ -248,6 +248,7 @@ function activate(context) {
       diagnostics.delete(document.uri);
       decorationController.updateReviewRiskDecorations(document, undefined);
       decorationController.updateSemanticSymbolDecorations(document, undefined);
+      diagnosticController.scheduleWorkspaceChangedChecks(document, false);
       updateDiagnosticsStatusBar();
     }),
     vscode.window.onDidChangeActiveTextEditor((editor) => {

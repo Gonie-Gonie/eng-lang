@@ -1483,6 +1483,29 @@ async function saveAllFailureKeepsRemainingDirtyFilesOpen() {
   run("openUnsavedWindowDialog = globalThis.realOpenUnsavedWindowDialog");
 }
 
+function liveCheckTracksAllDirtyImportedBuffers() {
+  run(`
+    state.root = "C:/Repo";
+    state.currentPath = "main.eng";
+    state.source = "use \\"module.eng\\"\\nresult = SHARED_GAIN\\n";
+    state.dirty = true;
+    state.tabs = [
+      { path: "main.eng", source: state.source, dirty: true },
+      { path: "module.eng", source: "const SHARED_GAIN: Ratio = 0.9\\n", dirty: true },
+      { path: "notes.csv", source: "ignored", dirty: true }
+    ];
+    globalThis.liveCheckRequest = beginCheckRequest();
+  `);
+
+  assert.deepStrictEqual(
+    JSON.parse(run("JSON.stringify(globalThis.liveCheckRequest.documents)")),
+    [{ path: "module.eng", source: "const SHARED_GAIN: Ratio = 0.9\n" }]
+  );
+  assert.strictEqual(run("checkRequestIsCurrent(globalThis.liveCheckRequest)"), true);
+  run("state.tabs[1].source = 'const CHANGED_GAIN: Ratio = 0.7\\n'");
+  assert.strictEqual(run("checkRequestIsCurrent(globalThis.liveCheckRequest)"), false);
+}
+
 async function main() {
   await dirtyTabRequiresDecision();
   await saveDecisionPersistsThenCloses();
@@ -1519,6 +1542,7 @@ async function main() {
   await saveAllDecisionPersistsThenDestroysWindow();
   await discardAllDecisionDestroysWithoutSaving();
   await saveAllFailureKeepsRemainingDirtyFilesOpen();
+  liveCheckTracksAllDirtyImportedBuffers();
   process.stdout.write("Native IDE editor safety smoke passed.\n");
 }
 

@@ -428,13 +428,15 @@ function beginCheckRequest() {
   return {
     revision: invalidateLiveCheck(),
     path: state.currentPath,
-    source: state.source
+    source: state.source,
+    documents: dirtyWorkspaceDocuments(state.currentPath)
   };
 }
 
 function checkRequestIsCurrent(request) {
   return request.revision === liveCheckRevision
-    && bufferRequestIsCurrent(request);
+    && bufferRequestIsCurrent(request)
+    && workspaceDocumentsAreCurrent(request.documents, request.path);
 }
 
 function bufferRequestIsCurrent(request) {
@@ -462,7 +464,11 @@ function scheduleLiveCheck() {
 
 async function runLiveCheck(request) {
   try {
-    const check = await call("ide_check", { path: request.path, source: request.source });
+    const check = await call("ide_check", {
+      path: request.path,
+      source: request.source,
+      documents: request.documents
+    });
     if (!checkRequestIsCurrent(request)) return;
     applyCheck(check, request.source);
     state.status = `Analyzed: ${state.check.status}`;
@@ -1604,7 +1610,11 @@ async function openFile(path) {
     request = beginCheckRequest();
     markCheckPending();
     render();
-    const check = await call("ide_check", { path: request.path, source: request.source });
+    const check = await call("ide_check", {
+      path: request.path,
+      source: request.source,
+      documents: request.documents
+    });
     if (!checkRequestIsCurrent(request)) return;
     applyCheck(check, request.source);
     state.status = `Loaded ${request.path}`;
@@ -1724,7 +1734,11 @@ async function checkCurrent() {
     markCheckPending();
     state.status = "Checking";
     refreshLiveCheckUi();
-    const check = await call("ide_check", { path: request.path, source: request.source });
+    const check = await call("ide_check", {
+      path: request.path,
+      source: request.source,
+      documents: request.documents
+    });
     if (!checkRequestIsCurrent(request)) return;
     applyCheck(check, request.source);
     state.status = `Checked: ${state.check.status}`;
@@ -2158,7 +2172,11 @@ async function switchTab(path) {
   markCheckPending();
   render();
   try {
-    const check = await call("ide_check", { path: request.path, source: request.source });
+    const check = await call("ide_check", {
+      path: request.path,
+      source: request.source,
+      documents: request.documents
+    });
     if (!navigationIsCurrent(navigation) || !checkRequestIsCurrent(request)) return;
     applyCheck(check, request.source);
     state.status = `Loaded ${request.path}`;
@@ -2432,7 +2450,11 @@ async function closeTab(path, force = false) {
   markCheckPending();
   render();
   try {
-    const check = await call("ide_check", { path: request.path, source: request.source });
+    const check = await call("ide_check", {
+      path: request.path,
+      source: request.source,
+      documents: request.documents
+    });
     if (!navigationIsCurrent(navigation) || !checkRequestIsCurrent(request)) return;
     applyCheck(check, request.source);
     state.status = `Loaded ${request.path}`;

@@ -9,8 +9,9 @@ use std::process::{Command, Stdio};
 use std::sync::Mutex;
 
 use eng_compiler::{
-    all_quantity_completions, all_unit_infos, bundled_module_registry, check_source, format_source,
-    CheckOptions, CheckReport, Severity,
+    all_quantity_completions, all_unit_infos, bundled_module_registry, check_source,
+    check_source_with_import_overrides, format_source, CheckOptions, CheckReport,
+    ImportSourceOverrides, Severity,
 };
 use eng_runtime::{run_file, run_source, ExecutionProfile, RunOptions, RuntimeError};
 use serde::{Deserialize, Serialize};
@@ -408,10 +409,27 @@ fn ide_save_file(path: String, source: String) -> Result<FileView, String> {
 }
 
 #[tauri::command]
-fn ide_check(path: String, source: String) -> CheckView {
-    let root = workspace_root();
-    let path = resolve_path(&root, &path);
-    check_view(&path, &source)
+fn ide_check(
+    path: String,
+    source: String,
+    documents: Vec<WorkspaceDocumentInput>,
+) -> Result<CheckView, String> {
+    let root = workspace_root()
+        .canonicalize()
+        .map_err(|error| format!("Could not resolve the EngLang workspace: {error}"))?;
+    let path = canonical_workspace_document_path(&root, &path)?;
+    let documents = validated_workspace_documents(&root, documents)?;
+    let mut import_overrides = ImportSourceOverrides::new();
+    for (path, source) in documents {
+        import_overrides
+            .insert(path, source)
+            .map_err(|error| format!("Could not load an open EngLang document: {error}"))?;
+    }
+    Ok(check_view_with_import_overrides(
+        &path,
+        &source,
+        &import_overrides,
+    ))
 }
 
 #[tauri::command]
@@ -448,6 +466,21 @@ fn workspace_document_payload(
     root: &Path,
     documents: Vec<WorkspaceDocumentInput>,
 ) -> Result<Vec<Value>, String> {
+    Ok(validated_workspace_documents(root, documents)?
+        .into_iter()
+        .map(|(path, source)| {
+            json!({
+                "path": path.to_string_lossy(),
+                "source": source
+            })
+        })
+        .collect())
+}
+
+fn validated_workspace_documents(
+    root: &Path,
+    documents: Vec<WorkspaceDocumentInput>,
+) -> Result<Vec<(PathBuf, String)>, String> {
     if documents.len() > MAX_NATIVE_IDE_WORKSPACE_DOCUMENTS {
         return Err(format!(
             "Workspace open-document payload exceeded the {MAX_NATIVE_IDE_WORKSPACE_DOCUMENTS}-document limit."
@@ -455,7 +488,7 @@ fn workspace_document_payload(
     }
     let mut seen = HashSet::new();
     let mut total_source_bytes = 0usize;
-    let mut payload = Vec::with_capacity(documents.len());
+    let mut validated = Vec::with_capacity(documents.len());
     for document in documents {
         if document.source.len() > MAX_NATIVE_IDE_WORKSPACE_DOCUMENT_BYTES {
             return Err(format!(
@@ -478,12 +511,9 @@ fn workspace_document_payload(
                 document.path
             ));
         }
-        payload.push(json!({
-            "path": canonical.to_string_lossy(),
-            "source": document.source
-        }));
+        validated.push((canonical, document.source));
     }
-    Ok(payload)
+    Ok(validated)
 }
 
 #[tauri::command]
@@ -1199,6 +1229,20 @@ fn run_virtual_source_file(
 
 fn check_view(path: &Path, source: &str) -> CheckView {
     let report = check_source(path, source, &CheckOptions::default());
+    check_view_from_report(&report, Some(source))
+}
+
+fn check_view_with_import_overrides(
+    path: &Path,
+    source: &str,
+    import_overrides: &ImportSourceOverrides,
+) -> CheckView {
+    let report = check_source_with_import_overrides(
+        path,
+        source,
+        import_overrides,
+        &CheckOptions::default(),
+    );
     check_view_from_report(&report, Some(source))
 }
 

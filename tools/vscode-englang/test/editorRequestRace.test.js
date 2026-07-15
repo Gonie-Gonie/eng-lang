@@ -37,6 +37,7 @@ const vscodeMock = {
     showWarningMessage() {}
   },
   workspace: {
+    textDocuments: [],
     getConfiguration() {
       return {
         get(_name, fallback) {
@@ -103,6 +104,7 @@ function documentFixture() {
 
 function reviewFixture(message) {
   return {
+    format: "eng-lsp-snapshot-v1",
     diagnostics: [
       {
         message,
@@ -242,8 +244,10 @@ async function callerCancellationDoesNotKillSharedSnapshot() {
   let execCount = 0;
   let killCount = 0;
   let stdinText = "";
-  childProcess.execFile = (_runtime, _args, _options, complete) => {
+  let requestArgs = [];
+  childProcess.execFile = (_runtime, args, _options, complete) => {
     execCount += 1;
+    requestArgs = args;
     callback = complete;
     return {
       kill() {
@@ -259,6 +263,23 @@ async function callerCancellationDoesNotKillSharedSnapshot() {
 
   try {
     const document = documentFixture();
+    let importedSource = "const SHARED_GAIN: Ratio = 0.9\n";
+    const importedDocument = {
+      isDirty: true,
+      languageId: "englang",
+      uri: {
+        fsPath: "C:\\workspace\\module.eng",
+        scheme: "file",
+        toString() {
+          return "file:///C:/workspace/module.eng";
+        }
+      },
+      version: 4,
+      getText() {
+        return importedSource;
+      }
+    };
+    vscodeMock.workspace.textDocuments = [document, importedDocument];
     const requests = createLspRequests({
       appendOutputLine() {},
       findLspRuntime() {
@@ -287,7 +308,18 @@ async function callerCancellationDoesNotKillSharedSnapshot() {
     );
     const sharedCaller = requests.snapshotDocumentSource(document, {});
     assert.strictEqual(execCount, 1, "same-version callers must share one snapshot process");
-    assert.strictEqual(stdinText, document.getText());
+    assert.deepStrictEqual(requestArgs, [
+      "--workspace-snapshot-stdin",
+      "C:\\workspace",
+      "C:\\workspace\\main.eng"
+    ]);
+    assert.deepStrictEqual(JSON.parse(stdinText), {
+      format: "eng-lsp-open-documents-v1",
+      documents: [
+        { path: "C:\\workspace\\main.eng", source: document.getText() },
+        { path: "C:\\workspace\\module.eng", source: importedSource }
+      ]
+    });
 
     cancellationToken.isCancellationRequested = true;
     cancel();
@@ -298,9 +330,44 @@ async function callerCancellationDoesNotKillSharedSnapshot() {
     const sharedResult = await sharedCaller;
     assert.strictEqual(sharedResult.diagnostics[0].message, "shared");
     assert.strictEqual(disposed, 1);
+
+    importedSource = "const CHANGED_GAIN: Ratio = 0.7\n";
+    importedDocument.version += 1;
+    const refreshed = requests.snapshotDocumentSource(document, {});
+    assert.strictEqual(execCount, 2, "an imported buffer version must invalidate the snapshot cache");
+    assert.strictEqual(
+      JSON.parse(stdinText).documents[1].source,
+      importedSource,
+      "the refreshed snapshot must send the latest imported buffer"
+    );
+    callback(null, JSON.stringify(reviewFixture("refreshed")), "");
+    assert.strictEqual((await refreshed).diagnostics[0].message, "refreshed");
   } finally {
+    vscodeMock.workspace.textDocuments = [];
     childProcess.execFile = originalExecFile;
   }
+}
+
+function changedImportSchedulesOpenWorkspaceDiagnostics() {
+  const scheduled = [];
+  const mainDocument = { languageId: "englang", root: "C:\\workspace", name: "main" };
+  const moduleDocument = { languageId: "englang", root: "C:\\workspace", name: "module" };
+  const otherDocument = { languageId: "englang", root: "C:\\other", name: "other" };
+  const ignoredDocument = { languageId: "plaintext", root: "C:\\workspace", name: "notes" };
+  vscodeMock.workspace.textDocuments = [mainDocument, moduleDocument, otherDocument, ignoredDocument];
+  const controller = new EngDiagnosticsController({}, {}, {
+    isEngDocument: (document) => document.languageId === "englang",
+    workspaceRoot: (document) => document.root
+  });
+  controller.scheduleChangedCheck = (document) => scheduled.push(document.name);
+
+  controller.scheduleWorkspaceChangedChecks(moduleDocument);
+
+  assert.deepStrictEqual(scheduled, ["main", "module"]);
+  scheduled.length = 0;
+  controller.scheduleWorkspaceChangedChecks(moduleDocument, false);
+  assert.deepStrictEqual(scheduled, ["main"]);
+  vscodeMock.workspace.textDocuments = [];
 }
 
 async function main() {
@@ -308,6 +375,7 @@ async function main() {
   await staleFailureDoesNotReplaceProblems();
   await clearingProblemsInvalidatesInFlightCheck();
   await callerCancellationDoesNotKillSharedSnapshot();
+  changedImportSchedulesOpenWorkspaceDiagnostics();
   process.stdout.write("VS Code editor request race smoke passed.\n");
 }
 

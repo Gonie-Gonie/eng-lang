@@ -5330,8 +5330,8 @@ function Assert-VscodeExtensionContract {
     if ($LastRunArtifactQuickPickSource.Contains(".sort((left, right)") -or $LastRunArtifactQuickPickSource.Contains("left.label.localeCompare")) {
         throw "VS Code last-run artifact picker must keep registry workflow order instead of resorting artifacts"
     }
-    if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $DiagnosticsSource.Contains("--snapshot-stdin")) {
-        throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"
+    if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $LspRequestsSource.Contains("--workspace-snapshot-stdin")) {
+        throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --workspace-snapshot-stdin"
     }
     foreach ($RequiredEditorChangeCacheToken in @(
         "function clearCachedEditorSnapshot(document)",
@@ -5366,8 +5366,9 @@ function Assert-VscodeExtensionContract {
         "const cached = snapshotPromiseCache.get(key);",
         "snapshotPromiseCache.set(key, promise);",
         "promise.finally(() =>",
-        "function snapshotCacheKey(document)",
-        "document.version !== documentVersion",
+        "function snapshotCacheKey(document, root, openDocuments)",
+        "workspaceNavigationDocuments(document, root)",
+        "snapshotCacheKey(document, root, currentDocuments) === key",
         "snapshotPromiseCache.delete(key)"
     )) {
         if (-not $LspRequestsSource.Contains($RequiredSnapshotReuseToken)) {
@@ -5396,13 +5397,26 @@ function Assert-VscodeExtensionContract {
         throw "VS Code shared snapshot subprocess must not be killed by one provider cancellation"
     }
     foreach ($RequiredSnapshotFreshnessToken in @(
-        "const documentVersion = document.version;",
-        "const documentText = document.getText();",
-        "document.version !== documentVersion",
-        "child.stdin.end(documentText)"
+        '"--workspace-snapshot-stdin"',
+        "workspaceNavigationJsonRequest(document, context, undefined",
+        "workspaceNavigationDocuments(document, root)",
+        "snapshotCacheKey(document, root, currentDocuments) === key",
+        'payload?.format !== "eng-lsp-snapshot-v1"'
     )) {
         if (-not $SnapshotDocumentSource.Contains($RequiredSnapshotFreshnessToken)) {
             throw "VS Code snapshot live editor requests must guard stale document versions with $RequiredSnapshotFreshnessToken"
+        }
+    }
+    foreach ($RequiredWorkspaceDiagnosticRefreshToken in @(
+        "scheduleWorkspaceChangedChecks(event.document)",
+        "scheduleWorkspaceChangedChecks(document, includeChangedDocument = true)",
+        "scheduleWorkspaceChangedChecks(document, false)",
+        "vscode.workspace.textDocuments",
+        "this.workspaceRoot(candidate)",
+        "this.scheduleChangedCheck(candidate)"
+    )) {
+        if (-not ($ExtensionSource + "`n" + $DiagnosticsProviderSource).Contains($RequiredWorkspaceDiagnosticRefreshToken)) {
+            throw "VS Code imported-buffer diagnostics must refresh open EngLang documents in the same workspace: $RequiredWorkspaceDiagnosticRefreshToken"
         }
     }
     $StdinJsonRequestIndex = $LspRequestsSource.IndexOf("function stdinJsonRequest")
@@ -5436,8 +5450,8 @@ function Assert-VscodeExtensionContract {
         }
     }
     foreach ($RequiredLiveEditorOutputToken in @(
-        "Live editor check failed:",
-        "Unable to parse EngLang live editor data:",
+        "Live editor check failed",
+        "Unable to parse EngLang live editor data",
         "Completion lookup failed",
         "Unable to parse EngLang completion data",
         "Definition lookup failed",
@@ -5926,6 +5940,21 @@ function Assert-VscodeExtensionContract {
         }
     }
     $NavigationSource = $ExtensionSource + "`n" + $NavigationProvidersSource + "`n" + $LspNavigationSource + "`n" + $LspRequestsSource
+    foreach ($RequiredWorkspaceEditorToken in @(
+        "--workspace-snapshot-stdin",
+        "--workspace-completion-stdin",
+        "workspaceNavigationJsonRequest",
+        "workspaceNavigationDocuments",
+        "workspaceNavigationDocumentStatesAreCurrent",
+        "eng-lsp-open-documents-v1"
+    )) {
+        if (-not $LspRequestsSource.Contains($RequiredWorkspaceEditorToken)) {
+            throw "VS Code live snapshot and completion must use all modified EngLang buffers: $RequiredWorkspaceEditorToken"
+        }
+    }
+    if ($LspRequestsSource.Contains('["--snapshot-stdin"') -or $LspRequestsSource.Contains('"--completion-stdin"')) {
+        throw "VS Code live snapshot and completion must use compiler-owned workspace stdin endpoints"
+    }
     foreach ($RequiredDefinitionToken in @(
         "registerDefinitionProvider",
         "EngDefinitionProvider",
@@ -6256,6 +6285,22 @@ function Assert-VscodeExtensionContract {
     )) {
         if (-not $LspCliSource.Contains($RequiredLspDocumentHighlightToken)) {
             throw "eng-lsp CLI missing semantic document highlight token $RequiredLspDocumentHighlightToken"
+        }
+    }
+    foreach ($RequiredLspWorkspaceEditorToken in @(
+        "--workspace-snapshot-stdin",
+        "--workspace-completion-stdin",
+        "command_workspace_snapshot_stdin",
+        "command_workspace_completion_stdin",
+        "selected_workspace_document",
+        "import_source_overrides_from_documents",
+        "snapshot_for_source_with_import_overrides",
+        "completion_items_for_source_position_with_import_overrides",
+        '"textDocument/didClose"',
+        "clear_diagnostics"
+    )) {
+        if (-not $LspCliSource.Contains($RequiredLspWorkspaceEditorToken)) {
+            throw "eng-lsp CLI missing open-document snapshot/completion token $RequiredLspWorkspaceEditorToken"
         }
     }
     foreach ($RequiredLspReferenceToken in @(
@@ -7608,6 +7653,26 @@ function Invoke-IdeCheck {
     foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "document_symbols", "document_symbols_lsp_json", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_items", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completions_use_lsp_editor_items", "check_view_surfaces_lsp_semantic_tokens", "ide_definition", "--workspace-definition-stdin", "ide_document_highlights", "--document-highlights-stdin", "ide_code_actions", "--code-actions-stdin", "parse_code_actions_output", "run_lsp_source_query", "ide_prepare_rename", "--workspace-prepare-rename-stdin", "parse_prepare_rename_output", "ide_references", "--workspace-references-stdin", "ide_rename", "--workspace-rename-stdin", "workspace_navigation_payload", "parse_rename_output", "ide_workspace_symbols", "--workspace-symbols-stdin", "workspace_document_payload", "run_lsp_query", "parse_workspace_symbols_output", "workspace_symbol_output_accepts_complete_workspace_locations", "run_lsp_position_query", "parse_document_highlights_output", "bundled_lsp_executable", "parse_definition_output", "Stdio::piped()", "definition_output_accepts_null_and_complete_locations", "document_highlight_output_accepts_complete_read_and_write_ranges", "code_action_output_accepts_diagnostic_bound_insertions", "rename_output_accepts_complete_multi_file_edits", "one-line EngLang statement such as", "cd <dir>", "diagnostic_view_from_lsp", "diagnostic_view_from_parts", 'range_text: format!("L{line}:C{column}-C{end_column}")', 'include_str!("../ui/app.js")', 'include_str!("main.rs")')) {
         if (-not $IdeMainSource.Contains($RequiredIdeBackendToken)) {
             throw "Native IDE backend missing contract token $RequiredIdeBackendToken"
+        }
+    }
+    foreach ($RequiredOpenImportCheckToken in @(
+        "ide_check",
+        "check_source_with_import_overrides",
+        "ImportSourceOverrides",
+        "validated_workspace_documents",
+        "check_view_with_import_overrides"
+    )) {
+        if (-not $IdeMainSource.Contains($RequiredOpenImportCheckToken)) {
+            throw "Native IDE live check must resolve modified open imports: $RequiredOpenImportCheckToken"
+        }
+    }
+    foreach ($RequiredOpenImportCheckUiToken in @(
+        "documents: dirtyWorkspaceDocuments(state.currentPath)",
+        "workspaceDocumentsAreCurrent(request.documents, request.path)",
+        "documents: request.documents"
+    )) {
+        if (-not $IdeUiSource.Contains($RequiredOpenImportCheckUiToken)) {
+            throw "Native IDE live check must guard all modified open imports: $RequiredOpenImportCheckUiToken"
         }
     }
     foreach ($ForbiddenNativeIdeCompletionToken in @("BASE_COMPLETION_KEYWORDS", "PUBLIC_TYPE_COMPLETIONS", "WORKFLOW_BUILTIN_COMPLETIONS", "WORKFLOW_OPTION_COMPLETIONS")) {

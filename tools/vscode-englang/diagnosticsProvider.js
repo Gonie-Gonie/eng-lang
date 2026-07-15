@@ -69,6 +69,32 @@ class EngDiagnosticsController {
     this.changeTimers.set(key, timer);
   }
 
+  scheduleWorkspaceChangedChecks(document, includeChangedDocument = true) {
+    const changedRoot = String(this.workspaceRoot(document) ?? "").toLowerCase();
+    const changedUri = document?.uri?.toString?.();
+    const candidates = vscode.workspace.textDocuments ?? [];
+    let changedDocumentScheduled = false;
+    for (const candidate of candidates) {
+      if (!this.isEngDocument(candidate)) {
+        continue;
+      }
+      const candidateRoot = String(this.workspaceRoot(candidate) ?? "").toLowerCase();
+      if (candidateRoot !== changedRoot) {
+        continue;
+      }
+      const candidateIsChanged = candidate === document
+        || (changedUri && candidate?.uri?.toString?.() === changedUri);
+      if (!includeChangedDocument && candidateIsChanged) {
+        continue;
+      }
+      this.scheduleChangedCheck(candidate);
+      changedDocumentScheduled ||= candidateIsChanged;
+    }
+    if (includeChangedDocument && !changedDocumentScheduled) {
+      this.scheduleChangedCheck(document);
+    }
+  }
+
   clearPendingCheck(document) {
     const key = document.uri.toString();
     const timer = this.changeTimers.get(key);

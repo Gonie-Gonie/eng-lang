@@ -182,7 +182,11 @@ async function navigationRequestsUseAllDirtyWorkspaceBuffers() {
     invocations.push(invocation);
     const response = args[0] === "--workspace-definition-stdin"
       ? definitionPayload
-      : referencePayload;
+      : args[0] === "--workspace-snapshot-stdin"
+        ? { format: "eng-lsp-snapshot-v1", diagnostics: [], completions: [], hovers: [] }
+        : args[0] === "--workspace-completion-stdin"
+          ? { format: "eng-lsp-snapshot-v1", completions: [{ label: "SHARED_GAIN" }] }
+          : referencePayload;
     setImmediate(() => callback(null, JSON.stringify(response), ""));
     return {
       kill() {},
@@ -262,6 +266,31 @@ async function navigationRequestsUseAllDirtyWorkspaceBuffers() {
       "4"
     ]);
     assert.deepStrictEqual(JSON.parse(invocations[1].stdinText), expectedDocuments);
+
+    const snapshot = await requests.snapshotDocumentSource(document, {}, undefined);
+    assert.strictEqual(snapshot.format, "eng-lsp-snapshot-v1");
+    assert.deepStrictEqual(invocations[2].args, [
+      "--workspace-snapshot-stdin",
+      "C:/workspace",
+      "C:/workspace/main.eng"
+    ]);
+    assert.deepStrictEqual(JSON.parse(invocations[2].stdinText), expectedDocuments);
+
+    const completion = await requests.completionSnapshotForPosition(
+      document,
+      { line: 1, character: 4 },
+      {},
+      undefined
+    );
+    assert.strictEqual(completion.completions[0].label, "SHARED_GAIN");
+    assert.deepStrictEqual(invocations[3].args, [
+      "--workspace-completion-stdin",
+      "C:/workspace",
+      "C:/workspace/main.eng",
+      "1",
+      "4"
+    ]);
+    assert.deepStrictEqual(JSON.parse(invocations[3].stdinText), expectedDocuments);
   } finally {
     vscodeMock.workspace.textDocuments = [];
     childProcess.execFile = originalExecFile;
