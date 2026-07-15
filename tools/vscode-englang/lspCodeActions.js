@@ -1,5 +1,4 @@
 const vscode = require("vscode");
-const { diagnosticCode } = require("./localCodeActions");
 const { vscodeRangeFromLsp } = require("./lspRanges");
 
 function lspCodeActionsFromPayload(document, payload, contextDiagnostics) {
@@ -12,12 +11,17 @@ function lspCodeActionsFromPayload(document, payload, contextDiagnostics) {
 }
 
 function vscodeCodeActionFromLsp(document, lspAction, contextDiagnostics) {
-  if (!lspAction || typeof lspAction.title !== "string") {
+  if (
+    !lspAction ||
+    typeof lspAction.title !== "string" ||
+    lspAction.title.trim().length === 0 ||
+    lspAction.kind !== "quickfix"
+  ) {
     return undefined;
   }
   if (
-    Array.isArray(contextDiagnostics) &&
-    contextDiagnostics.length > 0 &&
+    !Array.isArray(contextDiagnostics) ||
+    contextDiagnostics.length === 0 ||
     !lspActionMatchesDiagnostics(lspAction, contextDiagnostics)
   ) {
     return undefined;
@@ -26,15 +30,11 @@ function vscodeCodeActionFromLsp(document, lspAction, contextDiagnostics) {
   if (!edit) {
     return undefined;
   }
-  const action = new vscode.CodeAction(lspAction.title, codeActionKindFromLsp(lspAction.kind));
+  const action = new vscode.CodeAction(lspAction.title, vscode.CodeActionKind.QuickFix);
   action.isPreferred = lspAction.isPreferred === true;
   action.edit = edit;
   action.diagnostics = matchingDiagnosticsForLspAction(lspAction, contextDiagnostics);
   return action;
-}
-
-function codeActionKindFromLsp(kind) {
-  return kind === "quickfix" ? vscode.CodeActionKind.QuickFix : vscode.CodeActionKind.Empty;
 }
 
 function workspaceEditFromLspCodeAction(document, lspAction) {
@@ -47,24 +47,89 @@ function workspaceEditFromLspCodeAction(document, lspAction) {
     document.uri.toString(),
     document.uri.toString(true)
   ]);
-  const entry =
-    entries.find(([uri]) => documentUris.has(uri)) ??
-    (entries.length === 1 ? entries[0] : undefined);
-  if (!entry || !Array.isArray(entry[1])) {
+  if (entries.length !== 1) {
+    return undefined;
+  }
+  const [uri, edits] = entries[0];
+  if (!documentUris.has(uri) || !Array.isArray(edits) || edits.length === 0) {
+    return undefined;
+  }
+
+  const convertedEdits = [];
+  for (const edit of edits) {
+    const range = vscodeRangeFromLsp(edit?.range);
+    if (
+      !range ||
+      typeof edit?.newText !== "string" ||
+      !rangeIsInsideDocument(document, range)
+    ) {
+      return undefined;
+    }
+    convertedEdits.push({ range, newText: edit.newText });
+  }
+  if (editRangesConflict(convertedEdits.map((edit) => edit.range))) {
     return undefined;
   }
 
   const workspaceEdit = new vscode.WorkspaceEdit();
-  let hasEdit = false;
-  for (const edit of entry[1]) {
-    const range = vscodeRangeFromLsp(edit.range);
-    if (!range || typeof edit.newText !== "string") {
-      continue;
-    }
-    workspaceEdit.replace(document.uri, range, edit.newText);
-    hasEdit = true;
+  for (const edit of convertedEdits) {
+    workspaceEdit.replace(document.uri, edit.range, edit.newText);
   }
-  return hasEdit ? workspaceEdit : undefined;
+  return workspaceEdit;
+}
+
+function rangeIsInsideDocument(document, range) {
+  if (
+    !Number.isInteger(document?.lineCount) ||
+    document.lineCount <= 0 ||
+    typeof document.lineAt !== "function" ||
+    comparePositions(range.start, range.end) > 0
+  ) {
+    return false;
+  }
+  for (const position of [range.start, range.end]) {
+    if (
+      position.line < 0 ||
+      position.line >= document.lineCount ||
+      position.character < 0
+    ) {
+      return false;
+    }
+    let line;
+    try {
+      line = document.lineAt(position.line);
+    } catch (_error) {
+      return false;
+    }
+    if (typeof line?.text !== "string" || position.character > line.text.length) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function editRangesConflict(ranges) {
+  const ordered = [...ranges].sort((left, right) => {
+    const startOrder = comparePositions(left.start, right.start);
+    return startOrder !== 0 ? startOrder : comparePositions(left.end, right.end);
+  });
+  for (let index = 1; index < ordered.length; index += 1) {
+    const previous = ordered[index - 1];
+    const current = ordered[index];
+    if (
+      comparePositions(previous.start, current.start) === 0 ||
+      comparePositions(previous.end, current.start) > 0
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function comparePositions(left, right) {
+  return left.line === right.line
+    ? left.character - right.character
+    : left.line - right.line;
 }
 
 function lspActionMatchesDiagnostics(lspAction, contextDiagnostics) {
@@ -105,6 +170,13 @@ function lspDiagnosticMatchesVscode(lspDiagnostic, diagnostic) {
     lspRange.end.line === diagnostic.range.end.line &&
     lspRange.end.character === diagnostic.range.end.character
   );
+}
+
+function diagnosticCode(diagnostic) {
+  if (typeof diagnostic?.code === "string") {
+    return diagnostic.code;
+  }
+  return diagnostic?.code?.value;
 }
 
 module.exports = {

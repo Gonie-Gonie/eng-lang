@@ -41,8 +41,6 @@ const editorMetadata = loadEditorMetadata(__dirname);
 const SEMANTIC_TOKEN_TYPES = editorMetadata.semanticTokenTypes;
 const SEMANTIC_TOKEN_MODIFIERS = editorMetadata.semanticTokenModifiers;
 const COMPLETION_ITEMS = editorMetadata.completionItems;
-const UNIT_LABELS = catalogItemLabels(editorMetadata.syntaxCatalog.units);
-const WORKFLOW_OPTION_LABELS = catalogItemLabels(editorMetadata.syntaxCatalog.workflow_options);
 const HTTP_RESPONSE_FIELDS = editorMetadata.syntaxCatalog.http_response_fields;
 const COVERAGE_RESULT_FIELDS = editorMetadata.syntaxCatalog.coverage_result_fields;
 const TABLE_FIELDS = editorMetadata.syntaxCatalog.table_fields;
@@ -414,9 +412,7 @@ function activate(context) {
       LANGUAGE_ID,
       new EngCodeActionProvider(context, {
         codeActionsForDocumentSource: lspRequests.codeActionsForDocumentSource,
-        completionItems: COMPLETION_ITEMS,
-        unitLabels: UNIT_LABELS,
-        workflowOptionLabels: WORKFLOW_OPTION_LABELS
+        appendOutputLine
       }),
       {
         providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]
@@ -431,17 +427,6 @@ function activate(context) {
 }
 
 function deactivate() {}
-
-function catalogItemLabels(items) {
-  return (Array.isArray(items) ? items : [])
-    .map((item) => {
-      if (typeof item === "string") {
-        return item;
-      }
-      return typeof item?.label === "string" ? item.label : undefined;
-    })
-    .filter((label) => typeof label === "string" && label.length > 0);
-}
 
 function appendOutputLine(message) {
   output?.appendLine(message);

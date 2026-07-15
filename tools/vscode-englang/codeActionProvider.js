@@ -1,14 +1,11 @@
 const vscode = require("vscode");
-const { localCodeActions } = require("./localCodeActions");
 const { lspCodeActionsFromPayload } = require("./lspCodeActions");
 
 class EngCodeActionProvider {
   constructor(context, options = {}) {
     this.context = context;
     this.codeActionsForDocumentSource = options.codeActionsForDocumentSource;
-    this.completionItems = Array.isArray(options.completionItems) ? options.completionItems : [];
-    this.unitLabels = Array.isArray(options.unitLabels) ? options.unitLabels : [];
-    this.workflowOptionLabels = Array.isArray(options.workflowOptionLabels) ? options.workflowOptionLabels : [];
+    this.appendOutputLine = options.appendOutputLine ?? (() => undefined);
   }
 
   async provideCodeActions(document, _range, context, cancellationToken) {
@@ -16,11 +13,6 @@ class EngCodeActionProvider {
       return [];
     }
 
-    const localActions = () => localCodeActions(document, context, {
-      completionItems: this.completionItems,
-      unitLabels: this.unitLabels,
-      workflowOptionLabels: this.workflowOptionLabels
-    });
     if (cancellationToken?.isCancellationRequested) {
       return [];
     }
@@ -33,18 +25,18 @@ class EngCodeActionProvider {
         this.context,
         cancellationToken
       );
-    } catch (_error) {
+    } catch (error) {
       if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
         return [];
       }
-      return localActions();
+      this.appendOutputLine(`Code action lookup failed: ${error.message}`);
+      return [];
     }
     if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
       return [];
     }
 
-    const lspActions = lspCodeActionsFromPayload(document, payload, context.diagnostics);
-    return mergeCodeActions(lspActions, localActions());
+    return lspCodeActionsFromPayload(document, payload, context.diagnostics);
   }
 }
 
@@ -79,51 +71,6 @@ function codeActionKindValue(kind) {
   return kind?.value ?? String(kind ?? "");
 }
 
-function mergeCodeActions(primaryActions, fallbackActions) {
-  const merged = [];
-  const seen = new Set();
-  for (const action of [...primaryActions, ...fallbackActions]) {
-    if (!action) {
-      continue;
-    }
-    const key = codeActionKey(action);
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    merged.push(action);
-  }
-  return merged;
-}
-
-function codeActionKey(action) {
-  const kind = action?.kind?.value ?? String(action?.kind ?? "");
-  return `${action?.title ?? ""}\n${kind}\n${codeActionEditKey(action?.edit)}`;
-}
-
-function codeActionEditKey(edit) {
-  if (!edit || typeof edit.entries !== "function") {
-    return "";
-  }
-  return edit.entries()
-    .map(([uri, edits]) => {
-      const editKeys = edits.map((textEdit) => {
-        const range = textEdit.range;
-        return [
-          range.start.line,
-          range.start.character,
-          range.end.line,
-          range.end.character,
-          textEdit.newText
-        ].join(":");
-      });
-      return `${uri.toString()}:${editKeys.join("|")}`;
-    })
-    .sort()
-    .join("\n");
-}
-
 module.exports = {
-  EngCodeActionProvider,
-  mergeCodeActions
+  EngCodeActionProvider
 };

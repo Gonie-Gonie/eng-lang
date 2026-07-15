@@ -3722,7 +3722,7 @@ function Assert-VscodeExtensionContract {
     $FormattingProviderPath = Join-Path $ExtensionRoot "formattingProvider.js"
     $NavigationProvidersPath = Join-Path $ExtensionRoot "navigationProviders.js"
     $SemanticTokensProviderPath = Join-Path $ExtensionRoot "semanticTokensProvider.js"
-    $LocalCodeActionsPath = Join-Path $ExtensionRoot "localCodeActions.js"
+    $LegacyLocalCodeActionsPath = Join-Path $ExtensionRoot "localCodeActions.js"
     $LspCodeActionsPath = Join-Path $ExtensionRoot "lspCodeActions.js"
     $LspKindsPath = Join-Path $ExtensionRoot "lspKinds.js"
     $LspNavigationPath = Join-Path $ExtensionRoot "lspNavigation.js"
@@ -3736,6 +3736,7 @@ function Assert-VscodeExtensionContract {
     $RuntimeDiscoveryPath = Join-Path $ExtensionRoot "runtimeDiscovery.js"
     $ReviewPanelRendererPath = Join-Path $ExtensionRoot "reviewPanelRenderer.js"
     $CaseRunCompletionTestPath = Join-Path $ExtensionRoot "test\caseRunCompletion.test.js"
+    $CodeActionsTestPath = Join-Path $ExtensionRoot "test\codeActions.test.js"
     $DocumentHighlightsTestPath = Join-Path $ExtensionRoot "test\documentHighlights.test.js"
     $EditorRequestRaceTestPath = Join-Path $ExtensionRoot "test\editorRequestRace.test.js"
     $RenameTestPath = Join-Path $ExtensionRoot "test\rename.test.js"
@@ -3799,8 +3800,8 @@ function Assert-VscodeExtensionContract {
     if (-not (Test-Path $SemanticTokensProviderPath)) {
         throw "missing VS Code semantic tokens provider at $SemanticTokensProviderPath"
     }
-    if (-not (Test-Path $LocalCodeActionsPath)) {
-        throw "missing VS Code local quick fix provider at $LocalCodeActionsPath"
+    if (Test-Path $LegacyLocalCodeActionsPath) {
+        throw "VS Code must not ship the retired JavaScript compiler quick-fix copy at $LegacyLocalCodeActionsPath"
     }
     if (-not (Test-Path $LspCodeActionsPath)) {
         throw "missing VS Code LSP code action bridge at $LspCodeActionsPath"
@@ -3840,6 +3841,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $CaseRunCompletionTestPath)) {
         throw "missing VS Code native case run completion smoke at $CaseRunCompletionTestPath"
+    }
+    if (-not (Test-Path $CodeActionsTestPath)) {
+        throw "missing VS Code compiler code action smoke at $CodeActionsTestPath"
     }
     if (-not (Test-Path $DocumentHighlightsTestPath)) {
         throw "missing VS Code semantic document highlight smoke at $DocumentHighlightsTestPath"
@@ -4831,7 +4835,6 @@ function Assert-VscodeExtensionContract {
     $FormattingProviderSource = Get-Content -LiteralPath $FormattingProviderPath -Raw
     $NavigationProvidersSource = Get-Content -LiteralPath $NavigationProvidersPath -Raw
     $SemanticTokensProviderSource = Get-Content -LiteralPath $SemanticTokensProviderPath -Raw
-    $LocalCodeActionsSource = Get-Content -LiteralPath $LocalCodeActionsPath -Raw
     $LspCodeActionsSource = Get-Content -LiteralPath $LspCodeActionsPath -Raw
     $LspKindsSource = Get-Content -LiteralPath $LspKindsPath -Raw
     $LspNavigationSource = Get-Content -LiteralPath $LspNavigationPath -Raw
@@ -4844,6 +4847,7 @@ function Assert-VscodeExtensionContract {
     $ModuleStatusSource = Get-Content -LiteralPath $ModuleStatusPath -Raw
     $RuntimeDiscoverySource = Get-Content -LiteralPath $RuntimeDiscoveryPath -Raw
     $ReviewPanelRendererSource = Get-Content -LiteralPath $ReviewPanelRendererPath -Raw
+    $CodeActionsTestSource = Get-Content -LiteralPath $CodeActionsTestPath -Raw
     $EditorRequestRaceTestSource = Get-Content -LiteralPath $EditorRequestRaceTestPath -Raw
     $DiagnosticsSource = $ExtensionSource + "`n" + $DiagnosticsProviderSource
     foreach ($RequiredStatusBarToken in @(
@@ -6031,273 +6035,70 @@ function Assert-VscodeExtensionContract {
     if ($ExtensionSource.Contains("class EngFoldingRangeProvider") -or $ExtensionSource.Contains("function foldingRangesFromSnapshot") -or $ExtensionSource.Contains("function foldingRangeFromSnapshot")) {
         throw "VS Code extension must keep folding provider helpers in foldingRangeProvider.js"
     }
-    $QuickFixSource = $ExtensionSource + "`n" + $CodeActionProviderSource + "`n" + $LocalCodeActionsSource + "`n" + $LspCodeActionsSource + "`n" + $LspRequestsSource
+    $QuickFixSource = $ExtensionSource + "`n" + $CodeActionProviderSource + "`n" + $LspCodeActionsSource + "`n" + $LspRequestsSource
     foreach ($RequiredQuickFixToken in @(
         "registerCodeActionsProvider",
         "--code-actions-stdin",
         "codeActionsForDocumentSource",
         "lspCodeActionsFromPayload",
         "workspaceEditFromLspCodeAction",
-        "lspRange.start.character",
-        "diagnostic.range.start.character",
-        "lspRange.end.character",
-        "diagnostic.range.end.character",
-        "localCodeActions",
-        "mergeCodeActions",
-        "codeActionEditKey",
         "shouldProvideQuickFixes",
         "context?.only",
         "codeActionKindIntersects",
         "isCancellationRequested",
-        "return localActions()",
-        "replacementIndexForDiagnostic(line.text, diagnostic, search)",
-        "text.indexOf(search, boundedStart)",
-        "edit.entries",
-        "E-SYNTAX-DECL-001",
-        "E-STRUCT-ARGS-001",
-        "E-EQ-BOOL-001",
-        "E-SCRIPT-001",
-        "E-CMD-AMBIG-001",
-        "E-CMD-UNKNOWN-VERB",
-        "W-QTY-AMBIG-001",
-        "W-STATS-SUM-001",
-        "E-DIM-ADD-",
-        "E-PUBLIC-ANNOTATION-001",
-        "E-FS-CONFIRM-001",
-        "E-FS-DELETE-001",
-        "E-NET-INVALID-URL",
-        "E-NET-BODY-METHOD",
-        "E-NET-BODY-POLICY",
-        "E-NET-HASH-MISMATCH",
-        "W-NET-FIXTURE-ALIAS",
-        "W-NET-RESPONSE-HASH-ALIAS",
-        "W-NET-RESPONSE-STATUS-ALIAS",
-        "E-IO-JSON-FIELD-ACCESS-001",
-        "E-WITH-OPTION-001",
-        "E-WITH-UNIT-001",
-        "E-PRINT-FMT-001",
-        "E-WRITE-FMT-001",
-        "E-PRINT-FMT-002",
-        "E-WRITE-FMT-002",
-        "E-PRINT-FMT-004",
-        "E-WRITE-FMT-004",
-        "E-PRINT-FMT-003",
-        "E-WRITE-FMT-003",
-        "E-LOG-LEVEL-001",
-        "E-REPORT-BINDING-001",
-        "E-VALIDATE-BINDING-001",
-        "E-SIDE-EFFECT-BINDING-001",
-        "E-BLOCK-BINDING-001",
-        "E-STATEMENT-BINDING-001",
-        "E-OPTION-BINDING-001",
-        "E-PROCESS-BINDING-001",
-        "E-PROCESS-BINDING-002",
-        "E-PROCESS-CMD-001",
-        "E-ASSERT-001",
-        "E-GOLDEN-001",
-        "E-GOLDEN-002",
-        "E-WHERE-FWD-001",
-        "E-NAME-LOCAL-001",
-        "E-UNC-ARGS-",
-        "E-UNC-SOURCE-001",
-        "E-UNC-SOURCE-002",
-        "E-NET-RETRY-POLICY",
-        "E-NET-TIMEOUT",
-        "E-NET-BODY-SIZE-LIMIT",
-        "E-PROCESS-RETRY-POLICY",
-        "E-PROCESS-TIMEOUT",
-        "E-PROCESS-ALLOW-FAILURE",
-        "E-PROCESS-CWD-001",
-        "E-PROCESS-ENV-001",
-        "E-SAMPLING-COUNT-INVALID",
-        "E-SAMPLING-SEED-INVALID",
-        "E-SAMPLING-RANGE-UNIT",
-        "E-WITH-UNCERTAINTY-POLICY-001",
-        "E-WITH-UNCERTAINTY-SAMPLES-001",
-        "E-WITH-UNCERTAINTY-SEED-001",
-        "W-WITH-UNCERTAINTY-SEED-001",
-        "E-ML-ARGS-001",
-        "E-ML-ARGS-002",
-        "E-ML-ARGS-003",
-        "E-CACHE-KEY-NONDETERMINISTIC",
-        "E-CACHE-DIR",
-        "E-CACHE-TTL",
-        "E-GOLDEN-001",
-        "E-GOLDEN-002",
-        "removeScriptWrapperAction",
-        "quantityAnnotationActions",
-        "heatRateSumAction",
-        "Replace sum with integrate",
-        "missingUnitActions",
-        "schemaAnnotationAction",
-        "fileMutationConfirmAction",
-        "recursiveDeleteAction",
-        "absoluteHttpUrlAction",
-        "Replace URL with https://example.org",
-        "httpBodyMethodAction",
-        "Change HTTP method to post",
-        "Replace request body with string literal",
-        "expectedSha256Action",
-        "expectedSha256FromDiagnostic",
-        "optionKeyReplacementAction",
-        "Rename fixture to offline_response",
-        "diagnosticRangeReplacementAction",
-        "Rename hash to response_hash",
-        "W-NET-RESPONSE-STATUS-ALIAS",
-        "response_source",
-        "Rename status to response_source",
-        "jsonReadPromotionAction",
-        'Promote ${access.binding} before field access',
-        "schemaNameFromBinding",
-        "commandTargetParenthesesAction",
-        "commandTargetFromDiagnostic",
-        "commandStyleFunctionCallAction",
-        "commandStyleFunctionCallEdit",
-        "commandStyleVerbFromDiagnostic",
-        "commandStyleFunctionCallArguments",
-        "splitTopLevelCommandClauses",
-        "topLevelCommandClausePositions",
-        "Convert command-style call to function call",
-        "withOptionAliasAction",
-        "withOptionAliasFix",
-        "unknownWithOptionName",
-        "removeIncompatibleDisplayUnitAction",
-        "Remove incompatible display unit option",
-        "closeUnterminatedInterpolationAction",
-        "unterminatedInterpolationClosePosition",
-        "interpolationOpenIndex",
-        "unescapedQuoteIndexAfter",
-        "Close interpolation with }",
-        "removeInterpolationDisplayUnitAction",
-        "interpolationUnitRemovalRange",
-        "formatSpecPrefixCanStandWithoutUnit",
-        "lastBacktickPayload",
-        "Remove incompatible interpolation unit",
-        "logLevelInfoAction",
-        "Set log level to info",
-        "STATEMENT_ONLY_BINDING_CODES",
-        "statementOnlyUnbindAction",
-        "statementBindingPrefixRange",
-        "Remove invalid binding prefix",
-        "bindProcessResultAction",
-        "Bind process result",
-        "uniqueProcessBindingAction",
-        "Rename process result to",
-        "processCommandAction",
-        "Add process command string",
-        "wrapAssertionAction",
-        "Wrap assertion in test block",
-        "wrapGoldenAction",
-        "Wrap golden check in test block",
-        "goldenExpectedFileAction",
-        "goldenBareExpectedStringRange",
-        "Wrap golden expected path with file(...)",
-        "reorderWhereLocalDefinitionAction",
-        'Move ${name} definition before first use',
-        "promoteWhereLocalAction",
-        'Promote ${name} to top-level binding',
-        "whereBlockDefiningBefore",
-        "whereBlockMeaningfulLineCount",
-        "fullLineBlockRange",
-        "uncertaintyArgumentActions",
-        "uncertaintySourceActions",
-        "uncertaintySourceNameFromDiagnostic",
-        "bindingExpressionRangeForName",
-        "uncertaintyCallExampleFromDiagnostic",
-        "uncertaintyCallRangeOnLine",
-        "namedArgumentValueRange",
-        "Define uncertainty source",
-        "Add uncertainty source Q_source_unc",
-        "to measured uncertainty source",
-        "Set distribution kind to normal",
-        "Set uncertainty method to linear",
-        "Set uncertainty samples to 31",
-        "Set uncertainty policy",
-        "Set uncertainty samples",
-        "Set uncertainty seed",
-        "Add uncertainty seed: seed = 7",
-        "Set deterministic cache key",
-        "Set cache directory",
-        "Set cache TTL to 1 h",
-        "mlSourceActions",
-        "Define ML",
-        "Create ML split from",
-        "Set model test split",
-        "Set model seed",
-        "Set model hidden layers",
-        "Set model epochs",
-        "modelOptionValueAction",
-        "modelOptionFixes",
-        "uncertaintySeedMissingAction",
-        "withBlockContainingLine",
-        "E-STDLIB-MODULE-UNKNOWN",
-        "W-STDLIB-MODULE-PLANNED",
-        "W-STDLIB-MODULE-INTERNAL",
-        "stdlibModuleReplacementAction",
-        "removeStdlibModuleImportAction",
-        'Remove ${status} stdlib module import',
-        "stdlibModuleNameFromDiagnostic",
-        "stdlibModuleNamesFromCompletionItems",
-        "closestStdlibModuleName",
-        "editDistance",
-        "Use plot y-axis option: unit y =",
-        "Use plot x-axis option: unit x =",
-        "Use confidence band option: confidence_band =",
-        "Set process cwd",
-        "Set process env",
-        "E-SOLVE-SOLVER-UNSUPPORTED",
-        "Set solve solver",
-        "E-WRITE-002",
-        "unsupportedWriteFormatActions",
-        "Change write format to",
-        "E-WRITE-STANDARD-TEXT-001",
-        "Change writer to text",
-        "E-WRITE-STANDARD-TEXT-OUTPUT",
-        "standardTextOutputAction",
-        "Add standard_text output path",
-        "Set sample count",
-        "Set sample seed",
-        "optionQuickFix",
-        "optionValueReplacementAction",
-        "optionAssignmentRange",
-        "removeEmptyInterpolationAction",
-        "emptyInterpolationRange",
-        "Remove empty interpolation",
-        "convertUnresolvedInterpolationAction",
-        "unresolvedInterpolationLiteralEdit",
-        "Convert unresolved interpolation to literal text",
-        "samplingRangeUnitAction",
-        'Add unit ${fix.unit} to sample ${fix.endpoint} endpoint'
+        "document.version !== documentVersion",
+        "entries.length !== 1",
+        "documentUris.has(uri)",
+        "rangeIsInsideDocument",
+        "editRangesConflict",
+        "lspRange.start.character",
+        "diagnostic.range.start.character",
+        "lspRange.end.character",
+        "diagnostic.range.end.character"
     )) {
         if (-not $QuickFixSource.Contains($RequiredQuickFixToken)) {
-            throw "VS Code extension missing quick fix token $RequiredQuickFixToken"
+            throw "VS Code extension missing compiler code action bridge token $RequiredQuickFixToken"
         }
     }
     if (-not $ExtensionSource.Contains('require("./codeActionProvider")') -or -not $CodeActionProviderSource.Contains("EngCodeActionProvider") -or -not $CodeActionProviderSource.Contains("codeActionsForDocumentSource")) {
         throw "VS Code extension must load code action orchestration from codeActionProvider.js"
     }
-    if (-not $CodeActionProviderSource.Contains('require("./localCodeActions")') -or -not $LocalCodeActionsSource.Contains("localCodeActions") -or -not $LocalCodeActionsSource.Contains("diagnosticCode")) {
-        throw "VS Code code action provider must load local quick fix helpers from localCodeActions.js"
+    if (-not $CodeActionProviderSource.Contains('require("./lspCodeActions")') -or -not $LspCodeActionsSource.Contains("lspCodeActionsFromPayload") -or -not $LspCodeActionsSource.Contains("workspaceEditFromLspCodeAction")) {
+        throw "VS Code code action provider must load compiler/LSP quick fixes from lspCodeActions.js"
     }
-    if (-not $ExtensionSource.Contains('completionItems: COMPLETION_ITEMS') -or -not $CodeActionProviderSource.Contains('this.completionItems = Array.isArray(options.completionItems)') -or -not $CodeActionProviderSource.Contains('completionItems: this.completionItems')) {
-        throw "VS Code code action provider must pass generated completion catalog to local quick fixes"
+    if ($CodeActionProviderSource.Contains("localCodeActions") -or $CodeActionProviderSource.Contains("mergeCodeActions") -or $CodeActionProviderSource.Contains("codeActionEditKey")) {
+        throw "VS Code code actions must not merge a JavaScript compiler quick-fix copy"
     }
-    if (-not $ExtensionSource.Contains('const UNIT_LABELS = catalogItemLabels(editorMetadata.syntaxCatalog.units)') -or -not $ExtensionSource.Contains('unitLabels: UNIT_LABELS') -or -not $CodeActionProviderSource.Contains('this.unitLabels = Array.isArray(options.unitLabels)') -or -not $CodeActionProviderSource.Contains('unitLabels: this.unitLabels') -or -not $LocalCodeActionsSource.Contains('missingUnitActions(document, diagnostic, options.unitLabels)') -or -not $LocalCodeActionsSource.Contains('unitLabelSet(unitLabels)')) {
-        throw "VS Code missing-unit quick fixes must use generated unit catalog labels"
+    if ($ExtensionSource.Contains("unitLabels: UNIT_LABELS") -or $ExtensionSource.Contains("workflowOptionLabels: WORKFLOW_OPTION_LABELS") -or $CodeActionProviderSource.Contains("completionItems")) {
+        throw "VS Code code actions must not receive compiler catalogs for local fix synthesis"
     }
-    if (-not $ExtensionSource.Contains('const WORKFLOW_OPTION_LABELS = catalogItemLabels(editorMetadata.syntaxCatalog.workflow_options)') -or -not $ExtensionSource.Contains('workflowOptionLabels: WORKFLOW_OPTION_LABELS') -or -not $CodeActionProviderSource.Contains('this.workflowOptionLabels = Array.isArray(options.workflowOptionLabels)') -or -not $CodeActionProviderSource.Contains('workflowOptionLabels: this.workflowOptionLabels') -or -not $LocalCodeActionsSource.Contains('withOptionAliasAction(document, diagnostic, options.workflowOptionLabels)') -or -not $LocalCodeActionsSource.Contains('optionValueReplacementAction(') -or -not $LocalCodeActionsSource.Contains('modelOptionValueAction(document, diagnostic, code, options.workflowOptionLabels)') -or -not $LocalCodeActionsSource.Contains('knownWorkflowOptionNames(fix.optionNames, workflowOptionLabels)') -or -not $LocalCodeActionsSource.Contains('workflowOptionLabelSet(workflowOptionLabels)')) {
-        throw "VS Code with-option quick fixes must use generated workflow option catalog labels"
+    if ($CodeActionProviderSource -match '[\"''](?:E|W)-[A-Z0-9-]+' -or $LspCodeActionsSource -match '[\"''](?:E|W)-[A-Z0-9-]+') {
+        throw "VS Code code action runtime must not encode compiler diagnostic IDs"
     }
-    foreach ($HiddenModelOptionAlias in @('optionName: "test_fraction"', 'optionName: "layers"')) {
-        if ($LocalCodeActionsSource.Contains($HiddenModelOptionAlias)) {
-            throw "VS Code model option quick fixes must not expose compatibility-only option aliases"
+    foreach ($RequiredCodeActionSmokeToken in @(
+        "the extension must not synthesize a local fix when the compiler returns none",
+        "wrongUri",
+        "multiFile",
+        "partial",
+        "reversed",
+        "negative",
+        "overlapping",
+        "--code-actions-stdin",
+        "document.getText()",
+        "VS Code compiler code action smoke passed."
+    )) {
+        if (-not $CodeActionsTestSource.Contains($RequiredCodeActionSmokeToken)) {
+            throw "VS Code compiler code action smoke missing token $RequiredCodeActionSmokeToken"
         }
     }
-    if (-not $LocalCodeActionsSource.Contains('const code = stripLineComment(lineText)') -or -not $LocalCodeActionsSource.Contains('new RegExp(`^(\\s*)(${options})(\\s*=\\s*)(.*?)(\\s*)$`)')) {
-        throw "VS Code option value quick fixes must strip # and // comments before replacing option values"
+    if ($ExtensionSource.Contains("function localCodeActions") -or $ExtensionSource.Contains("function optionQuickFix") -or $ExtensionSource.Contains("function quantityAnnotationActions") -or $ExtensionSource.Contains("function removeScriptWrapperAction")) {
+        throw "VS Code extension entrypoint must not contain compiler quick-fix logic"
     }
-    if (-not $CodeActionProviderSource.Contains('require("./lspCodeActions")') -or -not $LspCodeActionsSource.Contains("lspCodeActionsFromPayload") -or -not $LspCodeActionsSource.Contains("workspaceEditFromLspCodeAction")) {
-        throw "VS Code code action provider must load LSP quick fix bridge helpers from lspCodeActions.js"
+    if ($ExtensionSource.Contains("class EngCodeActionProvider") -or $ExtensionSource.Contains("function codeActionKindIntersects")) {
+        throw "VS Code extension must keep quick-fix orchestration in codeActionProvider.js"
+    }
+    if ($ExtensionSource.Contains("function lspCodeActionsFromPayload") -or $ExtensionSource.Contains("function workspaceEditFromLspCodeAction") -or $ExtensionSource.Contains("function lspDiagnosticMatchesVscode")) {
+        throw "VS Code extension must keep LSP quick-fix bridge helpers in lspCodeActions.js"
     }
     if (-not $LspKindsSource.Contains("symbolKindFromLsp") -or -not $LspKindsSource.Contains("completionKindFromLsp") -or -not $LspKindsSource.Contains("foldingRangeKindFromLsp")) {
         throw "VS Code extension must share LSP kind conversion through lspKinds.js"
@@ -6321,15 +6122,6 @@ function Assert-VscodeExtensionContract {
     }
     if (-not $LspCodeActionsSource.Contains('require("./lspRanges")') -or -not $LspNavigationSource.Contains('require("./lspRanges")') -or -not $LspRangesSource.Contains("vscodeRangeFromLsp")) {
         throw "VS Code extension must share LSP range conversion through lspRanges.js"
-    }
-    if ($ExtensionSource.Contains("function localCodeActions") -or $ExtensionSource.Contains("function optionQuickFix") -or $ExtensionSource.Contains("function quantityAnnotationActions") -or $ExtensionSource.Contains("function removeScriptWrapperAction")) {
-        throw "VS Code extension must keep local quick fix helpers in localCodeActions.js"
-    }
-    if ($ExtensionSource.Contains("class EngCodeActionProvider") -or $ExtensionSource.Contains("function mergeCodeActions") -or $ExtensionSource.Contains("function codeActionEditKey")) {
-        throw "VS Code extension must keep quick fix orchestration in codeActionProvider.js"
-    }
-    if ($ExtensionSource.Contains("function lspCodeActionsFromPayload") -or $ExtensionSource.Contains("function workspaceEditFromLspCodeAction") -or $ExtensionSource.Contains("function lspDiagnosticMatchesVscode")) {
-        throw "VS Code extension must keep LSP quick fix bridge helpers in lspCodeActions.js"
     }
     if ($ExtensionSource.Contains("function symbolKindFromLsp") -or $ExtensionSource.Contains("function completionKindFromLsp") -or $ExtensionSource.Contains("function foldingRangeKindFromLsp")) {
         throw "VS Code extension must keep LSP kind conversion in lspKinds.js"
@@ -6941,7 +6733,6 @@ function Assert-VscodeExtensionContract {
         $HoverProviderPath,
         $NavigationProvidersPath,
         $SemanticTokensProviderPath,
-        $LocalCodeActionsPath,
         $LspCodeActionsPath,
         $LspKindsPath,
         $LspNavigationPath,
@@ -6955,6 +6746,7 @@ function Assert-VscodeExtensionContract {
         $RuntimeDiscoveryPath,
         $ReviewPanelRendererPath,
         $CaseRunCompletionTestPath,
+        $CodeActionsTestPath,
         $DocumentHighlightsTestPath,
         $EditorRequestRaceTestPath,
         $RenameTestPath,
@@ -6962,6 +6754,7 @@ function Assert-VscodeExtensionContract {
     )
     Invoke-JavaScriptSyntaxCheck -Paths $VscodeJavaScriptPaths -Label "VS Code extension"
     Invoke-JavaScriptProgram -Path $CaseRunCompletionTestPath -Label "VS Code native case run completion smoke"
+    Invoke-JavaScriptProgram -Path $CodeActionsTestPath -Label "VS Code compiler code action smoke"
     Invoke-JavaScriptProgram -Path $DocumentHighlightsTestPath -Label "VS Code semantic document highlight smoke"
     Invoke-JavaScriptProgram -Path $EditorRequestRaceTestPath -Label "VS Code editor request race smoke"
     Invoke-JavaScriptProgram -Path $RenameTestPath -Label "VS Code semantic rename smoke"
@@ -9077,8 +8870,8 @@ function Invoke-PackageSmoke {
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\semanticTokensProvider.js"))) {
             throw "portable package did not include VS Code semantic tokens provider"
         }
-        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\localCodeActions.js"))) {
-            throw "portable package did not include VS Code local quick fix provider"
+        if (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\localCodeActions.js")) {
+            throw "portable package included the retired JavaScript compiler quick-fix copy"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\lspCodeActions.js"))) {
             throw "portable package did not include VS Code LSP quick fix bridge"

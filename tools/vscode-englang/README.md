@@ -63,10 +63,10 @@ embedding compiler logic in JavaScript.
   legacy `select_first_row` migration edits,
   uncertainty constructor argument repairs, direct uncertainty comparison repairs,
   uncertainty propagation option/seed repairs, uncertainty source
-  definition/conversion repairs, and golden test-block/expected path wrappers. Live
-  editor quick fixes are shown first
-  and merged with local quick fixes so partial live editor responses do
-  not hide available fixes.
+  definition/conversion repairs, and golden test-block/expected path wrappers.
+  Quick fixes come from `eng-lsp` using the current unsaved buffer. The extension
+  accepts only complete edits for the matching current-file diagnostic and does
+  not duplicate compiler repair rules in JavaScript.
 - quick fixes for simple same-block `where` local ordering mistakes where a
   later local definition can be moved before its first use
 - quick fixes for simple escaped `where` locals where a reused local binding

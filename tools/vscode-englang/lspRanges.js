@@ -9,7 +9,13 @@ function vscodeRangeFromLsp(range) {
     !Number.isInteger(startLine) ||
     !Number.isInteger(startCharacter) ||
     !Number.isInteger(endLine) ||
-    !Number.isInteger(endCharacter)
+    !Number.isInteger(endCharacter) ||
+    startLine < 0 ||
+    startCharacter < 0 ||
+    endLine < 0 ||
+    endCharacter < 0 ||
+    startLine > endLine ||
+    (startLine === endLine && startCharacter > endCharacter)
   ) {
     return undefined;
   }
