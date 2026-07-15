@@ -691,10 +691,6 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
         "TimeSeries coverage target for `check coverage`",
     ),
     (
-        "fill_missing",
-        "Fill missing TimeSeries values with an explicit policy",
-    ),
-    (
         "fill",
         "Record an explicit TimeSeries fill policy with `fill missing`",
     ),
@@ -7887,6 +7883,14 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
             "promote json records",
             "eng.table JSON records table promotion",
         ),
+        (
+            "check coverage",
+            "eng.timeseries coverage check with an explicit expected step",
+        ),
+        (
+            "fill missing",
+            "eng.timeseries missing-value interpolation with an explicit policy",
+        ),
         ("promote toml config", "eng.config TOML file promotion"),
         (
             "materialize cases",
@@ -9251,6 +9255,8 @@ fn completion_insert_for_label(label: &str) -> Option<&'static str> {
         "run command" => Some("run command \"tool\""),
         "promote json config" => Some("promote json file(\"workflow.json\") as WorkflowConfig"),
         "promote toml config" => Some("promote toml file(\"workflow.toml\") as WorkflowConfig"),
+        "check coverage" => Some("check coverage weather.time"),
+        "fill missing" => Some("fill missing weather.value"),
         "materialize cases" => Some("materialize cases designs"),
         "apply cases" => Some("apply case_input_template over cases"),
         "collect results" => Some("collect results case_results"),
@@ -9339,6 +9345,14 @@ fn completion_insert_snippet_for_label(label: &str) -> Option<String> {
         "promote toml config" => {
             Some("promote toml file(\"${1:workflow.toml}\") as ${2:WorkflowConfig}".to_owned())
         }
+        "check coverage" => Some(
+            "check coverage ${1:weather}.${2:time}\nwith {\n    expected_step = ${3:1 h}\n}"
+                .to_owned(),
+        ),
+        "fill missing" => Some(
+            "fill missing ${1:weather}.${2:value}\nwith {\n    method = interpolate\n    expected_step = ${3:1 h}\n    max_gap = ${4:3 h}\n}"
+                .to_owned(),
+        ),
         "materialize cases" => Some("materialize cases ${1:designs}".to_owned()),
         "apply cases" => Some(
             "apply ${1:case_input_template} over ${2:cases}\nwith {\n    template = file(\"${3:model/native_case_template.txt}\")\n    output = \"{case_dir}/${4:input.txt}\"\n    missing = error\n    overwrite = true\n}"
@@ -10231,6 +10245,8 @@ mod tests {
             "predict",
             "check",
             "coverage",
+            "check coverage",
+            "fill missing",
             "records",
             "promote json records",
             "mkdir dir",
@@ -10653,6 +10669,8 @@ mod tests {
             ("plot line", "snippet"),
             ("log info", "snippet"),
             ("promote json records", "stdlib"),
+            ("check coverage", "stdlib"),
+            ("fill missing", "stdlib"),
             ("http get", "stdlib"),
             ("http post", "stdlib"),
             ("sample uniform", "stdlib"),
@@ -10728,6 +10746,22 @@ mod tests {
             sample_uniform_completion["insert_snippet"],
             "sample uniform\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}"
         );
+        let check_coverage_completion = completions
+            .iter()
+            .find(|completion| completion["label"] == "check coverage")
+            .expect("editor metadata should include check coverage completion");
+        assert_eq!(
+            check_coverage_completion["insert_snippet"],
+            "check coverage ${1:weather}.${2:time}\nwith {\n    expected_step = ${3:1 h}\n}"
+        );
+        let fill_missing_completion = completions
+            .iter()
+            .find(|completion| completion["label"] == "fill missing")
+            .expect("editor metadata should include fill missing completion");
+        assert_eq!(
+            fill_missing_completion["insert_snippet"],
+            "fill missing ${1:weather}.${2:value}\nwith {\n    method = interpolate\n    expected_step = ${3:1 h}\n    max_gap = ${4:3 h}\n}"
+        );
         let train_regression_completion = completions
             .iter()
             .find(|completion| completion["label"] == "train regression")
@@ -10783,6 +10817,12 @@ mod tests {
                 "editor completion items should not suggest legacy model completion {legacy_model_completion}; use train regression"
             );
         }
+        assert!(
+            !completions
+                .iter()
+                .any(|completion| completion["label"] == "fill_missing"),
+            "editor completion items should suggest the public `fill missing` phrase, not the internal fill_missing spelling"
+        );
         let net_completion = completions
             .iter()
             .find(|completion| completion["label"] == "eng.net")

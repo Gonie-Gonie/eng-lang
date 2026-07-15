@@ -1,3 +1,4 @@
+- Batch 933: Replaced the misleading `fill_missing` editor completion with canonical `check coverage` and `fill missing` workflow snippets, so completion inserts public EngLang syntax and its explicit policy blocks instead of an internal strategy spelling.
 - Batch 932: Removed the compatibility-only CaseOutput planned_count member alias from compiler/runtime member lookup and guarded the public API on expected_count.
 - Batch 931: Split workflow docs between the implemented native materialize/apply/collect case-table path and the remaining general run-case scheduler work, and renamed internal case-manifest seed test labels to record labels.
 - Batch 930: Made VS Code Tooling Status native workflow summaries explicitly say no external processes alongside process_count=0 so zero-process evidence is readable without interpreting raw counters.

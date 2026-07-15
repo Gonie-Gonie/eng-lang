@@ -347,12 +347,6 @@
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "Fill missing TimeSeries values with an explicit policy",
-                                 "kind":  "function",
-                                 "label":  "fill_missing",
-                                 "lsp_kind":  3
-                             },
-                             {
                                  "detail":  "Record an explicit TimeSeries fill policy with `fill missing`",
                                  "kind":  "function",
                                  "label":  "fill",
@@ -2294,6 +2288,22 @@
                                  "lsp_kind":  9
                              },
                              {
+                                 "detail":  "eng.timeseries coverage check with an explicit expected step",
+                                 "insert":  "check coverage weather.time",
+                                 "insert_snippet":  "check coverage ${1:weather}.${2:time}\nwith {\n    expected_step = ${3:1 h}\n}",
+                                 "kind":  "stdlib",
+                                 "label":  "check coverage",
+                                 "lsp_kind":  9
+                             },
+                             {
+                                 "detail":  "eng.timeseries missing-value interpolation with an explicit policy",
+                                 "insert":  "fill missing weather.value",
+                                 "insert_snippet":  "fill missing ${1:weather}.${2:value}\nwith {\n    method = interpolate\n    expected_step = ${3:1 h}\n    max_gap = ${4:3 h}\n}",
+                                 "kind":  "stdlib",
+                                 "label":  "fill missing",
+                                 "lsp_kind":  9
+                             },
+                             {
                                  "detail":  "eng.config TOML file promotion",
                                  "insert":  "promote toml file(\"workflow.toml\") as WorkflowConfig",
                                  "insert_snippet":  "promote toml file(\"${1:workflow.toml}\") as ${2:WorkflowConfig}",
@@ -2628,7 +2638,7 @@
                                  "lsp_kind":  11
                              }
                          ],
-    "completion_items_count":  423,
+    "completion_items_count":  424,
     "format":  "eng-lsp-editor-metadata-v2",
     "semantic_token_legend":  {
                                   "token_modifiers":  [
