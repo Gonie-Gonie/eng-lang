@@ -4,6 +4,8 @@ const {
   definitionNameCandidates,
   documentHighlightsFromLsp,
   documentSymbolsFromSnapshot,
+  prepareRenameFromLsp,
+  workspaceEditFromLsp,
   workspaceSymbolInformationFromLsp
 } = require("./lspNavigation");
 
@@ -121,9 +123,61 @@ class EngDocumentHighlightProvider {
   }
 }
 
+class EngRenameProvider {
+  constructor(context, options = {}) {
+    this.context = context;
+    this.isEngDocument = options.isEngDocument ?? (() => true);
+    this.prepareRenameForPosition = options.prepareRenameForPosition;
+    this.renameForPosition = options.renameForPosition;
+    this.appendOutputLine = options.appendOutputLine ?? (() => undefined);
+  }
+
+  async prepareRename(document, position, cancellationToken) {
+    if (!this.isEngDocument(document)) {
+      return undefined;
+    }
+    const documentVersion = document.version;
+    const payload = await this.prepareRenameForPosition?.(
+      document,
+      position,
+      this.context,
+      cancellationToken
+    );
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return undefined;
+    }
+    if (payload?.error) {
+      throw new Error(String(payload.error));
+    }
+    return prepareRenameFromLsp(payload);
+  }
+
+  async provideRenameEdits(document, position, newName, cancellationToken) {
+    if (!this.isEngDocument(document)) {
+      return undefined;
+    }
+    const documentVersion = document.version;
+    const payload = await this.renameForPosition?.(
+      document,
+      position,
+      newName,
+      this.context,
+      cancellationToken
+    );
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return undefined;
+    }
+    if (payload?.error) {
+      throw new Error(String(payload.error));
+    }
+    return workspaceEditFromLsp(payload, this.appendOutputLine);
+  }
+}
+
 module.exports = {
   EngDefinitionProvider,
   EngDocumentHighlightProvider,
   EngDocumentSymbolProvider,
+  EngRenameProvider,
   EngWorkspaceSymbolProvider
 };

@@ -251,6 +251,33 @@ function createLspRequests(options = {}) {
     });
   }
 
+  function prepareRenameForPosition(document, position, context, cancellationToken) {
+    return stdinJsonRequest(document, context, cancellationToken, {
+      args: [
+        "--prepare-rename-stdin",
+        document.uri.fsPath,
+        String(position.line),
+        String(position.character)
+      ],
+      errorMessage: "Rename preparation failed",
+      parseMessage: "Unable to parse EngLang rename preparation"
+    });
+  }
+
+  function renameForPosition(document, position, newName, context, cancellationToken) {
+    return stdinJsonRequest(document, context, cancellationToken, {
+      args: [
+        "--rename-stdin",
+        document.uri.fsPath,
+        String(position.line),
+        String(position.character),
+        newName
+      ],
+      errorMessage: "Rename failed",
+      parseMessage: "Unable to parse EngLang rename result"
+    });
+  }
+
   function formatDocumentSource(document, context, cancellationToken) {
     return stdinJsonRequest(document, context, cancellationToken, {
       args: ["--format-stdin", document.uri.fsPath],
@@ -332,6 +359,8 @@ function createLspRequests(options = {}) {
     completionSnapshotForPosition,
     definitionSnapshotForPosition,
     documentHighlightsForPosition,
+    prepareRenameForPosition,
+    renameForPosition,
     formatDocumentSource,
     codeActionsForDocumentSource
   };

@@ -2209,7 +2209,8 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         if is_structural_non_variable_declaration(program, binding.line, &binding.name) {
             continue;
         }
-        let modifiers = semantic_modifiers_for_quantity(&binding.semantic_type.quantity_kind);
+        let mut modifiers = semantic_modifiers_for_quantity(&binding.semantic_type.quantity_kind);
+        modifiers.push("declaration");
         builder.push_on_line(binding.line, &binding.name, "variable", &modifiers);
     }
 
@@ -2886,6 +2887,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     add_review_risk_semantic_tokens(report, &mut builder);
+    add_compiler_resolved_symbol_reference_tokens(program, &mut builder);
 
     builder.finish()
 }
@@ -3487,6 +3489,69 @@ fn add_function_scoped_symbol_semantic_tokens(
             builder.push_identifiers_on_line(line, &locals, "variable", &["local"]);
         }
     }
+}
+
+fn add_compiler_resolved_symbol_reference_tokens(
+    program: &SemanticProgram,
+    builder: &mut SemanticTokenBuilder<'_>,
+) {
+    let mut symbols = BTreeMap::<String, KnownSemanticSymbol>::new();
+
+    for binding in &program.typed_bindings {
+        if is_structural_non_variable_declaration(program, binding.line, &binding.name) {
+            continue;
+        }
+        symbols
+            .entry(binding.name.clone())
+            .or_insert_with(|| KnownSemanticSymbol {
+                token_type: "variable",
+                modifiers: semantic_modifiers_for_quantity(&binding.semantic_type.quantity_kind),
+            });
+    }
+    for constant in &program.consts {
+        symbols.insert(
+            constant.name.clone(),
+            KnownSemanticSymbol {
+                token_type: "variable",
+                modifiers: vec!["readonly"],
+            },
+        );
+    }
+    for function in &program.functions {
+        symbols.insert(
+            function.name.clone(),
+            KnownSemanticSymbol {
+                token_type: "function",
+                modifiers: Vec::new(),
+            },
+        );
+    }
+    for schema in &program.schemas {
+        symbols.insert(schema.name.clone(), KnownSemanticSymbol::user_type("class"));
+    }
+    for system in &program.systems {
+        symbols.insert(system.name.clone(), KnownSemanticSymbol::user_type("class"));
+    }
+    for component in &program.components {
+        symbols.insert(
+            component.name.clone(),
+            KnownSemanticSymbol::user_type("class"),
+        );
+    }
+    for class_info in &program.classes {
+        symbols.insert(
+            class_info.name.clone(),
+            KnownSemanticSymbol::user_type("class"),
+        );
+    }
+    for domain in &program.domains {
+        symbols.insert(
+            domain.name.clone(),
+            KnownSemanticSymbol::user_type("interface"),
+        );
+    }
+
+    builder.push_known_symbol_references(&symbols);
 }
 
 fn is_net_with_block(program: &SemanticProgram, owner_line: Option<usize>) -> bool {
@@ -4721,6 +4786,20 @@ fn config_promotion_format_keywords(format: &str) -> &'static [&'static str] {
     }
 }
 
+struct KnownSemanticSymbol {
+    token_type: &'static str,
+    modifiers: Vec<&'static str>,
+}
+
+impl KnownSemanticSymbol {
+    fn user_type(token_type: &'static str) -> Self {
+        Self {
+            token_type,
+            modifiers: Vec::new(),
+        }
+    }
+}
+
 struct SemanticTokenBuilder<'a> {
     lines: Vec<&'a str>,
     tokens: Vec<LspSemanticToken>,
@@ -5682,6 +5761,69 @@ impl<'a> SemanticTokenBuilder<'a> {
                 index += 1;
             }
         }
+    }
+
+    fn push_known_symbol_references(&mut self, symbols: &BTreeMap<String, KnownSemanticSymbol>) {
+        if symbols.is_empty() {
+            return;
+        }
+        for line_index in 0..self.lines.len() {
+            let line = self.lines[line_index];
+            let bytes = line.as_bytes();
+            for (range_start, range_end) in code_ranges(line) {
+                let mut index = range_start;
+                while index < range_end {
+                    if index >= bytes.len() || !is_ident_start(bytes[index]) {
+                        index += 1;
+                        continue;
+                    }
+                    let token_start = index;
+                    index += 1;
+                    while index < range_end && index < bytes.len() && is_ident_byte(bytes[index]) {
+                        index += 1;
+                    }
+                    let token = &line[token_start..index];
+                    let Some(symbol) = symbols.get(token) else {
+                        continue;
+                    };
+                    if is_identifier_label_token(line, index)
+                        || self.has_semantic_token_at_byte_range(
+                            line_index,
+                            token_start,
+                            index - token_start,
+                        )
+                    {
+                        continue;
+                    }
+                    self.push_byte_range(
+                        line_index,
+                        token_start,
+                        index - token_start,
+                        symbol.token_type,
+                        &symbol.modifiers,
+                    );
+                }
+            }
+        }
+    }
+
+    fn has_semantic_token_at_byte_range(
+        &self,
+        line: usize,
+        byte_start: usize,
+        byte_length: usize,
+    ) -> bool {
+        let Some(line_text) = self.lines.get(line).copied() else {
+            return false;
+        };
+        if byte_start + byte_length > line_text.len() {
+            return false;
+        }
+        let start = utf16_len(&line_text[..byte_start]);
+        let length = utf16_len(&line_text[byte_start..byte_start + byte_length]);
+        self.tokens
+            .iter()
+            .any(|token| token.line == line && token.start == start && token.length == length)
     }
 
     fn push_member_fields(
@@ -13458,6 +13600,36 @@ fn coil_heat(m_dot: MassFlowRate, dT: TemperatureDelta) -> HeatRate {
         assert_no_semantic_token_on_line_with_empty_modifiers(
             &snapshot, source, "return Q", "return", "keyword",
         );
+    }
+
+    #[test]
+    fn snapshot_marks_compiler_resolved_arithmetic_references_as_semantic_tokens() {
+        let source = r#"left_power: HeatRate [kW] = 5 kW
+right_power: HeatRate [kW] = 3 kW
+total: HeatRate [kW] = left_power + right_power
+"#;
+        let snapshot = snapshot_for_source(Path::new("arithmetic_references.eng"), source);
+
+        assert_eq!(
+            semantic_token_count(&snapshot, source, "left_power", "variable"),
+            2,
+            "the declaration and arithmetic reference should both be semantic tokens"
+        );
+        assert_eq!(
+            semantic_token_count(&snapshot, source, "right_power", "variable"),
+            2,
+            "the declaration and arithmetic reference should both be semantic tokens"
+        );
+        for label in ["left_power", "right_power"] {
+            assert_semantic_token_on_line_without_modifier(
+                &snapshot,
+                source,
+                "total: HeatRate",
+                label,
+                "variable",
+                "declaration",
+            );
+        }
     }
 
     #[test]

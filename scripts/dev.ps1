@@ -3732,6 +3732,7 @@ function Assert-VscodeExtensionContract {
     $CaseRunCompletionTestPath = Join-Path $ExtensionRoot "test\caseRunCompletion.test.js"
     $DocumentHighlightsTestPath = Join-Path $ExtensionRoot "test\documentHighlights.test.js"
     $EditorRequestRaceTestPath = Join-Path $ExtensionRoot "test\editorRequestRace.test.js"
+    $RenameTestPath = Join-Path $ExtensionRoot "test\rename.test.js"
     $TextMateExampleCoverageTestPath = Join-Path $ExtensionRoot "test\textmateExampleCoverage.test.js"
     $SnippetsPath = Join-Path $ExtensionRoot "snippets\eng.json"
     $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
@@ -3840,6 +3841,9 @@ function Assert-VscodeExtensionContract {
     if (-not (Test-Path $EditorRequestRaceTestPath)) {
         throw "missing VS Code editor request race smoke at $EditorRequestRaceTestPath"
     }
+    if (-not (Test-Path $RenameTestPath)) {
+        throw "missing VS Code semantic rename smoke at $RenameTestPath"
+    }
     if (-not (Test-Path $TextMateExampleCoverageTestPath)) {
         throw "missing VS Code TextMate example coverage smoke at $TextMateExampleCoverageTestPath"
     }
@@ -3900,6 +3904,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not $VscodeReadmeSource.Contains("completion_items") -or $VscodeReadmeSource.Contains("completion_seed") -or -not $VscodeReadmeSource.Contains("static completion fallback") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_unit_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_builtin_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_option_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.model_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.prediction_table_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.coverage_result_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.table_fields") -or -not $VscodeReadmeSource.Contains("public member API") -or -not $VscodeReadmeSource.Contains("runtime-backed public fields") -or -not $VscodeReadmeSource.Contains("editor-only placeholders") -or -not $VscodeReadmeSource.Contains("highlight-only compatibility aliases")) {
         throw "VS Code README must document completion_items as the editor metadata completion catalog, public member field catalogs, and legacy aliases as highlight-only metadata without completion_seed"
+    }
+    if (-not $VscodeReadmeSource.Contains("safe current-file semantic rename") -or -not $VscodeReadmeSource.Contains("incomplete semantic occurrence coverage are rejected")) {
+        throw "VS Code README must document current-file semantic rename scope and incomplete-coverage rejection"
     }
     if (-not $VscodeReadmeSource.Contains("overlapping highlight ranges") -or -not $VscodeReadmeSource.Contains("line overlap rows") -or -not $VscodeReadmeSource.Contains("domain coverage summary")) {
         throw "VS Code README must document highlight overlap rows and coverage summary in user-facing terms"
@@ -5390,7 +5397,7 @@ function Assert-VscodeExtensionContract {
     $ProviderFreshnessContracts = @(
         @{ Label = "completion"; Source = $CompletionProviderSource; MinimumVersionGuardCount = 1 },
         @{ Label = "hover"; Source = $HoverProviderSource; MinimumVersionGuardCount = 1 },
-        @{ Label = "navigation"; Source = $NavigationProvidersSource; MinimumVersionGuardCount = 2 },
+        @{ Label = "navigation"; Source = $NavigationProvidersSource; MinimumVersionGuardCount = 5 },
         @{ Label = "folding"; Source = $FoldingRangeProviderSource; MinimumVersionGuardCount = 1 },
         @{ Label = "semantic tokens"; Source = $SemanticTokensProviderSource; MinimumVersionGuardCount = 1 },
         @{ Label = "formatting"; Source = $FormattingProviderSource; MinimumVersionGuardCount = 2 },
@@ -5408,7 +5415,11 @@ function Assert-VscodeExtensionContract {
         "Completion lookup failed",
         "Unable to parse EngLang completion data",
         "Definition lookup failed",
-        "Unable to parse EngLang definition data"
+        "Unable to parse EngLang definition data",
+        "Rename preparation failed",
+        "Unable to parse EngLang rename preparation",
+        "Rename failed",
+        "Unable to parse EngLang rename result"
     )) {
         if (-not $LspRequestsSource.Contains($RequiredLiveEditorOutputToken)) {
             throw "VS Code extension missing user-facing live editor output token $RequiredLiveEditorOutputToken"
@@ -5432,6 +5443,8 @@ function Assert-VscodeExtensionContract {
         "function workspaceSymbolsForFolder",
         "function completionSnapshotForPosition",
         "function definitionSnapshotForPosition",
+        "function prepareRenameForPosition",
+        "function renameForPosition",
         "function formatDocumentSource",
         "function codeActionsForDocumentSource",
         "function snapshotCacheKey"
@@ -5912,6 +5925,21 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing semantic document highlight token $RequiredDocumentHighlightToken"
         }
     }
+    foreach ($RequiredRenameToken in @(
+        "registerRenameProvider",
+        "EngRenameProvider",
+        "prepareRenameForPosition",
+        "renameForPosition",
+        "--prepare-rename-stdin",
+        "--rename-stdin",
+        "prepareRenameFromLsp",
+        "workspaceEditFromLsp",
+        "new vscode.WorkspaceEdit"
+    )) {
+        if (-not $NavigationSource.Contains($RequiredRenameToken)) {
+            throw "VS Code extension missing semantic rename token $RequiredRenameToken"
+        }
+    }
     foreach ($RequiredWorkspaceSymbolToken in @(
         "registerWorkspaceSymbolProvider",
         "EngWorkspaceSymbolProvider",
@@ -5926,10 +5954,10 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing workspace symbol token $RequiredWorkspaceSymbolToken"
         }
     }
-    if (-not $ExtensionSource.Contains('require("./navigationProviders")') -or -not $NavigationProvidersSource.Contains("EngDocumentSymbolProvider") -or -not $NavigationProvidersSource.Contains("EngWorkspaceSymbolProvider") -or -not $NavigationProvidersSource.Contains("EngDefinitionProvider") -or -not $NavigationProvidersSource.Contains("EngDocumentHighlightProvider")) {
+    if (-not $ExtensionSource.Contains('require("./navigationProviders")') -or -not $NavigationProvidersSource.Contains("EngDocumentSymbolProvider") -or -not $NavigationProvidersSource.Contains("EngWorkspaceSymbolProvider") -or -not $NavigationProvidersSource.Contains("EngDefinitionProvider") -or -not $NavigationProvidersSource.Contains("EngDocumentHighlightProvider") -or -not $NavigationProvidersSource.Contains("EngRenameProvider")) {
         throw "VS Code extension must load navigation provider orchestration from navigationProviders.js"
     }
-    if (-not $NavigationProvidersSource.Contains('require("./lspNavigation")') -or -not $NavigationProvidersSource.Contains("workspaceSymbolInformationFromLsp") -or -not $NavigationProvidersSource.Contains("documentSymbolsFromSnapshot") -or -not $NavigationProvidersSource.Contains("definitionLocationFromLsp") -or -not $NavigationProvidersSource.Contains("documentHighlightsFromLsp")) {
+    if (-not $NavigationProvidersSource.Contains('require("./lspNavigation")') -or -not $NavigationProvidersSource.Contains("workspaceSymbolInformationFromLsp") -or -not $NavigationProvidersSource.Contains("documentSymbolsFromSnapshot") -or -not $NavigationProvidersSource.Contains("definitionLocationFromLsp") -or -not $NavigationProvidersSource.Contains("documentHighlightsFromLsp") -or -not $NavigationProvidersSource.Contains("prepareRenameFromLsp") -or -not $NavigationProvidersSource.Contains("workspaceEditFromLsp")) {
         throw "VS Code navigation providers must reuse shared LSP navigation conversion"
     }
     $FormattingSource = $ExtensionSource + "`n" + $FormattingProviderSource + "`n" + $LspRequestsSource
@@ -6382,6 +6410,20 @@ function Assert-VscodeExtensionContract {
     )) {
         if (-not $LspCliSource.Contains($RequiredLspDocumentHighlightToken)) {
             throw "eng-lsp CLI missing semantic document highlight token $RequiredLspDocumentHighlightToken"
+        }
+    }
+    foreach ($RequiredLspRenameToken in @(
+        '"renameProvider": { "prepareProvider": true }',
+        "textDocument/prepareRename",
+        "textDocument/rename",
+        "--prepare-rename-stdin",
+        "--rename-stdin",
+        "prepare_rename_for_request",
+        "rename_for_request",
+        "semantic_rename_occurrences_are_complete"
+    )) {
+        if (-not $LspCliSource.Contains($RequiredLspRenameToken)) {
+            throw "eng-lsp CLI missing semantic rename token $RequiredLspRenameToken"
         }
     }
     foreach ($RequiredLspSemanticToken in @(
@@ -6869,12 +6911,14 @@ function Assert-VscodeExtensionContract {
         $CaseRunCompletionTestPath,
         $DocumentHighlightsTestPath,
         $EditorRequestRaceTestPath,
+        $RenameTestPath,
         $TextMateExampleCoverageTestPath
     )
     Invoke-JavaScriptSyntaxCheck -Paths $VscodeJavaScriptPaths -Label "VS Code extension"
     Invoke-JavaScriptProgram -Path $CaseRunCompletionTestPath -Label "VS Code native case run completion smoke"
     Invoke-JavaScriptProgram -Path $DocumentHighlightsTestPath -Label "VS Code semantic document highlight smoke"
     Invoke-JavaScriptProgram -Path $EditorRequestRaceTestPath -Label "VS Code editor request race smoke"
+    Invoke-JavaScriptProgram -Path $RenameTestPath -Label "VS Code semantic rename smoke"
     Invoke-JavaScriptProgram -Path $TextMateExampleCoverageTestPath -Label "VS Code TextMate example coverage smoke"
 
     Write-Host "VS Code extension contract check passed."

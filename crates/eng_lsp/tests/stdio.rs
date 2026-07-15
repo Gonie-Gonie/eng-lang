@@ -81,6 +81,10 @@ fn stdio_server_round_trips_core_lsp_requests() {
         true
     );
     assert_eq!(
+        initialize["result"]["capabilities"]["renameProvider"]["prepareProvider"],
+        true
+    );
+    assert_eq!(
         initialize["result"]["capabilities"]["documentSymbolProvider"],
         true
     );
@@ -251,6 +255,54 @@ fn stdio_server_round_trips_core_lsp_requests() {
     assert!(document_highlights.iter().any(|highlight| {
         highlight["range"]["start"]["line"] == q_coil_usage_line && highlight["kind"] == 2
     }));
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 16,
+            "method": "textDocument/prepareRename",
+            "params": {
+                "textDocument": { "uri": uri },
+                "position": { "line": q_coil_usage_line, "character": q_coil_usage_char }
+            }
+        }),
+    );
+    let prepared_rename = read_message(&mut stdout);
+    assert_eq!(prepared_rename["id"], 16);
+    assert_eq!(prepared_rename["result"]["placeholder"], "Q_coil");
+    assert_eq!(
+        prepared_rename["result"]["range"]["start"]["line"],
+        q_coil_usage_line
+    );
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 17,
+            "method": "textDocument/rename",
+            "params": {
+                "textDocument": { "uri": uri },
+                "position": { "line": q_coil_usage_line, "character": q_coil_usage_char },
+                "newName": "Q_load"
+            }
+        }),
+    );
+    let rename = read_message(&mut stdout);
+    assert_eq!(rename["id"], 17);
+    let rename_edits = rename["result"]["changes"][uri.as_str()]
+        .as_array()
+        .expect("rename should return current-file edits");
+    assert!(rename_edits.len() >= 2);
+    assert!(rename_edits.iter().all(|edit| edit["newText"] == "Q_load"));
+    assert!(rename_edits.iter().any(|edit| {
+        edit["range"]["start"]["line"] == q_coil_line
+            && edit["range"]["start"]["character"] == q_coil_definition_char
+    }));
+    assert!(rename_edits
+        .iter()
+        .any(|edit| { edit["range"]["start"]["line"] == q_coil_usage_line }));
 
     write_message(
         &mut stdin,

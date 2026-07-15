@@ -13,6 +13,7 @@ const {
   EngDefinitionProvider,
   EngDocumentHighlightProvider,
   EngDocumentSymbolProvider,
+  EngRenameProvider,
   EngWorkspaceSymbolProvider
 } = require("./navigationProviders");
 const { EngSemanticTokensProvider } = require("./semanticTokensProvider");
@@ -367,6 +368,15 @@ function activate(context) {
       new EngDocumentHighlightProvider(context, {
         isEngDocument,
         documentHighlightsForPosition: lspRequests.documentHighlightsForPosition
+      })
+    ),
+    vscode.languages.registerRenameProvider(
+      LANGUAGE_ID,
+      new EngRenameProvider(context, {
+        isEngDocument,
+        prepareRenameForPosition: lspRequests.prepareRenameForPosition,
+        renameForPosition: lspRequests.renameForPosition,
+        appendOutputLine
       })
     ),
     vscode.languages.registerFoldingRangeProvider(

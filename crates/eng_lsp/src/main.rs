@@ -5,9 +5,9 @@ use std::path::{Path, PathBuf};
 use eng_compiler::{bundled_module_registry, format_source, parse_source, AstItem};
 use eng_lsp::{
     completion_items_for_path_position, completion_items_for_source_position, completion_json,
-    diagnostic_json, document_symbols_lsp_json, editor_metadata_json, folding_ranges_lsp_json,
-    hover_json, semantic_legend, semantic_tokens_lsp_json, snapshot_for_path, snapshot_for_source,
-    workflow_option_label_exists, LSP_SNAPSHOT_FORMAT,
+    diagnostic_json, document_symbols_lsp_json, editor_metadata_json, editor_syntax_catalog_json,
+    folding_ranges_lsp_json, hover_json, semantic_legend, semantic_tokens_lsp_json,
+    snapshot_for_path, snapshot_for_source, workflow_option_label_exists, LSP_SNAPSHOT_FORMAT,
 };
 use serde_json::{json, Value};
 
@@ -45,6 +45,12 @@ fn main() -> std::process::ExitCode {
     }
     if args.first().map(String::as_str) == Some("--document-highlights-stdin") {
         return command_document_highlights_stdin(args.get(1), args.get(2), args.get(3));
+    }
+    if args.first().map(String::as_str) == Some("--prepare-rename-stdin") {
+        return command_prepare_rename_stdin(args.get(1), args.get(2), args.get(3));
+    }
+    if args.first().map(String::as_str) == Some("--rename-stdin") {
+        return command_rename_stdin(args.get(1), args.get(2), args.get(3), args.get(4));
     }
     if args.first().map(String::as_str) == Some("--workspace-symbols") {
         return command_workspace_symbols(args.get(1), args.get(2));
@@ -366,6 +372,80 @@ fn command_document_highlights_stdin(
     std::process::ExitCode::SUCCESS
 }
 
+fn command_prepare_rename_stdin(
+    path: Option<&String>,
+    line: Option<&String>,
+    character: Option<&String>,
+) -> std::process::ExitCode {
+    let Some(path) = path else {
+        eprintln!("usage: eng-lsp --prepare-rename-stdin <file.eng> <line> <character>");
+        return std::process::ExitCode::from(2);
+    };
+    let Some((line, character)) = parse_position(line, character) else {
+        eprintln!("usage: eng-lsp --prepare-rename-stdin <file.eng> <line> <character>");
+        return std::process::ExitCode::from(2);
+    };
+    let mut source = String::new();
+    if let Err(error) = std::io::stdin().read_to_string(&mut source) {
+        eprintln!("failed to read EngLang source from stdin: {error}");
+        return std::process::ExitCode::from(1);
+    }
+    let uri = file_uri_from_path(Path::new(path));
+    let request = json!({
+        "params": {
+            "textDocument": { "uri": uri },
+            "position": { "line": line, "character": character }
+        }
+    });
+    let mut documents = Documents::new();
+    documents.insert(uri, DocumentState::new(source, None));
+    println!(
+        "{}",
+        prepare_rename_for_request(&request, &documents).unwrap_or(Value::Null)
+    );
+    std::process::ExitCode::SUCCESS
+}
+
+fn command_rename_stdin(
+    path: Option<&String>,
+    line: Option<&String>,
+    character: Option<&String>,
+    new_name: Option<&String>,
+) -> std::process::ExitCode {
+    let Some(path) = path else {
+        eprintln!("usage: eng-lsp --rename-stdin <file.eng> <line> <character> <new-name>");
+        return std::process::ExitCode::from(2);
+    };
+    let Some((line, character)) = parse_position(line, character) else {
+        eprintln!("usage: eng-lsp --rename-stdin <file.eng> <line> <character> <new-name>");
+        return std::process::ExitCode::from(2);
+    };
+    let Some(new_name) = new_name else {
+        eprintln!("usage: eng-lsp --rename-stdin <file.eng> <line> <character> <new-name>");
+        return std::process::ExitCode::from(2);
+    };
+    let mut source = String::new();
+    if let Err(error) = std::io::stdin().read_to_string(&mut source) {
+        eprintln!("failed to read EngLang source from stdin: {error}");
+        return std::process::ExitCode::from(1);
+    }
+    let uri = file_uri_from_path(Path::new(path));
+    let request = json!({
+        "params": {
+            "textDocument": { "uri": uri },
+            "position": { "line": line, "character": character },
+            "newName": new_name
+        }
+    });
+    let mut documents = Documents::new();
+    documents.insert(uri, DocumentState::new(source, None));
+    match rename_for_request(&request, &documents) {
+        Ok(edit) => println!("{edit}"),
+        Err(message) => println!("{}", json!({ "error": message })),
+    }
+    std::process::ExitCode::SUCCESS
+}
+
 fn parse_position(line: Option<&String>, character: Option<&String>) -> Option<(usize, usize)> {
     Some((
         line?.parse::<usize>().ok()?,
@@ -463,6 +543,7 @@ fn run_lsp() -> io::Result<()> {
                                 "hoverProvider": true,
                                 "definitionProvider": true,
                                 "documentHighlightProvider": true,
+                                "renameProvider": { "prepareProvider": true },
                                 "documentSymbolProvider": true,
                                 "workspaceSymbolProvider": true,
                                 "foldingRangeProvider": true,
@@ -540,6 +621,28 @@ fn run_lsp() -> io::Result<()> {
                     json!({ "jsonrpc": "2.0", "id": id, "result": highlights }),
                 )?;
             }
+            "textDocument/prepareRename" => {
+                let prepared =
+                    prepare_rename_for_request(&request, &documents).unwrap_or(Value::Null);
+                write_response(
+                    &mut output,
+                    json!({ "jsonrpc": "2.0", "id": id, "result": prepared }),
+                )?;
+            }
+            "textDocument/rename" => match rename_for_request(&request, &documents) {
+                Ok(edit) => write_response(
+                    &mut output,
+                    json!({ "jsonrpc": "2.0", "id": id, "result": edit }),
+                )?,
+                Err(message) => write_response(
+                    &mut output,
+                    json!({
+                        "jsonrpc": "2.0",
+                        "id": id,
+                        "error": { "code": -32602, "message": message }
+                    }),
+                )?,
+            },
             "textDocument/codeAction" => {
                 let actions = code_actions_for_request(&request, &documents);
                 write_response(
@@ -5340,6 +5443,15 @@ struct DocumentHighlightScope {
     end_line: usize,
 }
 
+#[derive(Clone, Debug)]
+struct SemanticSymbolOccurrences {
+    selected: eng_lsp::LspSemanticToken,
+    label: String,
+    family: String,
+    scope: Option<DocumentHighlightScope>,
+    occurrences: Vec<eng_lsp::LspSemanticToken>,
+}
+
 fn document_highlights_for_request(request: &Value, documents: &Documents) -> Value {
     let Some(uri) = request_uri(request) else {
         return json!([]);
@@ -5357,34 +5469,18 @@ fn document_highlights_for_request(request: &Value, documents: &Documents) -> Va
         .and_then(Value::as_u64)
         .unwrap_or(0) as usize;
     let snapshot = snapshot_for_source(&path, &text);
-    let Some(selected) =
-        semantic_symbol_token_at_position(&snapshot.semantic_tokens.tokens, line, character)
-    else {
+    let Some(symbol) = semantic_symbol_occurrences(
+        &text,
+        &snapshot.semantic_tokens.tokens,
+        &snapshot.hovers,
+        line,
+        character,
+    ) else {
         return json!([]);
     };
-    let Some(label) = semantic_token_text(&text, selected) else {
-        return json!([]);
-    };
-    let Some(family) = semantic_symbol_family(&selected.token_type, &selected.modifiers) else {
-        return json!([]);
-    };
-    let selected_is_local = has_semantic_modifier(selected, "local");
-    let selected_member_receiver = semantic_member_receiver(&text, selected);
-    let scope = semantic_symbol_scope(&text, &snapshot.hovers, selected, &label);
-    let highlights = snapshot
-        .semantic_tokens
-        .tokens
+    let highlights = symbol
+        .occurrences
         .iter()
-        .filter(|token| {
-            semantic_symbol_family(&token.token_type, &token.modifiers) == Some(family)
-                && has_semantic_modifier(token, "local") == selected_is_local
-                && (!matches!(family, "property" | "method")
-                    || semantic_member_receiver(&text, token) == selected_member_receiver)
-                && scope.is_none_or(|scope| {
-                    token.line >= scope.start_line && token.line <= scope.end_line
-                })
-                && semantic_token_text(&text, token).as_deref() == Some(label.as_str())
-        })
         .map(|token| DocumentHighlightTarget {
             line: token.line,
             start_character: token.start,
@@ -5396,6 +5492,356 @@ fn document_highlights_for_request(request: &Value, documents: &Documents) -> Va
         .iter()
         .map(document_highlight_json)
         .collect::<Vec<_>>())
+}
+
+fn semantic_symbol_occurrences(
+    source: &str,
+    tokens: &[eng_lsp::LspSemanticToken],
+    hovers: &[eng_lsp::LspHover],
+    line: usize,
+    character: usize,
+) -> Option<SemanticSymbolOccurrences> {
+    let selected = semantic_symbol_token_at_position(tokens, line, character)?;
+    let label = semantic_token_text(source, selected)?;
+    let family = semantic_symbol_family(&selected.token_type, &selected.modifiers)?.to_owned();
+    let selected_is_local = has_semantic_modifier(selected, "local");
+    let selected_member_receiver = semantic_member_receiver(source, selected);
+    let scope = semantic_symbol_scope(source, hovers, selected, &label);
+    let mut occurrences = tokens
+        .iter()
+        .filter(|token| {
+            semantic_symbol_family(&token.token_type, &token.modifiers) == Some(family.as_str())
+                && has_semantic_modifier(token, "local") == selected_is_local
+                && (!matches!(family.as_str(), "property" | "method")
+                    || semantic_member_receiver(source, token) == selected_member_receiver)
+                && scope.is_none_or(|scope| {
+                    token.line >= scope.start_line && token.line <= scope.end_line
+                })
+                && semantic_token_text(source, token).as_deref() == Some(label.as_str())
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+    occurrences.sort_by_key(|token| (token.line, token.start, token.length));
+    occurrences.dedup_by_key(|token| (token.line, token.start, token.length));
+    Some(SemanticSymbolOccurrences {
+        selected: selected.clone(),
+        label,
+        family,
+        scope,
+        occurrences,
+    })
+}
+
+fn prepare_rename_for_request(request: &Value, documents: &Documents) -> Option<Value> {
+    let uri = request_uri(request)?;
+    let text = document_text_for_uri(uri, documents)?;
+    let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
+    let (line, character) = request_position(request)?;
+    let snapshot = snapshot_for_source(&path, &text);
+    let symbol = semantic_symbol_occurrences(
+        &text,
+        &snapshot.semantic_tokens.tokens,
+        &snapshot.hovers,
+        line,
+        character,
+    )?;
+    semantic_symbol_is_renameable(&text, &symbol).then(|| {
+        json!({
+            "range": semantic_token_range_json(&symbol.selected),
+            "placeholder": symbol.label
+        })
+    })
+}
+
+fn rename_for_request(request: &Value, documents: &Documents) -> Result<Value, String> {
+    let uri = request_uri(request)
+        .ok_or_else(|| "Rename request is missing a document URI.".to_owned())?;
+    let text = document_text_for_uri(uri, documents)
+        .ok_or_else(|| "Rename request could not load the current document.".to_owned())?;
+    let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
+    let (line, character) = request_position(request)
+        .ok_or_else(|| "Rename request is missing a valid cursor position.".to_owned())?;
+    let new_name = request
+        .pointer("/params/newName")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .ok_or_else(|| "Rename request is missing the new symbol name.".to_owned())?;
+    let snapshot = snapshot_for_source(&path, &text);
+    let symbol = semantic_symbol_occurrences(
+        &text,
+        &snapshot.semantic_tokens.tokens,
+        &snapshot.hovers,
+        line,
+        character,
+    )
+    .ok_or_else(|| "The selected token is not a renameable EngLang symbol.".to_owned())?;
+    if !semantic_symbol_is_renameable(&text, &symbol) {
+        return Err(
+            "Rename is limited to symbols declared in the current file; builtins, imports, and members are unchanged."
+                .to_owned(),
+        );
+    }
+    if new_name == symbol.label {
+        return Err("The new symbol name is unchanged.".to_owned());
+    }
+    if !valid_rename_identifier(new_name) {
+        return Err(format!("`{new_name}` is not a valid EngLang identifier."));
+    }
+    if reserved_rename_identifier(new_name) {
+        return Err(format!("`{new_name}` is reserved by EngLang."));
+    }
+    if semantic_rename_conflicts(&text, &snapshot.semantic_tokens.tokens, &symbol, new_name) {
+        return Err(format!(
+            "Rename would conflict with the existing `{new_name}` symbol in this scope."
+        ));
+    }
+
+    let edits = symbol
+        .occurrences
+        .iter()
+        .map(|token| {
+            json!({
+                "range": semantic_token_range_json(token),
+                "newText": new_name
+            })
+        })
+        .collect::<Vec<_>>();
+    let mut changes = serde_json::Map::new();
+    changes.insert(uri.to_owned(), Value::Array(edits));
+    Ok(json!({ "changes": Value::Object(changes) }))
+}
+
+fn request_position(request: &Value) -> Option<(usize, usize)> {
+    Some((
+        request
+            .pointer("/params/position/line")
+            .and_then(Value::as_u64)? as usize,
+        request
+            .pointer("/params/position/character")
+            .and_then(Value::as_u64)? as usize,
+    ))
+}
+
+fn semantic_symbol_is_renameable(source: &str, symbol: &SemanticSymbolOccurrences) -> bool {
+    if !matches!(
+        symbol.family.as_str(),
+        "namespace" | "type" | "parameter" | "variable" | "function"
+    ) || has_semantic_modifier(&symbol.selected, "imported")
+        || has_semantic_modifier(&symbol.selected, "defaultLibrary")
+    {
+        return false;
+    }
+    symbol.occurrences.iter().any(|token| {
+        has_semantic_modifier(token, "declaration")
+            || has_semantic_modifier(token, "definition")
+            || document_highlight_kind(source, token) == 3
+    }) && semantic_rename_occurrences_are_complete(source, symbol)
+}
+
+fn semantic_rename_occurrences_are_complete(
+    source: &str,
+    symbol: &SemanticSymbolOccurrences,
+) -> bool {
+    let semantic_ranges = symbol
+        .occurrences
+        .iter()
+        .map(|token| (token.line, token.start, token.length))
+        .collect::<HashSet<_>>();
+    let lines = source.lines().collect::<Vec<_>>();
+    let start_line = symbol.scope.map_or(0, |scope| scope.start_line);
+    let end_line = symbol
+        .scope
+        .map_or_else(|| lines.len().saturating_sub(1), |scope| scope.end_line)
+        .min(lines.len().saturating_sub(1));
+
+    lines
+        .iter()
+        .enumerate()
+        .skip(start_line)
+        .take(end_line.saturating_sub(start_line) + 1)
+        .flat_map(|(line_number, line)| {
+            rename_identifier_ranges_on_line(line, &symbol.label)
+                .into_iter()
+                .map(move |(start, length)| (line_number, start, length))
+        })
+        .all(|range| semantic_ranges.contains(&range))
+}
+
+fn rename_identifier_ranges_on_line(line: &str, label: &str) -> Vec<(usize, usize)> {
+    let mut ranges = Vec::new();
+    let bytes = line.as_bytes();
+    let end = line_comment_start(line).unwrap_or(line.len());
+    let mut index = 0usize;
+    let mut in_string = false;
+    while index < end {
+        if in_string {
+            if bytes[index] == b'\\' {
+                index = (index + 2).min(end);
+                continue;
+            }
+            if bytes[index] == b'"' {
+                in_string = false;
+                index += 1;
+                continue;
+            }
+            if bytes[index] == b'{' && bytes.get(index + 1) != Some(&b'{') {
+                let expression_start = index + 1;
+                let Some(close_offset) = line[expression_start..end].find('}') else {
+                    break;
+                };
+                let close = expression_start + close_offset;
+                let expression_end = line[expression_start..close]
+                    .find(':')
+                    .map_or(close, |colon| expression_start + colon);
+                collect_rename_identifier_ranges(
+                    line,
+                    expression_start,
+                    expression_end,
+                    label,
+                    &mut ranges,
+                );
+                index = close + 1;
+                continue;
+            }
+            index += 1;
+            continue;
+        }
+        if bytes[index] == b'"' {
+            in_string = true;
+            index += 1;
+            continue;
+        }
+        if is_identifier_byte(bytes[index]) && !bytes[index].is_ascii_digit() {
+            let token_start = index;
+            index += 1;
+            while index < end && is_identifier_byte(bytes[index]) {
+                index += 1;
+            }
+            push_rename_identifier_range(line, token_start, index, label, &mut ranges);
+            continue;
+        }
+        index += 1;
+    }
+    ranges
+}
+
+fn collect_rename_identifier_ranges(
+    line: &str,
+    start: usize,
+    end: usize,
+    label: &str,
+    ranges: &mut Vec<(usize, usize)>,
+) {
+    let bytes = line.as_bytes();
+    let mut index = start;
+    while index < end {
+        if is_identifier_byte(bytes[index]) && !bytes[index].is_ascii_digit() {
+            let token_start = index;
+            index += 1;
+            while index < end && is_identifier_byte(bytes[index]) {
+                index += 1;
+            }
+            push_rename_identifier_range(line, token_start, index, label, ranges);
+            continue;
+        }
+        index += 1;
+    }
+}
+
+fn push_rename_identifier_range(
+    line: &str,
+    start: usize,
+    end: usize,
+    label: &str,
+    ranges: &mut Vec<(usize, usize)>,
+) {
+    if line.get(start..end) != Some(label)
+        || start
+            .checked_sub(1)
+            .and_then(|index| line.as_bytes().get(index))
+            == Some(&b'.')
+    {
+        return;
+    }
+    ranges.push((utf16_len(&line[..start]), utf16_len(&line[start..end])));
+}
+
+fn semantic_rename_conflicts(
+    source: &str,
+    tokens: &[eng_lsp::LspSemanticToken],
+    symbol: &SemanticSymbolOccurrences,
+    new_name: &str,
+) -> bool {
+    let selected_is_local = has_semantic_modifier(&symbol.selected, "local");
+    let selected_ranges = symbol
+        .occurrences
+        .iter()
+        .map(|token| (token.line, token.start, token.length))
+        .collect::<HashSet<_>>();
+    tokens.iter().any(|token| {
+        let Some(candidate_family) = semantic_symbol_family(&token.token_type, &token.modifiers)
+        else {
+            return false;
+        };
+        if selected_ranges.contains(&(token.line, token.start, token.length))
+            || has_semantic_modifier(token, "local") != selected_is_local
+            || symbol
+                .scope
+                .is_some_and(|scope| token.line < scope.start_line || token.line > scope.end_line)
+            || semantic_token_text(source, token).as_deref() != Some(new_name)
+        {
+            return false;
+        }
+        (symbol.family == "type") == (candidate_family == "type")
+    })
+}
+
+fn valid_rename_identifier(name: &str) -> bool {
+    let mut characters = name.chars();
+    characters
+        .next()
+        .is_some_and(|character| character == '_' || character.is_ascii_alphabetic())
+        && characters.all(|character| character == '_' || character.is_ascii_alphanumeric())
+}
+
+fn reserved_rename_identifier(name: &str) -> bool {
+    let catalog = editor_syntax_catalog_json();
+    for key in [
+        "keywords",
+        "constants",
+        "workflow_status_literals",
+        "operator_words",
+        "workflow_builtins",
+    ] {
+        if catalog
+            .get(key)
+            .and_then(Value::as_array)
+            .is_some_and(|values| values.iter().any(|value| value.as_str() == Some(name)))
+        {
+            return true;
+        }
+    }
+    for key in ["types", "quantities", "units"] {
+        if catalog
+            .get(key)
+            .and_then(Value::as_array)
+            .is_some_and(|values| {
+                values
+                    .iter()
+                    .any(|value| value.get("label").and_then(Value::as_str) == Some(name))
+            })
+        {
+            return true;
+        }
+    }
+    false
+}
+
+fn semantic_token_range_json(token: &eng_lsp::LspSemanticToken) -> Value {
+    json!({
+        "start": { "line": token.line, "character": token.start },
+        "end": { "line": token.line, "character": token.start + token.length }
+    })
 }
 
 fn has_semantic_modifier(token: &eng_lsp::LspSemanticToken, modifier: &str) -> bool {
@@ -6027,6 +6473,38 @@ mod tests {
         document_highlights_for_request(&request, &documents)
     }
 
+    fn prepare_rename_request(source: &str, line: usize, character: usize) -> Option<Value> {
+        let uri = "file:///C:/workspace/rename.eng".to_owned();
+        let request = json!({
+            "params": {
+                "textDocument": { "uri": uri },
+                "position": { "line": line, "character": character }
+            }
+        });
+        let mut documents = Documents::new();
+        documents.insert(uri, DocumentState::new(source.to_owned(), Some(1)));
+        prepare_rename_for_request(&request, &documents)
+    }
+
+    fn rename_request(
+        source: &str,
+        line: usize,
+        character: usize,
+        new_name: &str,
+    ) -> Result<Value, String> {
+        let uri = "file:///C:/workspace/rename.eng".to_owned();
+        let request = json!({
+            "params": {
+                "textDocument": { "uri": uri },
+                "position": { "line": line, "character": character },
+                "newName": new_name
+            }
+        });
+        let mut documents = Documents::new();
+        documents.insert(uri, DocumentState::new(source.to_owned(), Some(1)));
+        rename_for_request(&request, &documents)
+    }
+
     #[test]
     fn option_assignment_range_preserves_trailing_line_comments() {
         let slash_line = "    timeout = 90 s // keep this note";
@@ -6126,6 +6604,135 @@ fn normalize(x: Real) -> Real {
         let source = "Q = 5 kW\n";
         assert_eq!(document_highlight_request(source, 0, 4), json!([]));
         assert_eq!(document_highlight_request(source, 0, 7), json!([]));
+    }
+
+    #[test]
+    fn semantic_rename_edits_only_current_file_symbol_occurrences() {
+        let source = "Q = 5 kW\nE = integrate Q over Time\nprint \"Q={Q}\"\n# Q is a comment\n";
+        let character = source.lines().nth(1).unwrap().find('Q').unwrap();
+        let prepared = prepare_rename_request(source, 1, character).expect("rename preparation");
+        assert_eq!(prepared["placeholder"], "Q");
+        assert_eq!(prepared["range"]["start"]["line"], 1);
+
+        let edit = rename_request(source, 1, character, "heat_rate").expect("rename edit");
+        let edits = edit["changes"]["file:///C:/workspace/rename.eng"]
+            .as_array()
+            .expect("current-file edits");
+        assert_eq!(edits.len(), 3);
+        assert!(edits.iter().all(|edit| edit["newText"] == "heat_rate"));
+        assert_eq!(
+            edits
+                .iter()
+                .map(|edit| edit["range"]["start"]["line"].as_u64().unwrap())
+                .collect::<Vec<_>>(),
+            vec![0, 1, 2]
+        );
+    }
+
+    #[test]
+    fn semantic_rename_updates_user_function_declarations_and_calls() {
+        let source = r#"fn scale(x: Real) -> Real {
+    return x
+}
+value = scale(2)
+"#;
+        let character = source.lines().nth(3).unwrap().find("scale").unwrap();
+        let edit = rename_request(source, 3, character, "rescale").expect("function rename edit");
+        let edits = edit["changes"]["file:///C:/workspace/rename.eng"]
+            .as_array()
+            .expect("function edits");
+        assert_eq!(edits.len(), 2);
+        assert_eq!(
+            edits
+                .iter()
+                .map(|edit| edit["range"]["start"]["line"].as_u64().unwrap())
+                .collect::<Vec<_>>(),
+            vec![0, 3]
+        );
+    }
+
+    #[test]
+    fn semantic_rename_keeps_local_edits_inside_their_function() {
+        let source = r#"fn first(x: Real) -> Real {
+    local_value = x
+    return local_value
+}
+fn second(x: Real) -> Real {
+    local_value = x
+    return local_value
+}
+"#;
+        let edit = rename_request(source, 2, 12, "first_value").expect("local rename edit");
+        let edits = edit["changes"]["file:///C:/workspace/rename.eng"]
+            .as_array()
+            .expect("local edits");
+        assert_eq!(edits.len(), 2);
+        assert!(edits
+            .iter()
+            .all(|edit| edit["range"]["start"]["line"].as_u64().unwrap() < 4));
+    }
+
+    #[test]
+    fn semantic_rename_rejects_invalid_reserved_and_conflicting_names() {
+        let source = concat!(
+            "left_power: HeatRate [kW] = 5 kW\n",
+            "right_power: HeatRate [kW] = 3 kW\n",
+            "total: HeatRate [kW] = left_power + right_power\n",
+        );
+        let character = source.lines().nth(2).unwrap().find("left_power").unwrap();
+        let invalid = rename_request(source, 2, character, "1value").unwrap_err();
+        assert!(invalid.contains("valid EngLang identifier"), "{invalid}");
+        let reserved = rename_request(source, 2, character, "report").unwrap_err();
+        assert!(reserved.contains("reserved"), "{reserved}");
+        let conflict = rename_request(source, 2, character, "right_power").unwrap_err();
+        assert!(conflict.contains("conflict"), "{conflict}");
+    }
+
+    #[test]
+    fn semantic_rename_rejects_builtins_and_members() {
+        let source = "Q = mean(sensor.m_dot, axis=Time)\n";
+        let line = source.lines().next().unwrap();
+        assert_eq!(
+            prepare_rename_request(source, 0, line.find("mean").unwrap()),
+            None
+        );
+        assert_eq!(
+            prepare_rename_request(source, 0, line.find("m_dot").unwrap()),
+            None
+        );
+    }
+
+    #[test]
+    fn semantic_rename_rejects_incomplete_semantic_occurrence_sets() {
+        let source = "Q = 5 kW\nE = Q\nprint \"literal Q; value={Q}\"\n# Q\n";
+        let declaration = eng_lsp::LspSemanticToken {
+            line: 0,
+            start: 0,
+            length: 1,
+            token_type: "variable".to_owned(),
+            modifiers: vec!["declaration".to_owned()],
+        };
+        let symbol = SemanticSymbolOccurrences {
+            selected: declaration.clone(),
+            label: "Q".to_owned(),
+            family: "variable".to_owned(),
+            scope: None,
+            occurrences: vec![declaration],
+        };
+
+        assert!(!semantic_symbol_is_renameable(source, &symbol));
+    }
+
+    #[test]
+    fn semantic_rename_ranges_use_utf16_characters() {
+        let source = "Q = 5 kW\nprint \"😀 Q={Q}\"\n";
+        let line = source.lines().nth(1).unwrap();
+        let byte = line.rfind('Q').unwrap();
+        let character = utf16_len(&line[..byte]);
+        let prepared =
+            prepare_rename_request(source, 1, character).expect("UTF-16 rename preparation");
+        assert_eq!(prepared["range"]["start"]["character"], character);
+        assert_eq!(prepared["range"]["end"]["character"], character + 1);
     }
 
     #[test]

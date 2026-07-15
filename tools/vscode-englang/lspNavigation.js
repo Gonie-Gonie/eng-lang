@@ -39,6 +39,49 @@ function documentHighlightsFromLsp(payload) {
     .filter((highlight) => highlight !== undefined);
 }
 
+function prepareRenameFromLsp(payload) {
+  const range = vscodeRangeFromLsp(payload?.range);
+  if (!range) {
+    return undefined;
+  }
+  return typeof payload.placeholder === "string" && payload.placeholder.length > 0
+    ? { range, placeholder: payload.placeholder }
+    : range;
+}
+
+function workspaceEditFromLsp(payload, reportError) {
+  if (!payload?.changes || typeof payload.changes !== "object" || Array.isArray(payload.changes)) {
+    return undefined;
+  }
+  const replacements = [];
+  try {
+    for (const [uriText, edits] of Object.entries(payload.changes)) {
+      if (!Array.isArray(edits)) {
+        throw new Error(`edits for ${uriText} are not an array`);
+      }
+      const uri = vscode.Uri.parse(uriText);
+      for (const edit of edits) {
+        const range = vscodeRangeFromLsp(edit?.range);
+        if (!range || typeof edit?.newText !== "string") {
+          throw new Error(`edit for ${uriText} has an invalid range or replacement`);
+        }
+        replacements.push({ uri, range, newText: edit.newText });
+      }
+    }
+  } catch (error) {
+    reportLspNavigationError(reportError, `Unable to parse EngLang rename edit: ${error.message}`);
+    return undefined;
+  }
+  if (replacements.length === 0) {
+    return undefined;
+  }
+  const workspaceEdit = new vscode.WorkspaceEdit();
+  for (const replacement of replacements) {
+    workspaceEdit.replace(replacement.uri, replacement.range, replacement.newText);
+  }
+  return workspaceEdit;
+}
+
 function workspaceSymbolInformationFromLsp(symbol, reportError) {
   if (!symbol?.name) {
     return undefined;
@@ -180,5 +223,7 @@ module.exports = {
   documentSymbolsFromSnapshot,
   flattenSnapshotSymbols,
   identifierPathRangeAt,
+  prepareRenameFromLsp,
+  workspaceEditFromLsp,
   workspaceSymbolInformationFromLsp
 };
