@@ -295,7 +295,8 @@ Use the stdio LSP server for:
 
 - real editor clients
 - unsaved-buffer diagnostics, hover, completion, quick fixes, and formatting
-- go-to-definition for current-file, static-import, and bundled stdlib symbols
+- go-to-definition for current-file, unsaved-aware static-import, and bundled
+  stdlib symbols
 - document symbols, workspace symbols, folding ranges, and semantic tokens
 - same-symbol document highlights and static-import-aware Find All References
 - safe current-file and static-import-aware workspace rename
@@ -333,15 +334,21 @@ Without `workspace-root`, declarations that are safe to rename in the current
 buffer remain current-file operations; selecting an imported symbol returns an
 actionable error instead of an incomplete edit.
 
+The single-buffer compatibility definition form is
+`--definition-stdin <file.eng> <line> <character>`. It reads the selected
+buffer from stdin and unchanged imported files from disk. Use the workspace
+form when other open imports may be modified.
+
 On-demand editor clients with multiple modified buffers use the workspace forms:
 
 ```text
+--workspace-definition-stdin <workspace-root> <file.eng> <line> <character>
 --workspace-references-stdin <workspace-root> <file.eng> <line> <character> [true|false]
 --workspace-prepare-rename-stdin <workspace-root> <file.eng> <line> <character>
 --workspace-rename-stdin <workspace-root> <file.eng> <line> <character> <new-name>
 ```
 
-All three read the same strict JSON payload from stdin:
+All four read the same strict JSON payload from stdin:
 
 ```json
 {

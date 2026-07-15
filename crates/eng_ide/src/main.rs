@@ -504,14 +504,24 @@ fn ide_definition(
     source: String,
     line: usize,
     character: usize,
+    documents: Vec<WorkspaceDocumentInput>,
 ) -> Result<Value, String> {
-    let output = run_lsp_position_query(
-        &path,
-        &source,
-        line,
-        character,
-        "--definition-stdin",
+    let root = workspace_root()
+        .canonicalize()
+        .map_err(|error| format!("Could not resolve the EngLang workspace: {error}"))?;
+    let (source_path, payload) = workspace_navigation_payload(&root, &path, source, documents)?;
+    let arguments = vec![
+        root.to_string_lossy().into_owned(),
+        source_path.to_string_lossy().into_owned(),
+        line.to_string(),
+        character.to_string(),
+    ];
+    let output = run_lsp_query(
+        &root,
+        "--workspace-definition-stdin",
         "Definition lookup",
+        &arguments,
+        payload.as_bytes(),
     )?;
     parse_definition_output(&output)
 }
@@ -4676,6 +4686,7 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         r#"parts.push(`overlaps ${lineOverlaps.length}`)"#,
         "function renderSemanticOverlapSummary(overlaps)",
         "No overlapping semantic highlight ranges for the current check.",
+        "function goToDefinitionAtCaret()",
         "function showDocumentHighlightsAtCaret()",
         "function renderDocumentHighlightReferences()",
         "function currentWorkspaceReferences()",
@@ -4700,6 +4711,7 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "renameBackdrop",
         "workspaceSymbolsBackdrop",
         "function documentHighlightKindForToken(token, lineIndex)",
+        r#"call("ide_definition", { ...request, documents })"#,
         r#"call("ide_document_highlights", request)"#,
         r#"call("ide_references", { ...request, documents })"#,
         r#"call("ide_code_actions", request)"#,
@@ -4842,6 +4854,9 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "ide_document_highlights",
         "--document-highlights-stdin",
         "parse_document_highlights_output",
+        "ide_definition",
+        "--workspace-definition-stdin",
+        "parse_definition_output",
         "ide_references",
         "--workspace-references-stdin",
         "workspace_navigation_payload",

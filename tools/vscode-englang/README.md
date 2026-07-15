@@ -32,7 +32,8 @@ embedding compiler logic in JavaScript.
   severity, and exact range under the caret
 - hover from compiler review metadata
 - position-aware completion from compiler/editor metadata
-- current-file go-to-definition from document symbols
+- compiler-backed go-to-definition for current-file and static-import symbols,
+  preferring every modified open EngLang buffer over disk
 - safe current-file semantic rename plus unsaved-aware, static-import-aware
   workspace rename for importable declarations and verified references
 - compiler-backed same-symbol read/write highlighting in the current file, excluding
@@ -337,15 +338,19 @@ and the command-line formatter share the compiler-owned formatting rules.
 JavaScript does not maintain a separate indentation or block-formatting
 implementation.
 
-Go-to-definition uses the current unsaved buffer, so static file imports and
-bundled `use eng.<module>` imports can resolve to their source files. If live
-definition lookup is unavailable, the extension falls back to document symbols
-from the current buffer for top-level symbols and nested symbols such as schema
-fields, class fields, component ports, and object members. VS Code's workspace
-symbol search scans `.eng` files under each open workspace folder. Find All
-References and rename use the current buffer, every modified open EngLang buffer
-in the workspace, and static-import-resolved saved files. Unrelated same-name
-symbols are excluded; broader package/index identity support is not claimed yet.
+Go-to-definition uses the current unsaved buffer and every modified open
+EngLang buffer in the workspace. Static file imports resolve changed, moved, or
+new declarations from open text throughout recursive import chains before
+reading unchanged files from disk; bundled `use eng.<module>` imports still
+resolve to their source files. The result is discarded if any participating
+document changes while lookup is running. If live definition lookup is
+unavailable, the extension falls back to document symbols from the current
+buffer for top-level symbols and nested symbols such as schema fields, class
+fields, component ports, and object members. VS Code's workspace symbol search
+scans `.eng` files under each open workspace folder. Find All References and
+rename use the same open-document precedence plus static-import-resolved saved
+files. Unrelated same-name symbols are excluded; broader package/index identity
+support is not claimed yet.
 
 ## Grammar Maintenance
 

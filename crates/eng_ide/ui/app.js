@@ -7756,14 +7756,20 @@ async function goToDefinitionAtCaret() {
   const editor = byId("editor");
   const request = editorDefinitionRequest(editor);
   if (!request) return false;
+  rememberCurrentTab();
+  const documents = dirtyWorkspaceDocuments(request.path);
   const revision = ++definitionRequestRevision;
   hideCompletions();
   setStatus("Finding definition...");
   try {
-    const target = await call("ide_definition", request);
+    const target = await call("ide_definition", { ...request, documents });
     if (revision !== definitionRequestRevision) return false;
     if (!bufferRequestIsCurrent(request)) {
       setStatus("Definition cancelled; buffer changed");
+      return false;
+    }
+    if (!workspaceDocumentsAreCurrent(documents, request.path)) {
+      setStatus("Definition cancelled; another modified buffer changed");
       return false;
     }
     if (!target?.uri || !target?.range) {

@@ -5930,7 +5930,9 @@ function Assert-VscodeExtensionContract {
         "registerDefinitionProvider",
         "EngDefinitionProvider",
         "definitionSnapshotForPosition",
-        "--definition-stdin",
+        "--workspace-definition-stdin",
+        "workspaceNavigationJsonRequest",
+        "workspaceNavigationDocumentStatesAreCurrent",
         "definitionLocationFromLsp",
         "vscode.Uri.parse",
         "definitionNameCandidates"
@@ -6233,9 +6235,12 @@ function Assert-VscodeExtensionContract {
     }
     foreach ($RequiredLspDefinitionToken in @(
         "--definition-stdin",
+        "--workspace-definition-stdin",
         "command_definition_stdin",
+        "command_workspace_definition_stdin",
         "definition_for_request",
-        "imported_definition_target"
+        "imported_definition_target",
+        "workspace_semantic_symbol_occurrences"
     )) {
         if (-not $LspCliSource.Contains($RequiredLspDefinitionToken)) {
             throw "eng-lsp CLI missing stdin definition token $RequiredLspDefinitionToken"
@@ -6962,7 +6967,7 @@ function Invoke-IdeCheck {
         "definitionWorkspacePath",
         "sameDefinitionPath",
         "data-go-to-definition",
-        'call("ide_definition", request)',
+        'call("ide_definition", { ...request, documents })',
         'event.key === "F12"',
         "showDocumentHighlightsAtCaret",
         "currentDocumentHighlights",
@@ -7600,7 +7605,7 @@ function Invoke-IdeCheck {
         throw "Native IDE semantic token ranges must use LSP UTF-16 offsets directly"
     }
     $IdeMainSource = Get-Content -LiteralPath $TauriMainPath -Raw
-    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "document_symbols", "document_symbols_lsp_json", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_items", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completions_use_lsp_editor_items", "check_view_surfaces_lsp_semantic_tokens", "ide_definition", "--definition-stdin", "ide_document_highlights", "--document-highlights-stdin", "ide_code_actions", "--code-actions-stdin", "parse_code_actions_output", "run_lsp_source_query", "ide_prepare_rename", "--workspace-prepare-rename-stdin", "parse_prepare_rename_output", "ide_references", "--workspace-references-stdin", "ide_rename", "--workspace-rename-stdin", "workspace_navigation_payload", "parse_rename_output", "ide_workspace_symbols", "--workspace-symbols-stdin", "workspace_document_payload", "run_lsp_query", "parse_workspace_symbols_output", "workspace_symbol_output_accepts_complete_workspace_locations", "run_lsp_position_query", "parse_document_highlights_output", "bundled_lsp_executable", "parse_definition_output", "Stdio::piped()", "definition_output_accepts_null_and_complete_locations", "document_highlight_output_accepts_complete_read_and_write_ranges", "code_action_output_accepts_diagnostic_bound_insertions", "rename_output_accepts_complete_multi_file_edits", "one-line EngLang statement such as", "cd <dir>", "diagnostic_view_from_lsp", "diagnostic_view_from_parts", 'range_text: format!("L{line}:C{column}-C{end_column}")', 'include_str!("../ui/app.js")', 'include_str!("main.rs")')) {
+    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "document_symbols", "document_symbols_lsp_json", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_items", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completions_use_lsp_editor_items", "check_view_surfaces_lsp_semantic_tokens", "ide_definition", "--workspace-definition-stdin", "ide_document_highlights", "--document-highlights-stdin", "ide_code_actions", "--code-actions-stdin", "parse_code_actions_output", "run_lsp_source_query", "ide_prepare_rename", "--workspace-prepare-rename-stdin", "parse_prepare_rename_output", "ide_references", "--workspace-references-stdin", "ide_rename", "--workspace-rename-stdin", "workspace_navigation_payload", "parse_rename_output", "ide_workspace_symbols", "--workspace-symbols-stdin", "workspace_document_payload", "run_lsp_query", "parse_workspace_symbols_output", "workspace_symbol_output_accepts_complete_workspace_locations", "run_lsp_position_query", "parse_document_highlights_output", "bundled_lsp_executable", "parse_definition_output", "Stdio::piped()", "definition_output_accepts_null_and_complete_locations", "document_highlight_output_accepts_complete_read_and_write_ranges", "code_action_output_accepts_diagnostic_bound_insertions", "rename_output_accepts_complete_multi_file_edits", "one-line EngLang statement such as", "cd <dir>", "diagnostic_view_from_lsp", "diagnostic_view_from_parts", 'range_text: format!("L{line}:C{column}-C{end_column}")', 'include_str!("../ui/app.js")', 'include_str!("main.rs")')) {
         if (-not $IdeMainSource.Contains($RequiredIdeBackendToken)) {
             throw "Native IDE backend missing contract token $RequiredIdeBackendToken"
         }

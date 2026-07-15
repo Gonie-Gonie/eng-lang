@@ -166,19 +166,29 @@ async function referenceProviderRejectsStaleBufferResults() {
   assert.deepStrictEqual(await pending, []);
 }
 
-async function referenceRequestUsesAllDirtyWorkspaceBuffersAndDeclarationFlag() {
+async function navigationRequestsUseAllDirtyWorkspaceBuffers() {
   const childProcess = require("child_process");
   const originalExecFile = childProcess.execFile;
-  let invocation;
-  let stdinText = "";
+  const invocations = [];
+  const definitionPayload = {
+    uri: "file:///C:/workspace/module.eng",
+    range: {
+      start: { line: 2, character: 6 },
+      end: { line: 2, character: 17 }
+    }
+  };
   childProcess.execFile = function execFile(runtime, args, options, callback) {
-    invocation = { runtime, args, options };
-    setImmediate(() => callback(null, JSON.stringify(referencePayload), ""));
+    const invocation = { runtime, args, options, stdinText: "" };
+    invocations.push(invocation);
+    const response = args[0] === "--workspace-definition-stdin"
+      ? definitionPayload
+      : referencePayload;
+    setImmediate(() => callback(null, JSON.stringify(response), ""));
     return {
       kill() {},
       stdin: {
         end(value) {
-          stdinText = value;
+          invocation.stdinText = value;
         }
       }
     };
@@ -220,7 +230,7 @@ async function referenceRequestUsesAllDirtyWorkspaceBuffersAndDeclarationFlag() 
       undefined
     );
     assert.deepStrictEqual(references, referencePayload);
-    assert.deepStrictEqual(invocation.args, [
+    assert.deepStrictEqual(invocations[0].args, [
       "--workspace-references-stdin",
       "C:/workspace",
       "C:/workspace/main.eng",
@@ -228,13 +238,30 @@ async function referenceRequestUsesAllDirtyWorkspaceBuffersAndDeclarationFlag() 
       "4",
       "false"
     ]);
-    assert.deepStrictEqual(JSON.parse(stdinText), {
+    const expectedDocuments = {
       format: "eng-lsp-open-documents-v1",
       documents: [
         { path: "C:/workspace/main.eng", source: document.getText() },
         { path: "C:/workspace/other.eng", source: otherDocument.getText() }
       ]
-    });
+    };
+    assert.deepStrictEqual(JSON.parse(invocations[0].stdinText), expectedDocuments);
+
+    const definition = await requests.definitionSnapshotForPosition(
+      document,
+      { line: 1, character: 4 },
+      {},
+      undefined
+    );
+    assert.deepStrictEqual(definition, definitionPayload);
+    assert.deepStrictEqual(invocations[1].args, [
+      "--workspace-definition-stdin",
+      "C:/workspace",
+      "C:/workspace/main.eng",
+      "1",
+      "4"
+    ]);
+    assert.deepStrictEqual(JSON.parse(invocations[1].stdinText), expectedDocuments);
   } finally {
     vscodeMock.workspace.textDocuments = [];
     childProcess.execFile = originalExecFile;
@@ -245,7 +272,7 @@ Promise.all([
   providerUsesCurrentBufferRequest(),
   referenceProviderUsesCurrentBufferAndDeclarationContext(),
   referenceProviderRejectsStaleBufferResults(),
-  referenceRequestUsesAllDirtyWorkspaceBuffersAndDeclarationFlag()
+  navigationRequestsUseAllDirtyWorkspaceBuffers()
 ])
   .then(() => process.stdout.write("VS Code semantic document highlight and reference smoke passed.\n"))
   .catch((error) => {

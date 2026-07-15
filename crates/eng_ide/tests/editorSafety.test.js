@@ -11,6 +11,7 @@ const invokeCalls = [];
 const openFileSources = new Map();
 let saveFailurePath = null;
 let codeActionPayload = null;
+let definitionPromise = null;
 let prepareRenamePayload = null;
 let workspaceSymbolPayload = null;
 let workspaceSymbolPromise = null;
@@ -77,6 +78,9 @@ const context = vm.createContext({
           }
           if (command === "ide_code_actions") {
             return Promise.resolve(codeActionPayload || { uri: "file:///C:/Repo/main.eng", actions: [] });
+          }
+          if (command === "ide_definition") {
+            return definitionPromise || Promise.resolve(null);
           }
           if (command === "ide_prepare_rename") {
             return Promise.resolve(prepareRenamePayload || {});
@@ -250,6 +254,54 @@ async function definitionNavigationPreservesDirtyOpenTab() {
     openFile = globalThis.realDefinitionOpenFile;
     state.root = "";
   `);
+}
+
+async function definitionNavigationUsesAndGuardsAllDirtyWorkspaceBuffers() {
+  invokeCalls.length = 0;
+  let resolveDefinition;
+  definitionPromise = new Promise((resolve) => {
+    resolveDefinition = resolve;
+  });
+  run(`
+    state.root = "C:/Repo";
+    state.currentPath = "main.eng";
+    state.source = "use \\\"lib.eng\\\"\\nvalue = SHARED_GAIN\\n";
+    state.dirty = true;
+    state.tabs = [
+      { path: "main.eng", source: state.source, dirty: true },
+      { path: "lib.eng", source: "const SHARED_GAIN: Ratio = 0.9\\n", dirty: true },
+      { path: "clean.eng", source: "clean = 1\\n", dirty: false }
+    ];
+    globalThis.realDefinitionById = byId;
+    globalThis.definitionRequestEditor = {
+      value: state.source,
+      selectionStart: state.source.indexOf("SHARED_GAIN")
+    };
+    byId = (id) => id === "editor" ? globalThis.definitionRequestEditor : null;
+  `);
+
+  const pending = run("goToDefinitionAtCaret()");
+  assert.strictEqual(invokeCalls.length, 1);
+  assert.strictEqual(invokeCalls[0].command, "ide_definition");
+  assert.deepStrictEqual(
+    Array.from(invokeCalls[0].args.documents, (document) => ({ ...document })),
+    [{ path: "lib.eng", source: "const SHARED_GAIN: Ratio = 0.9\n" }]
+  );
+  run('state.tabs.find((tab) => tab.path === "lib.eng").source = "const SHARED_GAIN: Ratio = 1.0\\n"');
+  resolveDefinition({
+    uri: "file:///C:/Repo/lib.eng",
+    range: {
+      start: { line: 0, character: 6 },
+      end: { line: 0, character: 17 }
+    }
+  });
+  assert.strictEqual(await pending, false);
+  assert.strictEqual(run("state.status"), "Definition cancelled; another modified buffer changed");
+  run(`
+    byId = globalThis.realDefinitionById;
+    state.root = "";
+  `);
+  definitionPromise = null;
 }
 
 function definitionShortcutUsesCurrentAction() {
@@ -1438,6 +1490,7 @@ async function main() {
   definitionPathsNormalizeWorkspaceTargets();
   definitionRequestUsesUtf16Caret();
   await definitionNavigationPreservesDirtyOpenTab();
+  await definitionNavigationUsesAndGuardsAllDirtyWorkspaceBuffers();
   definitionShortcutUsesCurrentAction();
   workspaceSymbolShortcutOpensCompilerSearch();
   await workspaceSymbolSearchUsesDirtyBuffersAndCompilerLocations();

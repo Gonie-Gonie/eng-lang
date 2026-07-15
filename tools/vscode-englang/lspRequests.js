@@ -278,15 +278,18 @@ function createLspRequests(options = {}) {
   }
 
   function definitionSnapshotForPosition(document, position, context, cancellationToken) {
-    return stdinJsonRequest(document, context, cancellationToken, {
+    const root = workspaceRoot(document) || nodePath.dirname(document.uri.fsPath);
+    return workspaceNavigationJsonRequest(document, context, cancellationToken, {
       args: [
-        "--definition-stdin",
+        "--workspace-definition-stdin",
+        root,
         document.uri.fsPath,
         String(position.line),
         String(position.character)
       ],
       errorMessage: "Definition lookup failed",
-      parseMessage: "Unable to parse EngLang definition data"
+      parseMessage: "Unable to parse EngLang definition data",
+      root
     });
   }
 

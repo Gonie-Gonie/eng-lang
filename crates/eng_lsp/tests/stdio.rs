@@ -3191,6 +3191,26 @@ fn workspace_reference_and_rename_stdin_prefer_all_open_documents() {
             .expect("workspace navigation CLI should finish")
     };
 
+    let definition_output = run(
+        "--workspace-definition-stdin",
+        &[
+            current_path.to_string_lossy().into_owned(),
+            "1".to_owned(),
+            selected_character.to_string(),
+        ],
+    );
+    assert!(
+        definition_output.status.success(),
+        "workspace definition failed: {}",
+        String::from_utf8_lossy(&definition_output.stderr)
+    );
+    let definition: Value = serde_json::from_slice(&definition_output.stdout)
+        .expect("workspace definition stdout should be JSON");
+    assert_eq!(definition["uri"], module_uri);
+    assert_eq!(definition["range"]["start"]["line"], 2);
+    assert_eq!(definition["range"]["start"]["character"], 6);
+    assert_eq!(definition["range"]["end"]["character"], 17);
+
     let prepare_output = run(
         "--workspace-prepare-rename-stdin",
         &[

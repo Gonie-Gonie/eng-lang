@@ -99,10 +99,13 @@ Editor
   move through matches with wraparound; Match Case narrows the results and
   Escape closes the search bar. Enter in the editor preserves block
   indentation. F12, Ctrl+click, or Definition in the checked-token meta bar
-  jumps to the compiler-resolved definition using the current unsaved buffer.
-  Definitions in the current file, static imports, and bundled stdlib modules
-  open at their exact UTF-16 source range; an already-open dirty target tab is
-  reused without reloading it from disk. Shift+F12 or References keeps
+  jumps to the compiler-resolved definition using the current unsaved buffer
+  and every other modified open EngLang tab in the workspace. Definitions in
+  the current file, static imports, and bundled stdlib modules open at their
+  exact UTF-16 source range; changed imports and declarations are resolved from
+  open text before disk, and an already-open dirty target tab is reused without
+  reloading it. If any participating tab changes during lookup, navigation is
+  cancelled before a file is opened. Shift+F12 or References keeps
   compiler-recognized read/write highlights in the current buffer and lists
   openable workspace locations whose static file-import chain resolves to the
   same declaration. Unrelated same-name symbols, comments, plain strings,

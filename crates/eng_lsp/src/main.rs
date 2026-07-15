@@ -44,6 +44,14 @@ fn main() -> std::process::ExitCode {
     if args.first().map(String::as_str) == Some("--definition-stdin") {
         return command_definition_stdin(args.get(1), args.get(2), args.get(3));
     }
+    if args.first().map(String::as_str) == Some("--workspace-definition-stdin") {
+        return command_workspace_definition_stdin(
+            args.get(1),
+            args.get(2),
+            args.get(3),
+            args.get(4),
+        );
+    }
     if args.first().map(String::as_str) == Some("--document-highlights-stdin") {
         return command_document_highlights_stdin(args.get(1), args.get(2), args.get(3));
     }
@@ -379,6 +387,45 @@ fn command_definition_stdin(
     });
     let mut documents = Documents::new();
     documents.insert(uri, DocumentState::new(source, None));
+    println!(
+        "{}",
+        definition_for_request(&request, &documents).unwrap_or(Value::Null)
+    );
+    std::process::ExitCode::SUCCESS
+}
+
+fn command_workspace_definition_stdin(
+    root: Option<&String>,
+    path: Option<&String>,
+    line: Option<&String>,
+    character: Option<&String>,
+) -> std::process::ExitCode {
+    const USAGE: &str = "usage: eng-lsp --workspace-definition-stdin <workspace-root> <file.eng> <line> <character>";
+    let Some(path) = path else {
+        eprintln!("{USAGE}");
+        return std::process::ExitCode::from(2);
+    };
+    let Some((line, character)) = parse_position(line, character) else {
+        eprintln!("{USAGE}");
+        return std::process::ExitCode::from(2);
+    };
+    let (root, documents) = match read_workspace_documents_stdin(root, USAGE) {
+        Ok(value) => value,
+        Err(exit_code) => return exit_code,
+    };
+    let uri = match workspace_request_uri(&root, path, &documents) {
+        Ok(uri) => uri,
+        Err(error) => {
+            eprintln!("invalid workspace definition request: {error}");
+            return std::process::ExitCode::from(2);
+        }
+    };
+    let request = json!({
+        "params": {
+            "textDocument": { "uri": uri },
+            "position": { "line": line, "character": character }
+        }
+    });
     println!(
         "{}",
         definition_for_request(&request, &documents).unwrap_or(Value::Null)
@@ -5884,10 +5931,41 @@ fn definition_for_request(request: &Value, documents: &Documents) -> Option<Valu
     if let Some(target) = stdlib_module_definition_target(&symbol) {
         return Some(definition_location_json(&target));
     }
-    let hover = hover_for_symbol(&snapshot.hovers, &symbol)?;
-    let label = definition_label_for_hover_name(&hover.name);
-    let target = definition_target_in_source(uri, &text, &label, hover.line)
-        .or_else(|| imported_definition_target(&path, &text, &label, hover.line))?;
+    if let Some(hover) = hover_for_symbol(&snapshot.hovers, &symbol) {
+        let label = definition_label_for_hover_name(&hover.name);
+        if let Some(target) = definition_target_in_source(uri, &text, &label, hover.line)
+            .or_else(|| imported_definition_target(&path, &text, documents, &label, hover.line))
+        {
+            return Some(definition_location_json(&target));
+        }
+    }
+
+    let semantic_symbol = workspace_semantic_symbol_occurrences(
+        &path,
+        &text,
+        documents,
+        &snapshot.semantic_tokens.tokens,
+        &snapshot.hovers,
+        line_zero_based,
+        character,
+    )?;
+    let target = definition_target_for_family_in_source(
+        uri,
+        &text,
+        &semantic_symbol.label,
+        &semantic_symbol.family,
+        line_zero_based + 1,
+    )
+    .or_else(|| {
+        imported_definition_target_for_family(
+            &path,
+            &text,
+            documents,
+            &semantic_symbol.label,
+            &semantic_symbol.family,
+            line_zero_based + 1,
+        )
+    })?;
     Some(definition_location_json(&target))
 }
 
@@ -7471,18 +7549,27 @@ fn imported_definition_target_for_family_from_program(
 fn imported_definition_target(
     source_path: &Path,
     source: &str,
+    documents: &Documents,
     label: &str,
     preferred_line: usize,
 ) -> Option<DefinitionTarget> {
     let base_dir = source_path.parent()?;
     let parsed = parse_source(source);
     let mut visited = HashSet::new();
-    imported_definition_target_from_program(&parsed, base_dir, label, preferred_line, &mut visited)
+    imported_definition_target_from_program(
+        &parsed,
+        base_dir,
+        documents,
+        label,
+        preferred_line,
+        &mut visited,
+    )
 }
 
 fn imported_definition_target_from_program(
     parsed: &eng_compiler::ParsedProgram,
     base_dir: &Path,
+    documents: &Documents,
     label: &str,
     preferred_line: usize,
     visited: &mut HashSet<PathBuf>,
@@ -7500,21 +7587,30 @@ fn imported_definition_target_from_program(
         if !visited.insert(import_path.clone()) {
             continue;
         }
-        let Ok(imported_source) = std::fs::read_to_string(&import_path) else {
-            visited.remove(&import_path);
-            continue;
-        };
-        let imported_uri = file_uri_from_path(&import_path);
-        if let Some(target) =
-            definition_target_in_source(&imported_uri, &imported_source, label, preferred_line)
-        {
+        let (imported_uri, imported_source) =
+            if let Some((uri, state)) = workspace_document_for_path(documents, &import_path) {
+                (uri.clone(), Cow::Borrowed(state.text.as_str()))
+            } else {
+                let Ok(source) = std::fs::read_to_string(&import_path) else {
+                    visited.remove(&import_path);
+                    continue;
+                };
+                (file_uri_from_path(&import_path), Cow::Owned(source))
+            };
+        if let Some(target) = definition_target_in_source(
+            &imported_uri,
+            imported_source.as_ref(),
+            label,
+            preferred_line,
+        ) {
             return Some(target);
         }
-        let imported = parse_source(&imported_source);
+        let imported = parse_source(imported_source.as_ref());
         if let Some(import_base_dir) = import_path.parent() {
             if let Some(target) = imported_definition_target_from_program(
                 &imported,
                 import_base_dir,
+                documents,
                 label,
                 preferred_line,
                 visited,
