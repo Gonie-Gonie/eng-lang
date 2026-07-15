@@ -31,15 +31,18 @@ What it proves:
 - explicit native `materialize cases training_results` CaseTable materialization
 - native `apply case_input_template over cases` CaseOutput materialization
 - native `collect results case_inputs` CaseResultCollection materialization
+- preservation of sampled and derived typed columns through CaseTable,
+  CaseOutput, and CaseResultCollection, including numeric values and units
 - case metadata bindings that separate initial CaseTable manifest state from
   final collection state, including `case_manifest_pending_count`,
   `case_inputs.expected_count`, `case_inputs.rendered_count`,
   `case_inputs.blocked_count`, and
   `case_result_collection.collected_count`
 - native case_input artifact rendering plus summary values from case_001
-- native table-based `train regression <table>` model training with explicit `with` options
+- native table-based `train regression case_result_collection` model training with explicit `with` options
 - native `predict surrogate_model using designs` prediction table materialization
-- native SQLite writes to `simulation_results` and `predictions`
+- native SQLite writes from `case_result_collection` to `simulation_results`
+  and from `predictions` to `predictions`
 - `db.summary` plus detailed DB fields for readable SQLite write/readback status
 - typed `args.output` routing for the sampling summary and workflow summary CSV
 - `process_results.json` has `process_count = 0`
@@ -49,8 +52,11 @@ Expected review surfaces:
 - `typed_payload.sample_tables[]` with `row_preview` case IDs, parameter display values, numeric values, and units
 - standard-text artifacts for the full generated sample tables
 - `typed_payload.case_manifests[]`
-- object-store `CaseOutput` table `case_inputs`
-- object-store `CaseResultCollection` table `case_result_collection`
+- object-store table entries for `cases`, `case_inputs`, and
+  `case_result_collection`, with actual schemas, row counts, and typed columns
+- object-store value evidence showing the derived result columns are unchanged
+  across `training_results`, `cases`, `case_inputs`, and
+  `case_result_collection`
 - `typed_payload.render_manifests[]`
 - `typed_payload.model_specs[]`
 - `typed_payload.model_cards[]`

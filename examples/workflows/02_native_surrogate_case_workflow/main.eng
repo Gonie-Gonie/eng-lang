@@ -81,7 +81,7 @@ with {
     overwrite = true
 }
 
-surrogate_model = train regression training_results
+surrogate_model = train regression case_result_collection
 with {
     target = annual_electricity
     features = [people_density, lighting_power_density, equipment_power_density, cooling_cop, envelope_load_index, occupancy_schedule_index]
@@ -92,7 +92,7 @@ model_card_summary = model_card(surrogate_model)
 model_metrics = evaluate(surrogate_model)
 predictions = predict surrogate_model using designs
 
-case_001_rows = filter training_results
+case_001_rows = filter case_result_collection
 where {
     case_id == "case_001"
 }
@@ -105,7 +105,7 @@ unmet_hours: Duration [h] = case_001.unmet_hours
 native_case_status = "case inputs rendered by applying a native template step over the materialized case table"
 native_model_status = "training designs, derived results, regression model, predictions, and DB writes materialized natively"
 db = open sqlite args.database_target
-write training_results to db.table("simulation_results")
+write case_result_collection to db.table("simulation_results")
 with {
     mode = replace
     transaction = commit

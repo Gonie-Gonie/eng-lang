@@ -16,7 +16,7 @@ The current executable workflow uses:
 ```text
 eng.sampling  deterministic LHS training-design and prediction sample tables
 eng.table     native derive transforms for surrogate simulation-result columns
-eng.case      explicit `materialize cases` table, generated case manifests, and `collect results` CaseResultCollection rows
+eng.case      explicit `materialize cases` table whose sampled and derived values flow through CaseOutput and CaseResultCollection rows
 eng.template  native `apply ... over cases` template rendering for per-case input files
 eng.model     train regression ... with { ... } and predict model using samples
 eng.db        native SQLite writes plus typed readback for persisted predictions
@@ -30,9 +30,9 @@ process_results.json has process_count = 0
 typed_payload.sample_tables includes training_designs and designs with row previews
 standard_text artifacts expose both generated LHS sample tables as reviewable files
 report entries include native sample method, seed, count, parameter-count, and row-preview bindings
-object_store.tables includes the explicit CaseTable binding `cases`
-object_store.tables includes the CaseOutput binding `case_inputs`
-object_store.tables includes the CaseResultCollection binding `case_result_collection`
+object_store.objects exposes `cases`, `case_inputs`, and `case_result_collection` as table entries with their actual schemas and row counts
+all three case-stage tables preserve sampled and derived numeric columns, including units and canonical values
+the regression model, case_001 selection, and simulation_results SQLite write consume case_result_collection rather than bypassing the case pipeline
 report entries separate initial CaseTable manifest fields (`case_manifest_pending_count`, `case_manifest_failed_count`, `case_manifest_initial_status`) from final CaseOutput/CaseResultCollection fields such as `case_inputs.rendered_count`, `case_result_collection.collected_count`, and `case_result_collection.status`
 typed_payload.table_transforms includes native derive records for annual_electricity, annual_cooling, peak_cooling, and unmet_hours
 typed_payload.model_cards/model_specs/prediction_manifests are native records
@@ -45,10 +45,12 @@ output_manifest.json records case_input artifacts, training_designs_standard.txt
 workflow_summary.csv records values pulled from the selected native derived-result row, not fixed literals
 ```
 
-The training-design table is produced by EngLang's native sampler. The result
-metrics are then calculated with native `derive` table transforms before the
-case table, case-input apply step, model, CSV export, and SQLite write steps
-consume them. The workflow reads sampler metadata through
+The training-design table is produced by EngLang's native sampler. Native
+`derive` transforms calculate the result metrics, then `materialize cases`,
+`apply ... over cases`, and `collect results` preserve those typed values through
+the complete case pipeline. Model training, the selected summary row, and the
+`simulation_results` SQLite write all consume the final
+`case_result_collection`. The workflow reads sampler metadata through
 `training_designs.method`, `training_designs.seed`,
 `training_designs.sample_count`, and `training_designs.row_preview`, so the
 native sampling contract is visible in normal bindings, standard-text sample table files, reports,

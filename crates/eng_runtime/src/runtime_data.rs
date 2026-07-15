@@ -7506,16 +7506,37 @@ fn materialize_explicit_case_table(
         source,
         source_hash: Some(stable_hash_text(&hash_payload)),
         row_count: source_table.row_count,
-        columns: vec![
-            text_runtime_column("case_id", "String", case_ids),
-            text_runtime_column("case_dir", "DirectoryPath", case_dirs),
-            text_runtime_column("status", "String", statuses),
-            text_runtime_column("failure_reason", "String", failure_reasons),
-            text_runtime_column("sample_row_hash", "String", row_hashes),
-        ],
-        parse_failures: Vec::new(),
+        columns: runtime_columns_with_overrides(
+            &source_table.columns,
+            vec![
+                text_runtime_column("case_id", "String", case_ids),
+                text_runtime_column("case_dir", "DirectoryPath", case_dirs),
+                text_runtime_column("status", "String", statuses),
+                text_runtime_column("failure_reason", "String", failure_reasons),
+                text_runtime_column("sample_row_hash", "String", row_hashes),
+            ],
+        ),
+        parse_failures: source_table.parse_failures.clone(),
         line: declaration.line,
     }
+}
+
+fn runtime_columns_with_overrides(
+    source_columns: &[RuntimeColumn],
+    overrides: Vec<RuntimeColumn>,
+) -> Vec<RuntimeColumn> {
+    let mut columns = source_columns.to_vec();
+    for override_column in overrides {
+        if let Some(index) = columns
+            .iter()
+            .position(|column| column.name.eq_ignore_ascii_case(&override_column.name))
+        {
+            columns[index] = override_column;
+        } else {
+            columns.push(override_column);
+        }
+    }
+    columns
 }
 
 fn text_runtime_column(name: &str, type_name: &str, values: Vec<String>) -> RuntimeColumn {
@@ -7638,19 +7659,23 @@ fn materialize_case_apply_output_table(
         source: declaration.expression.clone(),
         source_hash: Some(stable_hash_text(&hash_payload)),
         row_count: cases_table.row_count,
-        columns: vec![
-            text_runtime_column("case_id", "String", output_case_ids),
-            text_runtime_column("case_dir", "DirectoryPath", output_case_dirs),
-            text_runtime_column("output_path", "FilePath", output_paths),
-            text_runtime_column("manifest_path", "FilePath", manifest_paths),
-            text_runtime_column("status", "String", output_statuses),
-            text_runtime_column(
-                "template",
-                "TemplateFile",
-                vec![template_path; cases_table.row_count],
-            ),
-        ],
-        parse_failures: Vec::new(),
+        columns: runtime_columns_with_overrides(
+            &cases_table.columns,
+            vec![
+                text_runtime_column("case_id", "String", output_case_ids),
+                text_runtime_column("case_dir", "DirectoryPath", output_case_dirs),
+                text_runtime_column("case_status", "String", statuses.to_vec()),
+                text_runtime_column("output_path", "FilePath", output_paths),
+                text_runtime_column("manifest_path", "FilePath", manifest_paths),
+                text_runtime_column("status", "String", output_statuses),
+                text_runtime_column(
+                    "template",
+                    "TemplateFile",
+                    vec![template_path; cases_table.row_count],
+                ),
+            ],
+        ),
+        parse_failures: cases_table.parse_failures.clone(),
         line: declaration.line,
     }
 }
@@ -7721,15 +7746,18 @@ fn materialize_case_result_collection_table(
         source: declaration.expression.clone(),
         source_hash: Some(stable_hash_text(&hash_payload)),
         row_count: output_table.row_count,
-        columns: vec![
-            text_runtime_column("case_id", "String", collection_case_ids),
-            text_runtime_column("case_dir", "DirectoryPath", collection_case_dirs),
-            text_runtime_column("output_path", "FilePath", collection_output_paths),
-            text_runtime_column("manifest_path", "FilePath", collection_manifest_paths),
-            text_runtime_column("input_status", "String", collection_input_statuses),
-            text_runtime_column("status", "String", collection_statuses),
-        ],
-        parse_failures: Vec::new(),
+        columns: runtime_columns_with_overrides(
+            &output_table.columns,
+            vec![
+                text_runtime_column("case_id", "String", collection_case_ids),
+                text_runtime_column("case_dir", "DirectoryPath", collection_case_dirs),
+                text_runtime_column("output_path", "FilePath", collection_output_paths),
+                text_runtime_column("manifest_path", "FilePath", collection_manifest_paths),
+                text_runtime_column("input_status", "String", collection_input_statuses),
+                text_runtime_column("status", "String", collection_statuses),
+            ],
+        ),
+        parse_failures: output_table.parse_failures.clone(),
         line: declaration.line,
     }
 }

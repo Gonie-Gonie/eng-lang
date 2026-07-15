@@ -284,7 +284,9 @@ separate.
   `docs/current/workflow_modules.md`.
   The native surrogate workflow now records native sample rows,
   CaseOutput rows from `apply ... over cases`, CaseResultCollection rows from
-  `collect results case_inputs`, case_input artifacts, surrogate model specs/cards,
+  `collect results case_inputs`, preserved typed source/result columns across
+  every case stage, case_input artifacts, surrogate model specs/cards trained
+  from the final collection,
   prediction manifests with output quantity/unit and
   confidence-column metadata, DB write manifests with schema diagnostics,
   table records, transaction status, and typed DB readback as reviewable native

@@ -205,6 +205,9 @@ deterministic LHS training and prediction sample tables
 sample table artifacts with case IDs, parameter ranges, duplicate checks, row-hash records, and row-value previews
 case manifest records for generated sample/case rows
 rendered CaseOutput rows from `apply case_input_template over cases`
+sampled and derived typed columns preserved through CaseTable, CaseOutput, and
+CaseResultCollection, with model training, case selection, and the
+simulation-results DB write consuming the final collection
 native case_input artifacts plus template_render_manifest records
 preferred native `train regression` plus legacy-compatible `regression_table` model card/spec/diagnostic records with feature, target, metrics, training-hash, and model-hash metadata
 native prediction table and typed_payload.prediction_manifests[] records with output quantity/unit, case IDs, row count, and confidence column
@@ -293,7 +296,11 @@ an `eng.process` adapter with matching expected outputs. Current native
 `materialize cases`, `apply ... over cases`, and `collect results <CaseOutput>`
 make the supported table/case/template path explicit by materializing CaseTable,
 CaseOutput rows with expected, rendered, blocked, output, and manifest counts, and
-CaseResultCollection rows. A collection row is `collected` only when the source
+CaseResultCollection rows. Source columns, including typed numeric values,
+units, canonical values, and parse diagnostics, remain available at every
+stage. CaseOutput retains the CaseTable stage status as `case_status`, while
+CaseResultCollection retains the CaseOutput stage status as `input_status`.
+A collection row is `collected` only when the source
 CaseOutput row has render evidence; declared expected output paths remain `missing` until
 the native render step has materialized the input and render manifest. Broader
 run-case scheduler policy should extend the same record shape:

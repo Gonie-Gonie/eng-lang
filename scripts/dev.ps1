@@ -893,7 +893,7 @@ function Invoke-WorkflowsTest {
             $ModelCards = @($TypedPayload.model_cards)
             $MatchingModelCards = @($ModelCards | Where-Object {
                 [string]$_.binding -eq "surrogate_model" -and
-                [string]$_.source -eq "training_results" -and
+                [string]$_.source -eq "case_result_collection" -and
                 [string]$_.model_kind -eq "linear" -and
                 [string]$_.target -eq "annual_electricity" -and
                 [string]$_.target_quantity -eq "Energy" -and
@@ -905,6 +905,92 @@ function Invoke-WorkflowsTest {
             })
             if ($MatchingModelCards.Count -ne 1) {
                 throw "Workflow 02 native result missing structured regression model card contract"
+            }
+            $ObjectStoreTables = @($ResultData.object_store.objects | Where-Object {
+                [string]$_.kind -eq "table"
+            })
+            $TrainingResultsObject = @($ObjectStoreTables | Where-Object {
+                [string]$_.name -eq "training_results"
+            }) | Select-Object -First 1
+            if ($null -eq $TrainingResultsObject) {
+                throw "Workflow 02 native result missing training_results object-store table"
+            }
+            $CasePipelineStages = @(
+                @{ Binding = "cases"; StatusColumn = "status"; StatusValue = "pending" },
+                @{ Binding = "case_inputs"; StatusColumn = "status"; StatusValue = "rendered" },
+                @{ Binding = "case_result_collection"; StatusColumn = "status"; StatusValue = "collected" }
+            )
+            foreach ($CasePipelineStage in $CasePipelineStages) {
+                $StageTable = @($ObjectStoreTables | Where-Object {
+                    [string]$_.name -eq $CasePipelineStage.Binding
+                }) | Select-Object -First 1
+                if ($null -eq $StageTable) {
+                    throw "Workflow 02 native result missing case pipeline table $($CasePipelineStage.Binding)"
+                }
+                foreach ($PreservedColumnName in @(
+                    "people_density",
+                    "lighting_power_density",
+                    "equipment_power_density",
+                    "cooling_cop",
+                    "envelope_load_index",
+                    "occupancy_schedule_index",
+                    "annual_electricity",
+                    "annual_cooling",
+                    "peak_cooling",
+                    "unmet_hours"
+                )) {
+                    $SourceColumn = @($TrainingResultsObject.columns | Where-Object {
+                        [string]$_.name -eq $PreservedColumnName
+                    }) | Select-Object -First 1
+                    $StageColumn = @($StageTable.columns | Where-Object {
+                        [string]$_.name -eq $PreservedColumnName
+                    }) | Select-Object -First 1
+                    if ($null -eq $SourceColumn -or $null -eq $StageColumn) {
+                        throw "Workflow 02 case pipeline table $($CasePipelineStage.Binding) must preserve column $PreservedColumnName"
+                    }
+                    if ([string]$StageColumn.type -ne [string]$SourceColumn.type -or
+                        [string]$StageColumn.unit -ne [string]$SourceColumn.unit -or
+                        (@($StageColumn.values) -join "|") -ne (@($SourceColumn.values) -join "|") -or
+                        (@($StageColumn.canonical_values) -join "|") -ne (@($SourceColumn.canonical_values) -join "|")) {
+                        throw "Workflow 02 case pipeline table $($CasePipelineStage.Binding) changed type, unit, or values for $PreservedColumnName"
+                    }
+                }
+                $StageStatusColumn = @($StageTable.columns | Where-Object {
+                    [string]$_.name -eq $CasePipelineStage.StatusColumn
+                }) | Select-Object -First 1
+                $UnexpectedStageStatuses = @($StageStatusColumn.values | Where-Object {
+                    [string]$_ -ne $CasePipelineStage.StatusValue
+                })
+                if ($null -eq $StageStatusColumn -or $UnexpectedStageStatuses.Count -ne 0) {
+                    throw "Workflow 02 case pipeline table $($CasePipelineStage.Binding) must expose $($CasePipelineStage.StatusValue) stage status"
+                }
+            }
+            $CaseInputObject = @($ObjectStoreTables | Where-Object {
+                [string]$_.name -eq "case_inputs"
+            }) | Select-Object -First 1
+            $CaseStatusColumn = @($CaseInputObject.columns | Where-Object {
+                [string]$_.name -eq "case_status"
+            }) | Select-Object -First 1
+            if ($null -eq $CaseStatusColumn -or @($CaseStatusColumn.values | Where-Object { [string]$_ -ne "pending" }).Count -ne 0) {
+                throw "Workflow 02 CaseOutput must retain the initial CaseTable status as case_status"
+            }
+            $CaseResultObject = @($ObjectStoreTables | Where-Object {
+                [string]$_.name -eq "case_result_collection"
+            }) | Select-Object -First 1
+            $InputStatusColumn = @($CaseResultObject.columns | Where-Object {
+                [string]$_.name -eq "input_status"
+            }) | Select-Object -First 1
+            if ($null -eq $InputStatusColumn -or @($InputStatusColumn.values | Where-Object { [string]$_ -ne "rendered" }).Count -ne 0) {
+                throw "Workflow 02 CaseResultCollection must retain CaseOutput status as input_status"
+            }
+            $CaseSelectionTransform = @($TypedPayload.table_transforms | Where-Object {
+                [string]$_.binding -eq "case_001_rows" -and
+                [string]$_.operation -eq "filter" -and
+                [string]$_.source_table -eq "case_result_collection" -and
+                [int]$_.output_row_count -eq 1
+            })
+            if ($CaseSelectionTransform.Count -ne 1) {
+                throw "Workflow 02 case_001 selection must consume case_result_collection"
             }
             $PredictionManifests = @($TypedPayload.prediction_manifests)
             $MatchingPredictionManifests = @($PredictionManifests | Where-Object {
@@ -924,7 +1010,7 @@ function Invoke-WorkflowsTest {
             }
             $DbManifests = @($TypedPayload.db_manifests)
             foreach ($RequiredDbManifest in @(
-                @{ Binding = "training_results"; Table = "simulation_results"; RowCount = 8; Schema = @("case_id", "annual_electricity", "peak_cooling", "unmet_hours") },
+                @{ Binding = "case_result_collection"; Table = "simulation_results"; RowCount = 8; Schema = @("case_id", "annual_electricity", "peak_cooling", "unmet_hours", "case_status", "input_status", "status") },
                 @{ Binding = "predictions"; Table = "predictions"; RowCount = 3; Schema = @("case_id", "predicted_annual_electricity", "confidence") }
             )) {
                 $MatchingDbManifests = @($DbManifests | Where-Object {
@@ -1022,10 +1108,13 @@ function Invoke-WorkflowsTest {
                 'write standard_text training_designs',
                 'output = join(args.output, "training_designs_standard.txt")',
                 'write standard_text designs',
-                'output = join(args.output, "prediction_designs_standard.txt")'
+                'output = join(args.output, "prediction_designs_standard.txt")',
+                'train regression case_result_collection',
+                'filter case_result_collection',
+                'write case_result_collection to db.table("simulation_results")'
             )) {
                 if (-not $WorkflowSource.Contains($RequiredWorkflowSourceToken)) {
-                    throw "Workflow 02 source must write native sample table standard-text artifact token $RequiredWorkflowSourceToken"
+                    throw "Workflow 02 source missing native end-to-end dataflow token $RequiredWorkflowSourceToken"
                 }
             }
             foreach ($RequiredSurrogateReviewToken in @(

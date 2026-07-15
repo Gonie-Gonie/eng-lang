@@ -3379,7 +3379,7 @@
   {
     "fixture": "examples/workflows/02_native_surrogate_case_workflow/main.eng",
     "scope": "meta.workflow.train-regression.englang",
-    "text": "train regression training_results",
+    "text": "train regression case_result_collection",
     "fullMatch": true
   },
   {
@@ -3397,7 +3397,7 @@
   {
     "fixture": "examples/workflows/02_native_surrogate_case_workflow/main.eng",
     "scope": "meta.workflow.db-write.englang",
-    "text": "write training_results to db.table(\"simulation_results\")",
+    "text": "write case_result_collection to db.table(\"simulation_results\")",
     "fullMatch": true
   },
   {

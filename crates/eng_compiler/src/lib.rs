@@ -10202,6 +10202,50 @@ system Envelope {
     }
 
     #[test]
+    fn bytecode_classifies_materialized_workflow_tables_as_tables() {
+        let source = concat!(
+            "designs = sample lhs\n",
+            "with {\n",
+            "    count = 2\n",
+            "    seed = 42\n",
+            "    cooling_cop = uniform(2.5, 5.0)\n",
+            "}\n",
+            "derived = derive designs column annual_electricity = cooling_cop * 100 kWh\n",
+            "cases = materialize cases derived\n",
+            "case_inputs = apply case_input_template over cases\n",
+            "case_results = collect results case_inputs\n",
+        );
+        let report = check_source("workflow_tables.eng", source, &CheckOptions::default());
+        assert!(
+            !report.has_errors(),
+            "diagnostics: {:?}",
+            report.diagnostics
+        );
+
+        let program = build_bytecode_program(&report, source);
+        for (binding, expected_schema) in [
+            ("derived", "DerivedTable"),
+            ("cases", "Case"),
+            ("case_inputs", "CaseOutput"),
+            ("case_results", "CaseResultCollection"),
+        ] {
+            assert!(program.objects.iter().any(|object| matches!(
+                object,
+                BytecodeObject::Table {
+                    name,
+                    schema_name,
+                    row_count: 0,
+                    ..
+                } if name == binding && schema_name == expected_schema
+            )));
+            assert!(program.instructions.iter().any(|instruction| matches!(
+                instruction,
+                BytecodeInstruction::LoadTable { name } if name == binding
+            )));
+        }
+    }
+
+    #[test]
     fn records_timeseries_axis_summary_and_integrate_metadata() {
         let report = check_source(
             "ok.eng",

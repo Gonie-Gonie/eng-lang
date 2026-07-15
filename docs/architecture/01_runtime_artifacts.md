@@ -426,6 +426,11 @@ Current result fields:
 }
 ```
 
+Object-store kinds and counts reflect the materialized runtime shape. Derived,
+case, case-output, collected-result, prediction, and typed-read tables are
+reported as `kind: "table"` with their actual schema, row count, source hash,
+columns, and parse diagnostics rather than as scalar placeholders.
+
 ## `review.json`
 
 Purpose:

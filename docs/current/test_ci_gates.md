@@ -138,7 +138,9 @@ Current coverage:
   under the three native workflow directories and rejects process/run-command/external-scripting nodes in saved run graphs; `workflows-test` also rejects stale public-doc wording,
   malformed process-results artifacts, non-normal workflow smoke profiles, and nonzero process counts.
 - The same gate checks workflow 01 pinned-response cache materialization/replay
-  evidence, workflow 02 structured sampler/model/prediction/DB/case evidence,
+  evidence, workflow 02 structured sampler/model/prediction/DB/case evidence
+  including unchanged typed values through materialize/apply/collect and
+  downstream model/filter/DB consumption of the final collection,
   and workflow 03 propagated uncertainty, report, and confidence-band plot
   evidence so those workflows cannot pass by reading file-backed surrogate data.
 - `dev.bat workflow-native-status` provides the fast read-only status view for those same source/docs guards plus the latest process and run-graph artifacts.

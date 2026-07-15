@@ -590,7 +590,7 @@ pub fn run_source(
         source,
         Some(&result_dir),
     );
-    apply_runtime_lengths(&mut execution, &runtime_data);
+    apply_runtime_object_shapes(&mut execution, &runtime_data);
     let stdout = render_stdout(&check_report, &runtime_data);
     let process_results = execute_process_runs(&check_report)?;
     let mut db_manifest_records = db_manifest_records(&process_results);
@@ -1289,8 +1289,21 @@ fn dependency_hashes(dependencies: &[(String, String)]) -> String {
         .join(";")
 }
 
-fn apply_runtime_lengths(execution: &mut VmExecution, runtime_data: &RuntimeData) {
+fn apply_runtime_object_shapes(execution: &mut VmExecution, runtime_data: &RuntimeData) {
     for object in &mut execution.objects {
+        if let Some(table) = runtime_data
+            .tables
+            .iter()
+            .find(|table| table.binding == object.name)
+        {
+            object.kind = VmObjectKind::Table;
+            object.type_name = format!("Table[{}]", table.schema_name);
+            object.display_unit = None;
+            object.row_count = Some(table.row_count);
+            object.len = None;
+            object.source_hash = table.source_hash.clone();
+            continue;
+        }
         if let Some(series) = runtime_data
             .time_series
             .iter()
@@ -18079,9 +18092,68 @@ mod tests {
         assert!(output
             .output_manifest_json
             .contains("outputs/case_002/input.txt.render_manifest.json"));
-        assert!(output.result_json.contains("\"runner\": \"native_template_runner\""));
+        assert!(output
+            .result_json
+            .contains("\"runner\": \"native_template_runner\""));
         assert!(!output.result_json.contains("manifest_seed_runner"));
         assert!(output.process_results_json.contains("\"process_count\": 0"));
+
+        let result: Value = serde_json::from_str(&output.result_json).expect("result json");
+        assert_eq!(result["object_store"]["table_count"], 4);
+        let designs = json_array_item_by_field(&result, "/object_store/objects", "name", "designs")
+            .expect("designs object");
+        let cases = json_array_item_by_field(&result, "/object_store/objects", "name", "cases")
+            .expect("cases object");
+        let case_inputs =
+            json_array_item_by_field(&result, "/object_store/objects", "name", "case_inputs")
+                .expect("case_inputs object");
+        let case_results =
+            json_array_item_by_field(&result, "/object_store/objects", "name", "case_results")
+                .expect("case_results object");
+        for column_name in ["annual_electricity", "peak_cooling"] {
+            let source_column = json_array_item_by_field(designs, "/columns", "name", column_name)
+                .expect("source numeric column");
+            for stage in [cases, case_inputs, case_results] {
+                let stage_column = json_array_item_by_field(stage, "/columns", "name", column_name)
+                    .expect("preserved case pipeline numeric column");
+                assert_eq!(stage_column.get("type"), source_column.get("type"));
+                assert_eq!(stage_column.get("unit"), source_column.get("unit"));
+                assert_eq!(stage_column.get("values"), source_column.get("values"));
+                assert_eq!(
+                    stage_column.get("canonical_values"),
+                    source_column.get("canonical_values")
+                );
+            }
+        }
+        for (table, schema_name) in [
+            (designs, "GeneratedSample"),
+            (cases, "CaseTable"),
+            (case_inputs, "CaseOutput"),
+            (case_results, "CaseResultCollection"),
+        ] {
+            assert_eq!(table["kind"], "table");
+            assert_eq!(table["type"], format!("Table[{schema_name}]"));
+            assert_eq!(table["row_count"], 2);
+        }
+        let case_status = json_array_item_by_field(case_inputs, "/columns", "name", "case_status")
+            .expect("case status column");
+        assert_eq!(
+            case_status["values"],
+            serde_json::json!(["pending", "pending"])
+        );
+        let input_status =
+            json_array_item_by_field(case_results, "/columns", "name", "input_status")
+                .expect("input status column");
+        assert_eq!(
+            input_status["values"],
+            serde_json::json!(["rendered", "rendered"])
+        );
+        let collected_status = json_array_item_by_field(case_results, "/columns", "name", "status")
+            .expect("collection status column");
+        assert_eq!(
+            collected_status["values"],
+            serde_json::json!(["collected", "collected"])
+        );
     }
 
     #[test]

@@ -142,6 +142,16 @@ pub fn build_bytecode_program(report: &CheckReport, source: &str) -> BytecodePro
                 len: 0,
                 line: binding.line,
             });
+        } else if let Some(schema_name) =
+            materialized_table_schema_name(&binding.semantic_type.quantity_kind)
+        {
+            objects.push(BytecodeObject::Table {
+                name: binding.name.clone(),
+                schema_name,
+                row_count: 0,
+                source_hash: None,
+                line: binding.line,
+            });
         } else {
             objects.push(BytecodeObject::Scalar {
                 name: binding.name.clone(),
@@ -190,6 +200,14 @@ pub fn build_bytecode_program(report: &CheckReport, source: &str) -> BytecodePro
         objects,
         instructions,
     }
+}
+
+fn materialized_table_schema_name(quantity_kind: &str) -> Option<String> {
+    quantity_kind
+        .strip_prefix("Table[")
+        .and_then(|value| value.strip_suffix(']'))
+        .map(str::to_owned)
+        .or_else(|| (quantity_kind == "TableTransform[Derive]").then(|| "DerivedTable".to_owned()))
 }
 
 fn is_public_boundary_binding(report: &CheckReport, name: &str, line: usize) -> bool {

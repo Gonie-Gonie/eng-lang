@@ -5978,9 +5978,7 @@ fn table_metadata_field_semantic_type(
         {
             semantic_type("Count", "count")
         }
-        "expected_count" | "rendered_count"
-            if quantity_kind == "Table[CaseOutput]" =>
-        {
+        "expected_count" | "rendered_count" if quantity_kind == "Table[CaseOutput]" => {
             semantic_type("Count", "count")
         }
         "blocked_count"
