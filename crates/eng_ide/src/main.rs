@@ -2963,7 +2963,7 @@ fn smoke() -> Result<(), String> {
     if root.join("crates/eng_ide").exists() && !ui_index.exists() {
         return Err(format!("missing Tauri UI asset {}", ui_index.display()));
     }
-    assert_native_ide_ui_behavior_status_labels(&root)?;
+    assert_native_ide_ui_behavior_status_labels()?;
     let review_example = root.join("examples/official/01_csv_plot/main.eng");
     let review_output = run_file(
         &review_example,
@@ -3870,21 +3870,9 @@ fn smoke() -> Result<(), String> {
     Ok(())
 }
 
-fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String> {
-    let app_js = read_utf8(
-        &root
-            .join("crates")
-            .join("eng_ide")
-            .join("ui")
-            .join("app.js"),
-    )?;
-    let main_rs = read_utf8(
-        &root
-            .join("crates")
-            .join("eng_ide")
-            .join("src")
-            .join("main.rs"),
-    )?;
+fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
+    let app_js = include_str!("../ui/app.js");
+    let main_rs = include_str!("main.rs");
     for required in [
         "function statusLabel(status)",
         "if (module.status_label) return module.status_label;",
@@ -4445,8 +4433,7 @@ with {
 
     #[test]
     fn native_ide_ui_maps_behavior_preview_status_labels() {
-        let root = workspace_root();
-        assert_native_ide_ui_behavior_status_labels(&root).expect("native IDE UI labels");
+        assert_native_ide_ui_behavior_status_labels().expect("native IDE UI labels");
     }
 
     #[test]

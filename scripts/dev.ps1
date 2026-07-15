@@ -3681,6 +3681,21 @@ function Assert-VscodeExtensionContract {
     $MainInternalStatusSource = Get-Content -LiteralPath $MainInternalStatusPath -Raw
     $CurrentStatusSource = Get-Content -LiteralPath $CurrentStatusPath -Raw
     $CurrentTracksSource = Get-Content -LiteralPath $CurrentTracksPath -Raw
+    $StaleDevCurrentTutorialPath = "docs\" + "tutorials"
+    if ($DevScriptSource.Contains($StaleDevCurrentTutorialPath)) {
+        throw "dev-current packaging must use the current docs/user/tutorial path"
+    }
+    foreach ($RequiredDevCurrentDocsToken in @(
+        'Source = Join-Path $RepoRoot "docs\user"',
+        'Source = Join-Path $RepoRoot "docs\workflows"',
+        'Get-ChildItem -LiteralPath $DocsCopySet.Source -Recurse -Filter "*.md" -File',
+        "docs\user\tutorial\01_install_and_doctor.md",
+        "docs\workflows\index.md"
+    )) {
+        if (-not $DevScriptSource.Contains($RequiredDevCurrentDocsToken)) {
+            throw "dev-current packaging missing current Markdown documentation contract: $RequiredDevCurrentDocsToken"
+        }
+    }
     if (-not $VscodeReadmeSource.Contains("completion_items") -or $VscodeReadmeSource.Contains("completion_seed") -or -not $VscodeReadmeSource.Contains("static completion fallback") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_unit_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_builtin_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_option_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.model_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.prediction_table_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.coverage_result_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.table_fields") -or -not $VscodeReadmeSource.Contains("public member API") -or -not $VscodeReadmeSource.Contains("runtime-backed public fields") -or -not $VscodeReadmeSource.Contains("editor-only placeholders") -or -not $VscodeReadmeSource.Contains("highlight-only compatibility aliases")) {
         throw "VS Code README must document completion_items as the editor metadata completion catalog, public member field catalogs, and legacy aliases as highlight-only metadata without completion_seed"
     }
@@ -7186,7 +7201,7 @@ function Invoke-IdeCheck {
         }
     }
     $IdeMainSource = Get-Content -LiteralPath $TauriMainPath -Raw
-    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_items", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completions_use_lsp_editor_items", "check_view_surfaces_lsp_semantic_tokens", "one-line EngLang statement such as", "cd <dir>", "diagnostic_view_from_lsp", "diagnostic_view_from_parts", 'range_text: format!("L{line}:C{column}-C{end_column}")')) {
+    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_items", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completions_use_lsp_editor_items", "check_view_surfaces_lsp_semantic_tokens", "one-line EngLang statement such as", "cd <dir>", "diagnostic_view_from_lsp", "diagnostic_view_from_parts", 'range_text: format!("L{line}:C{column}-C{end_column}")', 'include_str!("../ui/app.js")', 'include_str!("main.rs")')) {
         if (-not $IdeMainSource.Contains($RequiredIdeBackendToken)) {
             throw "Native IDE backend missing contract token $RequiredIdeBackendToken"
         }
@@ -7588,7 +7603,27 @@ function Invoke-DevCurrent {
     Copy-Item -Recurse -Force (Join-Path $RepoRoot "stdlib") (Join-Path $CurrentRoot "stdlib")
     $CurrentDocsRoot = Join-Path $CurrentRoot "docs"
     New-Item -ItemType Directory -Force -Path $CurrentDocsRoot | Out-Null
-    Copy-Item -Recurse -Force (Join-Path $RepoRoot "docs\tutorials") (Join-Path $CurrentDocsRoot "tutorials")
+    $DocsCopySets = @(
+        @{
+            Source = Join-Path $RepoRoot "docs\user"
+            Destination = Join-Path $CurrentDocsRoot "user"
+        },
+        @{
+            Source = Join-Path $RepoRoot "docs\workflows"
+            Destination = Join-Path $CurrentDocsRoot "workflows"
+        }
+    )
+    foreach ($DocsCopySet in $DocsCopySets) {
+        if (-not (Test-Path -LiteralPath $DocsCopySet.Source)) {
+            throw "missing dev-current documentation source at $($DocsCopySet.Source)"
+        }
+        foreach ($MarkdownFile in (Get-ChildItem -LiteralPath $DocsCopySet.Source -Recurse -Filter "*.md" -File)) {
+            $RelativePath = $MarkdownFile.FullName.Substring($DocsCopySet.Source.Length).TrimStart([IO.Path]::DirectorySeparatorChar)
+            $DestinationPath = Join-Path $DocsCopySet.Destination $RelativePath
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $DestinationPath) | Out-Null
+            Copy-Item -LiteralPath $MarkdownFile.FullName -Destination $DestinationPath -Force
+        }
+    }
     $CurrentGrammarGuidePath = Join-Path $CurrentDocsRoot "EngLang_Language_Grammar_Guide.pdf"
     if (-not (New-GrammarGuideWithOodocs -Path $CurrentGrammarGuidePath -Version (Get-PublicVersion))) {
         throw "Could not generate EngLang language grammar guide for dev-current."
@@ -7613,6 +7648,9 @@ Run eng-ide.exe from this folder to open the native IDE with bundled examples,
 stdlib files, tutorials, and the language grammar guide.
 
 Docs:
+  docs\user\index.md
+  docs\user\tutorial\01_install_and_doctor.md
+  docs\workflows\index.md
   docs\EngLang_Language_Grammar_Guide.pdf
 
 Smoke commands:
@@ -7638,6 +7676,8 @@ eng_sha256 = $EngHash
 eng_ide_sha256 = $IdeHash
 webview2_loader_sha256 = $WebView2LoaderHash
 eng_lsp_sha256 = $LspHash
+user_markdown_count = $(@(Get-ChildItem -LiteralPath (Join-Path $CurrentDocsRoot "user") -Recurse -Filter "*.md" -File).Count)
+workflow_markdown_count = $(@(Get-ChildItem -LiteralPath (Join-Path $CurrentDocsRoot "workflows") -Recurse -Filter "*.md" -File).Count)
 "@
 
     Write-Host "Dev current build prepared."
