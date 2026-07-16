@@ -38,6 +38,7 @@ pub struct MissingPolicy {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SchemaInfo {
     pub name: String,
+    pub span: SourceSpan,
     pub columns: Vec<SchemaColumn>,
     pub constraints: Vec<SchemaConstraint>,
     pub missing_policies: Vec<MissingPolicy>,
@@ -139,6 +140,7 @@ pub fn analyze_schema(
             AstItem::Schema(schema) => {
                 schemas.push(SchemaInfo {
                     name: schema.name.clone(),
+                    span: schema.name_span,
                     columns: Vec::new(),
                     constraints: Vec::new(),
                     missing_policies: Vec::new(),

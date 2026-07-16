@@ -4,6 +4,7 @@ use crate::source::SourceSpan;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SchemaDecl {
     pub name: String,
+    pub name_span: SourceSpan,
     pub span: SourceSpan,
 }
 
@@ -77,6 +78,7 @@ pub struct StructDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClassDecl {
     pub name: String,
+    pub name_span: SourceSpan,
     pub span: SourceSpan,
 }
 
@@ -146,6 +148,7 @@ pub struct ArgsFieldDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SystemDecl {
     pub name: String,
+    pub name_span: SourceSpan,
     pub span: SourceSpan,
 }
 
@@ -169,6 +172,7 @@ pub struct StateSpaceTypeMemberDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DomainDecl {
     pub name: String,
+    pub name_span: SourceSpan,
     pub type_parameters: Vec<DomainTypeParameterDecl>,
     pub package: Option<String>,
     pub version: Option<String>,
@@ -201,6 +205,7 @@ pub struct ConservationDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ComponentDecl {
     pub name: String,
+    pub name_span: SourceSpan,
     pub span: SourceSpan,
 }
 

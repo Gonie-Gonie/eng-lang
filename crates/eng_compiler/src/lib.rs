@@ -8744,6 +8744,104 @@ mod tests {
     }
 
     #[test]
+    fn structural_container_symbols_preserve_exact_name_spans() {
+        let source = concat!(
+            "schema Measurements {\r\n}\r\n",
+            "system Plant {\r\n}\r\n",
+            "domain Thermal {\r\n}\r\n",
+            "component Coil {\r\n}\r\n",
+            "class Settings {\r\n}\r\n",
+        );
+        let parsed = parse_source(source);
+        let mut ast_spans = Vec::new();
+        for item in &parsed.items {
+            match item {
+                AstItem::Schema(declaration) => {
+                    ast_spans.push((
+                        "schema",
+                        &declaration.name,
+                        declaration.span,
+                        declaration.name_span,
+                    ));
+                }
+                AstItem::System(declaration) => {
+                    ast_spans.push((
+                        "system",
+                        &declaration.name,
+                        declaration.span,
+                        declaration.name_span,
+                    ));
+                }
+                AstItem::Domain(declaration) => {
+                    ast_spans.push((
+                        "domain",
+                        &declaration.name,
+                        declaration.span,
+                        declaration.name_span,
+                    ));
+                }
+                AstItem::Component(declaration) => {
+                    ast_spans.push((
+                        "component",
+                        &declaration.name,
+                        declaration.span,
+                        declaration.name_span,
+                    ));
+                }
+                AstItem::Class(declaration) => {
+                    ast_spans.push((
+                        "class",
+                        &declaration.name,
+                        declaration.span,
+                        declaration.name_span,
+                    ));
+                }
+                _ => {}
+            }
+        }
+        assert_eq!(ast_spans.len(), 5);
+        for (keyword, name, keyword_span, name_span) in ast_spans {
+            assert_eq!(&source[keyword_span.start..keyword_span.end], keyword);
+            assert_eq!(&source[name_span.start..name_span.end], name);
+        }
+
+        let report = check_source("container_spans.eng", source, &CheckOptions::default());
+        let program = &report.semantic_program;
+        let semantic_spans = [
+            (&program.schemas[0].name, program.schemas[0].span),
+            (&program.systems[0].name, program.systems[0].span),
+            (&program.domains[0].name, program.domains[0].span),
+            (&program.components[0].name, program.components[0].span),
+            (&program.classes[0].name, program.classes[0].span),
+        ];
+        for (name, span) in semantic_spans {
+            assert_eq!(&source[span.start..span.end], name);
+        }
+
+        let instance_source = concat!(
+            "component Coil {\r\n}\r\n",
+            "system Plant {\r\n",
+            "    coil = Coil()\r\n",
+            "}\r\n",
+        );
+        let instance_report = check_source(
+            "component_instance_span.eng",
+            instance_source,
+            &CheckOptions::default(),
+        );
+        let instance = instance_report
+            .semantic_program
+            .components
+            .iter()
+            .find(|component| component.name == "coil")
+            .expect("component instance metadata");
+        assert_eq!(
+            &instance_source[instance.span.start..instance.span.end],
+            "coil"
+        );
+    }
+
+    #[test]
     fn parser_records_top_level_workflow_and_binding_items() {
         let report = check_source("ok.eng", "L = 1 m + 20 cm\n", &CheckOptions::default());
 

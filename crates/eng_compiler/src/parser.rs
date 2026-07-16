@@ -878,6 +878,7 @@ fn parse_schema_decl(tokens: &[Token]) -> Option<SchemaDecl> {
     };
     Some(SchemaDecl {
         name: name.clone(),
+        name_span: second.span,
         span: first.span,
     })
 }
@@ -928,6 +929,7 @@ fn parse_system_decl(tokens: &[Token]) -> Option<SystemDecl> {
     };
     Some(SystemDecl {
         name: name.clone(),
+        name_span: second.span,
         span: first.span,
     })
 }
@@ -1009,6 +1011,7 @@ fn parse_domain_decl(tokens: &[Token]) -> Option<DomainDecl> {
     };
     Some(DomainDecl {
         name: name.clone(),
+        name_span: second.span,
         type_parameters: parse_domain_type_parameters_after(tokens, 2),
         package: parse_metadata_value(tokens, "package"),
         version: parse_metadata_value(tokens, "version"),
@@ -1108,6 +1111,7 @@ fn parse_component_decl(tokens: &[Token]) -> Option<ComponentDecl> {
     };
     Some(ComponentDecl {
         name: name.clone(),
+        name_span: second.span,
         span: first.span,
     })
 }
@@ -1140,6 +1144,7 @@ fn parse_class_decl(tokens: &[Token]) -> Option<ClassDecl> {
     };
     Some(ClassDecl {
         name: name.clone(),
+        name_span: second.span,
         span: first.span,
     })
 }

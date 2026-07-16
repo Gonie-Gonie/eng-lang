@@ -2367,7 +2367,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     add_function_scoped_symbol_semantic_tokens(&program.functions, &mut builder);
 
     for schema in &program.schemas {
-        builder.push_on_line(schema.line, &schema.name, "class", &["declaration"]);
+        builder.push_named_span(schema.span, &schema.name, "class", &["declaration"]);
         for column in &schema.columns {
             builder.push_on_line(column.line, &column.name, "property", &["declaration"]);
             builder.push_on_line(column.line, &column.type_name, "type", &["quantity"]);
@@ -2723,7 +2723,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for system in &program.systems {
-        builder.push_on_line(system.line, &system.name, "class", &["declaration"]);
+        builder.push_named_span(system.span, &system.name, "class", &["declaration"]);
         for variable in &system.variables {
             match variable.role.as_str() {
                 "state" => builder.push_on_line(
@@ -2771,7 +2771,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for domain in &program.domains {
-        builder.push_on_line(domain.line, &domain.name, "interface", &["declaration"]);
+        builder.push_named_span(domain.span, &domain.name, "interface", &["declaration"]);
         if let Some(package) = &domain.package {
             builder.push_on_line(
                 domain.line,
@@ -2786,7 +2786,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for component in &program.components {
-        builder.push_on_line(component.line, &component.name, "class", &["declaration"]);
+        builder.push_named_span(component.span, &component.name, "class", &["declaration"]);
         for port in &component.ports {
             builder.push_on_line(port.line, &port.name, "property", &["declaration"]);
             builder.push_on_line(
@@ -2823,7 +2823,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for class_info in &program.classes {
-        builder.push_on_line(class_info.line, &class_info.name, "class", &["declaration"]);
+        builder.push_named_span(class_info.span, &class_info.name, "class", &["declaration"]);
         for field in &class_info.fields {
             builder.push_on_line(field.line, &field.name, "property", &["declaration"]);
             builder.push_on_line(field.line, &field.type_name, "type", &["quantity"]);
@@ -3824,7 +3824,7 @@ fn add_review_risk_semantic_tokens(report: &CheckReport, builder: &mut SemanticT
         if let Some(modifier) =
             review_risk_modifier(classify_review_risk("solver_or_numeric", "info").level)
         {
-            builder.push_on_line(system.line, &system.name, "class", &[modifier]);
+            builder.push_named_span(system.span, &system.name, "class", &[modifier]);
         }
     }
 
@@ -11097,6 +11097,47 @@ mod tests {
                 .count(),
             1,
             "the function name must not also receive a parameter token"
+        );
+    }
+
+    #[test]
+    fn structural_container_declarations_use_compiler_name_spans() {
+        let source = concat!(
+            "schema Measurements {\n}\n",
+            "system Plant {\n}\n",
+            "domain Thermal {\n}\n",
+            "component Coil {\n}\n",
+            "class Settings {\n}\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("container_name_spans.eng"), source);
+
+        for (name, token_type) in [
+            ("Measurements", "class"),
+            ("Plant", "class"),
+            ("Thermal", "interface"),
+            ("Coil", "class"),
+            ("Settings", "class"),
+        ] {
+            assert_semantic_token_type(&snapshot, source, name, token_type);
+            assert_semantic_token_modifier(&snapshot, source, name, "declaration");
+            assert_eq!(semantic_token_count(&snapshot, source, name, token_type), 1);
+        }
+
+        let instance_source = concat!(
+            "component Coil {\n}\n",
+            "system Plant {\n",
+            "    coil = Coil()\n",
+            "}\n",
+        );
+        let instance_snapshot = snapshot_for_source(
+            Path::new("component_instance_name_span.eng"),
+            instance_source,
+        );
+        assert_semantic_token_type(&instance_snapshot, instance_source, "coil", "class");
+        assert_semantic_token_modifier(&instance_snapshot, instance_source, "coil", "declaration");
+        assert_eq!(
+            semantic_token_count(&instance_snapshot, instance_source, "coil", "class"),
+            1
         );
     }
 

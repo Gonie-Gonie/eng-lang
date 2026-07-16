@@ -180,6 +180,7 @@ pub type JacobianSeedInfo = JacobianSparsityInfo;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SystemInfo {
     pub name: String,
+    pub span: SourceSpan,
     pub variables: Vec<SystemVariableInfo>,
     pub equations: Vec<EquationInfo>,
     pub residuals: Vec<ResidualInfo>,
@@ -275,6 +276,7 @@ pub struct DomainTypeParameterInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DomainInfo {
     pub name: String,
+    pub span: SourceSpan,
     pub type_parameters: Vec<DomainTypeParameterInfo>,
     pub package: Option<String>,
     pub version: Option<String>,
@@ -316,6 +318,7 @@ pub struct ComponentParameterInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ComponentInfo {
     pub name: String,
+    pub span: SourceSpan,
     pub template_name: Option<String>,
     pub constructor_arguments: Vec<ComponentConstructorArgumentInfo>,
     pub parameters: Vec<ComponentParameterInfo>,
@@ -518,6 +521,7 @@ pub struct ClassMethodInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClassInfo {
     pub name: String,
+    pub span: SourceSpan,
     pub fields: Vec<ClassFieldInfo>,
     pub validations: Vec<ClassValidationInfo>,
     pub methods: Vec<ClassMethodInfo>,
@@ -953,6 +957,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             AstItem::System(system) => {
                 systems.push(SystemInfo {
                     name: system.name.clone(),
+                    span: system.name_span,
                     variables: Vec::new(),
                     equations: Vec::new(),
                     residuals: Vec::new(),
@@ -977,6 +982,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             AstItem::Domain(domain) => {
                 domains.push(DomainInfo {
                     name: domain.name.clone(),
+                    span: domain.name_span,
                     type_parameters: domain
                         .type_parameters
                         .iter()
@@ -1009,6 +1015,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             AstItem::Component(component) => {
                 components.push(ComponentInfo {
                     name: component.name.clone(),
+                    span: component.name_span,
                     template_name: None,
                     constructor_arguments: Vec::new(),
                     parameters: Vec::new(),
@@ -1028,6 +1035,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             AstItem::Class(class_decl) => {
                 classes.push(ClassInfo {
                     name: class_decl.name.clone(),
+                    span: class_decl.name_span,
                     fields: Vec::new(),
                     validations: Vec::new(),
                     methods: Vec::new(),
@@ -1253,7 +1261,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                         &mut diagnostics,
                     ) {
                         ComponentInstanceBindingAnalysis::Instance(instance) => {
-                            component_instances.push(instance);
+                            component_instances.push(*instance);
                             continue;
                         }
                         ComponentInstanceBindingAnalysis::HandledInvalid => continue,
@@ -8610,7 +8618,7 @@ fn strip_component_equation_label(left: &str) -> &str {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum ComponentInstanceBindingAnalysis {
-    Instance(ComponentInfo),
+    Instance(Box<ComponentInfo>),
     HandledInvalid,
     NotComponentConstructor,
 }
@@ -8667,7 +8675,7 @@ fn analyze_component_instance_binding(
     else {
         return ComponentInstanceBindingAnalysis::HandledInvalid;
     };
-    ComponentInstanceBindingAnalysis::Instance(instance)
+    ComponentInstanceBindingAnalysis::Instance(Box::new(instance))
 }
 
 fn parse_component_constructor_arguments(
@@ -8768,6 +8776,7 @@ fn instantiate_component_template(
 ) -> Option<ComponentInfo> {
     let mut instance = template.clone();
     instance.name = binding.name.clone();
+    instance.span = binding.span;
     instance.template_name = Some(template.name.clone());
     instance.constructor_arguments = arguments.to_vec();
     instance.line = binding.line;
