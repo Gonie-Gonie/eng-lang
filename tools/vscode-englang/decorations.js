@@ -1,3 +1,4 @@
+const path = require("path");
 const vscode = require("vscode");
 const { semanticTokenRange } = require("./lspSemanticTokens");
 const {
@@ -33,10 +34,14 @@ function createDecorationController(options = {}) {
     const config = vscode.workspace.getConfiguration("englang", document.uri);
     const decorations = config.get("reviewRiskDecorations.enabled", true)
       ? reviewRiskDecorationOptions(document, review)
-      : { high: [], medium: [] };
+      : { high: [], medium: [], highSideEffect: [] };
     for (const editor of editors) {
       editor.setDecorations(reviewRiskDecorations.high, decorations.high);
       editor.setDecorations(reviewRiskDecorations.medium, decorations.medium);
+      editor.setDecorations(
+        reviewRiskDecorations.highSideEffect,
+        decorations.highSideEffect
+      );
     }
   }
 
@@ -168,6 +173,7 @@ function createDecorationController(options = {}) {
     disposables: [
       reviewRiskDecorations.high,
       reviewRiskDecorations.medium,
+      reviewRiskDecorations.highSideEffect,
       reviewValidationDecorations.pass,
       reviewValidationDecorations.fail,
       semanticSymbolDecorations.internal,
@@ -205,6 +211,12 @@ function createReviewRiskDecorationTypes() {
       borderColor: new vscode.ThemeColor("editorWarning.foreground"),
       overviewRulerColor: new vscode.ThemeColor("editorWarning.foreground"),
       overviewRulerLane: vscode.OverviewRulerLane.Right
+    }),
+    highSideEffect: vscode.window.createTextEditorDecorationType({
+      gutterIconPath: vscode.Uri.file(
+        path.join(__dirname, "media", "risk-high-side-effect.svg")
+      ),
+      gutterIconSize: "contain"
     })
   };
 }
@@ -318,9 +330,32 @@ function reviewRiskDecorationOptions(document, review) {
     ...firstReviewArray(doc, review, "fallbacks")
   ];
   const byLine = new Map();
+  const highSideEffectsByLine = new Map();
   for (const record of records) {
     const lineNumber = reviewRiskLineNumber(record);
-    setReviewRiskDecorationLine(byLine, document, lineNumber, reviewRiskLevel(record), record);
+    const level = reviewRiskLevel(record);
+    setReviewRiskDecorationLine(byLine, document, lineNumber, level, record);
+    setHighSideEffectDecorationLine(
+      highSideEffectsByLine,
+      document,
+      lineNumber,
+      level,
+      record
+    );
+  }
+  for (const record of firstReviewArray(
+    doc,
+    review,
+    "external_boundaries",
+    "externalBoundaries"
+  )) {
+    setHighSideEffectDecorationLine(
+      highSideEffectsByLine,
+      document,
+      reviewRiskLineNumber(record),
+      reviewRiskLevel(record),
+      record
+    );
   }
   for (const token of review?.semantic_tokens?.tokens ?? review?.semanticTokens?.tokens ?? []) {
     const modifiers = token.modifiers ?? [];
@@ -330,10 +365,27 @@ function reviewRiskDecorationOptions(document, review) {
     } else if (modifiers.includes("riskMedium")) {
       level = "medium";
     }
-    setReviewRiskDecorationLine(byLine, document, Number(token.line) + 1, level, {
+    const record = {
       category: "semantic token",
       summary: `Compiler semantic metadata marked this line as ${level} review risk.`
-    });
+    };
+    const lineNumber = Number(token.line) + 1;
+    setReviewRiskDecorationLine(byLine, document, lineNumber, level, record);
+    if (
+      level === "high"
+      && (modifiers.includes("sideEffect") || modifiers.includes("external"))
+    ) {
+      setHighSideEffectDecorationLine(
+        highSideEffectsByLine,
+        document,
+        lineNumber,
+        level,
+        {
+          category: "side_effect",
+          summary: "Compiler semantic metadata marked this line as a high-risk side effect."
+        }
+      );
+    }
   }
 
   const high = [];
@@ -349,7 +401,13 @@ function reviewRiskDecorationOptions(document, review) {
       medium.push(option);
     }
   }
-  return { high, medium };
+  const highSideEffect = [...highSideEffectsByLine.entries()]
+    .sort((left, right) => left[0] - right[0])
+    .map(([lineNumber, record]) => ({
+      range: fullLineRange(document, lineNumber - 1),
+      hoverMessage: highRiskSideEffectHoverMessage(record)
+    }));
+  return { high, medium, highSideEffect };
 }
 
 function reviewValidationDecorationOptions(document, review) {
@@ -675,6 +733,30 @@ function setReviewRiskDecorationLine(byLine, document, lineNumber, level, record
   byLine.set(safeLine, { level, record });
 }
 
+function setHighSideEffectDecorationLine(byLine, document, lineNumber, level, record) {
+  if (
+    level !== "high"
+    || !reviewRiskRecordIsSideEffect(record)
+    || !Number.isFinite(lineNumber)
+    || lineNumber < 1
+    || lineNumber > document.lineCount
+  ) {
+    return;
+  }
+  const safeLine = Math.trunc(lineNumber);
+  if (!byLine.has(safeLine)) {
+    byLine.set(safeLine, record);
+  }
+}
+
+function reviewRiskRecordIsSideEffect(record) {
+  const category = String(reviewValue(record, "category", "category", "")).toLowerCase();
+  const sideEffects = record?.side_effects ?? record?.sideEffects;
+  return category === "side_effect"
+    || category === "external_boundary"
+    || (Array.isArray(sideEffects) && sideEffects.length > 0);
+}
+
 function reviewRiskLineNumber(record) {
   const raw = lineValue(record);
   const lineNumber = Number(raw);
@@ -706,6 +788,24 @@ function reviewRiskHoverMessage(level, record) {
   return markdown;
 }
 
+function highRiskSideEffectHoverMessage(record) {
+  const category = reviewValue(record, "category", "category", "external_boundary");
+  const target = reviewValue(record, "target", "target", "");
+  const summary =
+    reviewValue(record, "summary", "summary", "")
+    || reviewValue(record, "reason", "reason", "")
+    || "This operation can change external state or execute outside EngLang.";
+  const markdown = new vscode.MarkdownString();
+  markdown.isTrusted = false;
+  markdown.appendMarkdown("**EngLang high-risk side effect**");
+  markdown.appendText(`\n\nCategory: ${category}`);
+  if (target) {
+    markdown.appendText(`\nTarget: ${target}`);
+  }
+  markdown.appendText(`\n${summary}`);
+  return markdown;
+}
+
 function fullLineRange(document, lineNumber) {
   const line = document.lineAt(lineNumber);
   if (lineNumber + 1 < document.lineCount) {
@@ -722,6 +822,7 @@ function lineEndRange(document, lineNumber) {
 module.exports = {
   createDecorationController,
   fallbackDecorationOptions,
+  reviewRiskDecorationOptions,
   reviewValidationDecorationOptions,
   timeAlignmentDecorationOptions,
   timeAlignmentWarning

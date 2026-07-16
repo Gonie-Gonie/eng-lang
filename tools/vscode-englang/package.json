@@ -782,7 +782,8 @@
     ],
     "configurationDefaults": {
       "[englang]": {
-        "editor.semanticHighlighting.enabled": true
+        "editor.semanticHighlighting.enabled": true,
+        "editor.glyphMargin": true
       }
     },
     "configuration": {
@@ -844,7 +845,7 @@
         "englang.reviewRiskDecorations.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Show subtle editor line markers and overview-ruler marks for high and medium EngLang review risks."
+          "description": "Show subtle editor line and overview-ruler markers for high and medium review risks, plus a gutter warning icon for high-risk side effects."
         },
         "englang.validationDecorations.enabled": {
           "type": "boolean",

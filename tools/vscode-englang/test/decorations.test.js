@@ -1,6 +1,7 @@
 "use strict";
 
 const assert = require("assert");
+const fs = require("fs");
 const Module = require("module");
 const path = require("path");
 
@@ -40,6 +41,11 @@ const vscodeMock = {
   OverviewRulerLane: { Right: 4 },
   Range,
   ThemeColor,
+  Uri: {
+    file(fsPath) {
+      return { fsPath };
+    }
+  },
   window: {
     visibleTextEditors: [],
     createTextEditorDecorationType(options) {
@@ -58,6 +64,7 @@ const vscodeMock = {
 const originalLoad = Module._load;
 let createDecorationController;
 let fallbackDecorationOptions;
+let reviewRiskDecorationOptions;
 let reviewValidationDecorationOptions;
 let timeAlignmentDecorationOptions;
 let fnv1a64;
@@ -74,6 +81,7 @@ try {
   ({
     createDecorationController,
     fallbackDecorationOptions,
+    reviewRiskDecorationOptions,
     reviewValidationDecorationOptions,
     timeAlignmentDecorationOptions
   } = require("../decorations"));
@@ -167,6 +175,67 @@ const snapshotOptions = reviewValidationDecorationOptions(document, {
 });
 assert.strictEqual(snapshotOptions.pass.length, 1);
 assert.strictEqual(snapshotOptions.fail.length, 0);
+
+const riskOptions = reviewRiskDecorationOptions(document, {
+  review_document: {
+    risks: [
+      {
+        category: "side_effect",
+        level: "high",
+        summary: "write output changes external state",
+        line: 14
+      },
+      {
+        category: "solver_or_numeric",
+        level: "high",
+        summary: "solver result needs review",
+        line: 10
+      },
+      {
+        category: "external_boundary",
+        level: "medium",
+        summary: "network response needs review",
+        line: 9
+      }
+    ],
+    external_boundaries: [
+      {
+        kind: "process",
+        target: "solver.exe",
+        side_effects: ["process_execution"],
+        risk_level: "high",
+        line: 14
+      }
+    ]
+  },
+  semantic_tokens: {
+    tokens: [
+      {
+        line: 14,
+        modifiers: ["sideEffect", "external", "riskHigh"]
+      }
+    ]
+  }
+});
+assert.strictEqual(riskOptions.high.length, 3);
+assert.strictEqual(riskOptions.medium.length, 1);
+assert.strictEqual(riskOptions.highSideEffect.length, 2);
+assert.deepStrictEqual(riskOptions.highSideEffect[0].range.start, {
+  line: 13,
+  character: 0
+});
+assert.deepStrictEqual(riskOptions.highSideEffect[1].range.start, {
+  line: 14,
+  character: 0
+});
+assert.match(riskOptions.highSideEffect[0].hoverMessage.value, /high-risk side effect/);
+assert.match(riskOptions.highSideEffect[0].hoverMessage.value, /write output changes external state/);
+assert.match(riskOptions.highSideEffect[1].hoverMessage.value, /semantic metadata/);
+assert.ok(
+  !riskOptions.highSideEffect.some((option) => (
+    option.hoverMessage.value.includes("solver result needs review")
+  ))
+);
 
 const alignmentOptions = timeAlignmentDecorationOptions(document, {
   time_alignments: [
@@ -403,16 +472,20 @@ assert.strictEqual(
 );
 
 createDecorationController({ isEngDocument: () => true });
-const validationPassType = createdDecorationTypes[2].options;
-const validationFailType = createdDecorationTypes[3].options;
+const highSideEffectType = createdDecorationTypes[2].options;
+assert.strictEqual(highSideEffectType.gutterIconSize, "contain");
+assert.match(highSideEffectType.gutterIconPath.fsPath, /risk-high-side-effect\.svg$/);
+assert.ok(fs.existsSync(highSideEffectType.gutterIconPath.fsPath));
+const validationPassType = createdDecorationTypes[3].options;
+const validationFailType = createdDecorationTypes[4].options;
 assert.strictEqual(validationPassType.after.contentText, "  validation passed");
 assert.strictEqual(validationPassType.after.color.id, "testing.iconPassed");
 assert.strictEqual(validationFailType.after.contentText, "  validation failed");
 assert.strictEqual(validationFailType.after.color.id, "testing.iconFailed");
-const timeAlignmentType = createdDecorationTypes[6].options;
+const timeAlignmentType = createdDecorationTypes[7].options;
 assert.strictEqual(timeAlignmentType.after.color.id, "editorWarning.foreground");
 assert.strictEqual(timeAlignmentType.overviewRulerLane, 4);
-const fallbackType = createdDecorationTypes[7].options;
+const fallbackType = createdDecorationTypes[8].options;
 assert.strictEqual(fallbackType.after.color.id, "editorWarning.foreground");
 assert.strictEqual(fallbackType.overviewRulerLane, 4);
 
@@ -422,4 +495,4 @@ assert.match(reviewHtml, /<strong>good<\/strong>/);
 assert.match(reviewHtml, /u_value &gt; 0 W\/K/);
 assert.match(reviewHtml, /pill good">pass<\/span>/);
 
-process.stdout.write("VS Code validation, TimeSeries alignment, and fallback decoration smoke passed.\n");
+process.stdout.write("VS Code risk, validation, TimeSeries alignment, and fallback decoration smoke passed.\n");

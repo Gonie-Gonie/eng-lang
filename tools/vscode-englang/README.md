@@ -31,7 +31,8 @@ embedding compiler logic in JavaScript.
 - optional `EngLang Dark` and `EngLang Light` color themes with explicit
   semantic colors for every EngLang semantic selector contributed by the
   extension
-- subtle review-risk line and overview-ruler markers for high and medium risks
+- subtle review-risk line and overview-ruler markers for high and medium risks,
+  with a gutter warning icon reserved for high-risk side effects
 - highlight-token inspection command for checking how the current file is
   colored
 - Problems-at-cursor inspection command, available from the Command Palette or
@@ -318,7 +319,9 @@ highlight token details directly to the clipboard; when the caret is between
 tokens, the copied value is the nearest same-line highlight token details.
 
 Review-risk decorations add a subtle left border and overview-ruler mark for
-high and medium review risks without changing source text. Set
+high and medium review risks without changing source text. High-risk
+side-effect and external-boundary lines also receive a gutter warning icon;
+high solver, data-quality, and other review categories do not. Set
 `englang.reviewRiskDecorations.enabled = false` to hide those markers while
 keeping diagnostics and role-aware highlighting enabled.
 
