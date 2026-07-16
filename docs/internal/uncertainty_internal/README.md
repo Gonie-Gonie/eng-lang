@@ -84,9 +84,13 @@ validate mean(Q_coil_dist) between 4 kW and 6 kW
 
 Direct forms such as `validate Q_coil_dist < 10 kW` and test assertions such
 as `assert Q_coil_dist < 10 kW` produce `E-UNC-DIRECT-COMPARE`. The compiler
-type-checks explicit `mean(...)`, percentile, and probability forms; runtime
-pass/fail materialization for probability and `between` remains internal
-follow-up work.
+type-checks explicit `mean(...)`, percentile, and probability forms. The native
+runtime evaluates uncertainty statistics from materialized samples, computes a
+probability as the passing-sample fraction, converts compatible threshold units,
+and materializes pass/fail results for probability comparisons and inclusive
+`between` bounds. Editor diagnostics select the uncertain operand, incompatible
+percentile threshold, or complete invalid `probability(...)` call rather than
+the whole source line.
 
 TimeSeries uncertainty starts as review metadata attached to an existing typed
 TimeSeries:

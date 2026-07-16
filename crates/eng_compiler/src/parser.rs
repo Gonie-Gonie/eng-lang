@@ -2080,7 +2080,13 @@ fn parse_fast_binding(
     if is_process_run_rhs(&expression) {
         return None;
     }
-    let command = parse_command_style_expression(&expression, first.span, context, Some(&name));
+    let command = parse_command_style_expression(
+        &expression,
+        expression_span,
+        first.span,
+        context,
+        Some(&name),
+    );
     let expression = command
         .as_ref()
         .map(|command| command.canonical.clone())
@@ -2137,9 +2143,16 @@ fn parse_where_binding_decl(
         return None;
     }
     let expression = expression_after(line_text, '=')?;
-    let expression = parse_command_style_expression(&expression, first.span, context, Some(name))
-        .map(|command| command.canonical)
-        .unwrap_or(expression);
+    let expression_span = source_span_after_equals(first.span, line_text)?;
+    let expression = parse_command_style_expression(
+        &expression,
+        expression_span,
+        first.span,
+        context,
+        Some(name),
+    )
+    .map(|command| command.canonical)
+    .unwrap_or(expression);
     Some(WhereBindingDecl {
         owner_line,
         name: name.clone(),
@@ -2453,6 +2466,22 @@ fn source_span_for_subslice(
     Some(source_span_for_line_range(line_anchor, start, end))
 }
 
+fn source_span_for_parent_subslice(
+    parent: SourceSpan,
+    parent_text: &str,
+    subslice: &str,
+) -> Option<SourceSpan> {
+    let start = (subslice.as_ptr() as usize).checked_sub(parent_text.as_ptr() as usize)?;
+    let end = start.checked_add(subslice.len())?;
+    if end > parent_text.len()
+        || !parent_text.is_char_boundary(start)
+        || !parent_text.is_char_boundary(end)
+    {
+        return None;
+    }
+    Some(source_span_for_parent_range(parent, start, end))
+}
+
 fn split_top_level_ranges(text: &str, separators: &[char]) -> Vec<(usize, usize)> {
     let mut ranges = Vec::new();
     let mut start = 0usize;
@@ -2529,35 +2558,45 @@ fn parse_standalone_command_style_decl(
         return None;
     }
     let first = tokens.first()?;
-    parse_command_style_expression(line_text.trim(), first.span, context, None)
+    let last = tokens.last()?;
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let expression_start = first.span.start.checked_sub(line_start)?;
+    let expression_end = last.span.end.checked_sub(line_start)?;
+    let expression = line_text.get(expression_start..expression_end)?;
+    let expression_span = source_span_for_line_range(first.span, expression_start, expression_end);
+    parse_command_style_expression(expression, expression_span, first.span, context, None)
 }
 
 fn parse_command_style_expression(
     expression: &str,
-    span: SourceSpan,
+    expression_span: SourceSpan,
+    declaration_span: SourceSpan,
     context: ParseContext,
     owner: Option<&String>,
 ) -> Option<CommandStyleDecl> {
     let trimmed = expression.trim().trim_end_matches('{').trim();
+    let trimmed_span = source_span_for_parent_subslice(expression_span, expression, trimmed)?;
     let (verb, rest) = split_first_word(trimmed)?;
+    let rest_span = source_span_for_parent_subslice(trimmed_span, trimmed, rest)?;
     if !is_command_style_verb(verb) {
         if looks_like_unknown_command_style(verb, rest) {
-            let (target, clauses) = split_command_target_and_clauses(rest);
+            let parts = split_command_target_and_clauses(rest);
             return Some(CommandStyleDecl {
                 verb: verb.to_owned(),
-                target: target.trim().to_owned(),
-                clauses: clauses
-                    .iter()
-                    .map(|(name, value)| CommandClauseDecl {
-                        name: name.clone(),
-                        value: value.clone(),
-                    })
-                    .collect(),
+                target: parts.target,
+                target_span: parts
+                    .target_range
+                    .map(|(start, end)| source_span_for_parent_range(rest_span, start, end)),
+                clauses: command_clause_decls(&parts.clauses, rest_span),
                 canonical: trimmed.to_owned(),
                 status: "unknown_verb".to_owned(),
                 owner: owner.cloned(),
-                line: span.line,
-                span,
+                line: declaration_span.line,
+                span: declaration_span,
+                expression_span: trimmed_span,
                 context,
             });
         }
@@ -2567,8 +2606,8 @@ fn parse_command_style_expression(
         return None;
     }
 
-    let (target, clauses) = split_command_target_and_clauses(rest);
-    let target = target.trim();
+    let parts = split_command_target_and_clauses(rest);
+    let target = parts.target.as_str();
     let status = if target.is_empty() {
         "missing_target"
     } else if command_target_is_ambiguous(verb, target) {
@@ -2576,23 +2615,20 @@ fn parse_command_style_expression(
     } else {
         "lowered"
     };
-    let canonical_target = target.trim();
-    let canonical = canonical_command_call(verb, canonical_target, &clauses);
+    let canonical = canonical_command_call(verb, target, &parts.clauses);
     Some(CommandStyleDecl {
         verb: verb.to_owned(),
-        target: canonical_target.to_owned(),
-        clauses: clauses
-            .iter()
-            .map(|(name, value)| CommandClauseDecl {
-                name: name.clone(),
-                value: value.clone(),
-            })
-            .collect(),
+        target: parts.target,
+        target_span: parts
+            .target_range
+            .map(|(start, end)| source_span_for_parent_range(rest_span, start, end)),
+        clauses: command_clause_decls(&parts.clauses, rest_span),
         canonical,
         status: status.to_owned(),
         owner: owner.cloned(),
-        line: span.line,
-        span,
+        line: declaration_span.line,
+        span: declaration_span,
+        expression_span: trimmed_span,
         context,
     })
 }
@@ -2684,18 +2720,45 @@ fn is_non_command_style_statement_verb(verb: &str) -> bool {
     )
 }
 
-fn split_command_target_and_clauses(rest: &str) -> (String, Vec<(String, String)>) {
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct CommandTargetParts {
+    target: String,
+    target_range: Option<(usize, usize)>,
+    clauses: Vec<CommandClauseParts>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct CommandClauseParts {
+    name: String,
+    name_range: (usize, usize),
+    value: String,
+    value_range: (usize, usize),
+}
+
+fn split_command_target_and_clauses(rest: &str) -> CommandTargetParts {
     let positions = top_level_clause_positions(
         rest,
         &[
             "over", "by", "as", "above", "below", "between", "from", "to", "with",
         ],
     );
+    let target_end = positions
+        .first()
+        .map(|(start, _)| *start)
+        .unwrap_or(rest.len());
+    let target_range = trimmed_byte_range(rest, 0, target_end);
+    let target = target_range
+        .and_then(|(start, end)| rest.get(start..end))
+        .unwrap_or_default()
+        .to_owned();
     if positions.is_empty() {
-        return (rest.trim().to_owned(), Vec::new());
+        return CommandTargetParts {
+            target,
+            target_range,
+            clauses: Vec::new(),
+        };
     }
 
-    let target = rest[..positions[0].0].trim().to_owned();
     let mut clauses = Vec::new();
     for (index, (start, name)) in positions.iter().enumerate() {
         let value_start = start + name.len();
@@ -2703,12 +2766,45 @@ fn split_command_target_and_clauses(rest: &str) -> (String, Vec<(String, String)
             .get(index + 1)
             .map(|(next_start, _)| *next_start)
             .unwrap_or(rest.len());
-        let value = rest[value_start..value_end].trim();
-        if !value.is_empty() {
-            clauses.push(((*name).to_owned(), value.to_owned()));
-        }
+        let Some(value_range) = trimmed_byte_range(rest, value_start, value_end) else {
+            continue;
+        };
+        let value = rest[value_range.0..value_range.1].to_owned();
+        clauses.push(CommandClauseParts {
+            name: (*name).to_owned(),
+            name_range: (*start, *start + name.len()),
+            value,
+            value_range,
+        });
     }
-    (target, clauses)
+    CommandTargetParts {
+        target,
+        target_range,
+        clauses,
+    }
+}
+
+fn command_clause_decls(
+    clauses: &[CommandClauseParts],
+    rest_span: SourceSpan,
+) -> Vec<CommandClauseDecl> {
+    clauses
+        .iter()
+        .map(|clause| CommandClauseDecl {
+            name: clause.name.clone(),
+            name_span: source_span_for_parent_range(
+                rest_span,
+                clause.name_range.0,
+                clause.name_range.1,
+            ),
+            value: clause.value.clone(),
+            value_span: source_span_for_parent_range(
+                rest_span,
+                clause.value_range.0,
+                clause.value_range.1,
+            ),
+        })
+        .collect()
 }
 
 fn top_level_clause_positions<'a>(text: &str, keywords: &[&'a str]) -> Vec<(usize, &'a str)> {
@@ -2821,14 +2917,14 @@ fn is_simple_dotted_identifier(value: &str) -> bool {
             .all(|part| !part.is_empty() && part.chars().all(is_word_character))
 }
 
-fn canonical_command_call(verb: &str, target: &str, clauses: &[(String, String)]) -> String {
+fn canonical_command_call(verb: &str, target: &str, clauses: &[CommandClauseParts]) -> String {
     let mut args = vec![target.to_owned()];
-    for (name, value) in clauses {
-        let canonical_name = match (verb, name.as_str()) {
+    for clause in clauses {
+        let canonical_name = match (verb, clause.name.as_str()) {
             ("mean" | "max" | "min", "over") => "axis",
-            _ => name,
+            _ => &clause.name,
         };
-        args.push(format!("{canonical_name}={value}"));
+        args.push(format!("{canonical_name}={}", clause.value));
     }
     format!("{verb}({})", args.join(", "))
 }
@@ -3090,9 +3186,11 @@ fn parse_csv_export_field_decl(
     if expression.is_empty() || display_unit.trim().is_empty() {
         return None;
     }
-    let expression = parse_command_style_expression(expression, first.span, context, None)
-        .map(|command| command.canonical)
-        .unwrap_or_else(|| expression.to_owned());
+    let expression_span = source_span_for_subslice(first.span, line_text, expression)?;
+    let expression =
+        parse_command_style_expression(expression, expression_span, first.span, context, None)
+            .map(|command| command.canonical)
+            .unwrap_or_else(|| expression.to_owned());
 
     Some(CsvExportFieldDecl {
         expression,
@@ -3406,43 +3504,82 @@ fn parse_assert_decl(
     if !matches!(first.kind, TokenKind::Keyword(Keyword::Assert)) {
         return None;
     }
-    let expression = line_text
-        .trim()
-        .strip_prefix("assert")
-        .map(str::trim)
+    let last = tokens.last()?;
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let expression_start = first.span.end.checked_sub(line_start)?;
+    let expression_end = last.span.end.checked_sub(line_start)?;
+    let parts = trimmed_byte_range(line_text, expression_start, expression_end)
+        .and_then(|(start, end)| {
+            let expression = line_text.get(start..end)?;
+            let expression_span = source_span_for_line_range(first.span, start, end);
+            Some(split_assert_expression(expression, expression_span))
+        })
         .unwrap_or_default();
-    let (without_tolerance, tolerance) = split_assert_tolerance(expression);
-    let (left, operator, right) = split_assert_operator(&without_tolerance)
-        .unwrap_or_else(|| (String::new(), String::new(), String::new()));
     Some(AssertDecl {
-        left,
-        operator,
-        right,
-        tolerance,
+        left: parts.left,
+        left_span: parts.left_span,
+        operator: parts.operator,
+        operator_span: parts.operator_span,
+        right: parts.right,
+        right_span: parts.right_span,
+        tolerance: parts.tolerance,
+        tolerance_span: parts.tolerance_span,
         line: first.span.line,
         span: first.span,
         context,
     })
 }
 
-fn split_assert_tolerance(expression: &str) -> (String, Option<String>) {
-    expression
-        .split_once(" within ")
-        .map(|(left, tolerance)| (left.trim().to_owned(), Some(tolerance.trim().to_owned())))
-        .unwrap_or_else(|| (expression.trim().to_owned(), None))
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+struct AssertExpressionParts {
+    left: String,
+    left_span: Option<SourceSpan>,
+    operator: String,
+    operator_span: Option<SourceSpan>,
+    right: String,
+    right_span: Option<SourceSpan>,
+    tolerance: Option<String>,
+    tolerance_span: Option<SourceSpan>,
 }
 
-fn split_assert_operator(expression: &str) -> Option<(String, String, String)> {
+fn split_assert_expression(expression: &str, expression_span: SourceSpan) -> AssertExpressionParts {
+    let (comparison, tolerance) = expression
+        .split_once(" within ")
+        .map(|(comparison, tolerance)| (comparison.trim(), Some(tolerance.trim())))
+        .unwrap_or((expression.trim(), None));
     for operator in ["==", "!=", ">=", "<=", ">", "<"] {
-        if let Some((left, right)) = expression.split_once(operator) {
-            return Some((
-                left.trim().to_owned(),
-                operator.to_owned(),
-                right.trim().to_owned(),
-            ));
+        if let Some((left, right)) = comparison.split_once(operator) {
+            let left = left.trim();
+            let right = right.trim();
+            let operator_start = comparison.find(operator).unwrap_or(0);
+            return AssertExpressionParts {
+                left: left.to_owned(),
+                left_span: source_span_for_parent_subslice(expression_span, expression, left),
+                operator: operator.to_owned(),
+                operator_span: Some(source_span_for_parent_range(
+                    source_span_for_parent_subslice(expression_span, expression, comparison)
+                        .unwrap_or(expression_span),
+                    operator_start,
+                    operator_start + operator.len(),
+                )),
+                right: right.to_owned(),
+                right_span: source_span_for_parent_subslice(expression_span, expression, right),
+                tolerance: tolerance.map(str::to_owned),
+                tolerance_span: tolerance.and_then(|value| {
+                    source_span_for_parent_subslice(expression_span, expression, value)
+                }),
+            };
         }
     }
-    None
+    AssertExpressionParts {
+        tolerance: tolerance.map(str::to_owned),
+        tolerance_span: tolerance
+            .and_then(|value| source_span_for_parent_subslice(expression_span, expression, value)),
+        ..AssertExpressionParts::default()
+    }
 }
 
 fn parse_golden_decl(

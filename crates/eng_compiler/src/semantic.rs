@@ -1,11 +1,12 @@
 use crate::ast::{
     ArgsFieldDecl, AssertDecl, AstItem, ClassFieldDecl, ClassMethodDecl, ClassObjectCopyDecl,
-    ClassObjectDecl, ClassObjectFieldDecl, ClassValidationDecl, CommandStyleDecl, ConnectDecl,
-    ConstDecl, CsvExportDecl, CsvExportFieldDecl, DomainTypeParameterDecl, DomainVariableDecl,
-    ExpectationDecl, ExplicitDecl, FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl,
-    GoldenDecl, ImportDecl, PortDecl, PrintDecl, ProcessRunDecl, ReturnDecl,
-    StateSpaceTypeBlockDecl, StateSpaceTypeMemberDecl, StateSpaceVectorDecl, SystemVariableDecl,
-    TestDecl, WhereBindingDecl, WithOptionDecl, WriteDecl,
+    ClassObjectDecl, ClassObjectFieldDecl, ClassValidationDecl, CommandClauseDecl,
+    CommandStyleDecl, ConnectDecl, ConstDecl, CsvExportDecl, CsvExportFieldDecl,
+    DomainTypeParameterDecl, DomainVariableDecl, ExpectationDecl, ExplicitDecl, FastBinding,
+    FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl, PortDecl,
+    PrintDecl, ProcessRunDecl, ReturnDecl, StateSpaceTypeBlockDecl, StateSpaceTypeMemberDecl,
+    StateSpaceVectorDecl, SystemVariableDecl, TestDecl, WhereBindingDecl, WithOptionDecl,
+    WriteDecl,
 };
 use crate::cache::CacheRecordInfo;
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
@@ -726,9 +727,13 @@ pub struct ProcessRunInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AssertInfo {
     pub left: String,
+    pub left_span: Option<SourceSpan>,
     pub operator: String,
+    pub operator_span: Option<SourceSpan>,
     pub right: String,
+    pub right_span: Option<SourceSpan>,
     pub tolerance: Option<String>,
+    pub tolerance_span: Option<SourceSpan>,
     pub line: usize,
 }
 
@@ -750,18 +755,22 @@ pub struct TestInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandClauseInfo {
     pub name: String,
+    pub name_span: SourceSpan,
     pub value: String,
+    pub value_span: SourceSpan,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandStyleInfo {
     pub verb: String,
     pub target: String,
+    pub target_span: Option<SourceSpan>,
     pub clauses: Vec<CommandClauseInfo>,
     pub canonical: String,
     pub status: String,
     pub owner: Option<String>,
     pub line: usize,
+    pub expression_span: SourceSpan,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1813,18 +1822,22 @@ fn analyze_command_style_decl(
     command_styles.push(CommandStyleInfo {
         verb: command.verb.clone(),
         target: command.target.clone(),
+        target_span: command.target_span,
         clauses: command
             .clauses
             .iter()
             .map(|clause| CommandClauseInfo {
                 name: clause.name.clone(),
+                name_span: clause.name_span,
                 value: clause.value.clone(),
+                value_span: clause.value_span,
             })
             .collect(),
         canonical: command.canonical.clone(),
         status: command.status.clone(),
         owner: command.owner.clone(),
         line: command.line,
+        expression_span: command.expression_span,
     });
 }
 
@@ -1841,7 +1854,7 @@ fn validate_command_expression(
     {
         validate_between_command_expression(
             command,
-            &between.value,
+            between,
             typed_bindings,
             functions,
             diagnostics,
@@ -1853,40 +1866,51 @@ fn validate_command_expression(
         return;
     }
 
-    let Some((left, _operator, right)) = split_validation_expression(&command.target) else {
-        diagnostics.push(Diagnostic::error(
-            "E-VALIDATE-BOOL-001",
-            command.line,
-            &format!(
-                "`validate {}` must be a comparison expression.",
-                command.target
-            ),
-            Some(
-                "Write forms such as `validate rmse_T < 5 K` so the expression evaluates to Bool.",
-            ),
-        ));
+    let target_span = command.target_span.unwrap_or(command.expression_span);
+    let Some((left, _operator, right)) = split_validation_expression(&command.target, target_span)
+    else {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-VALIDATE-BOOL-001",
+                target_span.line,
+                &format!(
+                    "`validate {}` must be a comparison expression.",
+                    command.target
+                ),
+                Some(
+                    "Write forms such as `validate rmse_T < 5 K` so the expression evaluates to Bool.",
+                ),
+            )
+            .with_source_span(target_span),
+        );
         return;
     };
 
-    validate_probability_expression(&left, command.line, typed_bindings, functions, diagnostics);
-    validate_probability_expression(&right, command.line, typed_bindings, functions, diagnostics);
-    let left_type = assert_expression_semantic_type(&left, typed_bindings, functions);
-    let right_type = assert_expression_semantic_type(&right, typed_bindings, functions);
+    validate_probability_expression(&left, typed_bindings, functions, diagnostics);
+    validate_probability_expression(&right, typed_bindings, functions, diagnostics);
+    let left_type = assert_expression_semantic_type(&left.value, typed_bindings, functions);
+    let right_type = assert_expression_semantic_type(&right.value, typed_bindings, functions);
     if left_type.is_none() {
-        diagnostics.push(Diagnostic::error(
-            "E-VALIDATE-EXPR-001",
-            command.line,
-            &format!("Cannot resolve validation expression `{left}`."),
-            Some("Validate a typed metric, integration result, function call, or literal."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-VALIDATE-EXPR-001",
+                left.span.line,
+                &format!("Cannot resolve validation expression `{}`.", left.value),
+                Some("Validate a typed metric, integration result, function call, or literal."),
+            )
+            .with_source_span(left.span),
+        );
     }
     if right_type.is_none() {
-        diagnostics.push(Diagnostic::error(
-            "E-VALIDATE-EXPR-001",
-            command.line,
-            &format!("Cannot resolve validation expression `{right}`."),
-            Some("Use a typed threshold such as `5 K` or a compatible binding."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-VALIDATE-EXPR-001",
+                right.span.line,
+                &format!("Cannot resolve validation expression `{}`.", right.value),
+                Some("Use a typed threshold such as `5 K` or a compatible binding."),
+            )
+            .with_source_span(right.span),
+        );
     }
     if let (Some(left_type), Some(right_type)) = (&left_type, &right_type) {
         if push_direct_uncertainty_comparison_diagnostic(
@@ -1895,7 +1919,6 @@ fn validate_command_expression(
             &right,
             left_type,
             right_type,
-            command.line,
             diagnostics,
         ) {
             return;
@@ -1904,7 +1927,6 @@ fn validate_command_expression(
             "Validation",
             (&left, &right),
             (left_type, right_type),
-            command.line,
             typed_bindings,
             diagnostics,
         );
@@ -1927,52 +1949,67 @@ fn is_coverage_complete_validation_target(
 
 fn validate_between_command_expression(
     command: &CommandStyleDecl,
-    between: &str,
+    between: &CommandClauseDecl,
     typed_bindings: &[TypedBinding],
     functions: &[FunctionInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let Some((lower, upper)) = split_between_bounds(between) else {
-        diagnostics.push(Diagnostic::error(
-            "E-VALIDATE-BOOL-001",
-            command.line,
-            &format!(
-                "`validate {}` has an invalid `between` clause.",
-                command.target
-            ),
-            Some("Write forms such as `validate mean(Q) between 4 kW and 6 kW`."),
-        ));
+    let Some((lower, upper)) = split_between_bounds(&between.value, between.value_span) else {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-VALIDATE-BOOL-001",
+                between.value_span.line,
+                &format!(
+                    "`validate {}` has an invalid `between` clause.",
+                    command.target
+                ),
+                Some("Write forms such as `validate mean(Q) between 4 kW and 6 kW`."),
+            )
+            .with_source_span(between.value_span),
+        );
         return;
     };
 
-    let value = command.target.trim().to_owned();
-    validate_probability_expression(&value, command.line, typed_bindings, functions, diagnostics);
-    let value_type = assert_expression_semantic_type(&value, typed_bindings, functions);
-    let lower_type = assert_expression_semantic_type(&lower, typed_bindings, functions);
-    let upper_type = assert_expression_semantic_type(&upper, typed_bindings, functions);
+    let value = ValidationExpression {
+        value: command.target.trim().to_owned(),
+        span: command.target_span.unwrap_or(command.expression_span),
+    };
+    validate_probability_expression(&value, typed_bindings, functions, diagnostics);
+    let value_type = assert_expression_semantic_type(&value.value, typed_bindings, functions);
+    let lower_type = assert_expression_semantic_type(&lower.value, typed_bindings, functions);
+    let upper_type = assert_expression_semantic_type(&upper.value, typed_bindings, functions);
     if value_type.is_none() {
-        diagnostics.push(Diagnostic::error(
-            "E-VALIDATE-EXPR-001",
-            command.line,
-            &format!("Cannot resolve validation expression `{value}`."),
-            Some("Validate a typed metric, integration result, function call, or literal."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-VALIDATE-EXPR-001",
+                value.span.line,
+                &format!("Cannot resolve validation expression `{}`.", value.value),
+                Some("Validate a typed metric, integration result, function call, or literal."),
+            )
+            .with_source_span(value.span),
+        );
     }
     if lower_type.is_none() {
-        diagnostics.push(Diagnostic::error(
-            "E-VALIDATE-EXPR-001",
-            command.line,
-            &format!("Cannot resolve validation expression `{lower}`."),
-            Some("Use a typed lower bound such as `4 kW` or a compatible binding."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-VALIDATE-EXPR-001",
+                lower.span.line,
+                &format!("Cannot resolve validation expression `{}`.", lower.value),
+                Some("Use a typed lower bound such as `4 kW` or a compatible binding."),
+            )
+            .with_source_span(lower.span),
+        );
     }
     if upper_type.is_none() {
-        diagnostics.push(Diagnostic::error(
-            "E-VALIDATE-EXPR-001",
-            command.line,
-            &format!("Cannot resolve validation expression `{upper}`."),
-            Some("Use a typed upper bound such as `6 kW` or a compatible binding."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-VALIDATE-EXPR-001",
+                upper.span.line,
+                &format!("Cannot resolve validation expression `{}`.", upper.value),
+                Some("Use a typed upper bound such as `6 kW` or a compatible binding."),
+            )
+            .with_source_span(upper.span),
+        );
     }
     if let (Some(value_type), Some(lower_type), Some(upper_type)) =
         (&value_type, &lower_type, &upper_type)
@@ -1983,7 +2020,6 @@ fn validate_between_command_expression(
             &lower,
             value_type,
             lower_type,
-            command.line,
             diagnostics,
         );
         let upper_direct = push_direct_uncertainty_comparison_diagnostic(
@@ -1992,7 +2028,6 @@ fn validate_between_command_expression(
             &upper,
             value_type,
             upper_type,
-            command.line,
             diagnostics,
         );
         if lower_direct || upper_direct {
@@ -2002,7 +2037,6 @@ fn validate_between_command_expression(
             "Validation",
             (&value, &lower),
             (value_type, lower_type),
-            command.line,
             typed_bindings,
             diagnostics,
         );
@@ -2010,31 +2044,77 @@ fn validate_between_command_expression(
             "Validation",
             (&value, &upper),
             (value_type, upper_type),
-            command.line,
             typed_bindings,
             diagnostics,
         );
     }
 }
 
-fn split_between_bounds(value: &str) -> Option<(String, String)> {
-    let (lower, upper) = value.split_once(" and ")?;
-    let lower = lower.trim();
-    let upper = upper.trim();
-    if lower.is_empty() || upper.is_empty() {
-        return None;
-    }
-    Some((lower.to_owned(), upper.to_owned()))
+fn split_between_bounds(
+    value: &str,
+    value_span: SourceSpan,
+) -> Option<(ValidationExpression, ValidationExpression)> {
+    let separator = value.find(" and ")?;
+    let (lower_start, lower_end) = trimmed_byte_range(value, 0, separator)?;
+    let upper_start = separator + " and ".len();
+    let (upper_start, upper_end) = trimmed_byte_range(value, upper_start, value.len())?;
+    Some((
+        ValidationExpression {
+            value: value[lower_start..lower_end].to_owned(),
+            span: source_span_for_child_range(value_span, lower_start, lower_end),
+        },
+        ValidationExpression {
+            value: value[upper_start..upper_end].to_owned(),
+            span: source_span_for_child_range(value_span, upper_start, upper_end),
+        },
+    ))
 }
 
-fn split_validation_expression(expression: &str) -> Option<(String, String, String)> {
-    let (index, operator) = top_level_comparison_operator(expression)?;
-    let left = expression[..index].trim();
-    let right = expression[index + operator.len()..].trim();
-    if left.is_empty() || right.is_empty() {
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ValidationExpression {
+    value: String,
+    span: SourceSpan,
+}
+
+fn trimmed_byte_range(text: &str, start: usize, end: usize) -> Option<(usize, usize)> {
+    let slice = text.get(start..end)?;
+    let trimmed = slice.trim();
+    if trimmed.is_empty() {
         return None;
     }
-    Some((left.to_owned(), operator.to_owned(), right.to_owned()))
+    let leading = slice.len() - slice.trim_start().len();
+    let trimmed_start = start + leading;
+    Some((trimmed_start, trimmed_start + trimmed.len()))
+}
+
+fn source_span_for_child_range(parent: SourceSpan, start: usize, end: usize) -> SourceSpan {
+    SourceSpan::new(
+        parent.start + start,
+        parent.start + end,
+        parent.line,
+        parent.column + start,
+    )
+}
+
+fn split_validation_expression(
+    expression: &str,
+    expression_span: SourceSpan,
+) -> Option<(ValidationExpression, String, ValidationExpression)> {
+    let (index, operator) = top_level_comparison_operator(expression)?;
+    let (left_start, left_end) = trimmed_byte_range(expression, 0, index)?;
+    let right_start = index + operator.len();
+    let (right_start, right_end) = trimmed_byte_range(expression, right_start, expression.len())?;
+    Some((
+        ValidationExpression {
+            value: expression[left_start..left_end].to_owned(),
+            span: source_span_for_child_range(expression_span, left_start, left_end),
+        },
+        operator.to_owned(),
+        ValidationExpression {
+            value: expression[right_start..right_end].to_owned(),
+            span: source_span_for_child_range(expression_span, right_start, right_end),
+        },
+    ))
 }
 
 fn top_level_comparison_operator(expression: &str) -> Option<(usize, &'static str)> {
@@ -2067,57 +2147,76 @@ fn top_level_comparison_operator(expression: &str) -> Option<(usize, &'static st
 }
 
 fn validate_probability_expression(
-    expression: &str,
-    line: usize,
+    expression: &ValidationExpression,
     typed_bindings: &[TypedBinding],
     functions: &[FunctionInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let Some(call) = parse_function_call(expression) else {
+    let Some(call) = parse_function_call(&expression.value) else {
         return;
     };
     if call.name != "probability" {
         return;
     }
     if call.args.len() != 1 {
-        diagnostics.push(Diagnostic::error(
-            "E-UNC-PROBABILITY-EXPR-INVALID",
-            line,
-            "`probability(...)` requires one comparison expression.",
-            Some("Write `probability(Q < 10 kW)` with an uncertain value and a compatible threshold."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-UNC-PROBABILITY-EXPR-INVALID",
+                expression.span.line,
+                "`probability(...)` requires one comparison expression.",
+                Some("Write `probability(Q < 10 kW)` with an uncertain value and a compatible threshold."),
+            )
+            .with_source_span(expression.span),
+        );
         return;
     }
-    let Some((left, _operator, right)) = split_validation_expression(&call.args[0]) else {
-        diagnostics.push(Diagnostic::error(
-            "E-UNC-PROBABILITY-EXPR-INVALID",
-            line,
-            &format!(
-                "`probability({})` must contain a comparison expression.",
-                call.args[0]
-            ),
-            Some("Write `probability(Q < 10 kW)` with `<`, `<=`, `>`, or `>=`."),
-        ));
+    let argument_span = single_call_argument_span(expression).unwrap_or(expression.span);
+    let Some((left, _operator, right)) = split_validation_expression(&call.args[0], argument_span)
+    else {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-UNC-PROBABILITY-EXPR-INVALID",
+                expression.span.line,
+                &format!(
+                    "`probability({})` must contain a comparison expression.",
+                    call.args[0]
+                ),
+                Some("Write `probability(Q < 10 kW)` with `<`, `<=`, `>`, or `>=`."),
+            )
+            .with_source_span(expression.span),
+        );
         return;
     };
-    let left_type = assert_expression_semantic_type(&left, typed_bindings, functions);
-    let right_type = assert_expression_semantic_type(&right, typed_bindings, functions);
+    let left_type = assert_expression_semantic_type(&left.value, typed_bindings, functions);
+    let right_type = assert_expression_semantic_type(&right.value, typed_bindings, functions);
     let Some(left_type) = left_type else {
-        diagnostics.push(Diagnostic::error(
-            "E-UNC-PROBABILITY-EXPR-INVALID",
-            line,
-            &format!("Cannot resolve probability expression side `{left}`."),
-            Some("Use a prior uncertainty binding and a typed threshold."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-UNC-PROBABILITY-EXPR-INVALID",
+                expression.span.line,
+                &format!(
+                    "Cannot resolve probability expression side `{}`.",
+                    left.value
+                ),
+                Some("Use a prior uncertainty binding and a typed threshold."),
+            )
+            .with_source_span(expression.span),
+        );
         return;
     };
     let Some(right_type) = right_type else {
-        diagnostics.push(Diagnostic::error(
-            "E-UNC-PROBABILITY-EXPR-INVALID",
-            line,
-            &format!("Cannot resolve probability expression side `{right}`."),
-            Some("Use a prior uncertainty binding and a typed threshold."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-UNC-PROBABILITY-EXPR-INVALID",
+                expression.span.line,
+                &format!(
+                    "Cannot resolve probability expression side `{}`.",
+                    right.value
+                ),
+                Some("Use a prior uncertainty binding and a typed threshold."),
+            )
+            .with_source_span(expression.span),
+        );
         return;
     };
     let left_uncertain = uncertainty_inner_semantic_type(&left_type);
@@ -2128,36 +2227,48 @@ fn validate_probability_expression(
         _ => None,
     };
     let Some((uncertain_inner, threshold_type)) = probability_contract else {
-        diagnostics.push(Diagnostic::error(
-            "E-UNC-PROBABILITY-EXPR-INVALID",
-            line,
-            &format!("`probability({})` must compare exactly one uncertain value with a threshold.", call.args[0]),
-            Some("Compare forms such as `probability(Q < 10 kW)` are supported for the current uncertainty track."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-UNC-PROBABILITY-EXPR-INVALID",
+                expression.span.line,
+                &format!("`probability({})` must compare exactly one uncertain value with a threshold.", call.args[0]),
+                Some("Compare forms such as `probability(Q < 10 kW)` are supported for the current uncertainty track."),
+            )
+            .with_source_span(expression.span),
+        );
         return;
     };
     let uncertain_dimension = dimension_for_quantity(&uncertain_inner.quantity_kind);
     let threshold_dimension = dimension_for_quantity(&threshold_type.quantity_kind);
     if !dimensions_compatible(&uncertain_dimension, &threshold_dimension) {
-        diagnostics.push(Diagnostic::error(
-            "E-UNC-PROBABILITY-EXPR-INVALID",
-            line,
-            &format!(
-                "`probability({})` compares {uncertain_dimension} uncertainty with {threshold_dimension} threshold.",
-                call.args[0]
-            ),
-            Some("Use a probability threshold with the same physical dimension as the uncertain value."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-UNC-PROBABILITY-EXPR-INVALID",
+                expression.span.line,
+                &format!(
+                    "`probability({})` compares {uncertain_dimension} uncertainty with {threshold_dimension} threshold.",
+                    call.args[0]
+                ),
+                Some("Use a probability threshold with the same physical dimension as the uncertain value."),
+            )
+            .with_source_span(expression.span),
+        );
     }
+}
+
+fn single_call_argument_span(expression: &ValidationExpression) -> Option<SourceSpan> {
+    let open = expression.value.find('(')? + '('.len_utf8();
+    let close = expression.value.rfind(')')?;
+    let (start, end) = trimmed_byte_range(&expression.value, open, close)?;
+    Some(source_span_for_child_range(expression.span, start, end))
 }
 
 fn push_direct_uncertainty_comparison_diagnostic(
     context: &str,
-    left: &str,
-    right: &str,
+    left: &ValidationExpression,
+    right: &ValidationExpression,
     left_type: &SemanticType,
     right_type: &SemanticType,
-    line: usize,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> bool {
     let left_uncertain = uncertainty_inner_semantic_type(left_type).is_some();
@@ -2170,22 +2281,25 @@ fn push_direct_uncertainty_comparison_diagnostic(
     } else {
         (left, right)
     };
-    diagnostics.push(Diagnostic::error(
-        "E-UNC-DIRECT-COMPARE",
-        line,
-        &format!(
-            "{context} compares uncertain value directly: `{uncertain_expression}` vs `{compared_expression}`."
-        ),
-        Some("Use an explicit uncertainty statistic such as `mean(Q)`, `p95(Q)`, or `probability(Q < threshold)`."),
-    ));
+    diagnostics.push(
+        Diagnostic::error(
+            "E-UNC-DIRECT-COMPARE",
+            uncertain_expression.span.line,
+            &format!(
+                "{context} compares uncertain value directly: `{}` vs `{}`.",
+                uncertain_expression.value, compared_expression.value
+            ),
+            Some("Use an explicit uncertainty statistic such as `mean(Q)`, `p95(Q)`, or `probability(Q < threshold)`."),
+        )
+        .with_source_span(uncertain_expression.span),
+    );
     true
 }
 
 fn validate_comparison_dimensions(
     context: &str,
-    expressions: (&str, &str),
+    expressions: (&ValidationExpression, &ValidationExpression),
     semantic_types: (&SemanticType, &SemanticType),
-    line: usize,
     typed_bindings: &[TypedBinding],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
@@ -2196,8 +2310,9 @@ fn validate_comparison_dimensions(
     if dimensions_compatible(&left_dimension, &right_dimension) {
         return;
     }
-    let percentile_mismatch = uncertainty_percentile_expression(left, typed_bindings)
-        || uncertainty_percentile_expression(right, typed_bindings);
+    let left_percentile = uncertainty_percentile_expression(&left.value, typed_bindings);
+    let right_percentile = uncertainty_percentile_expression(&right.value, typed_bindings);
+    let percentile_mismatch = left_percentile || right_percentile;
     let code = if percentile_mismatch {
         "E-UNC-PERCENTILE-UNIT-MISMATCH"
     } else if context == "Assert" {
@@ -2212,14 +2327,25 @@ fn validate_comparison_dimensions(
     } else {
         "Use a threshold with the same physical dimension as the validated value."
     };
-    diagnostics.push(Diagnostic::error(
-        code,
-        line,
-        &format!(
-            "{context} compares `{left}` ({left_dimension}) with `{right}` ({right_dimension})."
-        ),
-        Some(help),
-    ));
+    let source_span = if left_percentile && !right_percentile {
+        right.span
+    } else if right_percentile && !left_percentile {
+        left.span
+    } else {
+        right.span
+    };
+    diagnostics.push(
+        Diagnostic::error(
+            code,
+            source_span.line,
+            &format!(
+                "{context} compares `{}` ({left_dimension}) with `{}` ({right_dimension}).",
+                left.value, right.value
+            ),
+            Some(help),
+        )
+        .with_source_span(source_span),
+    );
 }
 
 fn uncertainty_inner_semantic_type(value_type: &SemanticType) -> Option<SemanticType> {
@@ -4311,83 +4437,109 @@ fn analyze_assert_decl(
         ));
         return;
     }
+    let left_expression = ValidationExpression {
+        value: assertion.left.clone(),
+        span: assertion.left_span.unwrap_or(assertion.span),
+    };
+    let right_expression = ValidationExpression {
+        value: assertion.right.clone(),
+        span: assertion.right_span.unwrap_or(assertion.span),
+    };
     let left_type = assert_expression_semantic_type(&assertion.left, typed_bindings, functions);
     let right_type = assert_expression_semantic_type(&assertion.right, typed_bindings, functions);
     if left_type.is_none() {
-        diagnostics.push(Diagnostic::error(
-            "E-ASSERT-EXPR-001",
-            assertion.line,
-            &format!("Cannot resolve assert expression `{}`.", assertion.left),
-            Some("Assert a typed binding, statistic, function call, literal, path, Bool, or String value."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-ASSERT-EXPR-001",
+                left_expression.span.line,
+                &format!("Cannot resolve assert expression `{}`.", assertion.left),
+                Some("Assert a typed binding, statistic, function call, literal, path, Bool, or String value."),
+            )
+            .with_source_span(left_expression.span),
+        );
     }
     if right_type.is_none() {
-        diagnostics.push(Diagnostic::error(
-            "E-ASSERT-EXPR-001",
-            assertion.line,
-            &format!("Cannot resolve assert expression `{}`.", assertion.right),
-            Some("Assert a typed binding, statistic, function call, literal, path, Bool, or String value."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-ASSERT-EXPR-001",
+                right_expression.span.line,
+                &format!("Cannot resolve assert expression `{}`.", assertion.right),
+                Some("Assert a typed binding, statistic, function call, literal, path, Bool, or String value."),
+            )
+            .with_source_span(right_expression.span),
+        );
     }
     if let (Some(left), Some(right)) = (&left_type, &right_type) {
         if !push_direct_uncertainty_comparison_diagnostic(
             "Assert",
-            &assertion.left,
-            &assertion.right,
+            &left_expression,
+            &right_expression,
             left,
             right,
-            assertion.line,
             diagnostics,
         ) {
             validate_comparison_dimensions(
                 "Assert",
-                (&assertion.left, &assertion.right),
+                (&left_expression, &right_expression),
                 (left, right),
-                assertion.line,
                 typed_bindings,
                 diagnostics,
             );
         }
     }
     if let Some(tolerance) = &assertion.tolerance {
+        let tolerance_span = assertion.tolerance_span.unwrap_or(assertion.span);
         if !matches!(assertion.operator.as_str(), "==" | "!=") {
-            diagnostics.push(Diagnostic::error(
-                "E-ASSERT-TOL-001",
-                assertion.line,
-                "`within` is supported only with equality assertions.",
-                Some("Use `assert value == expected within tolerance`."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-ASSERT-TOL-001",
+                    tolerance_span.line,
+                    "`within` is supported only with equality assertions.",
+                    Some("Use `assert value == expected within tolerance`."),
+                )
+                .with_source_span(tolerance_span),
+            );
         }
         let tolerance_type = assert_expression_semantic_type(tolerance, typed_bindings, functions);
         if tolerance_type.is_none() {
-            diagnostics.push(Diagnostic::error(
-                "E-ASSERT-EXPR-001",
-                assertion.line,
-                &format!("Cannot resolve assert tolerance `{tolerance}`."),
-                Some("Use a numeric tolerance literal such as `0.01 kWh`."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-ASSERT-EXPR-001",
+                    tolerance_span.line,
+                    &format!("Cannot resolve assert tolerance `{tolerance}`."),
+                    Some("Use a numeric tolerance literal such as `0.01 kWh`."),
+                )
+                .with_source_span(tolerance_span),
+            );
         }
         if let (Some(left), Some(tolerance_type)) = (&left_type, &tolerance_type) {
             let left_dimension = dimension_for_quantity(&left.quantity_kind);
             let tolerance_dimension = dimension_for_quantity(&tolerance_type.quantity_kind);
             if !dimensions_compatible(&left_dimension, &tolerance_dimension) {
-                diagnostics.push(Diagnostic::error(
-                    "E-ASSERT-TOL-002",
-                    assertion.line,
-                    &format!(
-                        "Assert tolerance `{tolerance}` has dimension {tolerance_dimension}, expected {left_dimension}."
-                    ),
-                    Some("Use a tolerance with the same dimension as the asserted value."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-ASSERT-TOL-002",
+                        tolerance_span.line,
+                        &format!(
+                            "Assert tolerance `{tolerance}` has dimension {tolerance_dimension}, expected {left_dimension}."
+                        ),
+                        Some("Use a tolerance with the same dimension as the asserted value."),
+                    )
+                    .with_source_span(tolerance_span),
+                );
             }
         }
     }
     if let Some(test) = tests.get_mut(test_index) {
         test.assertions.push(AssertInfo {
             left: assertion.left.clone(),
+            left_span: assertion.left_span,
             operator: assertion.operator.clone(),
+            operator_span: assertion.operator_span,
             right: assertion.right.clone(),
+            right_span: assertion.right_span,
             tolerance: assertion.tolerance.clone(),
+            tolerance_span: assertion.tolerance_span,
             line: assertion.line,
         });
     }

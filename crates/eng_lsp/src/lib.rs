@@ -443,6 +443,7 @@ const RMSE_COMPARISON_MODIFIERS: &[&str] = &["report", "timeseries", "validation
 
 const PLOT_COMMAND_STYLE_WORDS: &[&str] = &[
     "and",
+    "vs",
     "line",
     "bar",
     "histogram",
@@ -4689,13 +4690,31 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
             .assertions
             .iter()
             .map(|assert| {
-                make_document_symbol(
-                    &lines,
-                    "assert".to_owned(),
-                    format!("{} {} {}", assert.left, assert.operator, assert.right),
-                    SYMBOL_KIND_OPERATOR,
-                    assert.line,
-                    Vec::new(),
+                let span = assert
+                    .operator_span
+                    .or(assert.left_span)
+                    .or(assert.right_span);
+                span.map_or_else(
+                    || {
+                        make_document_symbol(
+                            &lines,
+                            "assert".to_owned(),
+                            format!("{} {} {}", assert.left, assert.operator, assert.right),
+                            SYMBOL_KIND_OPERATOR,
+                            assert.line,
+                            Vec::new(),
+                        )
+                    },
+                    |span| {
+                        make_document_symbol_at_span(
+                            &lines,
+                            "assert".to_owned(),
+                            format!("{} {} {}", assert.left, assert.operator, assert.right),
+                            SYMBOL_KIND_OPERATOR,
+                            span,
+                            Vec::new(),
+                        )
+                    },
                 )
             })
             .collect::<Vec<_>>();
@@ -4722,14 +4741,14 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
     }
 
     for command in &program.command_styles {
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
             format!("{} {}", command.verb, command.target),
             command.status.clone(),
             SYMBOL_KIND_FUNCTION,
-            command.line,
+            command.target_span.unwrap_or(command.expression_span),
             Vec::new(),
         );
     }
@@ -4929,7 +4948,7 @@ fn make_document_symbol_at_span(
     if lines
         .get(line)
         .and_then(|source_line| source_line.get(byte_start..byte_end))
-        == Some(name.as_str())
+        .is_some()
     {
         symbol.selection_line = line;
         symbol.selection_character = utf16_len(&lines[line][..byte_start]);
@@ -7717,7 +7736,16 @@ fn add_command_style_semantic_tokens(
 ) {
     match command.verb.as_str() {
         "apply" => {
-            if is_simple_identifier_path(&command.target) {
+            if is_simple_identifier_path(&command.target)
+                && !command.target_span.is_some_and(|span| {
+                    builder.push_preferred_identifier_path_span(
+                        span,
+                        &command.target,
+                        Some("function"),
+                        &["workflowStep"],
+                    )
+                })
+            {
                 builder.push_preferred_identifier_path_on_line(
                     command.line,
                     &command.target,
@@ -7734,6 +7762,7 @@ fn add_command_style_semantic_tokens(
                 builder,
                 command.line,
                 &command.target,
+                command.target_span,
                 &[],
                 modifiers,
             );
@@ -7745,6 +7774,7 @@ fn add_command_style_semantic_tokens(
                 builder,
                 command.line,
                 &command.target,
+                command.target_span,
                 &[],
                 modifiers,
             );
@@ -7757,6 +7787,7 @@ fn add_command_style_semantic_tokens(
                 builder,
                 command.line,
                 &command.target,
+                command.target_span,
                 PLOT_COMMAND_STYLE_WORDS,
                 &["report"],
             );
@@ -7765,6 +7796,7 @@ fn add_command_style_semantic_tokens(
                     builder,
                     command.line,
                     &clause.value,
+                    Some(clause.value_span),
                     &[],
                     &["report"],
                 );
@@ -7775,6 +7807,7 @@ fn add_command_style_semantic_tokens(
                 builder,
                 command.line,
                 &command.target,
+                command.target_span,
                 &[],
                 &["report"],
             );
@@ -7798,7 +7831,17 @@ fn add_command_style_semantic_tokens(
                 "keyword",
                 modifiers,
             );
-            push_command_style_identifier_paths(builder, command.line, target, &[], modifiers);
+            let target_span = command
+                .target_span
+                .and_then(|span| source_span_for_subslice(span, &command.target, target));
+            push_command_style_identifier_paths(
+                builder,
+                command.line,
+                target,
+                target_span,
+                &[],
+                modifiers,
+            );
         }
         "fill" => {
             let modifiers = &["validation", "workflowStep", "timeseries"];
@@ -7809,6 +7852,7 @@ fn add_command_style_semantic_tokens(
                 builder,
                 command.line,
                 &command.target,
+                command.target_span,
                 &["missing"],
                 modifiers,
             );
@@ -7820,6 +7864,7 @@ fn add_command_style_semantic_tokens(
                 builder,
                 command.line,
                 &command.target,
+                command.target_span,
                 &[],
                 modifiers,
             );
@@ -7831,6 +7876,7 @@ fn add_command_style_semantic_tokens(
                     builder,
                     command.line,
                     &clause.value,
+                    Some(clause.value_span),
                     &[],
                     modifiers,
                 );
@@ -7855,20 +7901,25 @@ fn add_command_style_semantic_tokens(
                 builder,
                 command.line,
                 template_source,
+                command.target_span.and_then(|span| {
+                    source_span_for_subslice(span, &command.target, template_source)
+                }),
                 &["template", "file", "dir", "join"],
                 &["workflowStep"],
             );
             for clause in &command.clauses {
                 if clause.name == "to" {
-                    builder.push_keywords_on_line(
-                        command.line,
-                        &["to"],
+                    builder.push_named_span(
+                        clause.name_span,
+                        "to",
+                        "keyword",
                         &["sideEffect", "workflowStep"],
                     );
                     push_command_style_identifier_paths(
                         builder,
                         command.line,
                         &clause.value,
+                        Some(clause.value_span),
                         &["file", "dir", "join"],
                         &["sideEffect", "workflowStep"],
                     );
@@ -7889,7 +7940,16 @@ fn push_plot_command_function_semantic_tokens(
             continue;
         };
         if rest.trim_start().starts_with('(') {
-            builder.push_on_line(command.line, function, "function", &["report"]);
+            let function_source = &target[..function.len()];
+            let span = command
+                .target_span
+                .and_then(|span| source_span_for_subslice(span, &command.target, function_source));
+            if !span.is_some_and(|span| {
+                builder.push_named_span(span, function, "function", &["report"]);
+                true
+            }) {
+                builder.push_on_line(command.line, function, "function", &["report"]);
+            }
         }
     }
 }
@@ -7902,7 +7962,7 @@ fn push_command_clause_keywords(
 ) {
     for clause in &command.clauses {
         if names.iter().any(|name| clause.name == *name) {
-            builder.push_keywords_on_line(command.line, &[clause.name.as_str()], modifiers);
+            builder.push_named_span(clause.name_span, &clause.name, "keyword", modifiers);
         }
     }
 }
@@ -7911,12 +7971,39 @@ fn push_command_style_identifier_paths(
     builder: &mut SemanticTokenBuilder<'_>,
     line_one_based: usize,
     text: &str,
+    span: Option<SourceSpan>,
     skip: &[&str],
     modifiers: &[&str],
 ) {
     for path in command_style_identifier_paths(text, skip) {
-        builder.push_identifier_path_on_line(line_one_based, path, modifiers);
+        let path_span = span.and_then(|span| source_span_for_subslice(span, text, path));
+        if !path_span.is_some_and(|path_span| {
+            builder.push_preferred_identifier_path_span(path_span, path, None, modifiers)
+        }) {
+            builder.push_identifier_path_on_line(line_one_based, path, modifiers);
+        }
     }
+}
+
+fn source_span_for_subslice(
+    parent: SourceSpan,
+    parent_text: &str,
+    subslice: &str,
+) -> Option<SourceSpan> {
+    let start = (subslice.as_ptr() as usize).checked_sub(parent_text.as_ptr() as usize)?;
+    let end = start.checked_add(subslice.len())?;
+    if end > parent_text.len()
+        || !parent_text.is_char_boundary(start)
+        || !parent_text.is_char_boundary(end)
+    {
+        return None;
+    }
+    Some(SourceSpan::new(
+        parent.start + start,
+        parent.start + end,
+        parent.line,
+        parent.column + start,
+    ))
 }
 
 fn command_style_identifier_paths<'a>(text: &'a str, skip: &[&str]) -> Vec<&'a str> {
@@ -11805,6 +11892,64 @@ mod tests {
     }
 
     #[test]
+    fn validation_comparison_fixture_diagnostics_keep_compiler_owned_ranges() {
+        let repo_root = repo_root_for_tests();
+        let mut files = BTreeSet::new();
+        for relative in [
+            "examples",
+            "tests/diagnostics",
+            "tools/vscode-englang/test/grammar-fixtures",
+        ] {
+            files.extend(eng_files_under(&repo_root.join(relative)));
+        }
+
+        let is_target = |code: &str| {
+            matches!(
+                code,
+                "E-UNC-DIRECT-COMPARE"
+                    | "E-UNC-PERCENTILE-UNIT-MISMATCH"
+                    | "E-UNC-PROBABILITY-EXPR-INVALID"
+                    | "E-VALIDATE-UNIT-001"
+            )
+        };
+        let mut observed = 0usize;
+        let mut missing = Vec::new();
+        for path in files {
+            let source = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            let report = check_source(&path, &source, &CheckOptions::default());
+            let lines = source_lines(&source);
+            for diagnostic in report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| is_target(&diagnostic.code))
+            {
+                observed += 1;
+                let line_index = line_index_from_one_based(&lines, diagnostic.line);
+                let line = lines.get(line_index).copied().unwrap_or_default();
+                if compiler_diagnostic_byte_range(line, diagnostic).is_none() {
+                    missing.push(format!(
+                        "{}:{} {}",
+                        path.strip_prefix(&repo_root).unwrap_or(&path).display(),
+                        diagnostic.line,
+                        diagnostic.code
+                    ));
+                }
+            }
+        }
+
+        assert!(
+            observed >= 4,
+            "validation comparison diagnostic corpus unexpectedly shrank to {observed} item(s)"
+        );
+        assert!(
+            missing.is_empty(),
+            "validation comparison diagnostics missing valid compiler ranges: {}",
+            missing.join(", ")
+        );
+    }
+
+    #[test]
     fn sampling_fixture_diagnostics_keep_compiler_owned_ranges() {
         let repo_root = repo_root_for_tests();
         let mut files = BTreeSet::new();
@@ -11890,7 +12035,7 @@ mod tests {
             fallback.len()
         );
         assert!(
-            fallback.len() <= 129,
+            fallback.len() <= 125,
             "compiler-owned diagnostic range coverage regressed to {} fallback item(s): {}",
             fallback.len(),
             fallback.join(", ")
@@ -14017,6 +14162,109 @@ print "done"
             diagnostic["range"]["end"]["character"].as_u64(),
             Some((value_start_utf16 + 1) as u64)
         );
+    }
+
+    #[test]
+    fn validation_comparison_diagnostics_use_compiler_owned_ranges() {
+        let direct = concat!(
+            "note = \"😀 Q validate Q\"\r\n",
+            "Q = normal(mean=5 kW, std=0.8 kW, samples=31)\r\n",
+            "validate 10 kW < Q # Q\r\n",
+        );
+        let percentile = concat!(
+            "note = \"😀 10 m p95(Q)\"\r\n",
+            "Q = normal(mean=5 kW, std=0.8 kW, samples=31)\r\n",
+            "validate p95(Q) < 10 m # 10 m\r\n",
+        );
+        let probability = concat!(
+            "note = \"😀 probability(5 kW < 10 kW)\"\r\n",
+            "validate probability(5 kW < 10 kW) > 0.95 # probability\r\n",
+        );
+        let generic_unit = concat!(
+            "note = \"😀 2 s validate\"\r\n",
+            "validate 1 m < 2 s # 2 s\r\n",
+        );
+
+        assert_first_diagnostic_underlines(direct, "E-UNC-DIRECT-COMPARE", "Q");
+        assert_first_diagnostic_underlines(percentile, "E-UNC-PERCENTILE-UNIT-MISMATCH", "10 m");
+        assert_first_diagnostic_underlines(
+            probability,
+            "E-UNC-PROBABILITY-EXPR-INVALID",
+            "probability(5 kW < 10 kW)",
+        );
+        assert_first_diagnostic_underlines(generic_unit, "E-VALIDATE-UNIT-001", "2 s");
+    }
+
+    #[test]
+    fn command_and_assert_symbols_use_compiler_owned_spans() {
+        let source = concat!(
+            "note = \"😀 integrate Q over Time Q >\"\r\n",
+            "Q: TimeSeries[Time] of HeatRate [kW] = 5 kW\r\n",
+            "E = integrate Q over Time # Q over Time\r\n",
+            "test \"operator\" {\r\n",
+            "    assert 2 kW > 1 kW # >\r\n",
+            "}\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("command_source_spans.eng"), source);
+        let command_line = source.lines().nth(2).expect("command line");
+        let target_start = command_line.find("Q over").expect("command target");
+        let over_start = command_line.find("over").expect("over clause");
+
+        let target_tokens = snapshot
+            .semantic_tokens
+            .tokens
+            .iter()
+            .filter(|token| {
+                token.line == 2
+                    && token.start == utf16_len(&command_line[..target_start])
+                    && token.length == utf16_len("Q")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(target_tokens.len(), 1, "{target_tokens:#?}");
+        assert!(target_tokens[0]
+            .modifiers
+            .iter()
+            .any(|modifier| modifier == "timeseries"));
+        let over_tokens = snapshot
+            .semantic_tokens
+            .tokens
+            .iter()
+            .filter(|token| {
+                token.line == 2
+                    && token.start == utf16_len(&command_line[..over_start])
+                    && token.length == utf16_len("over")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(over_tokens.len(), 1, "{over_tokens:#?}");
+        assert_eq!(over_tokens[0].token_type, "keyword");
+
+        let command_symbol = snapshot
+            .document_symbols
+            .iter()
+            .find(|symbol| symbol.name == "integrate Q")
+            .expect("command document symbol");
+        assert_eq!(command_symbol.selection_line, 2);
+        assert_eq!(
+            command_symbol.selection_character,
+            utf16_len(&command_line[..target_start])
+        );
+        let test_symbol = snapshot
+            .document_symbols
+            .iter()
+            .find(|symbol| symbol.name == "operator")
+            .expect("test document symbol");
+        let assert_symbol = test_symbol
+            .children
+            .iter()
+            .find(|symbol| symbol.name == "assert")
+            .expect("assert document symbol");
+        let assert_line = source.lines().nth(4).expect("assert line");
+        assert_eq!(assert_symbol.selection_line, 4);
+        assert_eq!(
+            assert_symbol.selection_character,
+            utf16_len(&assert_line[..assert_line.find('>').expect("assert operator")])
+        );
+        assert_no_semantic_token_overlaps(&snapshot, "command_source_spans.eng");
     }
 
     #[test]

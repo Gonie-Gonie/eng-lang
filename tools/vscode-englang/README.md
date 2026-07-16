@@ -291,7 +291,9 @@ unsupported distribution kind, unsupported propagation method, invalid sample
 count, missing constructor arguments, unknown sources, missing source arguments,
 and deterministic sources that should be `measured(...)`. Propagation `with`
 blocks can repair invalid uncertainty policy, sample-count, and seed option
-values, and can insert a reproducible seed for Monte Carlo propagation. The
+values, and can insert a reproducible seed for Monte Carlo propagation. A direct
+uncertainty comparison can be changed to `mean(...)`; this edit uses the exact
+Problems range first, so repeated operand text does not redirect the fix. The
 provider only answers Quick Fix requests, so refactor and source-action menus
 stay scoped to their own providers.
 
@@ -344,6 +346,12 @@ semantic colors and Outline selection. When a sample declaration omits `count`
 or every `uniform(lower, upper)` parameter, Problems underline its complete
 `sample <method>` RHS; malformed supplied options continue to underline their
 own values.
+Command-style targets and clause names/values now use exact compiler-owned
+ranges for semantic colors, and command Outline entries select the target.
+Assertion Outline children select the comparison operator. Direct uncertainty
+comparisons underline the uncertain operand, percentile unit mismatches the
+incompatible threshold, invalid probability forms the complete call, and
+generic validation unit mismatches the right operand.
 Uncertainty constructors now preserve exact positional, source, and named
 key/value ranges too. `E-UNC-SOURCE-*` and `E-UNC-ARGS-*` Problems underline the
 owning source or malformed value, including a nested call, while source paths,

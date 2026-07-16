@@ -73,6 +73,13 @@ value spans. Missing sampling options can therefore select the owning RHS, and
 sampling semantic tokens plus Outline selections do not reconstruct names from
 line text.
 
+`CommandStyleInfo` exposes the complete command expression, its target, and
+each clause name/value span. `AssertInfo` likewise retains the left operand,
+operator, right operand, and optional tolerance spans. Validation diagnostics,
+command semantic roles, and command/assert Outline selections can therefore
+use parser-owned occurrences even when the same text appears in a binding,
+string, or trailing comment.
+
 `MlInfo` separately retains exact binding, source-model/table, and
 prediction-input spans. It also exposes the complete ML expression, unified
 inline/attached `with` arguments through `MlArgumentInfo.key_span` and
@@ -87,8 +94,9 @@ optional source span, positional values, and named argument key/value spans.
 Its top-level argument splitter respects nested calls, lists, objects, strings,
 and escapes. `E-UNC-SOURCE-*` and `E-UNC-ARGS-*` diagnostics and uncertainty
 semantic roles therefore use the constructor occurrence that owns the value;
-the separate uncertainty validation-expression diagnostics remain on their
-existing migration path.
+direct comparison diagnostics select the uncertain operand, percentile unit
+mismatches select the incompatible threshold, and invalid probability forms
+select the complete `probability(...)` expression.
 
 ## Semantic Analysis
 

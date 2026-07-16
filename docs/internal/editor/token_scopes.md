@@ -452,6 +452,15 @@ diagnostics select the exact `sample <method>` expression rather than whichever
 same-spelled word appears first on the line. The sampling corpus guard requires
 every `E-SAMPLING-*` diagnostic to retain a valid compiler range.
 
+Command-style targets and clause names/values use `CommandStyleInfo` spans for
+semantic tokens. Command Outline entries select the target, while assertion
+children select `AssertInfo.operator_span` with operand fallback. Direct
+uncertainty comparisons underline the uncertain operand, percentile unit
+mismatches underline the incompatible threshold, invalid probability forms
+underline the complete call, and generic validation unit mismatches underline
+the right operand. The validation corpus guard rejects a fallback range for
+these diagnostic classes.
+
 Uncertainty constructors use the same source-owned policy. The declaration uses
 `UncertaintyInfo.binding_span`; `ensemble` and `propagate` sources use the exact
 positional source span; named keys are `property.uncertain`; and `kind`,

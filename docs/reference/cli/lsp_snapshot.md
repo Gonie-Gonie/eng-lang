@@ -140,10 +140,12 @@ also requires every `E-UNC-SOURCE-*` and `E-UNC-ARGS-*` diagnostic to retain its
 uncertainty expression, source, positional value, or named value range. Nested
 constructor values and trailing comments keep their source boundaries. Every
 `E-SAMPLING-*` diagnostic also retains either its option value or owning
-`sample <method>` expression range. A global non-regression ceiling now permits
-at most 129 diagnostics that still need the
-older range inference path; separate uncertainty validation-expression codes
-remain in that migration set.
+`sample <method>` expression range. `E-UNC-DIRECT-COMPARE` selects the uncertain
+operand, `E-UNC-PERCENTILE-UNIT-MISMATCH` selects the incompatible threshold,
+`E-UNC-PROBABILITY-EXPR-INVALID` selects the complete probability call, and
+`E-VALIDATE-UNIT-001` selects the right comparison operand. A global
+non-regression ceiling now permits at most 125 diagnostics that still need the
+older range inference path.
 Older diagnostics retain source-aware inference: dimensionless arithmetic
 diagnostics highlight the offending `+` or `-`, schema fast-assignment
 diagnostics highlight `=`, and file mutation diagnostics target `move` or
@@ -420,6 +422,10 @@ Sampling declarations and distribution option names use compiler-owned binding
 and key spans. Their semantic token and Outline selection ranges therefore point
 to the exact declaration occurrence instead of searching the source line.
 
+Command-style targets and clause names/values also use compiler-owned spans.
+Their identifiers and clause keywords stay inside the owning command expression,
+including repeated text and trailing comments.
+
 Uncertainty declarations, source operands, and named constructor arguments also
 use compiler-owned spans. Named keys are uncertain properties; distribution
 kind and propagation method values are uncertain keywords; and dotted named
@@ -462,6 +468,10 @@ selected option.
 
 Sampling bindings and distribution children use their exact compiler-owned name
 and option-key spans for Outline selection.
+
+Command symbols select their target span. Assertion children select the exact
+comparison operator, with operand fallback for incomplete assertions, rather
+than the first same-spelled text on the line.
 
 Each state-space vector type is a top-level struct-like symbol whose member
 fields are nested children with role, quantity type, and unit detail.

@@ -4689,9 +4689,12 @@ fn lsp_uncertainty_direct_compare_code_action(
     diagnostic: &Value,
 ) -> Option<Value> {
     let expression = direct_uncertainty_expression_from_diagnostic(diagnostic_message(diagnostic))?;
-    let line_number = diagnostic_line(diagnostic)?;
-    let line = text.lines().nth(line_number)?;
-    let (start_byte, end_byte) = direct_uncertainty_expression_range(line, expression)?;
+    let range = diagnostic_range_for_exact_text(text, diagnostic, expression).or_else(|| {
+        let line_number = diagnostic_line(diagnostic)?;
+        let line = text.lines().nth(line_number)?;
+        let (start_byte, end_byte) = direct_uncertainty_expression_range(line, expression)?;
+        Some(line_byte_range(line_number, line, start_byte, end_byte))
+    })?;
     let replacement = format!("mean({expression})");
     Some(json!({
         "title": format!("Compare mean({expression}) instead"),
@@ -4700,10 +4703,43 @@ fn lsp_uncertainty_direct_compare_code_action(
         "diagnostics": [diagnostic.clone()],
         "edit": single_change_workspace_edit(
             uri,
-            line_byte_range(line_number, line, start_byte, end_byte),
+            range,
             &replacement
         )
     }))
+}
+
+fn diagnostic_range_for_exact_text(
+    text: &str,
+    diagnostic: &Value,
+    expected: &str,
+) -> Option<Value> {
+    let start_line = diagnostic
+        .pointer("/range/start/line")?
+        .as_u64()
+        .and_then(|value| usize::try_from(value).ok())?;
+    let end_line = diagnostic
+        .pointer("/range/end/line")?
+        .as_u64()
+        .and_then(|value| usize::try_from(value).ok())?;
+    if start_line != end_line {
+        return None;
+    }
+    let start_character = diagnostic
+        .pointer("/range/start/character")?
+        .as_u64()
+        .and_then(|value| usize::try_from(value).ok())?;
+    let end_character = diagnostic
+        .pointer("/range/end/character")?
+        .as_u64()
+        .and_then(|value| usize::try_from(value).ok())?;
+    let line = text.lines().nth(start_line)?;
+    let start_byte = utf16_character_to_byte(line, start_character);
+    let end_byte = utf16_character_to_byte(line, end_character);
+    if line.get(start_byte..end_byte) != Some(expected) {
+        return None;
+    }
+    diagnostic.get("range").cloned()
 }
 
 fn direct_uncertainty_expression_from_diagnostic(message: &str) -> Option<&str> {
@@ -9261,6 +9297,32 @@ mod tests {
                     })
                 })
         }));
+    }
+
+    #[test]
+    fn uncertainty_direct_compare_quick_fix_prefers_the_diagnostic_range() {
+        let uri = "file:///C:/workspace/uncertainty.eng";
+        let line = "note = \"\u{1f600} Q\"; validate Q < Q";
+        let source = format!("{line}\n");
+        let target_byte = line.rfind('Q').expect("right comparison operand");
+        let target_character = utf16_len(&line[..target_byte]);
+        let diagnostic = json!({
+            "range": {
+                "start": { "line": 0, "character": target_character },
+                "end": { "line": 0, "character": target_character + 1 }
+            },
+            "code": "E-UNC-DIRECT-COMPARE",
+            "message": "Uncertainty-valued expression `Q` cannot be compared directly."
+        });
+
+        let actions = code_actions_for_diagnostic(uri, &source, &diagnostic);
+        assert_eq!(actions.len(), 1);
+        let edits = actions[0]["edit"]["changes"][uri]
+            .as_array()
+            .expect("workspace edits");
+        assert_eq!(edits.len(), 1);
+        assert_eq!(edits[0]["range"], diagnostic["range"]);
+        assert_eq!(edits[0]["newText"], "mean(Q)");
     }
 
     #[test]

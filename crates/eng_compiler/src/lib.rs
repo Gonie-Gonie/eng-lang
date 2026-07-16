@@ -13726,6 +13726,91 @@ write csv "outputs/q.csv", Q
     }
 
     #[test]
+    fn validation_commands_and_assertions_preserve_exact_expression_spans() {
+        let source = concat!(
+            "note = \"😀 validate Q 10 m probability(5 kW < 10 kW)\"\r\n",
+            "Q = normal(mean=5 kW, std=0.8 kW, samples=31)\r\n",
+            "validate 10 kW < Q # Q\r\n",
+            "validate p95(Q) < 10 m # 10 m\r\n",
+            "validate probability(5 kW < 10 kW) > 0.95 # probability\r\n",
+            "validate 1 m < 2 s # 2 s\r\n",
+            "validate mean(Q) between 4 kW and 6 kW # between\r\n",
+            "test \"uncertain spans\" {\r\n",
+            "    assert 10 kW > Q # Q\r\n",
+            "    assert 1 kW == 1 kW within 0.1 kW # tolerance\r\n",
+            "}\r\n",
+        );
+        let report = check_source(
+            "validation_source_spans.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        let span_text = |span: SourceSpan| &source[span.start..span.end];
+
+        let direct = report
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "E-UNC-DIRECT-COMPARE")
+            .collect::<Vec<_>>();
+        assert_eq!(direct.len(), 2, "{direct:#?}");
+        assert!(direct
+            .iter()
+            .all(|diagnostic| diagnostic.source_span.map(span_text) == Some("Q")));
+        let percentile = report
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-UNC-PERCENTILE-UNIT-MISMATCH")
+            .expect("percentile unit diagnostic");
+        assert_eq!(percentile.source_span.map(span_text), Some("10 m"));
+        let probability = report
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-UNC-PROBABILITY-EXPR-INVALID")
+            .expect("probability expression diagnostic");
+        assert_eq!(
+            probability.source_span.map(span_text),
+            Some("probability(5 kW < 10 kW)")
+        );
+        let validate_unit = report
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-VALIDATE-UNIT-001")
+            .expect("validation unit diagnostic");
+        assert_eq!(validate_unit.source_span.map(span_text), Some("2 s"));
+
+        let between = report
+            .semantic_program
+            .command_styles
+            .iter()
+            .find(|command| command.target == "mean(Q)")
+            .expect("between validation command");
+        assert_eq!(
+            span_text(between.expression_span),
+            "validate mean(Q) between 4 kW and 6 kW"
+        );
+        assert_eq!(between.target_span.map(span_text), Some("mean(Q)"));
+        let clause = between.clauses.first().expect("between clause");
+        assert_eq!(span_text(clause.name_span), "between");
+        assert_eq!(span_text(clause.value_span), "4 kW and 6 kW");
+
+        let test = report
+            .semantic_program
+            .tests
+            .first()
+            .expect("test metadata");
+        let uncertain_assert = test.assertions.first().expect("uncertain assertion");
+        assert_eq!(uncertain_assert.left_span.map(span_text), Some("10 kW"));
+        assert_eq!(uncertain_assert.operator_span.map(span_text), Some(">"));
+        assert_eq!(uncertain_assert.right_span.map(span_text), Some("Q"));
+        let tolerance_assert = test.assertions.get(1).expect("tolerance assertion");
+        assert_eq!(tolerance_assert.operator_span.map(span_text), Some("=="));
+        assert_eq!(
+            tolerance_assert.tolerance_span.map(span_text),
+            Some("0.1 kW")
+        );
+    }
+
+    #[test]
     fn rejects_unresolved_uncertainty_source() {
         let report = check_source(
             "bad.eng",

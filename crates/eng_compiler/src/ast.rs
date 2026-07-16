@@ -398,9 +398,13 @@ pub struct TestDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AssertDecl {
     pub left: String,
+    pub left_span: Option<SourceSpan>,
     pub operator: String,
+    pub operator_span: Option<SourceSpan>,
     pub right: String,
+    pub right_span: Option<SourceSpan>,
     pub tolerance: Option<String>,
+    pub tolerance_span: Option<SourceSpan>,
     pub line: usize,
     pub span: SourceSpan,
     pub context: ParseContext,
@@ -418,19 +422,23 @@ pub struct GoldenDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandClauseDecl {
     pub name: String,
+    pub name_span: SourceSpan,
     pub value: String,
+    pub value_span: SourceSpan,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandStyleDecl {
     pub verb: String,
     pub target: String,
+    pub target_span: Option<SourceSpan>,
     pub clauses: Vec<CommandClauseDecl>,
     pub canonical: String,
     pub status: String,
     pub owner: Option<String>,
     pub line: usize,
     pub span: SourceSpan,
+    pub expression_span: SourceSpan,
     pub context: ParseContext,
 }
 
