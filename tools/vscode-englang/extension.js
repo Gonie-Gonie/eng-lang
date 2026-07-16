@@ -152,6 +152,10 @@ function activate(context) {
     semanticTokenTypes: SEMANTIC_TOKEN_TYPES,
     semanticTokenModifiers: SEMANTIC_TOKEN_MODIFIERS
   });
+  const formattingProvider = new EngFormattingProvider(context, {
+    isEngDocument,
+    formatDocumentSource: lspRequests.formatDocumentSource
+  });
   const engSourceWatcher = vscode.workspace.createFileSystemWatcher("**/*.eng");
   function refreshActiveDiagnosticsForSettings(reason = "diagnostics settings changed") {
     const document = vscode.window.activeTextEditor?.document;
@@ -539,17 +543,16 @@ function activate(context) {
     ),
     vscode.languages.registerDocumentFormattingEditProvider(
       LANGUAGE_ID,
-      new EngFormattingProvider(context, {
-        isEngDocument,
-        formatDocumentSource: lspRequests.formatDocumentSource
-      })
+      formattingProvider
     ),
     vscode.languages.registerDocumentRangeFormattingEditProvider(
       LANGUAGE_ID,
-      new EngFormattingProvider(context, {
-        isEngDocument,
-        formatDocumentSource: lspRequests.formatDocumentSource
-      })
+      formattingProvider
+    ),
+    vscode.languages.registerOnTypeFormattingEditProvider(
+      LANGUAGE_ID,
+      formattingProvider,
+      "}"
     ),
     vscode.languages.registerCodeActionsProvider(
       LANGUAGE_ID,

@@ -3756,6 +3756,7 @@ function Assert-VscodeExtensionContract {
     $CodeActionsTestPath = Join-Path $ExtensionRoot "test\codeActions.test.js"
     $DecorationsTestPath = Join-Path $ExtensionRoot "test\decorations.test.js"
     $DiagnosticsBackendTestPath = Join-Path $ExtensionRoot "test\diagnosticsBackend.test.js"
+    $FormattingProviderTestPath = Join-Path $ExtensionRoot "test\formattingProvider.test.js"
     $DocumentHighlightsTestPath = Join-Path $ExtensionRoot "test\documentHighlights.test.js"
     $EditorRequestRaceTestPath = Join-Path $ExtensionRoot "test\editorRequestRace.test.js"
     $RenameTestPath = Join-Path $ExtensionRoot "test\rename.test.js"
@@ -3873,6 +3874,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $DiagnosticsBackendTestPath)) {
         throw "missing VS Code fake eng.exe diagnostics backend smoke at $DiagnosticsBackendTestPath"
+    }
+    if (-not (Test-Path $FormattingProviderTestPath)) {
+        throw "missing VS Code compiler-backed formatting provider smoke at $FormattingProviderTestPath"
     }
     if (-not (Test-Path $DocumentHighlightsTestPath)) {
         throw "missing VS Code semantic document highlight smoke at $DocumentHighlightsTestPath"
@@ -5538,7 +5542,7 @@ function Assert-VscodeExtensionContract {
         @{ Label = "navigation"; Source = $NavigationProvidersSource; MinimumVersionGuardCount = 5 },
         @{ Label = "folding"; Source = $FoldingRangeProviderSource; MinimumVersionGuardCount = 1 },
         @{ Label = "semantic tokens"; Source = $SemanticTokensProviderSource; MinimumVersionGuardCount = 1 },
-        @{ Label = "formatting"; Source = $FormattingProviderSource; MinimumVersionGuardCount = 2 },
+        @{ Label = "formatting"; Source = $FormattingProviderSource; MinimumVersionGuardCount = 3 },
         @{ Label = "code action"; Source = $CodeActionProviderSource; MinimumVersionGuardCount = 1 }
     )
     foreach ($ProviderFreshnessContract in $ProviderFreshnessContracts) {
@@ -6235,11 +6239,13 @@ function Assert-VscodeExtensionContract {
     foreach ($RequiredFormattingToken in @(
         "registerDocumentFormattingEditProvider",
         "registerDocumentRangeFormattingEditProvider",
+        "registerOnTypeFormattingEditProvider",
         "EngFormattingProvider",
         "formatDocumentSource",
         "--format-stdin",
         "fullDocumentRange",
         "provideDocumentRangeFormattingEdits",
+        "provideOnTypeFormattingEdits",
         "rangeFormattingEdit",
         "vscode.TextEdit.replace"
     )) {
@@ -7030,6 +7036,7 @@ function Assert-VscodeExtensionContract {
         $CodeActionsTestPath,
         $DecorationsTestPath,
         $DiagnosticsBackendTestPath,
+        $FormattingProviderTestPath,
         $DocumentHighlightsTestPath,
         $EditorRequestRaceTestPath,
         $RenameTestPath,
@@ -7042,6 +7049,7 @@ function Assert-VscodeExtensionContract {
     Invoke-JavaScriptProgram -Path $CodeActionsTestPath -Label "VS Code compiler code action smoke"
     Invoke-JavaScriptProgram -Path $DecorationsTestPath -Label "VS Code review decoration smoke"
     Invoke-JavaScriptProgram -Path $DiagnosticsBackendTestPath -Label "VS Code fake eng.exe diagnostics backend smoke"
+    Invoke-JavaScriptProgram -Path $FormattingProviderTestPath -Label "VS Code compiler-backed formatting provider smoke"
     Invoke-JavaScriptProgram -Path $DocumentHighlightsTestPath -Label "VS Code semantic document highlight smoke"
     Invoke-JavaScriptProgram -Path $EditorRequestRaceTestPath -Label "VS Code editor request race smoke"
     Invoke-JavaScriptProgram -Path $RenameTestPath -Label "VS Code semantic rename smoke"

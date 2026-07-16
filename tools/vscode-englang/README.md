@@ -386,10 +386,12 @@ public completion labels. Static snippets remain
 only for larger examples whose prefixes do not duplicate generated completion
 labels.
 
-Format Document and Format Selection use the current unsaved buffer, so VS Code
-and the command-line formatter share the compiler-owned formatting rules.
-JavaScript does not maintain a separate indentation or block-formatting
-implementation.
+Format Document, Format Selection, and closing-brace on-type formatting use the
+current unsaved buffer, so VS Code and the command-line formatter share the
+compiler-owned formatting rules. On-type formatting replaces only the closing
+brace line, ignores braces inside strings/comments, and discards stale or
+structurally mismatched formatter results.
+JavaScript does not maintain separate indentation or block-formatting rules.
 
 Go-to-definition uses the current unsaved buffer and every modified open
 EngLang buffer in the workspace. Static file imports resolve changed, moved, or

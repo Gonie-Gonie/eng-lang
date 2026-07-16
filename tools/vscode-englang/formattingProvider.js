@@ -45,6 +45,67 @@ class EngFormattingProvider {
     const edit = rangeFormattingEdit(document, range, payload.formatted);
     return edit ? [edit] : [];
   }
+
+  async provideOnTypeFormattingEdits(document, position, ch, _options, cancellationToken) {
+    if (
+      ch !== "}"
+      || cancellationToken?.isCancellationRequested
+      || !this.isEngDocument(document)
+      || !isStructuralClosingBrace(document, position)
+    ) {
+      return [];
+    }
+    const documentVersion = document.version;
+    const payload = await this.formatDocumentSource?.(
+      document,
+      this.context,
+      cancellationToken
+    );
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return [];
+    }
+    if (!payload?.changed || typeof payload.formatted !== "string") {
+      return [];
+    }
+    const line = document.lineAt(position.line);
+    const lineRange = new vscode.Range(position.line, 0, position.line, line.text.length);
+    const edit = rangeFormattingEdit(document, lineRange, payload.formatted);
+    return edit ? [edit] : [];
+  }
+}
+
+function documentLineExists(document, line) {
+  return Number.isInteger(line) && line >= 0 && line < document.lineCount;
+}
+
+function isStructuralClosingBrace(document, position) {
+  if (!documentLineExists(document, position?.line)) {
+    return false;
+  }
+  const line = document.lineAt(position.line).text;
+  const closingIndex = position.character - 1;
+  if (closingIndex < 0 || line[closingIndex] !== "}") {
+    return false;
+  }
+
+  let inString = false;
+  for (let index = 0; index < closingIndex; index += 1) {
+    const character = line[index];
+    if (inString) {
+      if (character === "\\") {
+        index += 1;
+      } else if (character === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (character === '"') {
+      inString = true;
+    } else if (character === "#" || (character === "/" && line[index + 1] === "/")) {
+      return false;
+    }
+  }
+  return !inString;
 }
 
 function fullDocumentRange(document) {
