@@ -34,6 +34,7 @@ const { createSemanticLegend } = require("./lspSemanticTokens");
 const LANGUAGE_ID = "englang";
 const reviewCache = new Map();
 const timeAlignmentReviewCache = new Map();
+const fallbackReviewCache = new Map();
 const workspaceReviewRevisions = new Map();
 let output;
 let artifactOpeners;
@@ -76,7 +77,8 @@ function activate(context) {
   decorationController = createDecorationController({
     isEngDocument,
     reviewCache,
-    timeAlignmentReviewCache
+    timeAlignmentReviewCache,
+    fallbackReviewCache
   });
   const diagnostics = vscode.languages.createDiagnosticCollection("englang");
   const diagnosticsStatusBar = vscode.window.createStatusBarItem(
@@ -100,11 +102,26 @@ function activate(context) {
       timeAlignmentReviewCache.set(document.uri.fsPath, review);
     },
     clearTimeAlignmentReview: (document) => {
-      timeAlignmentReviewCache.delete(document.uri.fsPath);
+      clearWorkspaceRunArtifactReview(
+        document,
+        timeAlignmentReviewCache,
+        decorationController.updateTimeAlignmentDecorations
+      );
     },
     updateTimeAlignmentDecorations: decorationController.updateTimeAlignmentDecorations,
-    timeAlignmentReviewRevision: workspaceReviewRevision,
-    timeAlignmentReviewRevisionIsCurrent: (document, revision) => (
+    cacheFallbackReview: (document, review) => {
+      fallbackReviewCache.set(document.uri.fsPath, review);
+    },
+    clearFallbackReview: (document) => {
+      clearWorkspaceRunArtifactReview(
+        document,
+        fallbackReviewCache,
+        decorationController.updateFallbackDecorations
+      );
+    },
+    updateFallbackDecorations: decorationController.updateFallbackDecorations,
+    runArtifactRevision: workspaceReviewRevision,
+    runArtifactRevisionIsCurrent: (document, revision) => (
       workspaceReviewRevision(document) === revision
     )
   });
@@ -207,10 +224,33 @@ function activate(context) {
       seen.add(candidateUri);
       reviewCache.delete(candidate.uri.fsPath);
       timeAlignmentReviewCache.delete(candidate.uri.fsPath);
+      fallbackReviewCache.delete(candidate.uri.fsPath);
       decorationController.updateReviewRiskDecorations(candidate, undefined);
       decorationController.updateReviewValidationDecorations(candidate, undefined);
       decorationController.updateSemanticSymbolDecorations(candidate, undefined);
       decorationController.updateTimeAlignmentDecorations(candidate, undefined);
+      decorationController.updateFallbackDecorations(candidate, undefined);
+    }
+  }
+
+  function clearWorkspaceRunArtifactReview(document, cache, updateDecorations) {
+    if (!document || !isEngDocument(document)) {
+      return;
+    }
+    const root = workspaceRootKey(workspaceRoot(document));
+    const candidates = [document, ...(vscode.workspace.textDocuments ?? [])];
+    const seen = new Set();
+    for (const candidate of candidates) {
+      if (!isEngDocument(candidate) || workspaceRootKey(workspaceRoot(candidate)) !== root) {
+        continue;
+      }
+      const candidateUri = candidate.uri.toString();
+      if (seen.has(candidateUri)) {
+        continue;
+      }
+      seen.add(candidateUri);
+      cache.delete(candidate.uri.fsPath);
+      updateDecorations(candidate, undefined);
     }
   }
 
@@ -324,6 +364,9 @@ function activate(context) {
       if (event.affectsConfiguration("englang.timeAlignmentDecorations.enabled")) {
         decorationController.refreshVisibleTimeAlignmentDecorations();
       }
+      if (event.affectsConfiguration("englang.fallbackDecorations.enabled")) {
+        decorationController.refreshVisibleFallbackDecorations();
+      }
       if (event.affectsConfiguration("englang.semanticHighlighting.enabled")) {
         semanticTokensProvider.refresh();
         decorationController.refreshVisibleSemanticSymbolDecorations();
@@ -349,6 +392,10 @@ function activate(context) {
         decorationController.updateTimeAlignmentDecorations(
           editor.document,
           timeAlignmentReviewCache.get(editor.document.uri.fsPath)
+        );
+        decorationController.updateFallbackDecorations(
+          editor.document,
+          fallbackReviewCache.get(editor.document.uri.fsPath)
         );
       }
       updateDiagnosticsStatusBar(editor?.document);

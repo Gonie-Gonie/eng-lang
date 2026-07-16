@@ -54,8 +54,11 @@ workflow, and covered by the breaking-change policy.
   row counts, Date/DateTime predicate comparison, selected columns, derived
   columns, sort keys, predicate evidence, join key pair counts, and row-level diagnostics,
   `typed_payload.timeseries_coverage[]` records for DateTime-indexed
-  promoted-table coverage, `typed_payload.timeseries_quality[]` coverage/fill
-  summaries, `typed_payload.expectation_suites[]` lightweight expectation-suite
+  promoted-table coverage, native `method = interpolate` fill outputs plus
+  explicit non-mutating `record_only` policies in
+  `typed_payload.timeseries_fill[]`, `typed_payload.timeseries_quality[]`
+  coverage/fill summaries, filled TimeSeries outputs consumable by native
+  statistics and HeatRate integration, `typed_payload.expectation_suites[]` lightweight expectation-suite
   records, `typed_payload.quality_results[]` common quality records for
   TimeSeries, validation, schema-constraint, and expectation-suite results,
   row/field failure details, report-facing `report_spec.quality_report`, HTML

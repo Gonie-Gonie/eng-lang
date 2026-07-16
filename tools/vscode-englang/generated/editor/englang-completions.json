@@ -343,7 +343,7 @@
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "Record an explicit TimeSeries fill policy with `fill missing`",
+                                 "detail":  "Fill missing TimeSeries values or record an explicit non-mutating policy",
                                  "kind":  "function",
                                  "label":  "fill",
                                  "lsp_kind":  3
@@ -355,7 +355,7 @@
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "Record TimeSeries resampling against a target series or explicit step",
+                                 "detail":  "Materialize TimeSeries values on a target series or explicit step",
                                  "kind":  "function",
                                  "label":  "resample",
                                  "lsp_kind":  3
@@ -2086,7 +2086,7 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native: TimeSeries axis metadata, coverage checks, explicit fill/interpolation, quality summaries, native exact/nearest/linear alignment and resampling outputs, and integration.",
+                                 "detail":  "Native: TimeSeries axis metadata, coverage checks, explicit native interpolation or non-mutating fill policies, quality summaries, native statistics and unit-correct HeatRate integration over materialized fill/alignment outputs, plus exact/nearest/linear alignment and resampling.",
                                  "kind":  "stdlib",
                                  "label":  "eng.timeseries",
                                  "lsp_kind":  9
@@ -2311,8 +2311,8 @@
                              },
                              {
                                  "detail":  "eng.timeseries missing-value interpolation with an explicit policy",
-                                 "insert":  "fill missing weather.value",
-                                 "insert_snippet":  "fill missing ${1:weather}.${2:value}\nwith {\n    method = interpolate\n    expected_step = ${3:1 h}\n    max_gap = ${4:3 h}\n}",
+                                 "insert":  "filled = fill missing weather.value",
+                                 "insert_snippet":  "${1:filled} = fill missing ${2:weather}.${3:value}\nwith {\n    method = interpolate\n    expected_step = ${4:1 h}\n    max_gap = ${5:3 h}\n}",
                                  "kind":  "stdlib",
                                  "label":  "fill missing",
                                  "lsp_kind":  9

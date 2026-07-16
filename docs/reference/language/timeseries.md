@@ -156,11 +156,11 @@ For the official CSV path, the object also carries stable point values and the
 typed payload records computed statistic values plus trapezoidal integration
 metadata.
 
-## Fill Missing Metadata
+## Fill Missing Values And Policies
 
-`fill missing <table>.<column>` records an explicit TimeSeries fill policy and,
-with `method = interpolate`, materializes a filled TimeSeries without mutating
-the promoted source table:
+`fill missing <table>.<column>` always records an explicit TimeSeries fill
+policy. `method = interpolate` also materializes a filled TimeSeries without
+mutating the promoted source table:
 
 ```eng partial
 filled = fill missing weather.wind_speed
@@ -171,12 +171,35 @@ with {
 }
 ```
 
+The supported methods are:
+
+- `interpolate`: linearly interpolate finite samples inside the source range,
+  subject to `expected_step` and optional `max_gap`; no extrapolation is used
+- `record_only`: acknowledge a non-mutating policy and emit review metadata
+  without filling values
+
+Omitting `method` remains a conservative compatibility path equivalent to
+`record_only`, but the compiler warns because the command does not change any
+values. Unsupported methods, non-positive durations, duplicate `step` and
+`expected_step`, and unbound interpolation outputs are compiler errors.
+Editor quick fixes present `interpolate` and `record_only` as separate explicit
+choices; neither is silently preferred for scientific data.
+
 Runtime artifacts include a `typed_payload.timeseries_fill[]` record with the
 source table/column, time column, method, expected step, max gap, missing count,
 fillable count, filled count, skipped count, status, and source line. The
 interpolated output is also available in the VM object store under the fill
-binding name. `typed_payload.timeseries_quality[]` summarizes the related
-coverage/fill outcome with remaining missing count and a 0..1 quality score.
+binding name. That binding is a normal runtime TimeSeries input for plots and
+`summarize`; a filled `HeatRate` series can also be passed to
+`integrate(<filled>, over=Time)`. Runtime resolves the source quantity and
+display unit from the materialized series, and converts rate-time integrals to
+J before publishing them in `typed_payload.integrations[]` and
+`report_spec.computed_integrations[]`. A `record_only` or deferred policy does
+not create a TimeSeries, so downstream calculations remain unavailable rather
+than consuming the unfilled source implicitly.
+
+`typed_payload.timeseries_quality[]` summarizes the related coverage/fill
+outcome with remaining missing count and a 0..1 quality score.
 The same TimeSeries quality summary is also projected into
 `typed_payload.quality_results[]` as a generic `timeseries_quality_result` bridge
 record with target, subject, pass/warning/failure counts, score, status, reason,

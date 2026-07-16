@@ -323,6 +323,7 @@ fn diagnostic_review_risk_category(code: &str) -> &'static str {
         || code.contains("CSV")
         || code.contains("DATA")
         || code.contains("TABLE")
+        || code.contains("TIMESERIES")
     {
         "data_quality"
     } else if code.contains("SIDE") || code.contains("PROCESS") || code.contains("FILE") {
@@ -8529,6 +8530,11 @@ mod tests {
         assert_eq!(diagnostic.severity, "warning");
         assert_eq!(diagnostic.level, "medium");
 
+        let timeseries =
+            classify_diagnostic_review_risk("W-TIMESERIES-FILL-METHOD-IMPLICIT", "warning");
+        assert_eq!(timeseries.category, "data_quality");
+        assert_eq!(timeseries.level, "medium");
+
         let process = classify_workflow_node_review_risk("process", "process-ok");
         assert_eq!(process.category, "external_boundary");
         assert_eq!(process.severity, "info");
@@ -11167,6 +11173,114 @@ write csv "outputs/q.csv", Q
         assert!(options.iter().any(|option| {
             option.key == "max_gap" && option.value == "3 h" && option.status == "accepted"
         }));
+        assert!(!report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "W-TIMESERIES-FILL-METHOD-IMPLICIT"));
+    }
+
+    #[test]
+    fn timeseries_fill_missing_output_feeds_statistics_and_integration() {
+        let report = check_source(
+            "ok.eng",
+            concat!(
+                "filled = fill missing weather.heat_rate\n",
+                "with { method = interpolate; expected_step = 1 h }\n",
+                "filled_energy = integrate(filled, over=Time)\n",
+                "report {\n",
+                "    summarize filled by [mean, max, p95]\n",
+                "}\n",
+            ),
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let stats = report
+            .semantic_program
+            .stats_infos
+            .iter()
+            .find(|stats| stats.source == "filled")
+            .expect("filled statistics metadata");
+        assert_eq!(stats.source_type, "TimeSeriesFillResult");
+        assert_eq!(stats.quantity_kind, "runtime-resolved");
+        assert_eq!(stats.axis, "Time");
+        assert_eq!(stats.statistics, vec!["mean", "max", "p95"]);
+
+        let integration = report
+            .semantic_program
+            .integrations
+            .iter()
+            .find(|integration| integration.binding == "filled_energy")
+            .expect("filled integration metadata");
+        assert_eq!(integration.source, "filled");
+        assert_eq!(integration.input_quantity, "runtime-resolved");
+        assert_eq!(integration.over_axis, "Time");
+        assert_eq!(integration.result_quantity, "Energy");
+    }
+
+    #[test]
+    fn validates_timeseries_fill_missing_policy() {
+        let report = check_source(
+            "bad.eng",
+            concat!(
+                "recorded = fill missing weather.wind_speed\n",
+                "explicit_record = fill missing weather.wind_speed\n",
+                "with { method = record_only }\n",
+                "bad_method = fill missing weather.wind_speed\n",
+                "with { method = spline }\n",
+                "bad_step = fill missing weather.wind_speed\n",
+                "with { method = record_only; expected_step = 0 s }\n",
+                "bad_gap = fill missing weather.wind_speed\n",
+                "with { method = record_only; max_gap = never }\n",
+                "duplicate_step = fill missing weather.wind_speed\n",
+                "with { method = record_only; expected_step = 1 h; step = 1 h }\n",
+                "fill missing weather.wind_speed\n",
+                "with { method = interpolate }\n",
+            ),
+            &CheckOptions::default(),
+        );
+
+        for code in [
+            "W-TIMESERIES-FILL-METHOD-IMPLICIT",
+            "E-TIMESERIES-FILL-METHOD",
+            "E-TIMESERIES-FILL-STEP",
+            "E-TIMESERIES-FILL-MAX-GAP",
+            "E-TIMESERIES-FILL-STEP-CONFLICT",
+            "E-TIMESERIES-FILL-BINDING",
+        ] {
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == code),
+                "missing diagnostic {code}: {:?}",
+                report.diagnostics
+            );
+        }
+        assert_eq!(
+            report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == "W-TIMESERIES-FILL-METHOD-IMPLICIT")
+                .count(),
+            1,
+            "explicit record_only should acknowledge metadata-only behavior"
+        );
+        let statuses = report
+            .semantic_program
+            .with_blocks
+            .iter()
+            .flat_map(|block| block.options.iter())
+            .map(|option| option.status.as_str())
+            .collect::<Vec<_>>();
+        for status in [
+            "invalid_timeseries_fill_method",
+            "invalid_timeseries_fill_step",
+            "invalid_timeseries_fill_max_gap",
+            "conflicting_timeseries_fill_step",
+        ] {
+            assert!(statuses.contains(&status), "missing option status {status}");
+        }
     }
 
     #[test]

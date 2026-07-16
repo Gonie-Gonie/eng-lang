@@ -11,12 +11,14 @@ function createDecorationController(options = {}) {
   const {
     isEngDocument = () => false,
     reviewCache = new Map(),
-    timeAlignmentReviewCache = new Map()
+    timeAlignmentReviewCache = new Map(),
+    fallbackReviewCache = new Map()
   } = options;
   const reviewRiskDecorations = createReviewRiskDecorationTypes();
   const reviewValidationDecorations = createReviewValidationDecorationTypes();
   const semanticSymbolDecorations = createSemanticSymbolDecorationTypes();
   const timeAlignmentDecorations = createTimeAlignmentDecorationTypes();
+  const fallbackDecorations = createFallbackDecorationTypes();
 
   function updateReviewRiskDecorations(document, review) {
     if (!reviewRiskDecorations || !isEngDocument(document)) {
@@ -62,6 +64,15 @@ function createDecorationController(options = {}) {
       if (isEngDocument(editor.document)) {
         const cached = timeAlignmentReviewCache.get(editor.document.uri.fsPath);
         updateTimeAlignmentDecorations(editor.document, cached);
+      }
+    }
+  }
+
+  function refreshVisibleFallbackDecorations() {
+    for (const editor of vscode.window.visibleTextEditors) {
+      if (isEngDocument(editor.document)) {
+        const cached = fallbackReviewCache.get(editor.document.uri.fsPath);
+        updateFallbackDecorations(editor.document, cached);
       }
     }
   }
@@ -134,6 +145,25 @@ function createDecorationController(options = {}) {
     }
   }
 
+  function updateFallbackDecorations(document, review) {
+    if (!fallbackDecorations || !isEngDocument(document)) {
+      return;
+    }
+    const editors = vscode.window.visibleTextEditors.filter(
+      (editor) => editor.document.uri.toString() === document.uri.toString()
+    );
+    if (editors.length === 0) {
+      return;
+    }
+    const config = vscode.workspace.getConfiguration("englang", document.uri);
+    const decorations = config.get("fallbackDecorations.enabled", true)
+      ? fallbackDecorationOptions(document, review)
+      : [];
+    for (const editor of editors) {
+      editor.setDecorations(fallbackDecorations.warning, decorations);
+    }
+  }
+
   return {
     disposables: [
       reviewRiskDecorations.high,
@@ -142,16 +172,19 @@ function createDecorationController(options = {}) {
       reviewValidationDecorations.fail,
       semanticSymbolDecorations.internal,
       semanticSymbolDecorations.planned,
-      timeAlignmentDecorations.warning
+      timeAlignmentDecorations.warning,
+      fallbackDecorations.warning
     ],
     refreshVisibleReviewRiskDecorations,
     refreshVisibleReviewValidationDecorations,
     refreshVisibleSemanticSymbolDecorations,
     refreshVisibleTimeAlignmentDecorations,
+    refreshVisibleFallbackDecorations,
     updateReviewRiskDecorations,
     updateReviewValidationDecorations,
     updateSemanticSymbolDecorations,
-    updateTimeAlignmentDecorations
+    updateTimeAlignmentDecorations,
+    updateFallbackDecorations
   };
 }
 
@@ -213,6 +246,20 @@ function createReviewValidationDecorationTypes() {
 }
 
 function createTimeAlignmentDecorationTypes() {
+  return {
+    warning: vscode.window.createTextEditorDecorationType({
+      after: {
+        color: new vscode.ThemeColor("editorWarning.foreground"),
+        fontStyle: "italic",
+        margin: "0 0 0 0.75rem"
+      },
+      overviewRulerColor: new vscode.ThemeColor("editorWarning.foreground"),
+      overviewRulerLane: vscode.OverviewRulerLane.Right
+    })
+  };
+}
+
+function createFallbackDecorationTypes() {
   return {
     warning: vscode.window.createTextEditorDecorationType({
       after: {
@@ -367,6 +414,153 @@ function timeAlignmentDecorationOptions(document, review) {
     });
   }
   return warnings;
+}
+
+function fallbackDecorationOptions(document, review) {
+  const doc = normalizedReviewDocument(review);
+  const fills = firstReviewArray(doc, review, "timeseries_fill", "timeseriesFill");
+  const explicitFills = fills.filter(isExplicitTimeseriesFill);
+  const explicitSources = new Set(
+    explicitFills.map(timeseriesFillSourceKey).filter(Boolean)
+  );
+  const byLine = new Map();
+
+  for (const record of explicitFills) {
+    setFallbackDecorationLine(byLine, document, record, timeseriesFillWarning(record, true));
+  }
+  for (const record of fills.filter((candidate) => !isExplicitTimeseriesFill(candidate))) {
+    const sourceKey = timeseriesFillSourceKey(record);
+    if (sourceKey && explicitSources.has(sourceKey)) {
+      continue;
+    }
+    setFallbackDecorationLine(byLine, document, record, timeseriesFillWarning(record, false));
+  }
+
+  const fallbackRecords = firstReviewArray(doc, review, "fallbacks");
+  for (const record of fallbackRecords) {
+    const kind = String(reviewValue(record, "kind", "kind", "")).toLowerCase();
+    if (kind === "timeseries_fill_policy") {
+      continue;
+    }
+    const riskLevel = String(
+      reviewValue(record, "risk_level", "riskLevel", "")
+    ).toLowerCase();
+    if (!matchesRuntimeFallbackRisk(riskLevel)) {
+      continue;
+    }
+    setFallbackDecorationLine(byLine, document, record, {
+      kind: "runtime_fallback",
+      label: "fallback review required"
+    });
+  }
+
+  return [...byLine.entries()]
+    .sort((left, right) => left[0] - right[0])
+    .map(([lineNumber, item]) => ({
+      range: lineEndRange(document, lineNumber - 1),
+      hoverMessage: fallbackHoverMessage(item.record, item.warning),
+      renderOptions: {
+        after: { contentText: `  ${item.warning.label}` }
+      }
+    }));
+}
+
+function isExplicitTimeseriesFill(record) {
+  return String(reviewValue(record, "strategy", "strategy", "")).toLowerCase()
+    === "fill_missing";
+}
+
+function timeseriesFillSourceKey(record) {
+  const table = String(reviewValue(record, "source_table", "sourceTable", "")).trim();
+  const timeColumn = String(reviewValue(record, "time_column", "timeColumn", "")).trim();
+  return table && timeColumn ? `${table}\u0000${timeColumn}` : "";
+}
+
+function timeseriesFillWarning(record, explicit) {
+  const status = String(reviewValue(record, "status", "status", "")).toLowerCase();
+  const fallbackRequired = reviewBoolean(record, "fallback_required", "fallbackRequired");
+  if (!fallbackRequired && matchesRuntimeFallbackStatus(status, "applied", "not_required")) {
+    return undefined;
+  }
+  if (status === "partial") {
+    const filledCount = reviewCount(record, "filled_count", "filledCount");
+    const missingCount = reviewCount(record, "missing_count", "missingCount");
+    const countLabel = missingCount > 0 ? ` ${filledCount}/${missingCount}` : "";
+    return { kind: "timeseries_fill", label: `fill partial${countLabel}` };
+  }
+  if (explicit) {
+    return {
+      kind: "timeseries_fill",
+      label: status === "deferred" ? "fill deferred" : "fill review required"
+    };
+  }
+  return { kind: "timeseries_fill_policy", label: "fill policy required" };
+}
+
+function setFallbackDecorationLine(byLine, document, record, warning) {
+  const lineNumber = Number(lineValue(record));
+  if (
+    !warning
+    || !Number.isFinite(lineNumber)
+    || lineNumber < 1
+    || lineNumber > document.lineCount
+  ) {
+    return;
+  }
+  const safeLine = Math.trunc(lineNumber);
+  if (!byLine.has(safeLine)) {
+    byLine.set(safeLine, { record, warning });
+  }
+}
+
+function fallbackHoverMessage(record, warning) {
+  const markdown = new vscode.MarkdownString();
+  markdown.isTrusted = false;
+  if (warning.kind === "runtime_fallback") {
+    markdown.appendMarkdown("**EngLang runtime fallback warning**");
+    markdown.appendText(`\n\nLatest saved run: ${reviewValue(record, "target", "target", "fallback")}`);
+    markdown.appendText(`\nMethod: ${reviewValue(record, "method", "method", "?")}`);
+    markdown.appendText(`\nStatus: ${reviewValue(record, "status", "status", "?")}`);
+    markdown.appendText(`\nRisk: ${reviewValue(record, "risk_level", "riskLevel", "?")}`);
+    markdown.appendText(`\nReason: ${reviewValue(record, "reason", "reason", warning.label)}`);
+    return markdown;
+  }
+
+  const binding = reviewValue(record, "binding", "binding", "fill policy");
+  const sourceTable = reviewValue(record, "source_table", "sourceTable", "?");
+  const sourceColumn = reviewValue(record, "source_column", "sourceColumn", "?");
+  const timeColumn = reviewValue(record, "time_column", "timeColumn", "?");
+  const method = reviewValue(record, "method", "method", "?");
+  const status = reviewValue(record, "status", "status", "?");
+  const filledCount = reviewCount(record, "filled_count", "filledCount");
+  const missingCount = reviewCount(record, "missing_count", "missingCount");
+  const skippedCount = reviewCount(record, "skipped_count", "skippedCount");
+  const reason = reviewValue(record, "reason", "reason", warning.label);
+  markdown.appendMarkdown("**EngLang TimeSeries fill/imputation warning**");
+  markdown.appendText(`\n\nLatest saved run: ${binding}`);
+  markdown.appendText(`\nSource: ${sourceTable}.${sourceColumn}; time column: ${timeColumn}`);
+  markdown.appendText(`\nMethod: ${method}; status: ${status}`);
+  markdown.appendText(`\nFilled: ${filledCount}/${missingCount}; skipped: ${skippedCount}`);
+  markdown.appendText(`\nReason: ${reason}`);
+  return markdown;
+}
+
+function reviewBoolean(record, snakeKey, camelKey) {
+  const value = reviewValue(record, snakeKey, camelKey, false);
+  return value === true || String(value).toLowerCase() === "true";
+}
+
+function reviewCount(record, snakeKey, camelKey) {
+  const value = Number(reviewValue(record, snakeKey, camelKey, 0));
+  return Number.isFinite(value) && value > 0 ? Math.trunc(value) : 0;
+}
+
+function matchesRuntimeFallbackStatus(status, ...values) {
+  return values.includes(status);
+}
+
+function matchesRuntimeFallbackRisk(riskLevel) {
+  return riskLevel === "high" || riskLevel === "medium";
 }
 
 function timeAlignmentWarning(record) {
@@ -527,6 +721,7 @@ function lineEndRange(document, lineNumber) {
 
 module.exports = {
   createDecorationController,
+  fallbackDecorationOptions,
   reviewValidationDecorationOptions,
   timeAlignmentDecorationOptions,
   timeAlignmentWarning

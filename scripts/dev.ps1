@@ -4278,7 +4278,7 @@ function Assert-VscodeExtensionContract {
         }
     }
     $Properties = $Package.contributes.configuration.properties
-    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsMode", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange", "englang.semanticHighlighting.enabled", "englang.reviewRiskDecorations.enabled", "englang.validationDecorations.enabled", "englang.timeAlignmentDecorations.enabled")) {
+    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsMode", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange", "englang.semanticHighlighting.enabled", "englang.reviewRiskDecorations.enabled", "englang.validationDecorations.enabled", "englang.timeAlignmentDecorations.enabled", "englang.fallbackDecorations.enabled")) {
         if ($null -eq $Properties.$RequiredProperty) {
             throw "VS Code extension missing configuration property $RequiredProperty"
         }
@@ -4428,6 +4428,10 @@ function Assert-VscodeExtensionContract {
     $TimeAlignmentDecorationDescription = [string]$Properties."englang.timeAlignmentDecorations.enabled".description
     if ($TimeAlignmentDecorationDescription -notmatch "latest matching native run" -or $TimeAlignmentDecorationDescription -notmatch "partial or unavailable TimeSeries output") {
         throw "VS Code timeAlignmentDecorations setting must describe source-matched native run warnings"
+    }
+    $FallbackDecorationDescription = [string]$Properties."englang.fallbackDecorations.enabled".description
+    if ($FallbackDecorationDescription -notmatch "fill/imputation" -or $FallbackDecorationDescription -notmatch "latest source-matched native run") {
+        throw "VS Code fallbackDecorations setting must describe source-matched fill and fallback warnings"
     }
     $SemanticModifiers = @($Package.contributes.semanticTokenModifiers | ForEach-Object { $_.id })
     foreach ($RequiredSemanticModifier in @(
@@ -6032,7 +6036,8 @@ function Assert-VscodeExtensionContract {
         "report_spec.json",
         "source_path",
         "source_hash",
-        "timeAlignmentReviewRevisionIsCurrent",
+        "runArtifactRevisionIsCurrent",
+        "clearWorkspaceRunArtifactReview",
         "workspaceReviewRevisions",
         "alignment partial",
         "alignment unavailable",
@@ -6040,6 +6045,29 @@ function Assert-VscodeExtensionContract {
     )) {
         if (-not $TimeAlignmentDecorationSource.Contains($RequiredTimeAlignmentDecorationToken)) {
             throw "VS Code extension missing TimeSeries alignment decoration token $RequiredTimeAlignmentDecorationToken"
+        }
+    }
+    $FallbackDecorationSource = $ExtensionSource + "`n" + $DecorationsSource + "`n" + $CommandHandlersSource
+    foreach ($RequiredFallbackDecorationToken in @(
+        "createFallbackDecorationTypes",
+        "updateFallbackDecorations",
+        "refreshVisibleFallbackDecorations",
+        "fallbackDecorationOptions",
+        "fallbackHoverMessage",
+        "englang.fallbackDecorations.enabled",
+        "review.json",
+        "fallbackReviewMatchesDocument",
+        "source_path",
+        "source_hash",
+        "clearWorkspaceRunArtifactReview",
+        "fill partial",
+        "fill deferred",
+        "fill policy required",
+        "fallback review required",
+        "Latest saved run"
+    )) {
+        if (-not $FallbackDecorationSource.Contains($RequiredFallbackDecorationToken)) {
+            throw "VS Code extension missing runtime fallback decoration token $RequiredFallbackDecorationToken"
         }
     }
     $SemanticSymbolDecorationSource = $ExtensionSource + "`n" + $DecorationsSource + "`n" + $LspSemanticTokensSource

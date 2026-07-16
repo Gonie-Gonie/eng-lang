@@ -733,8 +733,11 @@ Gregorian year grid, including leap-year expected counts. Fill records include
 both coverage-derived fallback policy records and explicit
 `fill missing <table>.<column>` command records with source/time columns,
 method, expected step, max gap, missing/fillable/filled/skipped counts, status,
-and source line. For `method = interpolate`, the runtime also materializes the
-filled TimeSeries under the fill binding. Quality records summarize coverage and
+fallback requirement, reason, and source line. `method = interpolate`
+materializes the filled TimeSeries under the fill binding; `method =
+record_only` explicitly records a non-mutating policy. An omitted method also
+records only metadata and produces a compiler warning so that behavior is not
+mistaken for imputation. Quality records summarize coverage and
 fill together, including remaining missing count, status, reason, and a 0..1
 quality score when an expected count is available. Generic quality result
 records expose TimeSeries quality summaries, `validate` statement outcomes,
@@ -746,8 +749,10 @@ constraint quality results carry row/field failure details under `failures[]`.
 surfaces the same records in the Quality inspector.
 Expectation suite records from `expect <table> { ... }` include expectation
 counts, pass/warning/failure counts, per-expectation status/reason, and source
-line. Fallback records are emitted when coverage is gapped or irregular, so
-review tooling can surface the need for an explicit fill/imputation policy.
+line. Explicit fill records set `fallback_required` when materialization is
+partial or deferred. Separate fallback records are emitted when coverage is
+gapped or irregular, so review tooling can surface the need for a resolved
+fill/imputation policy.
 Time alignment records distinguish comparison-only automatic pairwise metadata
 from bound native `align`/`resample` operations. Explicit operations materialize
 a TimeSeries in the object store and record strategy, exact/nearest/linear

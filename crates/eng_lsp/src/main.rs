@@ -1554,6 +1554,12 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-SAMPLING-RANGE-UNIT" => {
             optional_code_action(lsp_sampling_range_unit_code_action(uri, text, diagnostic))
         }
+        "E-TIMESERIES-FILL-METHOD" => {
+            lsp_timeseries_fill_method_replacement_actions(uri, text, diagnostic)
+        }
+        "W-TIMESERIES-FILL-METHOD-IMPLICIT" => {
+            lsp_timeseries_fill_method_missing_actions(uri, text, diagnostic)
+        }
         "W-WITH-UNCERTAINTY-SEED-001" => optional_code_action(
             lsp_uncertainty_seed_missing_code_action(uri, text, diagnostic),
         ),
@@ -2451,6 +2457,111 @@ fn lsp_recursive_delete_code_action(uri: &str, text: &str, diagnostic: &Value) -
     lsp_boolean_with_options_code_action(uri, text, diagnostic, &["recursive", "confirm"])
 }
 
+fn lsp_timeseries_fill_method_replacement_actions(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Vec<Value> {
+    let Some(line_number) = diagnostic_line(diagnostic) else {
+        return Vec::new();
+    };
+    let Some(line) = text.lines().nth(line_number) else {
+        return Vec::new();
+    };
+    let Some(assignment) = option_assignment_range(line, &["method"]) else {
+        return Vec::new();
+    };
+    [
+        (
+            "interpolate",
+            "Fill missing values with native interpolation",
+        ),
+        ("record_only", "Record fill policy without changing values"),
+    ]
+    .into_iter()
+    .map(|(value, title)| {
+        json!({
+            "title": title,
+            "kind": "quickfix",
+            "diagnostics": [diagnostic.clone()],
+            "edit": single_change_workspace_edit(
+                uri,
+                line_byte_range(
+                    line_number,
+                    line,
+                    assignment.value_start,
+                    assignment.value_end,
+                ),
+                value,
+            )
+        })
+    })
+    .collect()
+}
+
+fn lsp_timeseries_fill_method_missing_actions(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Vec<Value> {
+    [
+        (
+            "interpolate",
+            "Fill missing values with native interpolation",
+        ),
+        ("record_only", "Record fill policy without changing values"),
+    ]
+    .into_iter()
+    .filter_map(|(value, title)| {
+        lsp_with_option_value_code_action(uri, text, diagnostic, "method", value, title)
+    })
+    .collect()
+}
+
+fn lsp_with_option_value_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+    option_name: &str,
+    option_value: &str,
+    title: &str,
+) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let lines = split_lines_preserve_logical(text);
+    let attached_block = attached_with_block(&lines, line_number);
+    if attached_block
+        .as_ref()
+        .is_some_and(|block| with_block_contains_option(&lines, block, option_name))
+    {
+        return None;
+    }
+    let newline = document_newline(text);
+    let (range, new_text) = if let Some(block) = attached_block {
+        (
+            zero_width_range(block.end_line, 0),
+            format!(
+                "{}    {option_name} = {option_value}{newline}",
+                block.indent
+            ),
+        )
+    } else {
+        let line = lines.get(line_number).copied().unwrap_or("");
+        let indent = line_indent(line);
+        (
+            zero_width_range(line_number, utf16_len(line)),
+            format!(
+                "{newline}{indent}with {{{newline}{indent}    {option_name} = {option_value}{newline}{indent}}}"
+            ),
+        )
+    };
+    Some(json!({
+        "title": title,
+        "kind": "quickfix",
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(uri, range, &new_text)
+    }))
+}
+
 fn lsp_boolean_with_options_code_action(
     uri: &str,
     text: &str,
@@ -2911,6 +3022,16 @@ fn option_quick_fix(code: &str) -> Option<OptionQuickFix> {
             option_names: &["seed"],
             value: "42",
             label: "Set sample seed",
+        }),
+        "E-TIMESERIES-FILL-STEP" => Some(OptionQuickFix {
+            option_names: &["expected_step", "step"],
+            value: "1 h",
+            label: "Set fill step to 1 h",
+        }),
+        "E-TIMESERIES-FILL-MAX-GAP" => Some(OptionQuickFix {
+            option_names: &["max_gap"],
+            value: "3 h",
+            label: "Set maximum fill gap to 3 h",
         }),
         "E-WITH-UNCERTAINTY-POLICY-001" => Some(OptionQuickFix {
             option_names: &["uncertainty"],
@@ -8175,6 +8296,73 @@ fn write_response<W: Write>(output: &mut W, value: Value) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn timeseries_fill_method_quick_fixes_require_an_explicit_policy_choice() {
+        let uri = "file:///C:/workspace/fill.eng";
+        let invalid_source = concat!(
+            "filled = fill missing weather.wind_speed\n",
+            "with {\n",
+            "    method = spline\n",
+            "}\n",
+        );
+        let invalid_diagnostic = json!({
+            "range": {
+                "start": { "line": 2, "character": 13 },
+                "end": { "line": 2, "character": 19 }
+            },
+            "code": "E-TIMESERIES-FILL-METHOD",
+            "message": "Unknown TimeSeries fill method `spline`."
+        });
+        let replacement_actions =
+            code_actions_for_diagnostic(uri, invalid_source, &invalid_diagnostic);
+        assert_eq!(replacement_actions.len(), 2);
+        assert!(replacement_actions
+            .iter()
+            .all(|action| action.get("isPreferred").is_none()));
+        let replacement_text = replacement_actions
+            .iter()
+            .flat_map(|action| action["edit"]["changes"][uri].as_array().unwrap())
+            .filter_map(|edit| edit["newText"].as_str())
+            .collect::<Vec<_>>();
+        assert!(replacement_text.contains(&"interpolate"));
+        assert!(replacement_text.contains(&"record_only"));
+
+        let missing_source = "filled = fill missing weather.wind_speed\n";
+        let missing_diagnostic = json!({
+            "range": {
+                "start": { "line": 0, "character": 0 },
+                "end": { "line": 0, "character": 48 }
+            },
+            "code": "W-TIMESERIES-FILL-METHOD-IMPLICIT",
+            "message": "`fill missing` has no value-filling method."
+        });
+        let insertion_actions =
+            code_actions_for_diagnostic(uri, missing_source, &missing_diagnostic);
+        assert_eq!(insertion_actions.len(), 2);
+        assert!(insertion_actions.iter().any(|action| {
+            action["edit"]["changes"][uri]
+                .as_array()
+                .is_some_and(|edits| {
+                    edits.iter().any(|edit| {
+                        edit["newText"]
+                            .as_str()
+                            .is_some_and(|text| text.contains("method = interpolate"))
+                    })
+                })
+        }));
+        assert!(insertion_actions.iter().any(|action| {
+            action["edit"]["changes"][uri]
+                .as_array()
+                .is_some_and(|edits| {
+                    edits.iter().any(|edit| {
+                        edit["newText"]
+                            .as_str()
+                            .is_some_and(|text| text.contains("method = record_only"))
+                    })
+                })
+        }));
+    }
 
     #[test]
     fn file_uri_paths_percent_encode_reserved_and_utf8_bytes() {

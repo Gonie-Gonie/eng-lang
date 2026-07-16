@@ -748,12 +748,12 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     ),
     (
         "fill",
-        "Record an explicit TimeSeries fill policy with `fill missing`",
+        "Fill missing TimeSeries values or record an explicit non-mutating policy",
     ),
     ("align", "Align TimeSeries values onto a shared axis"),
     (
         "resample",
-        "Record TimeSeries resampling against a target series or explicit step",
+        "Materialize TimeSeries values on a target series or explicit step",
     ),
     ("sample", "eng.sampling sample set helper"),
     ("uniform", "eng.sampling uniform distribution helper"),
@@ -874,7 +874,10 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("max_gap", "maximum allowed gap option"),
     ("max_iter", "solver maximum iteration count"),
     ("mu", "uncertainty mean alias"),
-    ("method", "fill or transform method"),
+    (
+        "method",
+        "operation method; fill uses interpolate or record_only",
+    ),
     ("missing", "missing value policy"),
     ("mode", "write mode"),
     ("n", "uncertainty sample count alias"),
@@ -1782,6 +1785,11 @@ fn diagnostic_option_names(code: &str) -> Option<&'static [&'static str]> {
         "E-PROCESS-ENV-001" => Some(&["env"]),
         "E-SAMPLING-COUNT-INVALID" => Some(&["count"]),
         "E-SAMPLING-SEED-INVALID" => Some(&["seed"]),
+        "E-TIMESERIES-FILL-METHOD" => Some(&["method"]),
+        "E-TIMESERIES-FILL-STEP" | "E-TIMESERIES-FILL-STEP-CONFLICT" => {
+            Some(&["expected_step", "step"])
+        }
+        "E-TIMESERIES-FILL-MAX-GAP" => Some(&["max_gap"]),
         "E-ML-ARGS-001" => Some(&[
             "target",
             "y",
@@ -9738,7 +9746,7 @@ fn completion_insert_for_label(label: &str) -> Option<&'static str> {
         "promote json config" => Some("promote json file(\"workflow.json\") as WorkflowConfig"),
         "promote toml config" => Some("promote toml file(\"workflow.toml\") as WorkflowConfig"),
         "check coverage" => Some("check coverage weather.time"),
-        "fill missing" => Some("fill missing weather.value"),
+        "fill missing" => Some("filled = fill missing weather.value"),
         "materialize cases" => Some("materialize cases designs"),
         "apply cases" => Some("apply case_input_template over cases"),
         "apply run_case" => Some("apply run_case over case_inputs"),
@@ -9833,7 +9841,7 @@ fn completion_insert_snippet_for_label(label: &str) -> Option<String> {
                 .to_owned(),
         ),
         "fill missing" => Some(
-            "fill missing ${1:weather}.${2:value}\nwith {\n    method = interpolate\n    expected_step = ${3:1 h}\n    max_gap = ${4:3 h}\n}"
+            "${1:filled} = fill missing ${2:weather}.${3:value}\nwith {\n    method = interpolate\n    expected_step = ${4:1 h}\n    max_gap = ${5:3 h}\n}"
                 .to_owned(),
         ),
         "materialize cases" => Some("materialize cases ${1:designs}".to_owned()),
@@ -11340,7 +11348,7 @@ mod tests {
             .expect("editor metadata should include fill missing completion");
         assert_eq!(
             fill_missing_completion["insert_snippet"],
-            "fill missing ${1:weather}.${2:value}\nwith {\n    method = interpolate\n    expected_step = ${3:1 h}\n    max_gap = ${4:3 h}\n}"
+            "${1:filled} = fill missing ${2:weather}.${3:value}\nwith {\n    method = interpolate\n    expected_step = ${4:1 h}\n    max_gap = ${5:3 h}\n}"
         );
         let train_regression_completion = completions
             .iter()

@@ -855,6 +855,11 @@
           "type": "boolean",
           "default": true,
           "description": "Show compact warnings beside align/resample commands whose latest matching native run produced partial or unavailable TimeSeries output."
+        },
+        "englang.fallbackDecorations.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show compact fill/imputation and runtime fallback warnings from the latest source-matched native run."
         }
       }
     },

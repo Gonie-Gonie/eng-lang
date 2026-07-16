@@ -39,6 +39,7 @@ const DIAGNOSTICS_MODES = [
 
 const DEFAULT_SEMANTIC_TOKEN_SCOPE_MAP = semanticTokenScopeMapFromPackage(packageManifest);
 const LAST_RUN_REPORT_SPEC_RELATIVE_PATH = ["build", "result", "report_spec.json"];
+const LAST_RUN_REVIEW_RELATIVE_PATH = ["build", "result", "review.json"];
 
 function semanticTokenScopeMapFromPackage(manifest) {
   const rule = (manifest?.contributes?.semanticTokenScopes ?? [])
@@ -65,10 +66,16 @@ function createCommandHandlers(options = {}) {
     options.clearTimeAlignmentReview ?? (() => undefined);
   const updateTimeAlignmentDecorations =
     options.updateTimeAlignmentDecorations ?? (() => undefined);
-  const timeAlignmentReviewRevision =
-    options.timeAlignmentReviewRevision ?? (() => 0);
-  const timeAlignmentReviewRevisionIsCurrent =
-    options.timeAlignmentReviewRevisionIsCurrent ?? (() => true);
+  const cacheFallbackReview =
+    options.cacheFallbackReview ?? (() => undefined);
+  const clearFallbackReview =
+    options.clearFallbackReview ?? (() => undefined);
+  const updateFallbackDecorations =
+    options.updateFallbackDecorations ?? (() => undefined);
+  const runArtifactRevision =
+    options.runArtifactRevision ?? (() => 0);
+  const runArtifactRevisionIsCurrent =
+    options.runArtifactRevisionIsCurrent ?? (() => true);
 
   async function runActiveFile(context) {
     const document = vscode.window.activeTextEditor?.document;
@@ -92,7 +99,9 @@ function createCommandHandlers(options = {}) {
     output.appendLine(`run ${document.uri.fsPath} --profile ${profile}`);
     clearTimeAlignmentReview(document);
     updateTimeAlignmentDecorations(document, undefined);
-    const reviewRevision = timeAlignmentReviewRevision(document);
+    clearFallbackReview(document);
+    updateFallbackDecorations(document, undefined);
+    const reviewRevision = runArtifactRevision(document);
     cp.execFile(
       runtime,
       args,
@@ -108,17 +117,35 @@ function createCommandHandlers(options = {}) {
           vscode.window.showErrorMessage(`EngLang run failed in ${profile} profile. See the EngLang output panel.`);
         } else {
           const report = loadLastRunTimeAlignmentReport(document, cwd);
-          if (report && timeAlignmentReviewRevisionIsCurrent(document, reviewRevision)) {
-            cacheTimeAlignmentReview(document, report);
-            updateTimeAlignmentDecorations(document, report);
-            const alignmentCount = Array.isArray(report.time_alignments)
-              ? report.time_alignments.length
-              : 0;
-            output.appendLine(`TimeSeries alignment review: ${alignmentCount} record(s) from current source.`);
-          } else if (!timeAlignmentReviewRevisionIsCurrent(document, reviewRevision)) {
-            output.appendLine("TimeSeries alignment review discarded: an EngLang workspace source changed during the run.");
+          const fallbackReview = loadLastRunFallbackReview(document, cwd);
+          if (!runArtifactRevisionIsCurrent(document, reviewRevision)) {
+            output.appendLine("Run-result editor reviews discarded: an EngLang workspace source changed during the run.");
           } else {
-            output.appendLine("TimeSeries alignment review unavailable: report source path/hash did not match the current editor.");
+            if (report) {
+              cacheTimeAlignmentReview(document, report);
+              updateTimeAlignmentDecorations(document, report);
+              const alignmentCount = Array.isArray(report.time_alignments)
+                ? report.time_alignments.length
+                : 0;
+              output.appendLine(`TimeSeries alignment review: ${alignmentCount} record(s) from current source.`);
+            } else {
+              output.appendLine("TimeSeries alignment review unavailable: report source path/hash did not match the current editor.");
+            }
+            if (fallbackReview) {
+              cacheFallbackReview(document, fallbackReview);
+              updateFallbackDecorations(document, fallbackReview);
+              const fillCount = Array.isArray(fallbackReview.timeseries_fill)
+                ? fallbackReview.timeseries_fill.length
+                : 0;
+              const fallbackCount = Array.isArray(fallbackReview.review_document?.fallbacks)
+                ? fallbackReview.review_document.fallbacks.length
+                : 0;
+              output.appendLine(
+                `Runtime fill/fallback review: ${fillCount} fill record(s), ${fallbackCount} fallback record(s) from current source.`
+              );
+            } else {
+              output.appendLine("Runtime fill/fallback review unavailable: review source path/hash did not match the current editor.");
+            }
           }
           vscode.window.showInformationMessage(`EngLang run completed (${profile}).`);
         }
@@ -2619,11 +2646,38 @@ function loadLastRunTimeAlignmentReport(document, root) {
   }
 }
 
+function loadLastRunFallbackReview(document, root) {
+  if (!document?.uri?.fsPath || !root) {
+    return undefined;
+  }
+  const reviewPath = path.join(root, ...LAST_RUN_REVIEW_RELATIVE_PATH);
+  try {
+    const review = JSON.parse(fs.readFileSync(reviewPath, "utf8"));
+    return fallbackReviewMatchesDocument(review, document, root) ? review : undefined;
+  } catch (_error) {
+    return undefined;
+  }
+}
+
 function timeAlignmentReportMatchesDocument(report, document, root) {
-  if (!report || typeof report !== "object" || !document?.uri?.fsPath) {
+  if (!runArtifactMatchesDocument(report, document, root)) {
     return false;
   }
-  const sourcePath = report.source_path ?? report.sourcePath;
+  return Array.isArray(report.time_alignments ?? report.timeAlignments);
+}
+
+function fallbackReviewMatchesDocument(review, document, root) {
+  if (!runArtifactMatchesDocument(review, document, root)) {
+    return false;
+  }
+  return Array.isArray(review.timeseries_fill ?? review.timeseriesFill);
+}
+
+function runArtifactMatchesDocument(artifact, document, root) {
+  if (!artifact || typeof artifact !== "object" || !document?.uri?.fsPath) {
+    return false;
+  }
+  const sourcePath = artifact.source_path ?? artifact.sourcePath;
   if (typeof sourcePath !== "string" || sourcePath.trim().length === 0) {
     return false;
   }
@@ -2636,7 +2690,7 @@ function timeAlignmentReportMatchesDocument(report, document, root) {
   if (pathComparisonKey(resolvedSource) !== pathComparisonKey(document.uri.fsPath)) {
     return false;
   }
-  const sourceHash = report.source_hash ?? report.sourceHash;
+  const sourceHash = artifact.source_hash ?? artifact.sourceHash;
   if (
     typeof sourceHash !== "string"
     || sourceHash.length === 0
@@ -2645,12 +2699,20 @@ function timeAlignmentReportMatchesDocument(report, document, root) {
   ) {
     return false;
   }
-  return Array.isArray(report.time_alignments ?? report.timeAlignments);
+  return true;
 }
 
 function pathComparisonKey(value) {
-  const normalized = path.resolve(String(value));
+  const normalized = path.resolve(stripWindowsExtendedPathPrefix(String(value)));
   return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+function stripWindowsExtendedPathPrefix(value) {
+  const uncMatch = value.match(/^[\\/]{2}\?[\\/]UNC[\\/](.*)$/i);
+  if (uncMatch) {
+    return `\\\\${uncMatch[1]}`;
+  }
+  return value.replace(/^[\\/]{2}\?[\\/]/, "");
 }
 
 function fnv1a64(value) {
@@ -2665,7 +2727,11 @@ function fnv1a64(value) {
 
 module.exports = {
   createCommandHandlers,
+  fallbackReviewMatchesDocument,
   fnv1a64,
+  loadLastRunFallbackReview,
   loadLastRunTimeAlignmentReport,
+  runArtifactMatchesDocument,
+  stripWindowsExtendedPathPrefix,
   timeAlignmentReportMatchesDocument
 };

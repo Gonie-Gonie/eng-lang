@@ -1791,7 +1791,7 @@
                                                         "label":  "mu"
                                                     },
                                                     {
-                                                        "detail":  "fill or transform method",
+                                                        "detail":  "operation method; fill uses interpolate or record_only",
                                                         "label":  "method"
                                                     },
                                                     {

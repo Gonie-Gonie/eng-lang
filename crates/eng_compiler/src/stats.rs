@@ -62,10 +62,7 @@ pub fn stats_info(summary: &SummaryDecl, bindings: &[TypedBinding]) -> Option<St
         .iter()
         .find(|binding| binding.name == summary.source)?;
     let (axis, quantity_kind) = time_series_quantity(&binding.semantic_type.quantity_kind)
-        .or_else(|| {
-            (binding.semantic_type.quantity_kind == "TimeSeriesAlignmentResult")
-                .then(|| ("Time".to_owned(), "runtime-resolved".to_owned()))
-        })?;
+        .or_else(|| runtime_materialized_time_series(&binding.semantic_type.quantity_kind))?;
     let statistics = if summary.statistics.is_empty() {
         vec!["mean".to_owned(), "max".to_owned(), "p95".to_owned()]
     } else {
@@ -90,7 +87,10 @@ pub fn integration_info(
     let source = integrate_source(&binding.expression)?;
     let over_axis = integrate_axis(&binding.expression).unwrap_or_else(|| "Time".to_owned());
     let source_binding = bindings.iter().find(|candidate| candidate.name == source)?;
-    let (_, input_quantity) = time_series_quantity(&source_binding.semantic_type.quantity_kind)?;
+    let (_, input_quantity) = time_series_quantity(&source_binding.semantic_type.quantity_kind)
+        .or_else(|| {
+            runtime_materialized_time_series(&source_binding.semantic_type.quantity_kind)
+        })?;
 
     Some(IntegrationInfo {
         binding: binding.name.clone(),
@@ -130,6 +130,14 @@ pub fn time_series_quantity(quantity_kind: &str) -> Option<(String, String)> {
 
 pub fn time_series_type(axis: &str, quantity_kind: &str) -> String {
     format!("TimeSeries[{axis}] of {quantity_kind}")
+}
+
+fn runtime_materialized_time_series(quantity_kind: &str) -> Option<(String, String)> {
+    matches!(
+        quantity_kind,
+        "TimeSeriesAlignmentResult" | "TimeSeriesFillResult"
+    )
+    .then(|| ("Time".to_owned(), "runtime-resolved".to_owned()))
 }
 
 fn integrate_source(expression: &str) -> Option<String> {

@@ -70,11 +70,11 @@ tests = ["cargo test -p eng_runtime table_", "cargo test -p eng_compiler table_"
 [module."eng.timeseries"]
 status = "native_preview"
 backing = "compiler_runtime_builtin"
-purpose = "TimeSeries axis metadata, coverage checks, explicit fill/interpolation, quality summaries, native exact/nearest/linear alignment and resampling outputs, and integration."
-artifacts = ["typed_payload.timeseries_coverage", "typed_payload.timeseries_fill", "typed_payload.timeseries_quality", "typed_payload.quality_results", "typed_payload.time_alignments", "typed_payload.integrations", "object_store.TimeSeries", "report_spec.time_alignments", "report_spec.computed_integrations", "review.fallbacks"]
-diagnostics = ["E-TIMESERIES-COVERAGE-GAP", "E-TIMESERIES-ALIGN-BINDING", "E-TIMESERIES-ALIGN-METHOD", "E-TIMESERIES-ALIGN-STEP", "E-TIMESERIES-ALIGN-TOLERANCE", "W-TIMESERIES-RESAMPLE-STEP-REDUNDANT", "W-FALLBACK-USED"]
+purpose = "TimeSeries axis metadata, coverage checks, explicit native interpolation or non-mutating fill policies, quality summaries, native statistics and unit-correct HeatRate integration over materialized fill/alignment outputs, plus exact/nearest/linear alignment and resampling."
+artifacts = ["typed_payload.timeseries_coverage", "typed_payload.timeseries_fill", "typed_payload.timeseries_quality", "typed_payload.quality_results", "typed_payload.time_alignments", "typed_payload.statistics", "typed_payload.integrations", "object_store.TimeSeries", "report_spec.time_alignments", "report_spec.computed_statistics", "report_spec.computed_integrations", "review.fallbacks"]
+diagnostics = ["E-TIMESERIES-COVERAGE-GAP", "E-TIMESERIES-FILL-BINDING", "E-TIMESERIES-FILL-METHOD", "E-TIMESERIES-FILL-STEP", "E-TIMESERIES-FILL-STEP-CONFLICT", "E-TIMESERIES-FILL-MAX-GAP", "W-TIMESERIES-FILL-METHOD-IMPLICIT", "E-TIMESERIES-ALIGN-BINDING", "E-TIMESERIES-ALIGN-METHOD", "E-TIMESERIES-ALIGN-STEP", "E-TIMESERIES-ALIGN-TOLERANCE", "W-TIMESERIES-RESAMPLE-STEP-REDUNDANT", "W-FALLBACK-USED"]
 examples = ["examples/official/01_csv_plot", "examples/internal/17_measured_vs_simulated", "examples/workflows/01_weather_api_to_standard_file", "examples/workflows/03_uncertain_sensor_report"]
-tests = ["cargo test -p eng_compiler timeseries_alignment", "cargo test -p eng_runtime computes_heat_rate_statistics_and_integral", "cargo test -p eng_runtime run_file_records_timeseries_coverage_in_review", "cargo test -p eng_runtime run_file_records_timeseries_fill_missing_in_artifacts", "cargo test -p eng_runtime run_file_materializes_timeseries_alignment_and_resampling_outputs"]
+tests = ["cargo test -p eng_compiler timeseries_fill_missing", "cargo test -p eng_compiler timeseries_alignment", "cargo test -p eng_runtime computes_heat_rate_statistics_and_integral", "cargo test -p eng_runtime run_file_records_timeseries_coverage_in_review", "cargo test -p eng_runtime run_file_records_timeseries_fill_missing_in_artifacts", "cargo test -p eng_runtime run_file_materializes_timeseries_alignment_and_resampling_outputs"]
 
 [module."eng.sampling"]
 status = "native_preview"

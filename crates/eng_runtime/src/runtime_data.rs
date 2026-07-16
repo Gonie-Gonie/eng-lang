@@ -4118,7 +4118,7 @@ fn materialize_axis_timeseries_coverage(
         coverage_year: None,
         leap_year_policy: "axis_span_only".to_owned(),
         status: status.to_owned(),
-        line: 0,
+        line: table.line,
     })
 }
 
@@ -8642,14 +8642,20 @@ fn materialize_integrations(
         .integrations
         .iter()
         .map(|integration| {
-            let integrated = series
+            let runtime_series = series
                 .iter()
-                .find(|series| series.name == integration.source)
-                .and_then(trapezoidal_integral);
+                .find(|series| series.name == integration.source);
+            let integrated = runtime_series
+                .filter(|series| {
+                    series.quantity_kind == "HeatRate" && series.axis == integration.over_axis
+                })
+                .and_then(trapezoidal_energy_joules);
             RuntimeIntegration {
                 binding: integration.binding.clone(),
                 source: integration.source.clone(),
-                input_quantity: integration.input_quantity.clone(),
+                input_quantity: runtime_series
+                    .map(|series| series.quantity_kind.clone())
+                    .unwrap_or_else(|| integration.input_quantity.clone()),
                 over_axis: integration.over_axis.clone(),
                 result_quantity: integration.result_quantity.clone(),
                 value: integrated.unwrap_or(0.0),
@@ -8660,9 +8666,7 @@ fn materialize_integrations(
                 } else {
                     "unavailable".to_owned()
                 },
-                interval_count: series
-                    .iter()
-                    .find(|series| series.name == integration.source)
+                interval_count: runtime_series
                     .map(|series| series.points.len().saturating_sub(1))
                     .unwrap_or(0),
             }
@@ -20896,6 +20900,11 @@ fn trapezoidal_integral(series: &RuntimeTimeSeries) -> Option<f64> {
         integral += (window[0].y + window[1].y) * 0.5 * dt;
     }
     Some(integral)
+}
+
+fn trapezoidal_energy_joules(series: &RuntimeTimeSeries) -> Option<f64> {
+    let integral = trapezoidal_integral(series)?;
+    Some(convert_display_value(integral, &series.display_unit, "W"))
 }
 
 fn optional_number_at(column: &RuntimeColumn, index: usize) -> Option<f64> {

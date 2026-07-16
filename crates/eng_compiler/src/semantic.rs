@@ -1471,6 +1471,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         &systems,
         &mut diagnostics,
     );
+    validate_timeseries_fill_commands(&command_styles, &mut with_blocks, &mut diagnostics);
     validate_timeseries_alignment_commands(&command_styles, &mut with_blocks, &mut diagnostics);
     crate::ml::apply_with_blocks(&mut ml_infos, &with_blocks);
     diagnostics.extend(crate::ml::with_block_argument_diagnostics(&ml_infos));
@@ -2465,6 +2466,128 @@ fn with_owner_timeseries_alignment_options(
         &["method", "tolerance"]
     };
     options.iter().map(|option| (*option).to_owned()).collect()
+}
+
+fn validate_timeseries_fill_commands(
+    command_styles: &[CommandStyleInfo],
+    with_blocks: &mut [WithBlockInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for command in command_styles
+        .iter()
+        .filter(|command| command.verb == "fill")
+        .filter(|command| command.target.trim().starts_with("missing "))
+        .filter(|command| command.status == "lowered")
+    {
+        let mut explicit_method = false;
+        let mut interpolates = false;
+        let Some(block) = with_blocks
+            .iter_mut()
+            .find(|block| block.owner_line == Some(command.line))
+        else {
+            diagnostics.push(Diagnostic::warning(
+                "W-TIMESERIES-FILL-METHOD-IMPLICIT",
+                command.line,
+                "`fill missing` has no value-filling method; runtime will only record the policy.",
+                Some("Add `with { method = interpolate }` to materialize a filled TimeSeries, or `method = record_only` to acknowledge metadata-only behavior."),
+            ));
+            continue;
+        };
+
+        for option in &mut block.options {
+            if option.status != "accepted" {
+                continue;
+            }
+            match option.key.as_str() {
+                "method" => {
+                    explicit_method = true;
+                    let method = option
+                        .value
+                        .trim()
+                        .trim_matches('"')
+                        .to_ascii_lowercase()
+                        .replace([' ', '-'], "_");
+                    if matches!(method.as_str(), "interpolate" | "record_only") {
+                        interpolates = method == "interpolate";
+                    } else {
+                        option.status = "invalid_timeseries_fill_method".to_owned();
+                        diagnostics.push(Diagnostic::error(
+                            "E-TIMESERIES-FILL-METHOD",
+                            option.line,
+                            &format!("Unknown TimeSeries fill method `{}`.", option.value),
+                            Some("Use `interpolate` to fill values or `record_only` to record an explicit non-mutating policy."),
+                        ));
+                    }
+                }
+                "expected_step" | "step"
+                    if parse_duration_option_seconds(&option.value).is_none() =>
+                {
+                    option.status = "invalid_timeseries_fill_step".to_owned();
+                    diagnostics.push(Diagnostic::error(
+                        "E-TIMESERIES-FILL-STEP",
+                        option.line,
+                        &format!(
+                            "TimeSeries fill `{}` must be a positive finite duration, got `{}`.",
+                            option.key, option.value
+                        ),
+                        Some("Use a duration such as `30 s`, `5 min`, or `1 h`."),
+                    ));
+                }
+                "max_gap" if parse_duration_option_seconds(&option.value).is_none() => {
+                    option.status = "invalid_timeseries_fill_max_gap".to_owned();
+                    diagnostics.push(Diagnostic::error(
+                        "E-TIMESERIES-FILL-MAX-GAP",
+                        option.line,
+                        &format!(
+                            "TimeSeries fill `max_gap` must be a positive finite duration, got `{}`.",
+                            option.value
+                        ),
+                        Some("Use a duration such as `1 h` or `3 h`."),
+                    ));
+                }
+                _ => {}
+            }
+        }
+
+        let step_indexes = block
+            .options
+            .iter()
+            .enumerate()
+            .filter(|(_, option)| {
+                matches!(option.key.as_str(), "expected_step" | "step")
+                    && option.status == "accepted"
+            })
+            .map(|(index, _)| index)
+            .collect::<Vec<_>>();
+        if step_indexes.len() > 1 {
+            let line = block.options[step_indexes[1]].line;
+            for index in step_indexes {
+                block.options[index].status = "conflicting_timeseries_fill_step".to_owned();
+            }
+            diagnostics.push(Diagnostic::error(
+                "E-TIMESERIES-FILL-STEP-CONFLICT",
+                line,
+                "`expected_step` and `step` cannot both configure one fill command.",
+                Some("Keep one interval; prefer `expected_step` because it states the TimeSeries policy directly."),
+            ));
+        }
+
+        if !explicit_method {
+            diagnostics.push(Diagnostic::warning(
+                "W-TIMESERIES-FILL-METHOD-IMPLICIT",
+                command.line,
+                "`fill missing` has no value-filling method; runtime will only record the policy.",
+                Some("Add `method = interpolate` to materialize a filled TimeSeries, or `method = record_only` to acknowledge metadata-only behavior."),
+            ));
+        } else if interpolates && command.owner.as_deref().is_none_or(str::is_empty) {
+            diagnostics.push(Diagnostic::error(
+                "E-TIMESERIES-FILL-BINDING",
+                command.line,
+                "`fill missing` with `method = interpolate` must bind its materialized TimeSeries output.",
+                Some("Write `filled = fill missing <table>.<column>` so downstream calculations can use the filled series."),
+            ));
+        }
+    }
 }
 
 fn validate_timeseries_alignment_commands(

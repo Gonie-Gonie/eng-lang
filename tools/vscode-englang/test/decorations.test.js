@@ -57,9 +57,11 @@ const vscodeMock = {
 
 const originalLoad = Module._load;
 let createDecorationController;
+let fallbackDecorationOptions;
 let reviewValidationDecorationOptions;
 let timeAlignmentDecorationOptions;
 let fnv1a64;
+let fallbackReviewMatchesDocument;
 let timeAlignmentReportMatchesDocument;
 let renderReviewSummaryHtml;
 try {
@@ -71,10 +73,15 @@ try {
   };
   ({
     createDecorationController,
+    fallbackDecorationOptions,
     reviewValidationDecorationOptions,
     timeAlignmentDecorationOptions
   } = require("../decorations"));
-  ({ fnv1a64, timeAlignmentReportMatchesDocument } = require("../commandHandlers"));
+  ({
+    fallbackReviewMatchesDocument,
+    fnv1a64,
+    timeAlignmentReportMatchesDocument
+  } = require("../commandHandlers"));
   ({ renderReviewSummaryHtml } = require("../reviewPanelRenderer"));
 } finally {
   Module._load = originalLoad;
@@ -91,7 +98,12 @@ function testDocument() {
     "aligned = align measured.T with simulated.T",
     "resampled = resample measured.T to simulated.T",
     "missing = align absent.T with simulated.T",
-    "done = 3"
+    "done = 3",
+    "partial_fill = fill missing weather.wind_speed",
+    "complete_fill = fill missing complete.wind_speed",
+    "coverage = check coverage sensors.time",
+    "fallback_target = run process",
+    "deferred_fill = fill missing deferred.wind_speed"
   ];
   return {
     lineCount: lines.length,
@@ -218,6 +230,111 @@ assert.match(alignmentOptions[0].hoverMessage.value, /Materialization: partial \
 assert.match(alignmentOptions[1].hoverMessage.value, /absent\.T.*simulated\.T/);
 assert.ok(!alignmentOptions.some((option) => option.hoverMessage.value.includes("resampled")));
 
+const fallbackOptions = fallbackDecorationOptions(document, {
+  timeseries_fill: [
+    {
+      binding: "partial_fill",
+      source_table: "weather",
+      source_column: "wind_speed",
+      time_column: "time",
+      strategy: "fill_missing",
+      method: "interpolate",
+      filled_count: 1,
+      missing_count: 2,
+      skipped_count: 1,
+      fallback_required: true,
+      status: "partial",
+      reason: "one missing sample remains outside max_gap",
+      line: 11
+    },
+    {
+      binding: "complete_fill",
+      source_table: "complete",
+      source_column: "wind_speed",
+      time_column: "time",
+      strategy: "fill_missing",
+      method: "interpolate",
+      filled_count: 2,
+      missing_count: 2,
+      skipped_count: 0,
+      fallback_required: false,
+      status: "applied",
+      line: 12
+    },
+    {
+      binding: "weather.Time.coverage",
+      source_table: "weather",
+      source_column: "time",
+      time_column: "time",
+      strategy: "not_applied",
+      method: "not_applied",
+      missing_count: 2,
+      skipped_count: 2,
+      fallback_required: true,
+      status: "recorded",
+      line: 13
+    },
+    {
+      binding: "sensors.Time.coverage",
+      source_table: "sensors",
+      source_column: "time",
+      time_column: "time",
+      strategy: "not_applied",
+      method: "not_applied",
+      missing_count: 3,
+      skipped_count: 3,
+      fallback_required: true,
+      status: "recorded",
+      reason: "missing samples require an explicit fill policy",
+      line: 13
+    },
+    {
+      binding: "deferred_fill",
+      source_table: "deferred",
+      source_column: "wind_speed",
+      time_column: "time",
+      strategy: "fill_missing",
+      method: "record_only",
+      missing_count: 1,
+      skipped_count: 1,
+      fallback_required: true,
+      status: "deferred",
+      reason: "fill policy recorded without changing values",
+      line: 15
+    }
+  ],
+  review_document: {
+    fallbacks: [
+      {
+        kind: "timeseries_fill_policy",
+        target: "weather.Time.coverage",
+        risk_level: "medium",
+        line: 13
+      },
+      {
+        kind: "allowed_failure",
+        target: "fallback_target",
+        method: "continue",
+        status: "recorded",
+        risk_level: "medium",
+        reason: "process failure is allowed",
+        line: 14
+      }
+    ]
+  }
+});
+assert.strictEqual(fallbackOptions.length, 4);
+assert.strictEqual(fallbackOptions[0].renderOptions.after.contentText, "  fill partial 1/2");
+assert.strictEqual(fallbackOptions[1].renderOptions.after.contentText, "  fill policy required");
+assert.strictEqual(fallbackOptions[2].renderOptions.after.contentText, "  fallback review required");
+assert.strictEqual(fallbackOptions[3].renderOptions.after.contentText, "  fill deferred");
+assert.match(fallbackOptions[0].hoverMessage.value, /Latest saved run: partial_fill/);
+assert.match(fallbackOptions[0].hoverMessage.value, /Filled: 1\/2; skipped: 1/);
+assert.match(fallbackOptions[1].hoverMessage.value, /sensors\.time/);
+assert.match(fallbackOptions[2].hoverMessage.value, /process failure is allowed/);
+assert.ok(!fallbackOptions.some((option) => option.hoverMessage.value.includes("complete_fill")));
+assert.ok(!fallbackOptions.some((option) => option.hoverMessage.value.includes("weather.Time.coverage")));
+
 const workspaceRoot = path.resolve("workspace");
 const sourcePath = path.join(workspaceRoot, "main.eng");
 const sourceText = "aligned = align measured.T with simulated.T\n";
@@ -237,8 +354,41 @@ assert.strictEqual(
 );
 assert.strictEqual(
   timeAlignmentReportMatchesDocument(
+    { ...matchingReport, source_path: `\\\\?\\${sourcePath}` },
+    matchingDocument,
+    workspaceRoot
+  ),
+  true
+);
+assert.strictEqual(
+  timeAlignmentReportMatchesDocument(
     matchingReport,
     { ...matchingDocument, getText: () => `${sourceText}changed = 1\n` },
+    workspaceRoot
+  ),
+  false
+);
+const matchingFallbackReview = {
+  source_path: sourcePath,
+  source_hash: fnv1a64(sourceText),
+  timeseries_fill: []
+};
+assert.strictEqual(
+  fallbackReviewMatchesDocument(matchingFallbackReview, matchingDocument, workspaceRoot),
+  true
+);
+assert.strictEqual(
+  fallbackReviewMatchesDocument(
+    { ...matchingFallbackReview, source_path: `\\\\?\\${sourcePath}` },
+    matchingDocument,
+    workspaceRoot
+  ),
+  true
+);
+assert.strictEqual(
+  fallbackReviewMatchesDocument(
+    { ...matchingFallbackReview, source_hash: fnv1a64(`${sourceText}stale`) },
+    matchingDocument,
     workspaceRoot
   ),
   false
@@ -262,6 +412,9 @@ assert.strictEqual(validationFailType.after.color.id, "testing.iconFailed");
 const timeAlignmentType = createdDecorationTypes[6].options;
 assert.strictEqual(timeAlignmentType.after.color.id, "editorWarning.foreground");
 assert.strictEqual(timeAlignmentType.overviewRulerLane, 4);
+const fallbackType = createdDecorationTypes[7].options;
+assert.strictEqual(fallbackType.after.color.id, "editorWarning.foreground");
+assert.strictEqual(fallbackType.overviewRulerLane, 4);
 
 const reviewHtml = renderReviewSummaryHtml(review, "C:/workspace/main.eng", "nonce", []);
 assert.match(reviewHtml, /<th>Target<\/th><th>Expression<\/th><th>Kind<\/th><th>Phase<\/th>/);
@@ -269,4 +422,4 @@ assert.match(reviewHtml, /<strong>good<\/strong>/);
 assert.match(reviewHtml, /u_value &gt; 0 W\/K/);
 assert.match(reviewHtml, /pill good">pass<\/span>/);
 
-process.stdout.write("VS Code validation and TimeSeries alignment decoration smoke passed.\n");
+process.stdout.write("VS Code validation, TimeSeries alignment, and fallback decoration smoke passed.\n");

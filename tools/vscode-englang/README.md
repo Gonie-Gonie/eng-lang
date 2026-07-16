@@ -341,6 +341,16 @@ the marker as soon as any EngLang source in the workspace changes. Set
 `englang.timeAlignmentDecorations.enabled = false` to hide these run-result
 warnings without disabling Problems or role-aware highlighting.
 
+The same run loads `build/result/review.json` for unresolved fill/imputation
+outcomes and other medium/high runtime fallbacks. Partial or deferred explicit
+`fill missing` commands get a compact warning with filled/missing/skipped
+counts; gapped coverage gets `fill policy required` when no matching explicit
+fill command already owns that source. Applied interpolation and complete
+coverage remain unmarked. The extension verifies the review artifact's
+`source_path` and `source_hash`, discards it when any EngLang source changes
+during the run, and clears markers on the next source edit. Set
+`englang.fallbackDecorations.enabled = false` to hide these warnings.
+
 Completion uses the current unsaved buffer and compiler-owned editor metadata.
 JavaScript does not maintain a separate keyword, type, quantity, or unit table.
 If live completion is unavailable, the extension falls back to the generated

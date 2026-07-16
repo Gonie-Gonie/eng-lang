@@ -11499,6 +11499,10 @@ fn result_json(
         if index > 0 {
             integrations.push_str(",\n");
         }
+        let computed = runtime_data
+            .integrations
+            .iter()
+            .find(|computed| computed.binding == integration.binding);
         integrations.push_str("      {\n");
         integrations.push_str(&format!(
             "        \"binding\": \"{}\",\n",
@@ -11510,7 +11514,11 @@ fn result_json(
         ));
         integrations.push_str(&format!(
             "        \"input_quantity\": \"{}\",\n",
-            json_escape(&integration.input_quantity)
+            json_escape(
+                computed
+                    .map(|computed| computed.input_quantity.as_str())
+                    .unwrap_or(&integration.input_quantity)
+            )
         ));
         integrations.push_str(&format!(
             "        \"over_axis\": \"{}\",\n",
@@ -11518,13 +11526,13 @@ fn result_json(
         ));
         integrations.push_str(&format!(
             "        \"result_quantity\": \"{}\"",
-            json_escape(&integration.result_quantity)
+            json_escape(
+                computed
+                    .map(|computed| computed.result_quantity.as_str())
+                    .unwrap_or(&integration.result_quantity)
+            )
         ));
-        if let Some(computed) = runtime_data
-            .integrations
-            .iter()
-            .find(|computed| computed.binding == integration.binding)
-        {
+        if let Some(computed) = computed {
             integrations.push_str(&format!(",\n        \"value\": {}", computed.value));
             integrations.push_str(&format!(
                 ",\n        \"unit\": \"{}\"",
@@ -19800,7 +19808,7 @@ mod tests {
         fs::write(
             source_dir.join("data").join("weather.csv"),
             concat!(
-                "time,wind_speed\n",
+                "time,heat_rate\n",
                 "2024-01-01T00:00:00Z,1.0\n",
                 "2024-01-01T01:00:00Z,2.0\n",
                 "2024-01-01T03:00:00Z,4.0\n",
@@ -19813,17 +19821,21 @@ mod tests {
             concat!(
                 "schema WeatherHourly {\n",
                 "    time: DateTime index\n",
-                "    wind_speed: DimensionlessNumber [1]\n",
+                "    heat_rate: HeatRate [kW]\n",
                 "}\n\n",
                 "args {\n",
                 "    weather_file: CsvFile = file(\"data/weather.csv\")\n",
                 "}\n\n",
                 "weather = promote csv args.weather_file as WeatherHourly\n",
-                "filled = fill missing weather.wind_speed\n",
+                "filled = fill missing weather.heat_rate\n",
                 "with {\n",
                 "    method = interpolate\n",
                 "    expected_step = 1 h\n",
                 "    max_gap = 3 h\n",
+                "}\n",
+                "filled_energy = integrate(filled, over=Time)\n",
+                "report {\n",
+                "    summarize filled by [mean, max, p95]\n",
                 "}\n",
             ),
         )
@@ -19903,13 +19915,84 @@ mod tests {
             filled_object.get("kind").and_then(Value::as_str),
             Some("timeseries")
         );
+        assert_eq!(filled_object.get("len").and_then(Value::as_u64), Some(4));
+        let statistics =
+            json_array_item_by_field(&result, "/typed_payload/statistics", "source", "filled")
+                .expect("filled statistics");
+        assert_eq!(
+            statistics.get("quantity_kind").and_then(Value::as_str),
+            Some("HeatRate")
+        );
+        assert_eq!(
+            statistics.get("status").and_then(Value::as_str),
+            Some("computed")
+        );
+        let mean = json_array_item_by_field(statistics, "/statistics", "name", "mean")
+            .expect("filled mean");
+        assert_eq!(mean.get("value").and_then(Value::as_f64), Some(2.5));
+        assert_eq!(mean.get("unit").and_then(Value::as_str), Some("kW"));
+        let integration =
+            json_array_item_by_binding(&result, "/typed_payload/integrations", "filled_energy")
+                .expect("filled integration");
+        assert_eq!(
+            integration.get("input_quantity").and_then(Value::as_str),
+            Some("HeatRate")
+        );
+        assert_eq!(
+            integration.get("result_quantity").and_then(Value::as_str),
+            Some("Energy")
+        );
+        assert_eq!(
+            integration.get("value").and_then(Value::as_f64),
+            Some(27_000_000.0)
+        );
+        assert_eq!(integration.get("unit").and_then(Value::as_str), Some("J"));
+        assert_eq!(
+            integration.get("status").and_then(Value::as_str),
+            Some("computed")
+        );
+        assert_eq!(
+            integration.get("interval_count").and_then(Value::as_u64),
+            Some(3)
+        );
+
+        let report_spec: Value =
+            serde_json::from_str(&output.report_spec_json).expect("report spec json");
+        let computed_statistics =
+            json_array_item_by_field(&report_spec, "/computed_statistics", "source", "filled")
+                .expect("report spec filled statistics");
+        assert_eq!(
+            computed_statistics.get("status").and_then(Value::as_str),
+            Some("computed")
+        );
+        let computed_integration =
+            json_array_item_by_binding(&report_spec, "/computed_integrations", "filled_energy")
+                .expect("report spec filled integration");
+        assert_eq!(
+            computed_integration
+                .get("input_quantity")
+                .and_then(Value::as_str),
+            Some("HeatRate")
+        );
+        assert_eq!(
+            computed_integration.get("status").and_then(Value::as_str),
+            Some("computed")
+        );
 
         let review: Value = serde_json::from_str(&output.review_json).expect("review json");
         let review_fill = json_array_item_by_binding(&review, "/timeseries_fill", "filled")
             .expect("review timeseries fill");
         assert_eq!(
             review_fill.get("source_column").and_then(Value::as_str),
-            Some("wind_speed")
+            Some("heat_rate")
+        );
+        let review_automatic_fill =
+            json_array_item_by_binding(&review, "/timeseries_fill", "weather.Time.coverage")
+                .expect("review automatic fill policy");
+        assert_eq!(
+            review_automatic_fill.get("line").and_then(Value::as_u64),
+            Some(10),
+            "automatic coverage fallback should point to the table promotion"
         );
         let review_quality = json_array_item_by_binding(&review, "/timeseries_quality", "filled")
             .expect("review timeseries quality");
