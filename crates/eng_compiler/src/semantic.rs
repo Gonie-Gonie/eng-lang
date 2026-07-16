@@ -47,6 +47,7 @@ pub struct TypedBinding {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ImportInfo {
     pub target: String,
+    pub span: SourceSpan,
     pub kind: String,
     pub status: String,
     pub line: usize,
@@ -88,12 +89,17 @@ pub struct FunctionInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ConstInfo {
     pub name: String,
+    pub span: SourceSpan,
     pub type_name: String,
+    pub type_span: SourceSpan,
+    pub unit: Option<String>,
+    pub unit_span: Option<SourceSpan>,
     pub quantity_kind: String,
     pub display_unit: String,
     pub canonical_unit: String,
     pub dimension: String,
     pub expression: String,
+    pub expression_span: SourceSpan,
     pub importable: bool,
     pub line: usize,
 }
@@ -1668,6 +1674,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
 fn analyze_import_decl(import: &ImportDecl) -> ImportInfo {
     ImportInfo {
         target: import.target.clone(),
+        span: import.target_span,
         kind: import.kind.clone(),
         status: if import.kind == "file" {
             "resolved_by_compiler".to_owned()
@@ -11040,31 +11047,40 @@ fn analyze_const_decl(
     unit_derivations: &mut Vec<UnitDerivation>,
 ) {
     if expression_mentions_args(&declaration.expression) {
-        diagnostics.push(Diagnostic::error(
-            "E-CONST-ARGS-001",
-            declaration.line,
-            &format!("const `{}` depends on args.", declaration.name),
-            Some("Args belong to the root execution context and are not imported."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-CONST-ARGS-001",
+                declaration.line,
+                &format!("const `{}` depends on args.", declaration.name),
+                Some("Args belong to the root execution context and are not imported."),
+            )
+            .with_source_span(declaration.expression_span),
+        );
     }
     if expression_has_side_effect(&declaration.expression) {
-        diagnostics.push(Diagnostic::error(
-            "E-CONST-SIDE-EFFECT-001",
-            declaration.line,
-            "const expressions must not perform side-effecting operations.",
-            Some("Use top-level executable code or args default instead."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-CONST-SIDE-EFFECT-001",
+                declaration.line,
+                "const expressions must not perform side-effecting operations.",
+                Some("Use top-level executable code or args default instead."),
+            )
+            .with_source_span(declaration.expression_span),
+        );
     }
     if expression_depends_on_runtime(&declaration.expression) {
-        diagnostics.push(Diagnostic::warning(
-            "W-CONST-RUNTIME-001",
-            declaration.line,
-            &format!(
-                "const `{}` depends on runtime environment/time/current directory.",
-                declaration.name
-            ),
-            Some("Prefer an args default for environment- or time-dependent values."),
-        ));
+        diagnostics.push(
+            Diagnostic::warning(
+                "W-CONST-RUNTIME-001",
+                declaration.line,
+                &format!(
+                    "const `{}` depends on runtime environment/time/current directory.",
+                    declaration.name
+                ),
+                Some("Prefer an args default for environment- or time-dependent values."),
+            )
+            .with_source_span(declaration.expression_span),
+        );
     }
 
     let display_unit = declaration
@@ -11121,12 +11137,17 @@ fn analyze_const_decl(
     ));
     consts.push(ConstInfo {
         name: declaration.name.clone(),
+        span: declaration.name_span,
         type_name: declaration.type_name.clone(),
+        type_span: declaration.type_span,
+        unit: declaration.unit.clone(),
+        unit_span: declaration.unit_span,
         quantity_kind: declaration.type_name.clone(),
         display_unit,
         canonical_unit,
         dimension,
         expression: declaration.expression.clone(),
+        expression_span: declaration.expression_span,
         importable,
         line: declaration.line,
     });

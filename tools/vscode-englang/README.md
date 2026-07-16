@@ -301,6 +301,9 @@ Top-level state-space vector types and their members expose role-specific hover,
 completion, outline, reference, and rename metadata from the same compiler spans.
 Typed system vectors and linear operators use compiler-owned type/expression
 ranges for solver colors and precise Problems underlines.
+Import targets and const name/type/unit declarations also use compiler-owned
+ranges for namespace/readonly colors, outline selection, and target/expression
+Problems underlines, including CRLF and UTF-16 source positions.
 
 Role-aware highlighting also works on unsaved edits, so token colors do
 not have to wait for a file save. Sample-table member completions include

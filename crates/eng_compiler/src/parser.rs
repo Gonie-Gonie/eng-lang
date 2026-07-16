@@ -890,31 +890,50 @@ fn parse_import_decl(tokens: &[Token]) -> Option<ImportDecl> {
         TokenKind::Keyword(Keyword::Import) => "import",
         _ => return None,
     };
-    if let Some(Token {
-        kind: TokenKind::StringLiteral(target),
-        ..
-    }) = tokens.get(1)
-    {
-        return Some(ImportDecl {
-            target: target.clone(),
-            kind: "file".to_owned(),
-            line: first.span.line,
-            span: first.span,
-        });
+    if let Some(target_token) = tokens.get(1) {
+        if let TokenKind::StringLiteral(target) = &target_token.kind {
+            return Some(ImportDecl {
+                target: target.clone(),
+                target_span: string_literal_content_span(target_token),
+                kind: "file".to_owned(),
+                line: first.span.line,
+                span: first.span,
+            });
+        }
     }
 
-    let target = tokens
+    let target_tokens = tokens.get(1..)?;
+    let target = target_tokens
         .iter()
-        .skip(1)
         .map(|token| token.lexeme.as_str())
         .collect::<Vec<_>>()
         .join("");
+    let target_start = target_tokens.first()?.span;
+    let target_end = target_tokens.last()?.span;
     (!target.is_empty()).then(|| ImportDecl {
         target,
+        target_span: SourceSpan::new(
+            target_start.start,
+            target_end.end,
+            target_start.line,
+            target_start.column,
+        ),
         kind: kind.to_owned(),
         line: first.span.line,
         span: first.span,
     })
+}
+
+fn string_literal_content_span(token: &Token) -> SourceSpan {
+    let leading_quote = usize::from(token.lexeme.starts_with('"'));
+    let trailing_quote =
+        usize::from(token.lexeme.len() > leading_quote && token.lexeme.ends_with('"'));
+    SourceSpan::new(
+        token.span.start + leading_quote,
+        token.span.end.saturating_sub(trailing_quote),
+        token.span.line,
+        token.span.column + leading_quote,
+    )
 }
 
 fn parse_system_decl(tokens: &[Token]) -> Option<SystemDecl> {
@@ -1454,19 +1473,18 @@ fn parse_const_decl(tokens: &[Token], line_text: &str, context: ParseContext) ->
     if !matches!(third.kind, TokenKind::Symbol(Symbol::Colon)) {
         return None;
     }
-    let raw_after_colon = line_text.split_once(':')?.1.trim();
-    let (type_part, expression) = raw_after_colon.split_once('=')?;
-    let (type_name, unit) = split_type_and_unit(type_part.trim());
-    let expression = expression.trim();
-    if type_name.is_empty() || expression.is_empty() {
-        return None;
-    }
+    let parts = typed_declaration_parts(first.span, line_text)?;
+    let expression = parts.expression?;
+    let expression_span = parts.expression_span?;
     Some(ConstDecl {
         name: name.clone(),
         name_span: second.span,
-        type_name,
-        unit,
-        expression: expression.to_owned(),
+        type_name: parts.type_name,
+        type_span: parts.type_span,
+        unit: parts.unit,
+        unit_span: parts.unit_span,
+        expression,
+        expression_span,
         line: first.span.line,
         span: first.span,
         context,

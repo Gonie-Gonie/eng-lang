@@ -89,6 +89,15 @@ unit, and optional expression spans. `operator Name:` also separates the
 `StateSpaceVectorInfo`, and `LinearOperatorInfo` expose those ranges so editor
 tokens and diagnostics do not reconstruct typed declarations from line text.
 
+Imports retain a keyword anchor plus an exact target span; quoted file imports
+exclude the quote delimiters from the target range. Const declarations retain
+separate name, type, optional explicit-unit, and expression spans. In the public
+semantic model, `ImportInfo.span` identifies the import target and
+`ConstInfo.span` identifies the const name. `ConstInfo.unit` is the optional
+source annotation, while `display_unit` is the resolved display unit. Import
+and const diagnostics, semantic tokens, and outline selection ranges consume
+these fields directly.
+
 ## Editor Payload
 
 `eng_lsp` maps the same `CheckReport` into editor-facing data:

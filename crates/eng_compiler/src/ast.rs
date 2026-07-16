@@ -20,6 +20,7 @@ pub struct ScriptDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ImportDecl {
     pub target: String,
+    pub target_span: SourceSpan,
     pub kind: String,
     pub line: usize,
     pub span: SourceSpan,
@@ -54,8 +55,11 @@ pub struct ConstDecl {
     pub name: String,
     pub name_span: SourceSpan,
     pub type_name: String,
+    pub type_span: SourceSpan,
     pub unit: Option<String>,
+    pub unit_span: Option<SourceSpan>,
     pub expression: String,
+    pub expression_span: SourceSpan,
     pub line: usize,
     pub span: SourceSpan,
     pub context: ParseContext,

@@ -609,38 +609,49 @@ fn resolve_file_imports(
             continue;
         }
         if import_target_is_dynamic(&import.target) {
-            diagnostics.push(Diagnostic::error(
-                "E-IMPORT-DYNAMIC-001",
-                import.line,
-                "import path cannot depend on args/runtime values.",
-                Some("Use a static file import such as `use \"./defaults.eng\"`."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-IMPORT-DYNAMIC-001",
+                    import.line,
+                    "import path cannot depend on args/runtime values.",
+                    Some("Use a static file import such as `use \"./defaults.eng\"`."),
+                )
+                .with_source_span(import.target_span),
+            );
             continue;
         }
         if import.kind != "file" {
-            diagnostics.push(Diagnostic::error(
-                "E-IMPORT-001",
-                import.line,
-                &format!(
-                    "`use {}` is not supported by the current import resolver.",
-                    import.target
-                ),
-                Some("Use a file import such as `use \"thermal.eng\"`."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-IMPORT-001",
+                    import.line,
+                    &format!(
+                        "`use {}` is not supported by the current import resolver.",
+                        import.target
+                    ),
+                    Some("Use a file import such as `use \"thermal.eng\"`."),
+                )
+                .with_source_span(import.target_span),
+            );
             continue;
         }
         let Some(import_path) =
-            resolve_import_path(base_dir, &import.target, import.line, diagnostics)
+            resolve_import_path(base_dir, &import.target, import.target_span, diagnostics)
         else {
             continue;
         };
         if !visited.insert(import_path.clone()) {
-            diagnostics.push(Diagnostic::error(
-                "E-IMPORT-002",
-                import.line,
-                &format!("Import cycle detected at `{}`.", import_path.display()),
-                Some("Remove the recursive import or split shared functions into a third file."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-IMPORT-002",
+                    import.line,
+                    &format!("Import cycle detected at `{}`.", import_path.display()),
+                    Some(
+                        "Remove the recursive import or split shared functions into a third file.",
+                    ),
+                )
+                .with_source_span(import.target_span),
+            );
             continue;
         }
         let source = match import_overrides.get(&import_path) {
@@ -648,12 +659,15 @@ fn resolve_file_imports(
             None => match fs::read_to_string(&import_path) {
                 Ok(source) => Cow::Owned(source),
                 Err(error) => {
-                    diagnostics.push(Diagnostic::error(
-                        "E-IMPORT-003",
-                        import.line,
-                        &format!("Could not read import `{}`: {error}.", import.target),
-                        Some("Check the relative path and file encoding. EngLang sources should be UTF-8."),
-                    ));
+                    diagnostics.push(
+                        Diagnostic::error(
+                            "E-IMPORT-003",
+                            import.line,
+                            &format!("Could not read import `{}`: {error}.", import.target),
+                            Some("Check the relative path and file encoding. EngLang sources should be UTF-8."),
+                        )
+                        .with_source_span(import.target_span),
+                    );
                     visited.remove(&import_path);
                     continue;
                 }
@@ -661,15 +675,18 @@ fn resolve_file_imports(
         };
         let imported = parser::parse_source(source.as_ref());
         if imported_has_args_block(&imported) {
-            diagnostics.push(Diagnostic::warning(
-                "W-MODULE-ARGS-NOT-IMPORTED-001",
-                import.line,
-                &format!(
-                    "Imported module `{}` has an args block, but args are not imported.",
-                    import.target
-                ),
-                Some("Args belong to the root execution context only."),
-            ));
+            diagnostics.push(
+                Diagnostic::warning(
+                    "W-MODULE-ARGS-NOT-IMPORTED-001",
+                    import.line,
+                    &format!(
+                        "Imported module `{}` has an args block, but args are not imported.",
+                        import.target
+                    ),
+                    Some("Args belong to the root execution context only."),
+                )
+                .with_source_span(import.target_span),
+            );
         }
         diagnose_non_importable_symbol_uses(&imported, parsed, &import.target, diagnostics);
         if let Some(import_base_dir) = import_path.parent() {
@@ -701,52 +718,64 @@ fn handle_stdlib_module_import(import: &ImportDecl, diagnostics: &mut Vec<Diagno
     let registry = match bundled_module_registry() {
         Ok(registry) => registry,
         Err(error) => {
-            diagnostics.push(Diagnostic::error(
-                "E-STDLIB-REGISTRY-001",
-                import.line,
-                &format!("Could not load bundled stdlib module registry: {error}."),
-                Some("Check stdlib/eng/modules.toml before using `eng.*` module imports."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-STDLIB-REGISTRY-001",
+                    import.line,
+                    &format!("Could not load bundled stdlib module registry: {error}."),
+                    Some("Check stdlib/eng/modules.toml before using `eng.*` module imports."),
+                )
+                .with_source_span(import.target_span),
+            );
             return true;
         }
     };
 
     let Some(module) = registry.modules.iter().find(|module| module.name == target) else {
-        diagnostics.push(Diagnostic::error(
-            "E-STDLIB-MODULE-UNKNOWN",
-            import.line,
-            &format!(
-                "`{} {}` names unknown stdlib module `{}`.",
-                import.kind, target, target
-            ),
-            Some(
-                "Use a module listed in stdlib/eng/modules.toml or docs/reference/stdlib/index.md.",
-            ),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-STDLIB-MODULE-UNKNOWN",
+                import.line,
+                &format!(
+                    "`{} {}` names unknown stdlib module `{}`.",
+                    import.kind, target, target
+                ),
+                Some(
+                    "Use a module listed in stdlib/eng/modules.toml or docs/reference/stdlib/index.md.",
+                ),
+            )
+            .with_source_span(import.target_span),
+        );
         return true;
     };
 
     match module.status.as_str() {
-        "planned" => diagnostics.push(Diagnostic::warning(
-            "W-STDLIB-MODULE-PLANNED",
-            import.line,
-            &format!(
-                "`{} {}` names planned stdlib module `{}`.",
-                import.kind, target, target
-            ),
-            Some(
-                "Use a supported/native module for current code, or keep this only as forward-looking metadata.",
-            ),
-        )),
-        "internal" | "internal_planned" => diagnostics.push(Diagnostic::warning(
-            "W-STDLIB-MODULE-INTERNAL",
-            import.line,
-            &format!(
-                "`{} {}` names internal stdlib module `{}`.",
-                import.kind, target, target
-            ),
-            Some("Internal stdlib modules are not public contracts; prefer documented supported modules."),
-        )),
+        "planned" => diagnostics.push(
+            Diagnostic::warning(
+                "W-STDLIB-MODULE-PLANNED",
+                import.line,
+                &format!(
+                    "`{} {}` names planned stdlib module `{}`.",
+                    import.kind, target, target
+                ),
+                Some(
+                    "Use a supported/native module for current code, or keep this only as forward-looking metadata.",
+                ),
+            )
+            .with_source_span(import.target_span),
+        ),
+        "internal" | "internal_planned" => diagnostics.push(
+            Diagnostic::warning(
+                "W-STDLIB-MODULE-INTERNAL",
+                import.line,
+                &format!(
+                    "`{} {}` names internal stdlib module `{}`.",
+                    import.kind, target, target
+                ),
+                Some("Internal stdlib modules are not public contracts; prefer documented supported modules."),
+            )
+            .with_source_span(import.target_span),
+        ),
         _ => {}
     }
 
@@ -769,7 +798,7 @@ fn import_target_is_dynamic(target: &str) -> bool {
 fn resolve_import_path(
     base_dir: &Path,
     target: &str,
-    line: usize,
+    target_span: SourceSpan,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<PathBuf> {
     let raw = Path::new(target);
@@ -782,12 +811,15 @@ fn resolve_import_path(
         Ok(path) => Some(path),
         Err(_) if path.exists() => Some(path),
         Err(error) => {
-            diagnostics.push(Diagnostic::error(
-                "E-IMPORT-004",
-                line,
-                &format!("Could not resolve import `{target}`: {error}."),
-                Some("Imports are resolved relative to the importing source file."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-IMPORT-004",
+                    target_span.line,
+                    &format!("Could not resolve import `{target}`: {error}."),
+                    Some("Imports are resolved relative to the importing source file."),
+                )
+                .with_source_span(target_span),
+            );
             None
         }
     }
@@ -8744,6 +8776,113 @@ mod tests {
                 hover.name
             );
         }
+    }
+
+    #[test]
+    fn import_and_const_metadata_preserve_exact_reference_spans() {
+        let source = concat!(
+            "use eng.stats\r\n",
+            "use \"\u{1f600}/eng.stats.eng\"\r\n",
+            "const repeated: Ratio [1] = repeated + 1\r\n",
+        );
+        let parsed = parse_source(source);
+        let imports = parsed
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                AstItem::Import(declaration) => Some(declaration),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let constant = parsed
+            .items
+            .iter()
+            .find_map(|item| match item {
+                AstItem::Const(declaration) => Some(declaration),
+                _ => None,
+            })
+            .expect("const declaration");
+
+        assert_eq!(imports.len(), 2);
+        for import in &imports {
+            assert_eq!(
+                &source[import.target_span.start..import.target_span.end],
+                import.target
+            );
+        }
+        assert_eq!(
+            &source[constant.name_span.start..constant.name_span.end],
+            "repeated"
+        );
+        assert_eq!(
+            &source[constant.type_span.start..constant.type_span.end],
+            "Ratio"
+        );
+        let unit_span = constant.unit_span.expect("const unit span");
+        assert_eq!(&source[unit_span.start..unit_span.end], "1");
+        assert_eq!(
+            &source[constant.expression_span.start..constant.expression_span.end],
+            "repeated + 1"
+        );
+
+        let report = check_source("import_const_spans.eng", source, &CheckOptions::default());
+        for import in &report.semantic_program.imports {
+            assert_eq!(&source[import.span.start..import.span.end], import.target);
+        }
+        let const_info = report
+            .semantic_program
+            .consts
+            .iter()
+            .find(|const_info| const_info.name == "repeated")
+            .expect("const semantic metadata");
+        assert_eq!(
+            &source[const_info.span.start..const_info.span.end],
+            "repeated"
+        );
+        assert_eq!(
+            &source[const_info.type_span.start..const_info.type_span.end],
+            "Ratio"
+        );
+        let semantic_unit_span = const_info.unit_span.expect("semantic const unit span");
+        assert_eq!(
+            &source[semantic_unit_span.start..semantic_unit_span.end],
+            "1"
+        );
+        assert_eq!(
+            &source[const_info.expression_span.start..const_info.expression_span.end],
+            "repeated + 1"
+        );
+        let import_diagnostic = report
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-IMPORT-004")
+            .expect("missing file import diagnostic");
+        let import_diagnostic_span = import_diagnostic
+            .source_span
+            .expect("import diagnostic source span");
+        assert_eq!(
+            &source[import_diagnostic_span.start..import_diagnostic_span.end],
+            "\u{1f600}/eng.stats.eng"
+        );
+
+        let const_error_source = "const from_args: Ratio [1] = args.count + 1\n";
+        let const_error_report = check_source(
+            "const_expression_span.eng",
+            const_error_source,
+            &CheckOptions::default(),
+        );
+        let const_diagnostic = const_error_report
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-CONST-ARGS-001")
+            .expect("const args diagnostic");
+        let const_diagnostic_span = const_diagnostic
+            .source_span
+            .expect("const diagnostic source span");
+        assert_eq!(
+            &const_error_source[const_diagnostic_span.start..const_diagnostic_span.end],
+            "args.count + 1"
+        );
     }
 
     #[test]

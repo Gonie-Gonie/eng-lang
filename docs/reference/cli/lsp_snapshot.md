@@ -250,8 +250,8 @@ Component hover/completion details distinguish a `component template` from a
 `component instance of Name`. Both remain present when a source declares a template
 and constructs one or more system-local instances.
 
-Declaration tokens for schema columns, state-space type blocks and members,
-system variables and state vectors,
+Declaration tokens for import targets, const names/types/units, schema columns,
+state-space type blocks and members, system variables and state vectors,
 domain variables, component ports, parameters, inputs and locals, class fields and
 methods, args fields, and class object bindings and fields use parser-owned source
 ranges. Same-line text search remains a compatibility fallback for symbol kinds
@@ -372,6 +372,12 @@ and follows the latest unsaved buffer.
 `document_symbols` uses LSP-style document symbol JSON with numeric symbol
 kinds, source ranges, selection ranges, details, and children. It is intended
 for outlines and breadcrumbs.
+
+Import target and const name selection ranges come from compiler-owned spans,
+including CRLF sources and targets containing non-BMP characters. Const type
+and explicit unit ranges use the same spans as semantic highlighting, and
+import/const Problems ranges underline the target or expression rather than the
+declaration keyword.
 
 Each state-space vector type is a top-level struct-like symbol whose member
 fields are nested children with role, quantity type, and unit detail.

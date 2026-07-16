@@ -349,6 +349,8 @@ Core semantic role expectations:
 | `use`/`import` keyword | `keyword` with `declaration` and `imported`. |
 | `use`/`import` namespace | `namespace` with `declaration` and `imported`. |
 | `const` name | `variable` with `declaration` and `readonly`. |
+| `const` declared type | `type` with the compiler-resolved quantity/type modifiers. |
+| `const` explicit unit | `type` with `unit`. |
 | Schema name | `class` with `declaration`. |
 | Schema/class/component field | `property` with `declaration`. |
 | `args` field | `parameter` with `declaration`. |
@@ -372,6 +374,12 @@ Core semantic role expectations:
 such as `use eng.building`; internal stdlib imports such as `use eng.system`
 carry `internal`. Native imports such as `use eng.stats` do not carry either
 status modifier.
+
+Import namespace tokens, const names, const types, and explicit const units use
+parser-owned spans. The outline uses the same import-target and const-name
+selection ranges, and compiler diagnostics use the import target or const
+expression span. This avoids same-line text search when a const name is repeated
+in its initializer and keeps UTF-16 ranges correct for non-BMP import paths.
 
 ## VS Code Fallback Mapping
 

@@ -2307,16 +2307,24 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
 
     for import in &program.imports {
         let modifiers = stdlib_import_semantic_modifiers(&import.target);
-        builder.push_on_line(import.line, &import.target, "namespace", &modifiers);
+        builder.push_named_span(import.span, &import.target, "namespace", &modifiers);
     }
 
     for constant in &program.consts {
-        builder.push_on_line(
-            constant.line,
+        builder.push_named_span(
+            constant.span,
             &constant.name,
             "variable",
             &["declaration", "readonly"],
         );
+        builder.push_type_identifiers_within_span(
+            constant.type_span,
+            &constant.type_name,
+            &semantic_modifiers_for_quantity(&constant.quantity_kind),
+        );
+        if let (Some(unit), Some(unit_span)) = (&constant.unit, constant.unit_span) {
+            builder.push_named_span(unit_span, unit, "type", &["unit"]);
+        }
     }
 
     for binding in &program.typed_bindings {
@@ -3946,20 +3954,20 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
     let mut seen = BTreeSet::<(usize, String)>::new();
 
     for import in &program.imports {
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
             import.target.clone(),
             format!("import {}", import.kind),
             SYMBOL_KIND_MODULE,
-            import.line,
+            import.span,
             Vec::new(),
         );
     }
 
     for constant in &program.consts {
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
@@ -3969,7 +3977,7 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
                 constant.quantity_kind, constant.display_unit
             ),
             SYMBOL_KIND_CONSTANT,
-            constant.line,
+            constant.span,
             Vec::new(),
         );
     }
@@ -4701,6 +4709,45 @@ fn push_document_symbol(
     symbols.push(make_document_symbol(
         lines, name, detail, kind, line, children,
     ));
+}
+
+#[allow(clippy::too_many_arguments)]
+fn push_document_symbol_at_span(
+    symbols: &mut Vec<LspDocumentSymbol>,
+    seen: &mut BTreeSet<(usize, String)>,
+    lines: &[&str],
+    name: String,
+    detail: String,
+    kind: u8,
+    span: SourceSpan,
+    children: Vec<LspDocumentSymbol>,
+) {
+    if span.line == 0 || !seen.insert((span.line, name.clone())) {
+        return;
+    }
+    let mut symbol = make_document_symbol(lines, name.clone(), detail, kind, span.line, children);
+    let line = line_index_from_one_based(lines, span.line);
+    let Some(byte_start) = span.column.checked_sub(1) else {
+        symbols.push(symbol);
+        return;
+    };
+    let Some(byte_length) = span.end.checked_sub(span.start) else {
+        symbols.push(symbol);
+        return;
+    };
+    let Some(byte_end) = byte_start.checked_add(byte_length) else {
+        symbols.push(symbol);
+        return;
+    };
+    if lines
+        .get(line)
+        .and_then(|source_line| source_line.get(byte_start..byte_end))
+        == Some(name.as_str())
+    {
+        symbol.selection_line = line;
+        symbol.selection_character = utf16_len(&lines[line][..byte_start]);
+    }
+    symbols.push(symbol);
 }
 
 fn mark_document_symbols_seen(symbols: &[LspDocumentSymbol], seen: &mut BTreeSet<(usize, String)>) {
@@ -15748,6 +15795,106 @@ use eng.stats
             );
         }
         assert_no_conflicting_semantic_token_types(&snapshot, source, "import_keywords.eng");
+    }
+
+    #[test]
+    fn import_and_const_editor_ranges_use_compiler_owned_spans() {
+        let source = concat!(
+            "use \"\u{1f600}/eng.stats.eng\"\r\n",
+            "use eng.stats\r\n",
+            "const repeated: Ratio [1] = repeated + 1\r\n",
+            "const from_args: String = \"\u{1f600}\" + args.count\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("import_const_ranges.eng"), source);
+        let import_target = "\u{1f600}/eng.stats.eng";
+        let import_token = snapshot
+            .semantic_tokens
+            .tokens
+            .iter()
+            .find(|token| {
+                token.line == 0
+                    && token.token_type == "namespace"
+                    && semantic_token_source_text(source, token) == Some(import_target)
+            })
+            .expect("file import namespace token");
+        assert_eq!(import_token.start, utf16_len("use \""));
+        assert_eq!(import_token.length, utf16_len(import_target));
+        assert!(import_token
+            .modifiers
+            .iter()
+            .any(|modifier| modifier == "declaration"));
+
+        let const_declaration = snapshot
+            .semantic_tokens
+            .tokens
+            .iter()
+            .find(|token| {
+                token.line == 2
+                    && token.token_type == "variable"
+                    && semantic_token_source_text(source, token) == Some("repeated")
+                    && token
+                        .modifiers
+                        .iter()
+                        .any(|modifier| modifier == "declaration")
+            })
+            .expect("const declaration token");
+        assert_eq!(const_declaration.start, utf16_len("const "));
+        for (label, modifier) in [("Ratio", "quantity"), ("1", "unit")] {
+            assert!(snapshot.semantic_tokens.tokens.iter().any(|token| {
+                token.line == 2
+                    && token.token_type == "type"
+                    && semantic_token_source_text(source, token) == Some(label)
+                    && token
+                        .modifiers
+                        .iter()
+                        .any(|candidate| candidate == modifier)
+            }));
+        }
+
+        let import_symbol = snapshot
+            .document_symbols
+            .iter()
+            .find(|symbol| symbol.name == import_target)
+            .expect("file import document symbol");
+        assert_eq!(import_symbol.selection_line, 0);
+        assert_eq!(import_symbol.selection_character, utf16_len("use \""));
+        let const_symbol = snapshot
+            .document_symbols
+            .iter()
+            .find(|symbol| symbol.name == "repeated")
+            .expect("const document symbol");
+        assert_eq!(const_symbol.selection_line, 2);
+        assert_eq!(const_symbol.selection_character, utf16_len("const "));
+
+        let import_diagnostic = snapshot
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-IMPORT-004")
+            .expect("missing file import diagnostic");
+        assert_eq!(import_diagnostic.line, 1);
+        assert_eq!(import_diagnostic.start_character, utf16_len("use \""));
+        assert_eq!(
+            import_diagnostic.end_character,
+            utf16_len("use \"") + utf16_len(import_target)
+        );
+
+        let const_diagnostic = snapshot
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-CONST-ARGS-001")
+            .expect("const expression diagnostic");
+        let const_line = source.lines().nth(3).expect("const diagnostic line");
+        let expression_start = const_line.find('=').expect("const equals") + 1;
+        let expression_start = expression_start
+            + const_line[expression_start..]
+                .find(|character: char| !character.is_whitespace())
+                .expect("const expression start");
+        assert_eq!(const_diagnostic.line, 4);
+        assert_eq!(
+            const_diagnostic.start_character,
+            utf16_len(&const_line[..expression_start])
+        );
+        assert_eq!(const_diagnostic.end_character, utf16_len(const_line));
     }
 
     #[test]
