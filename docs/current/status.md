@@ -60,7 +60,8 @@ workflow, and covered by the breaking-change policy.
   TimeSeries, validation, schema-constraint, and expectation-suite results,
   row/field failure details, report-facing `report_spec.quality_report`, HTML
   Quality Report tables, and IDE Quality inspector payloads,
-  `typed_payload.time_alignments[]` alignment/resampling hook records,
+  `typed_payload.time_alignments[]` comparison metadata plus native
+  exact/nearest/linear alignment and resampling outputs,
   `typed_payload.sample_tables[]` summaries and row previews for generated
   and promoted sample/case tables, `typed_payload.case_tables[]` case summary rows with
   pending/succeeded/failed/skipped counts, collection status, scheduler hooks,

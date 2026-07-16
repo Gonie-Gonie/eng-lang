@@ -196,6 +196,11 @@ E-IO-TOML-PARSE        read toml source is not valid TOML
 E-IO-JSON-FIELD-ACCESS-001 read json values do not support direct field access
 W-TABLE-LEGACY-SELECT-FIRST-ROW select_first_row is compatibility-only; use filter + require_one
 E-TIMESERIES-COVERAGE-GAP TimeSeries coverage has gaps after alignment or fill
+E-TIMESERIES-ALIGN-BINDING align/resample requires an output binding
+E-TIMESERIES-ALIGN-METHOD alignment method is not exact, nearest, or linear
+E-TIMESERIES-ALIGN-STEP resample step is invalid, missing, or conflicting
+E-TIMESERIES-ALIGN-TOLERANCE alignment tolerance is not a positive finite duration
+W-TIMESERIES-RESAMPLE-STEP-REDUNDANT resample repeats the same step in two places
 W-FALLBACK-USED       native workflow used a documented fallback path
 E-TEST-001             test block syntax is invalid
 E-TEST-NAME-001        test block name is missing or invalid

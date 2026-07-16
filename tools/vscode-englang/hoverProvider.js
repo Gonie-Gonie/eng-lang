@@ -27,6 +27,7 @@ const HOVER_KIND_LABELS = Object.freeze({
   object_validation: "Object validation",
   http_response_field: "HTTP response field",
   coverage_result_field: "Coverage result field",
+  time_alignment_result_field: "Time alignment result field",
   table_field: "Table field",
   sample_table_field: "Sample table field",
   db_connection_field: "DB connection field",

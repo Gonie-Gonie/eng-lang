@@ -94,6 +94,7 @@ const HOVER_KIND_LABELS = Object.freeze({
   object_validation: "Object validation",
   http_response_field: "HTTP response field",
   coverage_result_field: "Coverage result field",
+  time_alignment_result_field: "Time alignment result field",
   table_field: "Table field",
   sample_table_field: "Sample table field",
   db_connection_field: "DB connection field",
@@ -231,6 +232,7 @@ function emptySyntaxCatalog() {
     legacyUnitAliases: [],
     httpResponseFields: [],
     coverageResultFields: [],
+    timeAlignmentResultFields: [],
     tableFields: [],
     sampleTableFields: [],
     dbConnectionFields: [],
@@ -271,6 +273,9 @@ function normalizeSyntaxCatalog(catalog) {
     legacyUnitAliases: stringArray(source.legacyUnitAliases ?? source.legacy_unit_aliases),
     httpResponseFields: catalogFieldItems(source.httpResponseFields ?? source.http_response_fields),
     coverageResultFields: catalogFieldItems(source.coverageResultFields ?? source.coverage_result_fields),
+    timeAlignmentResultFields: catalogFieldItems(
+      source.timeAlignmentResultFields ?? source.time_alignment_result_fields
+    ),
     tableFields: catalogFieldItems(source.tableFields ?? source.table_fields),
     sampleTableFields: catalogFieldItems(source.sampleTableFields ?? source.sample_table_fields),
     dbConnectionFields: catalogFieldItems(source.dbConnectionFields ?? source.db_connection_fields),
@@ -3373,6 +3378,7 @@ function highlightCoverageCatalog() {
     ...catalogItemLabels(catalog.sampleTableFields),
     ...catalogItemLabels(catalog.httpResponseFields),
     ...catalogItemLabels(catalog.coverageResultFields),
+    ...catalogItemLabels(catalog.timeAlignmentResultFields),
     ...catalogItemLabels(catalog.dbConnectionFields),
     ...catalogItemLabels(catalog.caseTableFields),
     ...catalogItemLabels(catalog.caseOutputTableFields),
@@ -4988,24 +4994,36 @@ function renderAlignments() {
   const rows = inspectorRows("timeAlignments").map((item) => {
     const leftCount = item.left_count ?? item.leftCount ?? "-";
     const rightCount = item.right_count ?? item.rightCount ?? "-";
+    const targetCount = item.target_count ?? item.targetCount ?? "-";
+    const outputCount = item.output_count ?? item.outputCount ?? "-";
+    const materializationStatus = item.materialization_status ?? item.materializationStatus ?? "not_requested";
+    const materializationReason = item.materialization_reason ?? item.materializationReason ?? "-";
     const leftStep = item.left_nominal_step ?? item.leftNominalStep;
     const rightStep = item.right_nominal_step ?? item.rightNominalStep;
     const stepStatus = item.step_status ?? item.stepStatus ?? "-";
     const alignmentPass = item.status === "matched" && (stepStatus === "matched" || stepStatus === "-");
+    const resultLabel = materializationStatus === "not_requested"
+      ? (alignmentPass ? "PASS" : "CHECK")
+      : materializationStatus === "materialized"
+        ? "PASS"
+        : materializationStatus === "partial"
+          ? "PARTIAL"
+          : "FAIL";
     return `
     <tr>
-      <td><strong>${alignmentPass ? "PASS" : "FAIL"}</strong><div class="muted">${escapeHtml(item.status || "-")} / ${escapeHtml(item.axis || "-")}</div></td>
+      <td><strong>${escapeHtml(item.binding || "-")}</strong><div class="muted">${sourceLineButton(item)}</div></td>
+      <td><strong>${resultLabel}</strong><div class="muted">${escapeHtml(materializationStatus)}: ${escapeHtml(materializationReason)}</div></td>
       <td>${escapeHtml(item.left || "-")}<div class="muted">${escapeHtml(item.right || "-")}</div></td>
-      <td>${escapeHtml(item.matched_count ?? item.matchedCount ?? "-")}<div class="muted">${escapeHtml(leftCount)} / ${escapeHtml(rightCount)}</div></td>
+      <td>${escapeHtml(outputCount)} / ${escapeHtml(targetCount)}<div class="muted">matched ${escapeHtml(item.matched_count ?? item.matchedCount ?? "-")} of ${escapeHtml(leftCount)} / ${escapeHtml(rightCount)}</div></td>
       <td><strong>${escapeHtml(stepStatus)}</strong><div class="muted">${metricCell(leftStep)} / ${metricCell(rightStep)}</div></td>
-      <td>${escapeHtml(item.overlap_start ?? item.overlapStart ?? "-")} - ${escapeHtml(item.overlap_end ?? item.overlapEnd ?? "-")}</td>
+      <td>${escapeHtml(item.status || "-")} / ${escapeHtml(item.axis || "-")}<div class="muted">${escapeHtml(item.overlap_start ?? item.overlapStart ?? "-")} - ${escapeHtml(item.overlap_end ?? item.overlapEnd ?? "-")}</div></td>
     </tr>
   `;
   }).join("");
   return `
     <table class="var-table">
-      <thead><tr><th>Alignment</th><th>Series</th><th>Matched</th><th>Step</th><th>Overlap</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="5" class="muted">No alignment metadata.</td></tr>`}</tbody>
+      <thead><tr><th>Result</th><th>Output</th><th>Source / reference</th><th>Points</th><th>Step</th><th>Alignment</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No alignment results.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -7040,6 +7058,11 @@ function localMemberCompletionCandidates(prefix) {
       matchesReceiver: isCoverageResultLikeReceiver
     },
     {
+      fields: workflowCatalog.timeAlignmentResultFields,
+      detail: "Time alignment result field",
+      matchesReceiver: isTimeAlignmentResultLikeReceiver
+    },
+    {
       fields: workflowCatalog.tableFields,
       detail: "Table field",
       matchesReceiver: isTableLikeReceiver
@@ -7205,6 +7228,11 @@ function workflowBindingFieldCompletionsFromSource(source, catalog) {
       detail: "Coverage result field"
     },
     {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:align|resample)\b/gm,
+      fields: normalizedCatalog.timeAlignmentResultFields,
+      detail: "Time alignment result field"
+    },
+    {
       pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*sample\s+(?:lhs|latin[_-]hypercube|grid|random|uniform)\b/gm,
       fields: normalizedCatalog.sampleTableFields,
       detail: "Sample table field"
@@ -7319,6 +7347,11 @@ function isCaseOutputTableLikeReceiver(receiver) {
       normalized.includes("manifest")
     )
   );
+}
+
+function isTimeAlignmentResultLikeReceiver(receiver) {
+  const normalized = String(receiver || "").toLowerCase();
+  return normalized.includes("align") || normalized.includes("resampl");
 }
 
 function isCaseRunResultTableLikeReceiver(receiver) {

@@ -45,6 +45,7 @@ const SEMANTIC_TOKEN_MODIFIERS = editorMetadata.semanticTokenModifiers;
 const COMPLETION_ITEMS = editorMetadata.completionItems;
 const HTTP_RESPONSE_FIELDS = editorMetadata.syntaxCatalog.http_response_fields;
 const COVERAGE_RESULT_FIELDS = editorMetadata.syntaxCatalog.coverage_result_fields;
+const TIME_ALIGNMENT_RESULT_FIELDS = editorMetadata.syntaxCatalog.time_alignment_result_fields;
 const TABLE_FIELDS = editorMetadata.syntaxCatalog.table_fields;
 const SAMPLE_TABLE_FIELDS = editorMetadata.syntaxCatalog.sample_table_fields;
 const DB_CONNECTION_FIELDS = editorMetadata.syntaxCatalog.db_connection_fields;
@@ -380,6 +381,7 @@ function activate(context) {
         completionItems: COMPLETION_ITEMS,
         httpResponseFields: HTTP_RESPONSE_FIELDS,
         coverageResultFields: COVERAGE_RESULT_FIELDS,
+        timeAlignmentResultFields: TIME_ALIGNMENT_RESULT_FIELDS,
         tableFields: TABLE_FIELDS,
         sampleTableFields: SAMPLE_TABLE_FIELDS,
         dbConnectionFields: DB_CONNECTION_FIELDS,

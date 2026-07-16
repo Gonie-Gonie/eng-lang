@@ -1464,13 +1464,14 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     }
 
     let where_blocks = analyze_where_blocks(program, &typed_bindings, &functions, &mut diagnostics);
-    let with_blocks = analyze_with_blocks(
+    let mut with_blocks = analyze_with_blocks(
         program,
         &typed_bindings,
         &command_styles,
         &systems,
         &mut diagnostics,
     );
+    validate_timeseries_alignment_commands(&command_styles, &mut with_blocks, &mut diagnostics);
     crate::ml::apply_with_blocks(&mut ml_infos, &with_blocks);
     diagnostics.extend(crate::ml::with_block_argument_diagnostics(&ml_infos));
     validate_file_operation_options(&file_operations, &with_blocks, &mut diagnostics);
@@ -2264,6 +2265,7 @@ fn infer_scoped_binding_semantic_type(
     functions: &[FunctionInfo],
 ) -> Option<SemanticType> {
     path_helper_semantic_type(expression)
+        .or_else(|| time_alignment_result_field_semantic_type(expression, typed_bindings))
         .or_else(|| statistic_expression_semantic_type(expression, typed_bindings))
         .or_else(|| function_call_semantic_type(expression, typed_bindings, functions))
         .or_else(|| sample_table_field_semantic_type(expression, typed_bindings))
@@ -2457,10 +2459,154 @@ fn with_owner_timeseries_alignment_options(
     if !matches!(command.verb.as_str(), "align" | "resample") {
         return HashSet::new();
     }
-    ["method", "step", "target_step", "tolerance"]
-        .into_iter()
-        .map(str::to_owned)
-        .collect()
+    let options: &[&str] = if command.verb == "resample" {
+        &["method", "step", "target_step", "tolerance"]
+    } else {
+        &["method", "tolerance"]
+    };
+    options.iter().map(|option| (*option).to_owned()).collect()
+}
+
+fn validate_timeseries_alignment_commands(
+    command_styles: &[CommandStyleInfo],
+    with_blocks: &mut [WithBlockInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for command in command_styles
+        .iter()
+        .filter(|command| matches!(command.verb.as_str(), "align" | "resample"))
+        .filter(|command| command.status == "lowered")
+    {
+        if command.owner.as_deref().is_none_or(str::is_empty) {
+            diagnostics.push(Diagnostic::error(
+                "E-TIMESERIES-ALIGN-BINDING",
+                command.line,
+                &format!("`{}` must bind its materialized TimeSeries output.", command.verb),
+                Some(&format!(
+                    "Write `output = {} ...` so downstream statistics, metrics, and plots can use the result.",
+                    command.verb
+                )),
+            ));
+        }
+
+        let by_step = command
+            .clauses
+            .iter()
+            .find(|clause| clause.name == "by")
+            .map(|clause| clause.value.trim());
+        let by_seconds = by_step.and_then(parse_duration_option_seconds);
+        if let Some(value) = by_step {
+            if by_seconds.is_none() {
+                diagnostics.push(Diagnostic::error(
+                    "E-TIMESERIES-ALIGN-STEP",
+                    command.line,
+                    &format!("Resample step `{value}` is not a positive finite duration."),
+                    Some("Use a duration such as `30 s`, `5 min`, or `1 h`."),
+                ));
+            }
+        }
+
+        let Some(block) = with_blocks
+            .iter_mut()
+            .find(|block| block.owner_line == Some(command.line))
+        else {
+            continue;
+        };
+        for option in &mut block.options {
+            if option.status != "accepted" {
+                continue;
+            }
+            match option.key.as_str() {
+                "method" => {
+                    let method = option
+                        .value
+                        .trim()
+                        .trim_matches('"')
+                        .to_ascii_lowercase()
+                        .replace([' ', '-'], "_");
+                    if !matches!(method.as_str(), "exact" | "nearest" | "linear") {
+                        option.status = "invalid_timeseries_alignment_method".to_owned();
+                        diagnostics.push(Diagnostic::error(
+                            "E-TIMESERIES-ALIGN-METHOD",
+                            option.line,
+                            &format!("Unknown TimeSeries alignment method `{}`.", option.value),
+                            Some("Use `exact`, `nearest`, or `linear`."),
+                        ));
+                    }
+                }
+                "step" | "target_step" | "tolerance"
+                    if parse_duration_option_seconds(&option.value).is_none() =>
+                {
+                    option.status = "invalid_timeseries_alignment_duration".to_owned();
+                    diagnostics.push(Diagnostic::error(
+                        if option.key == "tolerance" {
+                            "E-TIMESERIES-ALIGN-TOLERANCE"
+                        } else {
+                            "E-TIMESERIES-ALIGN-STEP"
+                        },
+                        option.line,
+                        &format!(
+                            "TimeSeries alignment `{}` must be a positive finite duration, got `{}`.",
+                            option.key, option.value
+                        ),
+                        Some("Use a duration such as `30 s`, `5 min`, or `1 h`."),
+                    ));
+                }
+                _ => {}
+            }
+        }
+
+        let step_indexes = block
+            .options
+            .iter()
+            .enumerate()
+            .filter(|(_, option)| {
+                matches!(option.key.as_str(), "step" | "target_step") && option.status == "accepted"
+            })
+            .map(|(index, _)| index)
+            .collect::<Vec<_>>();
+        if step_indexes.len() > 1 {
+            let line = block.options[step_indexes[1]].line;
+            for index in step_indexes {
+                block.options[index].status = "conflicting_timeseries_alignment_step".to_owned();
+            }
+            diagnostics.push(Diagnostic::error(
+                "E-TIMESERIES-ALIGN-STEP",
+                line,
+                "`step` and `target_step` cannot both configure one resample command.",
+                Some("Use `target_step` for `resample ... to ...`, or prefer `resample ... by <duration>`."),
+            ));
+            continue;
+        }
+
+        if let (Some(by_seconds), Some(index)) = (by_seconds, step_indexes.first().copied()) {
+            let option_line = block.options[index].line;
+            let option_key = block.options[index].key.clone();
+            let option_seconds =
+                parse_duration_option_seconds(&block.options[index].value).unwrap_or_default();
+            let same_step = (by_seconds - option_seconds).abs()
+                <= f64::EPSILON * by_seconds.abs().max(option_seconds.abs()).max(1.0) * 8.0;
+            if same_step {
+                diagnostics.push(Diagnostic::warning(
+                    "W-TIMESERIES-RESAMPLE-STEP-REDUNDANT",
+                    option_line,
+                    &format!(
+                        "`{}` repeats the step already declared by `resample ... by ...`.",
+                        option_key
+                    ),
+                    Some("Remove the with-block step; the `by` duration is the public resample interval."),
+                ));
+            } else {
+                block.options[index].status = "conflicting_timeseries_alignment_step".to_owned();
+                diagnostics.push(Diagnostic::error(
+                    "E-TIMESERIES-ALIGN-STEP",
+                    option_line,
+                    "`resample ... by ...` conflicts with the with-block resample step.",
+                    Some("Keep one interval, preferably the duration in `resample ... by <duration>`."),
+                ));
+            }
+        }
+    }
 }
 
 fn with_owner_template_options(
@@ -5594,7 +5740,7 @@ fn schema_time_axis(schema: &SchemaInfo) -> String {
 
 fn parse_duration_option_seconds(value: &str) -> Option<f64> {
     let (amount, unit) = numeric_literal_with_optional_unit(value)?;
-    if amount <= 0.0 {
+    if !amount.is_finite() || amount <= 0.0 {
         return None;
     }
     let unit = unit?;
@@ -5885,6 +6031,11 @@ fn resolve_format_expression_type(
     if let Some(semantic_type) = coverage_result_field_semantic_type(expression, typed_bindings) {
         return Some(semantic_type);
     }
+    if let Some(semantic_type) =
+        time_alignment_result_field_semantic_type(expression, typed_bindings)
+    {
+        return Some(semantic_type);
+    }
     typed_bindings
         .iter()
         .find(|binding| binding.name == expression)
@@ -6076,6 +6227,34 @@ fn coverage_result_field_semantic_type(
         "max_gap" | "expected_step" => semantic_type("Duration", "s"),
         "max_gap_hours" => semantic_type("Duration", "h"),
         "year" | "coverage_year" => semantic_type("DimensionlessNumber", "1"),
+        _ => None,
+    }
+}
+
+fn time_alignment_result_field_semantic_type(
+    expression: &str,
+    typed_bindings: &[TypedBinding],
+) -> Option<SemanticType> {
+    let (binding_name, field) = expression.trim().split_once('.')?;
+    let has_alignment_binding = typed_bindings.iter().any(|binding| {
+        binding.name == binding_name.trim()
+            && binding.semantic_type.quantity_kind == "TimeSeriesAlignmentResult"
+    });
+    if !has_alignment_binding {
+        return None;
+    }
+    match field.trim() {
+        "materialized" | "complete" => semantic_type("Bool", ""),
+        "materialization_status"
+        | "materialization_reason"
+        | "alignment_status"
+        | "step_status"
+        | "strategy"
+        | "method" => semantic_type("String", ""),
+        "source_count" | "reference_count" | "target_count" | "output_count" | "matched_count" => {
+            semantic_type("Count", "count")
+        }
+        "resample_step" | "tolerance" => semantic_type("Duration", "s"),
         _ => None,
     }
 }
@@ -12335,6 +12514,10 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         .or_else(|| statistic_expression_semantic_type(&binding.expression, &available_bindings))
         .or(function_call_type)
         .or_else(|| net_response_field_semantic_type(&binding.expression, &available_bindings))
+        .or_else(|| coverage_result_field_semantic_type(&binding.expression, &available_bindings))
+        .or_else(|| {
+            time_alignment_result_field_semantic_type(&binding.expression, &available_bindings)
+        })
         .or_else(|| sample_table_field_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| db_connection_field_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| model_artifact_field_semantic_type(&binding.expression, &available_bindings))

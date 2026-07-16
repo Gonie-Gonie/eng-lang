@@ -186,14 +186,14 @@ them, including row/field failure details for schema constraints.
 `report_spec.quality_report`, the HTML Quality Report table, and the IDE Quality
 inspector summarize those common quality results for report consumers.
 
-## Alignment And Resampling Hooks
+## Native Alignment And Resampling
 
-`align <series> with <series>` and `resample <series> to <series>` record
-reviewable TimeSeries alignment intent without silently mutating source data.
-`resample <series> by <duration>` records a step-only resampling intent in the
-same artifact stream. The compiler also accepts `to` for `align` and `with` for
-`resample`; the target-series forms above are the preferred spellings in docs
-and generated canonical examples:
+Bound `align` and `resample` commands materialize a new TimeSeries. The source
+series remains unchanged, while the result binding can be consumed directly by
+RMSE, statistics, report summaries, and plots. `align` defaults to `exact`
+sampling; `resample` defaults to `linear` sampling. The compiler also accepts
+`to` for `align` and `with` for `resample`, but `align ... with ...` and
+`resample ... to ...` are the preferred target-series spellings:
 
 ```eng partial
 aligned = align measured.T_zone with simulated.T_zone
@@ -206,9 +206,53 @@ with {
 resampled_hourly = resample measured.T_zone by 1 h
 ```
 
-Runtime artifacts include `typed_payload.time_alignments[]` records with binding,
-left/right series, strategy (`align`, `resample`, or `auto_pairwise`), method,
-optional resample step/tolerance, overlap, step status, and matched counts.
+The sampling methods are:
+
+- `exact`: emit a value only when a source timestamp matches the target within
+  the optional `tolerance`; without an explicit tolerance, runtime uses a small
+  axis-precision tolerance
+- `nearest`: emit the closest source value within the source range and optional
+  `tolerance`
+- `linear`: interpolate between finite source points; it never extrapolates
+  outside the source range
+
+Without a step option, target-series forms use the target TimeSeries timestamps.
+`resample <series> by <duration>` creates a regular axis over the finite source
+range. `target_step` or `step` on `resample ... to ...` creates a regular axis
+over the finite source/target overlap. A regular-axis request is limited to
+1,000,000 points. Target timestamps that cannot be sampled are omitted, making
+the result `partial`; a request with no output points is `unavailable`.
+
+`method`, `tolerance`, `step`, and `target_step` are compiler-checked. Steps and
+tolerances must be positive finite durations, `align` does not accept step
+options, and conflicting step sources are rejected. Repeating the same
+`resample ... by ...` step in a `with` block produces a redundancy warning.
+
+The result binding is an executable TimeSeries with attached public result
+fields:
+
+```text
+materialized              Bool: at least one output point exists
+complete                  Bool: every target point was materialized
+materialization_status    materialized, partial, unavailable, or not_requested
+materialization_reason    human-readable outcome
+alignment_status          source/target overlap status
+step_status               nominal-step comparison status
+strategy, method          operation and sampling method
+source_count              source point count
+reference_count           target/reference point count
+target_count              requested target-axis point count
+output_count              emitted point count
+matched_count             exact source/reference timestamp matches
+resample_step, tolerance  optional Duration values
+```
+
+There is intentionally no ambiguous `.status` member; use
+`.materialization_status` or `.alignment_status`. Runtime artifacts include the
+new TimeSeries in `object_store.objects[]` and a detailed record in
+`typed_payload.time_alignments[]`, `report_spec.time_alignments[]`, and the HTML
+Time Alignment section. Automatic pairwise records remain comparison metadata
+with `strategy = auto_pairwise` and do not create output series.
 
 ## Deferred
 

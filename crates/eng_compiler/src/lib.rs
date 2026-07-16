@@ -11330,7 +11330,7 @@ write csv "outputs/q.csv", Q
     fn lowers_timeseries_alignment_and_resampling_commands() {
         let report = check_source(
             "ok.eng",
-            "aligned = align measured.T_zone with simulated.T_zone\naligned_to = align measured.T_zone to simulated.T_zone\nresampled = resample measured.T_zone to simulated.T_zone\nresampled_with = resample measured.T_zone with simulated.T_zone\nresampled_by = resample measured.T_zone by 1 h\nwith {\n    method = linear\n    target_step = 1 h\n}\n",
+            "aligned = align measured.T_zone with simulated.T_zone\naligned_to = align measured.T_zone to simulated.T_zone\nresampled = resample measured.T_zone to simulated.T_zone\nresampled_with = resample measured.T_zone with simulated.T_zone\nresampled_by = resample measured.T_zone by 1 h\nwith {\n    method = linear\n    target_step = 1 h\n}\naligned_ready = aligned.materialized\naligned_count = aligned.output_count\naligned_step = aligned.resample_step\naligned_status = aligned.alignment_status\n",
             &CheckOptions::default(),
         );
 
@@ -11403,6 +11403,61 @@ write csv "outputs/q.csv", Q
         assert!(options
             .iter()
             .any(|option| option.key == "target_step" && option.status == "accepted"));
+        for (name, quantity_kind) in [
+            ("aligned_ready", "Bool"),
+            ("aligned_count", "Count"),
+            ("aligned_step", "Duration"),
+            ("aligned_status", "String"),
+        ] {
+            assert_eq!(
+                report
+                    .inferred_declarations
+                    .iter()
+                    .find(|declaration| declaration.name == name)
+                    .map(|declaration| declaration.quantity_kind.as_str()),
+                Some(quantity_kind),
+                "unexpected semantic type for {name}"
+            );
+        }
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| { diagnostic.code == "W-TIMESERIES-RESAMPLE-STEP-REDUNDANT" }));
+    }
+
+    #[test]
+    fn rejects_invalid_timeseries_alignment_options() {
+        let report = check_source(
+            "bad.eng",
+            concat!(
+                "align left with right\n",
+                "bad_method = resample left to right\n",
+                "with { method = spline; tolerance = 0 s }\n",
+                "bad_step = resample left to right\n",
+                "with { step = 1 min; target_step = 2 min }\n",
+                "bad_by = resample left by -5 min\n",
+                "bad_align_step = align left with right\n",
+                "with { target_step = 1 min }\n",
+            ),
+            &CheckOptions::default(),
+        );
+
+        for code in [
+            "E-TIMESERIES-ALIGN-BINDING",
+            "E-TIMESERIES-ALIGN-METHOD",
+            "E-TIMESERIES-ALIGN-TOLERANCE",
+            "E-TIMESERIES-ALIGN-STEP",
+            "E-WITH-OPTION-001",
+        ] {
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == code),
+                "missing diagnostic {code}: {:?}",
+                report.diagnostics
+            );
+        }
     }
 
     #[test]

@@ -411,11 +411,15 @@ spellings that are not added back to completions. `syntax_catalog.units` contain
 compiler unit labels; `syntax_catalog.legacy_unit_aliases` contains
 highlight-only compatibility aliases such as byte-size units and `%`.
 `syntax_catalog.model_fields`, `syntax_catalog.prediction_table_fields`,
-`syntax_catalog.coverage_result_fields`, `syntax_catalog.table_fields`, and
-`syntax_catalog.case_run_result_table_fields`, along with the HTTP/sample/DB/case
-field catalogs, are compiler-owned public member API catalogs used by TextMate
-public-member highlighting and local completion fallback. They describe
-runtime-backed public fields, not editor-only placeholders.
+`syntax_catalog.coverage_result_fields`,
+`syntax_catalog.time_alignment_result_fields`, `syntax_catalog.table_fields`,
+and `syntax_catalog.case_run_result_table_fields`, along with the
+HTTP/sample/DB/case field catalogs, are compiler-owned public member API
+catalogs used by TextMate public-member highlighting and local completion
+fallback. The TimeSeries alignment catalog exposes the distinct materialization
+and axis-comparison statuses, counts, method, tolerance, and step available on
+bound native `align`/`resample` outputs. These catalogs describe runtime-backed public fields,
+not editor-only placeholders.
 Regenerate it after LSP completion, keyword, constant,
 operator-word, option, type, unit, public member field, legacy workflow alias,
 legacy unit alias, or highlight legend changes:

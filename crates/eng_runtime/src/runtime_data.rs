@@ -659,6 +659,10 @@ impl RuntimeData {
                 left_count: alignment.left_count,
                 right_count: alignment.right_count,
                 matched_count: alignment.matched_count,
+                target_count: alignment.target_count,
+                output_count: alignment.output_count,
+                materialization_status: alignment.materialization_status.clone(),
+                materialization_reason: alignment.materialization_reason.clone(),
                 left_nominal_step: alignment.left_nominal_step,
                 right_nominal_step: alignment.right_nominal_step,
                 left_irregular: alignment.left_irregular,
@@ -1724,6 +1728,10 @@ pub struct RuntimeTimeAlignment {
     pub left_count: usize,
     pub right_count: usize,
     pub matched_count: usize,
+    pub target_count: usize,
+    pub output_count: usize,
+    pub materialization_status: String,
+    pub materialization_reason: String,
     pub left_nominal_step: Option<f64>,
     pub right_nominal_step: Option<f64>,
     pub left_irregular: bool,
@@ -3153,7 +3161,7 @@ pub(crate) fn materialize_runtime_data_with_result_dir(
         ));
     data.structured_reads = materialize_structured_reads(report, result_dir, &data.tables);
     data.db_connections = materialize_db_connections(report, result_dir);
-    data.time_alignments = materialize_time_alignments(report, &data.time_series);
+    data.time_alignments = materialize_time_alignments(report, &mut data.time_series);
     data.statistics = materialize_statistics(report, &data.time_series);
     data.integrations = materialize_integrations(report, &data.time_series);
     data.timeseries_uncertainty_calculations = materialize_timeseries_uncertainty_calculations(
@@ -8595,9 +8603,8 @@ fn materialize_statistics(
         .stats_infos
         .iter()
         .map(|stats| {
-            let values = series
-                .iter()
-                .find(|series| series.name == stats.source)
+            let runtime_series = series.iter().find(|series| series.name == stats.source);
+            let values = runtime_series
                 .map(|series| {
                     stats
                         .statistics
@@ -8608,8 +8615,12 @@ fn materialize_statistics(
                 .unwrap_or_default();
             RuntimeStatistics {
                 source: stats.source.clone(),
-                quantity_kind: stats.quantity_kind.clone(),
-                axis: stats.axis.clone(),
+                quantity_kind: runtime_series
+                    .map(|series| series.quantity_kind.clone())
+                    .unwrap_or_else(|| stats.quantity_kind.clone()),
+                axis: runtime_series
+                    .map(|series| series.axis.clone())
+                    .unwrap_or_else(|| stats.axis.clone()),
                 cache_key: stats.cache_key.clone(),
                 status: if values.is_empty() {
                     "unavailable".to_owned()
@@ -8746,6 +8757,8 @@ fn metric_alignment_reference(
         .find(|alignment| {
             (alignment.left == left && alignment.right == right)
                 || (alignment.left == right && alignment.right == left)
+                || (alignment.binding == left && alignment.right == right)
+                || (alignment.binding == right && alignment.right == left)
         })
         .map(|alignment| {
             (
@@ -9430,17 +9443,18 @@ fn time_step_status(
 
 fn materialize_time_alignments(
     report: &CheckReport,
-    series: &[RuntimeTimeSeries],
+    series: &mut Vec<RuntimeTimeSeries>,
 ) -> Vec<RuntimeTimeAlignment> {
     let mut alignments = Vec::new();
     let table_series = series
         .iter()
         .filter(|series| !series.source_table.is_empty())
+        .cloned()
         .collect::<Vec<_>>();
     for left_index in 0..table_series.len() {
         for right_index in (left_index + 1)..table_series.len() {
-            let left = table_series[left_index];
-            let right = table_series[right_index];
+            let left = &table_series[left_index];
+            let right = &table_series[right_index];
             if left.source_table == right.source_table || left.axis != right.axis {
                 continue;
             }
@@ -9449,36 +9463,35 @@ fn materialize_time_alignments(
                 left,
                 right,
                 "auto_pairwise",
-                "metadata_only",
+                "comparison",
                 None,
                 None,
                 0,
             ));
         }
     }
-    alignments.extend(materialize_explicit_time_alignment_commands(report, series));
-    alignments
-}
-
-fn materialize_explicit_time_alignment_commands(
-    report: &CheckReport,
-    series: &[RuntimeTimeSeries],
-) -> Vec<RuntimeTimeAlignment> {
-    report
+    for command in report
         .semantic_program
         .command_styles
         .iter()
         .filter(|command| matches!(command.verb.as_str(), "align" | "resample"))
         .filter(|command| command.status == "lowered")
-        .map(|command| materialize_explicit_time_alignment_command(report, series, command))
-        .collect()
+    {
+        let (alignment, output) =
+            materialize_explicit_time_alignment_command(report, series, command);
+        if let Some(output) = output {
+            series.push(output);
+        }
+        alignments.push(alignment);
+    }
+    alignments
 }
 
 fn materialize_explicit_time_alignment_command(
     report: &CheckReport,
     series: &[RuntimeTimeSeries],
     command: &eng_compiler::CommandStyleInfo,
-) -> RuntimeTimeAlignment {
+) -> (RuntimeTimeAlignment, Option<RuntimeTimeSeries>) {
     let left_name = command.target.trim();
     let binding = command
         .owner
@@ -9492,12 +9505,12 @@ fn materialize_explicit_time_alignment_command(
         .map(|block| block.options.as_slice())
         .unwrap_or(&[]);
     let method = option_value(options, "method")
-        .map(normalize_fill_method)
+        .map(normalize_time_alignment_method)
         .unwrap_or_else(|| {
             if command.verb == "resample" {
                 "linear".to_owned()
             } else {
-                "metadata_only".to_owned()
+                "exact".to_owned()
             }
         });
     let resample_step = time_alignment_command_resample_step(command, options);
@@ -9513,30 +9526,38 @@ fn materialize_explicit_time_alignment_command(
         });
 
     let Some(left) = find_runtime_series(series, left_name) else {
-        return missing_time_alignment_record(
-            &binding,
-            left_name,
-            &right_name,
-            &command.verb,
-            &method,
-            resample_step,
-            tolerance,
-            command.line,
+        return (
+            missing_time_alignment_record(
+                &binding,
+                left_name,
+                &right_name,
+                &command.verb,
+                &method,
+                resample_step,
+                tolerance,
+                command.line,
+                &format!("source TimeSeries `{left_name}` is unavailable"),
+            ),
+            None,
         );
     };
     let Some(right) = find_runtime_series(series, &right_name) else {
-        return missing_time_alignment_record(
-            &binding,
-            left_name,
-            &right_name,
-            &command.verb,
-            &method,
-            resample_step,
-            tolerance,
-            command.line,
+        return (
+            missing_time_alignment_record(
+                &binding,
+                left_name,
+                &right_name,
+                &command.verb,
+                &method,
+                resample_step,
+                tolerance,
+                command.line,
+                &format!("target TimeSeries `{right_name}` is unavailable"),
+            ),
+            None,
         );
     };
-    runtime_time_alignment_record(
+    let mut alignment = runtime_time_alignment_record(
         &binding,
         left,
         right,
@@ -9545,7 +9566,311 @@ fn materialize_explicit_time_alignment_command(
         resample_step,
         tolerance,
         command.line,
-    )
+    );
+    let Some(output_binding) = command.owner.as_deref() else {
+        alignment.materialization_status = "unavailable".to_owned();
+        alignment.materialization_reason =
+            "an output binding is required to materialize a TimeSeries".to_owned();
+        return (alignment, None);
+    };
+    let materialization = materialize_time_alignment_series(
+        output_binding,
+        left,
+        right,
+        &command.verb,
+        &method,
+        resample_step,
+        tolerance,
+    );
+    alignment.target_count = materialization.target_count;
+    alignment.output_count = materialization.output_count;
+    alignment.materialization_status = materialization.status;
+    alignment.materialization_reason = materialization.reason;
+    (alignment, materialization.series)
+}
+
+fn normalize_time_alignment_method(value: &str) -> String {
+    normalize_fill_method(value.trim().trim_matches('"'))
+}
+
+struct TimeAlignmentMaterialization {
+    series: Option<RuntimeTimeSeries>,
+    target_count: usize,
+    output_count: usize,
+    status: String,
+    reason: String,
+}
+
+#[allow(clippy::too_many_arguments)]
+fn materialize_time_alignment_series(
+    binding: &str,
+    left: &RuntimeTimeSeries,
+    right: &RuntimeTimeSeries,
+    strategy: &str,
+    method: &str,
+    resample_step: Option<f64>,
+    tolerance: Option<f64>,
+) -> TimeAlignmentMaterialization {
+    if left.axis != right.axis {
+        return unavailable_time_alignment_materialization(format!(
+            "source axis `{}` does not match target axis `{}`",
+            left.axis, right.axis
+        ));
+    }
+    if !matches!(method, "exact" | "nearest" | "linear") {
+        return unavailable_time_alignment_materialization(format!(
+            "unsupported TimeSeries materialization method `{method}`; use exact, nearest, or linear"
+        ));
+    }
+
+    let source_points = sorted_time_alignment_points(&left.points);
+    if source_points.is_empty() {
+        return unavailable_time_alignment_materialization(
+            "source TimeSeries has no finite points".to_owned(),
+        );
+    }
+    let target_axis = match time_alignment_target_axis(left, right, strategy, resample_step) {
+        Ok(axis) => axis,
+        Err(reason) => return unavailable_time_alignment_materialization(reason),
+    };
+    let target_count = target_axis.len();
+    if target_count == 0 {
+        return unavailable_time_alignment_materialization(
+            "target TimeSeries axis has no finite points in the source range".to_owned(),
+        );
+    }
+
+    let mut points = Vec::with_capacity(target_count);
+    for x in target_axis {
+        let value = match method {
+            "exact" => exact_time_alignment_value(&source_points, x, tolerance),
+            "nearest" => nearest_time_alignment_value(&source_points, x, tolerance),
+            "linear" => linear_time_alignment_value(&source_points, x),
+            _ => None,
+        };
+        if let Some(y) = value {
+            points.push(RuntimePoint { x, y });
+        }
+    }
+
+    let output_count = points.len();
+    let (status, reason) = if output_count == target_count {
+        (
+            "materialized",
+            format!("materialized all {output_count} target point(s) with {method} sampling"),
+        )
+    } else if output_count > 0 {
+        (
+            "partial",
+            format!(
+                "materialized {output_count} of {target_count} target point(s); values outside the source range or method tolerance were omitted"
+            ),
+        )
+    } else {
+        (
+            "unavailable",
+            format!("no target points could be materialized with {method} sampling"),
+        )
+    };
+    let series = (output_count > 0).then(|| RuntimeTimeSeries {
+        name: binding.to_owned(),
+        axis: left.axis.clone(),
+        x_unit: left.x_unit.clone(),
+        quantity_kind: left.quantity_kind.clone(),
+        display_unit: left.display_unit.clone(),
+        source_table: left.source_table.clone(),
+        source_expression: if strategy == "resample" && left.name == right.name {
+            format!(
+                "resample {} by {} s",
+                left.name,
+                resample_step.unwrap_or_default()
+            )
+        } else if strategy == "resample" {
+            format!("resample {} to {}", left.name, right.name)
+        } else {
+            format!("align {} with {}", left.name, right.name)
+        },
+        points,
+    });
+    TimeAlignmentMaterialization {
+        series,
+        target_count,
+        output_count,
+        status: status.to_owned(),
+        reason,
+    }
+}
+
+fn unavailable_time_alignment_materialization(reason: String) -> TimeAlignmentMaterialization {
+    TimeAlignmentMaterialization {
+        series: None,
+        target_count: 0,
+        output_count: 0,
+        status: "unavailable".to_owned(),
+        reason,
+    }
+}
+
+fn time_alignment_target_axis(
+    left: &RuntimeTimeSeries,
+    right: &RuntimeTimeSeries,
+    strategy: &str,
+    resample_step: Option<f64>,
+) -> Result<Vec<f64>, String> {
+    if strategy == "resample" {
+        if let Some(step) = resample_step {
+            if !step.is_finite() || step <= 0.0 {
+                return Err("resample step must be a positive finite duration".to_owned());
+            }
+            let left_range = finite_time_range(&left.points)
+                .ok_or_else(|| "source TimeSeries has no finite axis range".to_owned())?;
+            let range = if left.name == right.name {
+                left_range
+            } else {
+                let right_range = finite_time_range(&right.points)
+                    .ok_or_else(|| "target TimeSeries has no finite axis range".to_owned())?;
+                (
+                    left_range.0.max(right_range.0),
+                    left_range.1.min(right_range.1),
+                )
+            };
+            if range.1 < range.0 {
+                return Err("source and target TimeSeries ranges do not overlap".to_owned());
+            }
+            return regular_time_axis(range.0, range.1, step);
+        }
+    }
+    let mut axis = right
+        .points
+        .iter()
+        .filter_map(|point| point.x.is_finite().then_some(point.x))
+        .collect::<Vec<_>>();
+    axis.sort_by(f64::total_cmp);
+    axis.dedup_by(|left, right| *left == *right);
+    Ok(axis)
+}
+
+fn regular_time_axis(start: f64, end: f64, step: f64) -> Result<Vec<f64>, String> {
+    const MAX_RESAMPLED_POINTS: usize = 1_000_000;
+    let span = (end - start).max(0.0);
+    let interval_count = span / step;
+    if !interval_count.is_finite() {
+        return Err("resample range and step do not produce a finite target axis".to_owned());
+    }
+    let count = interval_count.floor() + 1.0;
+    if count > MAX_RESAMPLED_POINTS as f64 {
+        return Err(format!(
+            "resample step would create more than {MAX_RESAMPLED_POINTS} points"
+        ));
+    }
+    let count = count as usize;
+    Ok((0..count)
+        .map(|index| start + index as f64 * step)
+        .collect())
+}
+
+fn finite_time_range(points: &[RuntimePoint]) -> Option<(f64, f64)> {
+    let mut values = points
+        .iter()
+        .filter_map(|point| point.x.is_finite().then_some(point.x));
+    let first = values.next()?;
+    let mut min = first;
+    let mut max = first;
+    for value in values {
+        min = min.min(value);
+        max = max.max(value);
+    }
+    Some((min, max))
+}
+
+fn sorted_time_alignment_points(points: &[RuntimePoint]) -> Vec<RuntimePoint> {
+    let mut sorted = points
+        .iter()
+        .copied()
+        .filter(|point| point.x.is_finite() && point.y.is_finite())
+        .collect::<Vec<_>>();
+    sorted.sort_by(|left, right| left.x.total_cmp(&right.x));
+    sorted.dedup_by(|left, right| left.x == right.x);
+    sorted
+}
+
+fn exact_time_alignment_value(
+    points: &[RuntimePoint],
+    target: f64,
+    tolerance: Option<f64>,
+) -> Option<f64> {
+    let tolerance = tolerance
+        .unwrap_or_else(|| time_coordinate_tolerance(points, target))
+        .max(0.0);
+    nearest_time_alignment_candidate(points, target)
+        .filter(|(distance, _)| *distance <= tolerance)
+        .map(|(_, value)| value)
+}
+
+fn nearest_time_alignment_value(
+    points: &[RuntimePoint],
+    target: f64,
+    tolerance: Option<f64>,
+) -> Option<f64> {
+    let first = points.first()?;
+    let last = points.last()?;
+    let boundary_tolerance = time_coordinate_tolerance(points, target);
+    if target < first.x - boundary_tolerance || target > last.x + boundary_tolerance {
+        return None;
+    }
+    nearest_time_alignment_candidate(points, target)
+        .filter(|(distance, _)| tolerance.is_none_or(|limit| *distance <= limit.max(0.0)))
+        .map(|(_, value)| value)
+}
+
+fn linear_time_alignment_value(points: &[RuntimePoint], target: f64) -> Option<f64> {
+    let first = points.first()?;
+    let last = points.last()?;
+    let tolerance = time_coordinate_tolerance(points, target);
+    if target < first.x - tolerance || target > last.x + tolerance {
+        return None;
+    }
+    if (target - first.x).abs() <= tolerance {
+        return Some(first.y);
+    }
+    if (target - last.x).abs() <= tolerance {
+        return Some(last.y);
+    }
+    let upper = points.partition_point(|point| point.x < target);
+    if upper == 0 || upper >= points.len() {
+        return None;
+    }
+    let left = points[upper - 1];
+    let right = points[upper];
+    let span = right.x - left.x;
+    if span.abs() <= f64::EPSILON {
+        return Some(left.y);
+    }
+    let fraction = (target - left.x) / span;
+    Some(left.y + fraction * (right.y - left.y))
+}
+
+fn nearest_time_alignment_candidate(points: &[RuntimePoint], target: f64) -> Option<(f64, f64)> {
+    let upper = points.partition_point(|point| point.x < target);
+    [
+        upper.checked_sub(1),
+        (upper < points.len()).then_some(upper),
+    ]
+    .into_iter()
+    .flatten()
+    .map(|index| {
+        let point = points[index];
+        ((point.x - target).abs(), point.y)
+    })
+    .min_by(|left, right| left.0.total_cmp(&right.0))
+}
+
+fn time_coordinate_tolerance(points: &[RuntimePoint], target: f64) -> f64 {
+    let step_tolerance = nominal_time_step(points)
+        .map(time_step_tolerance)
+        .unwrap_or(1e-6);
+    let coordinate_tolerance = target.abs() * f64::EPSILON * 16.0;
+    step_tolerance.max(coordinate_tolerance)
 }
 
 fn time_alignment_command_right(command: &eng_compiler::CommandStyleInfo) -> Option<&str> {
@@ -9614,6 +9939,7 @@ fn missing_time_alignment_record(
     resample_step: Option<f64>,
     tolerance: Option<f64>,
     line: usize,
+    reason: &str,
 ) -> RuntimeTimeAlignment {
     RuntimeTimeAlignment {
         binding: binding.to_owned(),
@@ -9627,6 +9953,10 @@ fn missing_time_alignment_record(
         left_count: 0,
         right_count: 0,
         matched_count: 0,
+        target_count: 0,
+        output_count: 0,
+        materialization_status: "unavailable".to_owned(),
+        materialization_reason: reason.to_owned(),
         left_nominal_step: None,
         right_nominal_step: None,
         left_irregular: false,
@@ -9650,27 +9980,26 @@ fn runtime_time_alignment_record(
     tolerance: Option<f64>,
     line: usize,
 ) -> RuntimeTimeAlignment {
-    let left_start = left.points.first().map(|point| point.x);
-    let left_end = left.points.last().map(|point| point.x);
-    let right_start = right.points.first().map(|point| point.x);
-    let right_end = right.points.last().map(|point| point.x);
-    let overlap_start = match (left_start, right_start) {
-        (Some(left), Some(right)) => Some(left.max(right)),
+    let left_range = finite_time_range(&left.points);
+    let right_range = finite_time_range(&right.points);
+    let overlap_start = match (left_range, right_range) {
+        (Some(left), Some(right)) => Some(left.0.max(right.0)),
         _ => None,
     };
-    let overlap_end = match (left_end, right_end) {
-        (Some(left), Some(right)) => Some(left.min(right)),
+    let overlap_end = match (left_range, right_range) {
+        (Some(left), Some(right)) => Some(left.1.min(right.1)),
         _ => None,
     };
-    let tolerance = tolerance.unwrap_or(1e-6);
+    let sorted_right = sorted_time_alignment_points(&right.points);
     let matched_count = left
         .points
         .iter()
+        .filter(|left_point| left_point.x.is_finite())
         .filter(|left_point| {
-            right
-                .points
-                .iter()
-                .any(|right_point| (left_point.x - right_point.x).abs() <= tolerance)
+            let match_tolerance =
+                tolerance.unwrap_or_else(|| time_coordinate_tolerance(&sorted_right, left_point.x));
+            nearest_time_alignment_candidate(&sorted_right, left_point.x)
+                .is_some_and(|(distance, _)| distance <= match_tolerance)
         })
         .count();
     let status = if matched_count == left.points.len().min(right.points.len())
@@ -9703,10 +10032,15 @@ fn runtime_time_alignment_record(
         strategy: strategy.to_owned(),
         method: method.to_owned(),
         resample_step,
-        tolerance: Some(tolerance),
+        tolerance,
         left_count: left.points.len(),
         right_count: right.points.len(),
         matched_count,
+        target_count: 0,
+        output_count: 0,
+        materialization_status: "not_requested".to_owned(),
+        materialization_reason:
+            "automatic pairwise comparison does not create a named output TimeSeries".to_owned(),
         left_nominal_step,
         right_nominal_step,
         left_irregular,
@@ -26451,14 +26785,14 @@ with {
 
     #[test]
     fn materializes_time_alignment_step_metadata() {
-        let series = vec![
+        let mut series = vec![
             time_series_for_alignment("left", "table_a", &[0.0, 60.0, 120.0, 180.0]),
             time_series_for_alignment("right", "table_b", &[0.0, 120.0, 240.0, 360.0]),
             time_series_for_alignment("irregular", "table_c", &[0.0, 60.0, 150.0, 210.0]),
         ];
 
         let report = check_source("ok.eng", "", &CheckOptions::default());
-        let alignments = materialize_time_alignments(&report, &series);
+        let alignments = materialize_time_alignments(&report, &mut series);
 
         assert_eq!(alignments.len(), 3);
         let step_mismatch = alignments
@@ -26467,7 +26801,8 @@ with {
             .unwrap();
         assert_eq!(step_mismatch.binding, "left vs right");
         assert_eq!(step_mismatch.strategy, "auto_pairwise");
-        assert_eq!(step_mismatch.method, "metadata_only");
+        assert_eq!(step_mismatch.method, "comparison");
+        assert_eq!(step_mismatch.materialization_status, "not_requested");
         assert_eq!(step_mismatch.left_nominal_step, Some(60.0));
         assert_eq!(step_mismatch.right_nominal_step, Some(120.0));
         assert!(!step_mismatch.left_irregular);
@@ -26484,38 +26819,44 @@ with {
     }
 
     #[test]
-    fn materializes_explicit_time_alignment_and_resampling_hooks() {
+    fn materializes_explicit_time_alignment_and_resampling_series() {
         let report = check_source(
             "ok.eng",
             "aligned = align left with right\nresampled = resample left to right\nwith {\n    method = linear\n    target_step = 1 min\n    tolerance = 5 s\n}\nresampled_by = resample left by 2 min\n",
             &CheckOptions::default(),
         );
         assert!(!report.has_errors(), "{:?}", report.diagnostics);
-        let series = vec![
+        let mut series = vec![
             time_series_for_alignment("left", "table_a", &[0.0, 60.0, 120.0]),
             time_series_for_alignment("right", "table_b", &[0.0, 60.0, 120.0]),
         ];
 
-        let alignments = materialize_time_alignments(&report, &series);
+        let alignments = materialize_time_alignments(&report, &mut series);
 
         let aligned = alignments
             .iter()
             .find(|alignment| alignment.binding == "aligned")
-            .expect("explicit align hook");
+            .expect("explicit align result");
         assert_eq!(aligned.strategy, "align");
-        assert_eq!(aligned.method, "metadata_only");
+        assert_eq!(aligned.method, "exact");
         assert_eq!(aligned.status, "matched");
+        assert_eq!(aligned.target_count, 3);
+        assert_eq!(aligned.output_count, 3);
+        assert_eq!(aligned.materialization_status, "materialized");
         assert_eq!(aligned.line, 1);
 
         let resampled = alignments
             .iter()
             .find(|alignment| alignment.binding == "resampled")
-            .expect("explicit resample hook");
+            .expect("explicit resample result");
         assert_eq!(resampled.strategy, "resample");
         assert_eq!(resampled.method, "linear");
         assert_eq!(resampled.resample_step, Some(60.0));
         assert_eq!(resampled.tolerance, Some(5.0));
         assert_eq!(resampled.status, "matched");
+        assert_eq!(resampled.target_count, 3);
+        assert_eq!(resampled.output_count, 3);
+        assert_eq!(resampled.materialization_status, "materialized");
         assert_eq!(resampled.line, 2);
 
         let resampled_by = alignments
@@ -26528,7 +26869,93 @@ with {
         assert_eq!(resampled_by.method, "linear");
         assert_eq!(resampled_by.resample_step, Some(120.0));
         assert_eq!(resampled_by.status, "matched");
+        assert_eq!(resampled_by.target_count, 2);
+        assert_eq!(resampled_by.output_count, 2);
+        assert_eq!(resampled_by.materialization_status, "materialized");
         assert_eq!(resampled_by.line, 8);
+        for binding in ["aligned", "resampled", "resampled_by"] {
+            assert!(
+                series.iter().any(|series| series.name == binding),
+                "{binding} should be available as a runtime TimeSeries"
+            );
+        }
+    }
+
+    #[test]
+    fn resamples_mismatched_axis_values_with_linear_interpolation() {
+        let report = check_source(
+            "ok.eng",
+            "aligned = align left with right\nresampled = resample left to right\n",
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let mut series = vec![
+            time_series_for_alignment("left", "table_a", &[0.0, 120.0, 240.0]),
+            time_series_for_alignment("right", "table_b", &[0.0, 60.0, 120.0, 180.0, 240.0]),
+        ];
+
+        let alignments = materialize_time_alignments(&report, &mut series);
+
+        let aligned = alignments
+            .iter()
+            .find(|alignment| alignment.binding == "aligned")
+            .expect("exact alignment result");
+        assert_eq!(aligned.target_count, 5);
+        assert_eq!(aligned.output_count, 3);
+        assert_eq!(aligned.materialization_status, "partial");
+
+        let resampled = alignments
+            .iter()
+            .find(|alignment| alignment.binding == "resampled")
+            .expect("linear resample result");
+        assert_eq!(resampled.target_count, 5);
+        assert_eq!(resampled.output_count, 5);
+        assert_eq!(resampled.materialization_status, "materialized");
+        let output = series
+            .iter()
+            .find(|series| series.name == "resampled")
+            .expect("materialized resampled TimeSeries");
+        assert_eq!(
+            output
+                .points
+                .iter()
+                .map(|point| (point.x, point.y))
+                .collect::<Vec<_>>(),
+            vec![
+                (0.0, 0.0),
+                (60.0, 0.5),
+                (120.0, 1.0),
+                (180.0, 1.5),
+                (240.0, 2.0),
+            ]
+        );
+    }
+
+    #[test]
+    fn linear_resampling_does_not_extrapolate_large_epoch_axes() {
+        let epoch = 1_700_000_000.0;
+        let points = vec![
+            RuntimePoint { x: epoch, y: 10.0 },
+            RuntimePoint {
+                x: epoch + 60.0,
+                y: 20.0,
+            },
+        ];
+
+        assert_eq!(
+            linear_time_alignment_value(&points, epoch + 30.0),
+            Some(15.0)
+        );
+        assert_eq!(linear_time_alignment_value(&points, epoch - 1.0), None);
+        assert_eq!(linear_time_alignment_value(&points, epoch + 61.0), None);
+        assert_eq!(
+            exact_time_alignment_value(&points, epoch + 60.0, None),
+            Some(20.0)
+        );
+        assert_eq!(
+            nearest_time_alignment_value(&points, epoch + 31.0, None),
+            Some(20.0)
+        );
     }
 
     #[test]
@@ -26595,6 +27022,19 @@ with {
             .time_series
             .iter()
             .any(|series| series.name == "sim.T_zone"));
+        let measured_on_sim = runtime
+            .time_series
+            .iter()
+            .find(|series| series.name == "measured_on_sim")
+            .expect("native resampling output");
+        assert_eq!(measured_on_sim.points.len(), 7);
+        let resampling = runtime
+            .time_alignments
+            .iter()
+            .find(|alignment| alignment.binding == "measured_on_sim")
+            .expect("native resampling record");
+        assert_eq!(resampling.materialization_status, "materialized");
+        assert_eq!(resampling.output_count, 7);
 
         let metric = runtime
             .metrics

@@ -5562,5 +5562,35 @@
     "scope": "constant.other.unit.englang",
     "text": "K/s",
     "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.path.public-member.englang",
+    "text": "aligned_series.output_count",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.other.public-member.englang",
+    "text": "output_count",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.other.public-member.englang",
+    "text": "materialization_status",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.other.public-member.englang",
+    "text": "materialization_reason",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.other.public-member.englang",
+    "text": "resample_step",
+    "fullMatch": true
   }
 ]

@@ -3064,6 +3064,12 @@ function Assert-MeasuredVsSimulatedGolden {
     Assert-Artifact ($null -ne $reportAlignment) "measured report_spec missing measured/sim alignment"
     Assert-ArtifactValue $reportAlignment.status $Golden.report_spec.alignment_status "measured report_spec alignment status"
     Assert-ArtifactNumber $reportAlignment.matched_count $Golden.report_spec.alignment_matched_count "measured report_spec alignment matched_count"
+    $reportResample = @($reportSpec.time_alignments) | Where-Object { $_.binding -eq $Golden.report_spec.resample_binding } | Select-Object -First 1
+    Assert-Artifact ($null -ne $reportResample) "measured report_spec missing native resampling output"
+    Assert-ArtifactValue $reportResample.method $Golden.report_spec.resample_method "measured report_spec resample method"
+    Assert-ArtifactValue $reportResample.materialization_status $Golden.report_spec.resample_materialization_status "measured report_spec resample materialization status"
+    Assert-ArtifactNumber $reportResample.target_count $Golden.report_spec.resample_target_count "measured report_spec resample target_count"
+    Assert-ArtifactNumber $reportResample.output_count $Golden.report_spec.resample_output_count "measured report_spec resample output_count"
     $reportSolver = @(@($reportSpec.system_ir)[0].solver_results)[0]
     Assert-ArtifactValue $reportSolver.state $Golden.report_spec.solver_state_name "measured report_spec solver state"
     Assert-ArtifactValue $reportSolver.method $Golden.report_spec.solver_method "measured report_spec solver method"
@@ -3092,6 +3098,16 @@ function Assert-MeasuredVsSimulatedGolden {
     Assert-Artifact ($null -ne $resultAlignment) "measured result missing measured/sim alignment"
     Assert-ArtifactValue $resultAlignment.status $Golden.result.alignment_status "measured result alignment status"
     Assert-ArtifactNumber $resultAlignment.matched_count $Golden.result.alignment_matched_count "measured result alignment matched_count"
+    $resultResample = @($result.typed_payload.time_alignments) | Where-Object { $_.binding -eq $Golden.result.resample_binding } | Select-Object -First 1
+    Assert-Artifact ($null -ne $resultResample) "measured result missing native resampling output"
+    Assert-ArtifactValue $resultResample.method $Golden.result.resample_method "measured result resample method"
+    Assert-ArtifactValue $resultResample.materialization_status $Golden.result.resample_materialization_status "measured result resample materialization status"
+    Assert-ArtifactNumber $resultResample.target_count $Golden.result.resample_target_count "measured result resample target_count"
+    Assert-ArtifactNumber $resultResample.output_count $Golden.result.resample_output_count "measured result resample output_count"
+    $resultResampleObject = @($result.object_store.objects) | Where-Object { $_.name -eq $Golden.result.resample_binding } | Select-Object -First 1
+    Assert-Artifact ($null -ne $resultResampleObject) "measured result object store missing native resampling output"
+    Assert-ArtifactValue $resultResampleObject.kind $Golden.result.resample_object_kind "measured result resample object kind"
+    Assert-ArtifactNumber $resultResampleObject.len $Golden.result.resample_object_len "measured result resample object length"
     $resultSolver = @($result.typed_payload.systems)[0].solver_result
     Assert-ArtifactValue $resultSolver.status $Golden.result.solver_status "measured result solver status"
     Assert-ArtifactValue $resultSolver.method $Golden.result.solver_method "measured result solver method"
@@ -3736,6 +3752,7 @@ function Assert-VscodeExtensionContract {
     $RuntimeDiscoveryPath = Join-Path $ExtensionRoot "runtimeDiscovery.js"
     $ReviewPanelRendererPath = Join-Path $ExtensionRoot "reviewPanelRenderer.js"
     $CaseRunCompletionTestPath = Join-Path $ExtensionRoot "test\caseRunCompletion.test.js"
+    $TimeAlignmentCompletionTestPath = Join-Path $ExtensionRoot "test\timeAlignmentCompletion.test.js"
     $CodeActionsTestPath = Join-Path $ExtensionRoot "test\codeActions.test.js"
     $DecorationsTestPath = Join-Path $ExtensionRoot "test\decorations.test.js"
     $DocumentHighlightsTestPath = Join-Path $ExtensionRoot "test\documentHighlights.test.js"
@@ -3844,6 +3861,9 @@ function Assert-VscodeExtensionContract {
     if (-not (Test-Path $CaseRunCompletionTestPath)) {
         throw "missing VS Code native case run completion smoke at $CaseRunCompletionTestPath"
     }
+    if (-not (Test-Path $TimeAlignmentCompletionTestPath)) {
+        throw "missing VS Code TimeSeries alignment completion smoke at $TimeAlignmentCompletionTestPath"
+    }
     if (-not (Test-Path $CodeActionsTestPath)) {
         throw "missing VS Code compiler code action smoke at $CodeActionsTestPath"
     }
@@ -3920,7 +3940,7 @@ function Assert-VscodeExtensionContract {
             throw "dev-current packaging missing current Markdown documentation contract: $RequiredDevCurrentDocsToken"
         }
     }
-    if (-not $VscodeReadmeSource.Contains("completion_items") -or $VscodeReadmeSource.Contains("completion_seed") -or -not $VscodeReadmeSource.Contains("static completion fallback") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_unit_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_builtin_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_option_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.model_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.prediction_table_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.coverage_result_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.table_fields") -or -not $VscodeReadmeSource.Contains("public member API") -or -not $VscodeReadmeSource.Contains("runtime-backed public fields") -or -not $VscodeReadmeSource.Contains("editor-only placeholders") -or -not $VscodeReadmeSource.Contains("highlight-only compatibility aliases")) {
+    if (-not $VscodeReadmeSource.Contains("completion_items") -or $VscodeReadmeSource.Contains("completion_seed") -or -not $VscodeReadmeSource.Contains("static completion fallback") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_unit_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_builtin_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_option_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.model_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.prediction_table_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.coverage_result_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.time_alignment_result_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.table_fields") -or -not $VscodeReadmeSource.Contains("public member API") -or -not $VscodeReadmeSource.Contains("runtime-backed public fields") -or -not $VscodeReadmeSource.Contains("editor-only placeholders") -or -not $VscodeReadmeSource.Contains("highlight-only compatibility aliases")) {
         throw "VS Code README must document completion_items as the editor metadata completion catalog, public member field catalogs, and legacy aliases as highlight-only metadata without completion_seed"
     }
     if (-not $VscodeReadmeSource.Contains("static-import-aware") -or -not $VscodeReadmeSource.Contains("incomplete semantic coverage") -or -not $VscodeReadmeSource.Contains("all modified open") -or -not $VscodeReadmeSource.Contains("discards the") -or -not $VscodeReadmeSource.Contains("whole result instead")) {
@@ -5557,6 +5577,7 @@ function Assert-VscodeExtensionContract {
         "hoverStatusLabel",
         "HOVER_KIND_LABELS",
         'coverage_result_field: "Coverage result field"',
+        'time_alignment_result_field: "Time alignment result field"',
         'table_field: "Table field"',
         'model_field: "Model field"',
         'db_connection_field: "DB connection field"',
@@ -5584,7 +5605,7 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./editorMetadata")') -or -not $ExtensionSource.Contains("loadEditorMetadata(__dirname)")) {
         throw "VS Code extension must load editor metadata through editorMetadata.js"
     }
-    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("constants") -or -not $EditorMetadataLoaderSource.Contains("workflow_status_literals") -or -not $EditorMetadataLoaderSource.Contains("operator_words") -or -not $EditorMetadataLoaderSource.Contains("legacy_unit_aliases") -or -not $EditorMetadataLoaderSource.Contains("keyword_groups") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_builtin_aliases") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_option_aliases") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("coverage_result_fields") -or -not $EditorMetadataLoaderSource.Contains("table_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("db_connection_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_run_result_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields") -or -not $EditorMetadataLoaderSource.Contains("model_fields") -or -not $EditorMetadataLoaderSource.Contains("prediction_table_fields")) {
+    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("constants") -or -not $EditorMetadataLoaderSource.Contains("workflow_status_literals") -or -not $EditorMetadataLoaderSource.Contains("operator_words") -or -not $EditorMetadataLoaderSource.Contains("legacy_unit_aliases") -or -not $EditorMetadataLoaderSource.Contains("keyword_groups") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_builtin_aliases") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_option_aliases") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("coverage_result_fields") -or -not $EditorMetadataLoaderSource.Contains("time_alignment_result_fields") -or -not $EditorMetadataLoaderSource.Contains("table_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("db_connection_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_run_result_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields") -or -not $EditorMetadataLoaderSource.Contains("model_fields") -or -not $EditorMetadataLoaderSource.Contains("prediction_table_fields")) {
         throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, workflow status literal, workflow builtin, legacy workflow aliases, public type, quantity, unit, HTTP response field, coverage result field, table field, sample table field, case table field, case run result field, case result collection field, model field, prediction table field, and completion item metadata"
     }
     if ($EditorMetadataLoaderSource.Contains("metadata.completion_items ??") -or $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("const completionItems = metadata.completion_items") -or -not $EditorMetadataLoaderSource.Contains("metadata.completion_items_count !== completionItems.length")) {
@@ -5622,10 +5643,13 @@ function Assert-VscodeExtensionContract {
         "args field",
         "httpResponseFields",
         "coverageResultFields",
+        "timeAlignmentResultFields",
         "tableFields",
         "promote\s+(?:csv|toml|json(?:\s+records)?)",
         "check\s+coverage",
+        "(?:align|resample)\b",
         "isCoverageResultLikeReceiver",
+        "isTimeAlignmentResultLikeReceiver",
         "isTableLikeReceiver",
         "sampleTableFields",
         "latin[_-]hypercube|grid|random|uniform",
@@ -6843,6 +6867,15 @@ function Assert-VscodeExtensionContract {
             throw "generated VS Code editor metadata native case run result field $RequiredCaseRunResultTableField missing detail"
         }
     }
+    foreach ($RequiredTimeAlignmentResultField in @("materialized", "materialization_status", "alignment_status", "target_count", "output_count", "resample_step")) {
+        $TimeAlignmentResultField = @($EditorMetadata.syntax_catalog.time_alignment_result_fields | Where-Object { $_.label -eq $RequiredTimeAlignmentResultField }) | Select-Object -First 1
+        if ($null -eq $TimeAlignmentResultField) {
+            throw "generated VS Code editor metadata missing TimeSeries alignment result field $RequiredTimeAlignmentResultField"
+        }
+        if ([string]::IsNullOrWhiteSpace($TimeAlignmentResultField.detail)) {
+            throw "generated VS Code editor metadata TimeSeries alignment result field $RequiredTimeAlignmentResultField missing detail"
+        }
+    }
     $CompilerSemanticSource = Get-Content -LiteralPath (Join-Path $RepoRoot "crates\eng_compiler\src\semantic.rs") -Raw
     $RuntimeSource = Get-Content -LiteralPath (Join-Path $RepoRoot "crates\eng_runtime\src\lib.rs") -Raw
     if ($CompilerSemanticSource.Contains('"expected_count" | "planned_count"') -or $RuntimeSource.Contains('"planned_count" if table.schema_name == "CaseOutput"')) {
@@ -6917,6 +6950,7 @@ function Assert-VscodeExtensionContract {
         $RuntimeDiscoveryPath,
         $ReviewPanelRendererPath,
         $CaseRunCompletionTestPath,
+        $TimeAlignmentCompletionTestPath,
         $CodeActionsTestPath,
         $DecorationsTestPath,
         $DocumentHighlightsTestPath,
@@ -6927,6 +6961,7 @@ function Assert-VscodeExtensionContract {
     )
     Invoke-JavaScriptSyntaxCheck -Paths $VscodeJavaScriptPaths -Label "VS Code extension"
     Invoke-JavaScriptProgram -Path $CaseRunCompletionTestPath -Label "VS Code native case run completion smoke"
+    Invoke-JavaScriptProgram -Path $TimeAlignmentCompletionTestPath -Label "VS Code TimeSeries alignment completion smoke"
     Invoke-JavaScriptProgram -Path $CodeActionsTestPath -Label "VS Code compiler code action smoke"
     Invoke-JavaScriptProgram -Path $DecorationsTestPath -Label "VS Code review decoration smoke"
     Invoke-JavaScriptProgram -Path $DocumentHighlightsTestPath -Label "VS Code semantic document highlight smoke"
@@ -7300,10 +7335,13 @@ function Invoke-IdeCheck {
         "workflowMemberCompletionFields",
         "httpResponseFields",
         "coverageResultFields",
+        "timeAlignmentResultFields",
         "tableFields",
         "promote\s+(?:csv|toml|json(?:\s+records)?)",
         "check\s+coverage",
+        "(?:align|resample)\b",
         "isCoverageResultLikeReceiver",
+        "isTimeAlignmentResultLikeReceiver",
         "isTableLikeReceiver",
         "sampleTableFields",
         "latin[_-]hypercube|grid|random|uniform",
@@ -7331,6 +7369,7 @@ function Invoke-IdeCheck {
         "const publicFieldWords = [",
         "catalogItemLabels(catalog.predictionTableFields)",
         "catalogItemLabels(catalog.caseRunResultTableFields)",
+        "catalogItemLabels(catalog.timeAlignmentResultFields)",
         "renderHighlightCoverageTable",
         "copyHighlightSummary",
         "highlightSummaryCopyText",
@@ -7487,6 +7526,7 @@ function Invoke-IdeCheck {
     foreach ($RequiredNativeMemberCompletionToken in @(
         "dbConnectionFields: catalogFieldItems(source.dbConnectionFields ?? source.db_connection_fields)",
         "coverageResultFields: catalogFieldItems(source.coverageResultFields ?? source.coverage_result_fields)",
+        "source.timeAlignmentResultFields ?? source.time_alignment_result_fields",
         "tableFields: catalogFieldItems(source.tableFields ?? source.table_fields)",
         "caseRunResultTableFields: catalogFieldItems(",
         "modelFields: catalogFieldItems(source.modelFields ?? source.model_fields)",
@@ -7497,18 +7537,21 @@ function Invoke-IdeCheck {
         'normalized.split(".").filter(Boolean).pop()',
         "workflowCatalog.dbConnectionFields",
         "workflowCatalog.coverageResultFields",
+        "workflowCatalog.timeAlignmentResultFields",
         "workflowCatalog.tableFields",
         "workflowCatalog.caseRunResultTableFields",
         "workflowCatalog.modelFields",
         "workflowCatalog.predictionTableFields",
         "normalizedCatalog.dbConnectionFields",
         "normalizedCatalog.coverageResultFields",
+        "normalizedCatalog.timeAlignmentResultFields",
         "normalizedCatalog.tableFields",
         "normalizedCatalog.caseRunResultTableFields",
         "normalizedCatalog.modelFields",
         "normalizedCatalog.predictionTableFields",
         "function isDbConnectionLikeReceiver(receiver)",
         "function isCoverageResultLikeReceiver(receiver)",
+        "function isTimeAlignmentResultLikeReceiver(receiver)",
         "function isTableLikeReceiver(receiver)",
         "function isCaseRunResultTableLikeReceiver(receiver)",
         "function isModelLikeReceiver(receiver)",

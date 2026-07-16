@@ -334,6 +334,10 @@ pub struct ReportTimeAlignment {
     pub left_count: usize,
     pub right_count: usize,
     pub matched_count: usize,
+    pub target_count: usize,
+    pub output_count: usize,
+    pub materialization_status: String,
+    pub materialization_reason: String,
     pub left_nominal_step: Option<f64>,
     pub right_nominal_step: Option<f64>,
     pub left_irregular: bool,
@@ -3449,6 +3453,22 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
         json.push_str(&format!(
             "      \"matched_count\": {},\n",
             alignment.matched_count
+        ));
+        json.push_str(&format!(
+            "      \"target_count\": {},\n",
+            alignment.target_count
+        ));
+        json.push_str(&format!(
+            "      \"output_count\": {},\n",
+            alignment.output_count
+        ));
+        json.push_str(&format!(
+            "      \"materialization_status\": \"{}\",\n",
+            json_escape(&alignment.materialization_status)
+        ));
+        json.push_str(&format!(
+            "      \"materialization_reason\": \"{}\",\n",
+            json_escape(&alignment.materialization_reason)
         ));
         push_optional_json_f64(
             &mut json,
@@ -7360,7 +7380,7 @@ fn render_time_alignments_section(spec: &ReportSpec) -> String {
             let right_step =
                 format_alignment_step(alignment.right_nominal_step, alignment.right_irregular);
             format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{} / {}</td><td>{}</td><td>{}</td></tr>",
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{}/{} ({})<br>{}</td><td>{} / {}</td><td>{}</td><td>{}</td></tr>",
                 html_escape(&alignment.binding),
                 html_escape(&alignment.left),
                 html_escape(&alignment.right),
@@ -7368,6 +7388,10 @@ fn render_time_alignments_section(spec: &ReportSpec) -> String {
                 html_escape(&format!("{} / {}", alignment.strategy, alignment.method)),
                 alignment.matched_count,
                 alignment.left_count.min(alignment.right_count),
+                alignment.output_count,
+                alignment.target_count,
+                html_escape(&alignment.materialization_status),
+                html_escape(&alignment.materialization_reason),
                 html_escape(&left_step),
                 html_escape(&right_step),
                 html_escape(&alignment.step_status),
@@ -7379,7 +7403,7 @@ fn render_time_alignments_section(spec: &ReportSpec) -> String {
     format!(
         r#"<h2>Time Alignments</h2>
     <table>
-      <thead><tr><th>Binding</th><th>Left</th><th>Right</th><th>Axis</th><th>Strategy</th><th>Matched</th><th>Nominal Step</th><th>Step</th><th>Status</th></tr></thead>
+      <thead><tr><th>Binding</th><th>Left</th><th>Right</th><th>Axis</th><th>Strategy</th><th>Matched</th><th>Output</th><th>Nominal Step</th><th>Step</th><th>Alignment</th></tr></thead>
       <tbody>{rows}</tbody>
     </table>"#
     )

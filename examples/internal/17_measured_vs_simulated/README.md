@@ -1,9 +1,9 @@
 # Measured vs Simulated
 
-This internal fixture exercises a typed measured-vs-simulated path: typed
-measured data and typed simulation output meet as TimeSeries, then produce an
-RMSE metric, a validation result, a multi-series PlotSpec, and reviewable
-artifacts.
+This internal fixture exercises a typed measured-vs-simulated path. Native
+linear resampling materializes measured data on the simulated Time axis, and
+that output then produces an RMSE metric, a validation result, a multi-series
+PlotSpec, and reviewable artifacts.
 
 The schemas also exercise the runtime data-quality surface:
 
@@ -13,17 +13,21 @@ The schemas also exercise the runtime data-quality surface:
 - RoomThermal declares `T_out` as `TimeSeries[Time] of AbsoluteTemperature`
 - simulate with-options are checked for TimeSeries input quantity, Time axis,
   duration timestep, and internal solver metadata
-- artifact output records metric sample counts and TimeSeries alignment status
+- `measured_on_sim` is an actual TimeSeries produced by `resample`, not an
+  assumed external artifact
+- artifact output records resampling status/counts and metric alignment status
 ```
 
 What to inspect after `Run`:
 
 ```text
 - sim.T_zone in result.engres as the actual emitted one-state trajectory
+- measured_on_sim in the object store as a materialized seven-point TimeSeries
+- measured_on_sim materialization status, reason, target count, and output count
 - rmse_T with TemperatureDelta/K units
 - validation status for the RMSE threshold
-- time-alignment metadata for measured_data.T_zone vs sim.T_zone
-- measured/simulated two-series PlotSpec and SVG output
+- time-alignment metadata linking measured_on_sim to its source and target
+- resampled-measured/simulated two-series PlotSpec and SVG output
 - solver method, timestep, step count, final state, and solver-boundary fields
 ```
 
@@ -31,10 +35,11 @@ Regression fixtures:
 
 ```text
 - data/measured_zone_time_mismatch.csv: measured samples are spaced every 20 min,
-  so the measured/simulated TimeSeries alignment is recorded as partial overlap
+  so linear resampling fills the simulated 10 min axis while artifacts retain
+  the four exact timestamp matches
 - data/measured_zone_missing.csv: one measured T_zone cell is empty, so the
-  missing-value policy records a violation while the run artifacts remain
-  inspectable
+  missing-value policy records a violation while native linear resampling and
+  the run artifacts remain inspectable
 ```
 
 Current limitation:

@@ -249,7 +249,7 @@ separate.
   specs/cards in `typed_payload.model_specs[]` and `typed_payload.model_cards[]`,
   prediction manifests in `typed_payload.prediction_manifests[]`, model diagnostics
   in `typed_payload.model_diagnostics[]`, DateTime-indexed
-  `typed_payload.timeseries_coverage[]` records including explicit Gregorian-year coverage checks, `typed_payload.timeseries_quality[]` coverage/fill summaries, `typed_payload.expectation_suites[]` lightweight expectation-suite records, `typed_payload.quality_results[]` common quality records for TimeSeries, validation, schema-constraint, and expectation-suite results with row/field failure details, report-facing `report_spec.quality_report`, HTML Quality Report tables, IDE Quality inspector payloads, `typed_payload.time_alignments[]` alignment/resampling hooks, and time-axis coverage artifacts;
+  `typed_payload.timeseries_coverage[]` records including explicit Gregorian-year coverage checks, `typed_payload.timeseries_quality[]` coverage/fill summaries, `typed_payload.expectation_suites[]` lightweight expectation-suite records, `typed_payload.quality_results[]` common quality records for TimeSeries, validation, schema-constraint, and expectation-suite results with row/field failure details, report-facing `report_spec.quality_report`, HTML Quality Report tables, IDE Quality inspector payloads, native exact/nearest/linear TimeSeries outputs with `typed_payload.time_alignments[]` materialization records, and time-axis coverage artifacts;
   native workflow examples now emit weather, template-rendered case input,
   model-card, prediction-manifest, and DB side-effect artifacts without external
   process adapters; deterministic grid/random/LHS sampling materializes

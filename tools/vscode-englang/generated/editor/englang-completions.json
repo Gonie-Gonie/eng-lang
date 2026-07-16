@@ -2086,7 +2086,7 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native: TimeSeries axis metadata, coverage checks, explicit fill/interpolation metadata, quality summaries, alignment/resampling hooks, and integration.",
+                                 "detail":  "Native: TimeSeries axis metadata, coverage checks, explicit fill/interpolation, quality summaries, native exact/nearest/linear alignment and resampling outputs, and integration.",
                                  "kind":  "stdlib",
                                  "label":  "eng.timeseries",
                                  "lsp_kind":  9

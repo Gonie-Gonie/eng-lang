@@ -1,6 +1,6 @@
 # module: eng.timeseries
 # status: native-workflow-support-coverage-fill-quality-alignment-integration
-# purpose: TimeSeries axis metadata, generic coverage artifacts, explicit fill/interpolation artifacts, quality summaries, alignment/resampling hooks, integration, and planned richer resampling helpers.
+# purpose: TimeSeries axis metadata, generic coverage artifacts, explicit fill/interpolation artifacts, quality summaries, native alignment/resampling materialization, integration, and planned confidence-band helpers.
 #
 # Current implementation:
 #   TimeSeries integration, axis metadata, promoted-table coverage diagnostics,
@@ -11,9 +11,9 @@
 #   TimeSeries outputs, typed_payload.timeseries_quality[] coverage/fill
 #   summaries, typed_payload.quality_results[] bridge records, explicit
 #   `align <series> with <series>`, `resample <series> to <series>`, and
-#   `resample <series> by <duration>` hooks in typed_payload.time_alignments[],
-#   and selected alignment metadata are
-#   supported for documented public workflows.
+#   `resample <series> by <duration>` exact/nearest/linear TimeSeries outputs,
+#   public materialization fields, object-store values, and detailed records in
+#   typed_payload.time_alignments[] are supported for public workflows.
 #   Uncertainty confidence-band metadata is internal/preview.
 #   Summary statistics belong to eng.stats.
 #
@@ -33,5 +33,5 @@
 #   warnings.
 #
 # Non-goal:
-#   richer resampling/fill APIs should not silently change data. They must
-#   report coverage and fill policy.
+#   alignment/resampling/fill APIs do not mutate their source. They materialize
+#   explicit output bindings and report the applied policy.

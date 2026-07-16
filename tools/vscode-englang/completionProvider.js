@@ -7,6 +7,9 @@ class EngCompletionProvider {
     this.completionItems = Array.isArray(options.completionItems) ? options.completionItems : [];
     this.httpResponseFields = Array.isArray(options.httpResponseFields) ? options.httpResponseFields : [];
     this.coverageResultFields = Array.isArray(options.coverageResultFields) ? options.coverageResultFields : [];
+    this.timeAlignmentResultFields = Array.isArray(options.timeAlignmentResultFields)
+      ? options.timeAlignmentResultFields
+      : [];
     this.tableFields = Array.isArray(options.tableFields) ? options.tableFields : [];
     this.sampleTableFields = Array.isArray(options.sampleTableFields) ? options.sampleTableFields : [];
     this.dbConnectionFields = Array.isArray(options.dbConnectionFields) ? options.dbConnectionFields : [];
@@ -43,6 +46,7 @@ class EngCompletionProvider {
       workflowBindingFields: workflowBindingFieldCompletionsFromDocument(document, {
         httpResponseFields: this.httpResponseFields,
         coverageResultFields: this.coverageResultFields,
+        timeAlignmentResultFields: this.timeAlignmentResultFields,
         tableFields: this.tableFields,
         sampleTableFields: this.sampleTableFields,
         dbConnectionFields: this.dbConnectionFields,
@@ -55,6 +59,7 @@ class EngCompletionProvider {
       }),
       httpResponseFields: this.httpResponseFields,
       coverageResultFields: this.coverageResultFields,
+      timeAlignmentResultFields: this.timeAlignmentResultFields,
       tableFields: this.tableFields,
       sampleTableFields: this.sampleTableFields,
       dbConnectionFields: this.dbConnectionFields,
@@ -170,6 +175,11 @@ function workflowBindingFieldCompletionsFromSource(source, catalogs) {
       pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*check\s+coverage\b/gm,
       fields: catalogs?.coverageResultFields,
       detail: "Coverage result field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:align|resample)\b/gm,
+      fields: catalogs?.timeAlignmentResultFields,
+      detail: "Time alignment result field"
     },
     {
       pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*sample\s+(?:lhs|latin[_-]hypercube|grid|random|uniform)\b/gm,
@@ -407,6 +417,11 @@ function localMemberCompletionsForContext(document, position, catalogs) {
       matchesReceiver: isCoverageResultLikeReceiver
     },
     {
+      fields: catalogs?.timeAlignmentResultFields,
+      detail: "Time alignment result field",
+      matchesReceiver: isTimeAlignmentResultLikeReceiver
+    },
+    {
       fields: catalogs?.tableFields,
       detail: "Table field",
       matchesReceiver: isTableLikeReceiver
@@ -603,6 +618,11 @@ function isCaseOutputTableLikeReceiver(receiver) {
       normalized.includes("manifest")
     )
   );
+}
+
+function isTimeAlignmentResultLikeReceiver(receiver) {
+  const normalized = receiver.toLowerCase();
+  return normalized.includes("align") || normalized.includes("resampl");
 }
 
 function isCaseRunResultTableLikeReceiver(receiver) {

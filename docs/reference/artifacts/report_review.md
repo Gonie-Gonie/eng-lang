@@ -747,11 +747,15 @@ surfaces the same records in the Quality inspector.
 Expectation suite records from `expect <table> { ... }` include expectation
 counts, pass/warning/failure counts, per-expectation status/reason, and source
 line. Fallback records are emitted when coverage is gapped or irregular, so
-review tooling can surface the need for an explicit fill/imputation policy. Time
-alignment records include automatic
-pairwise metadata plus explicit `align`/`resample` hooks with strategy, method,
-optional resample step, tolerance, and source line. The same fallback is also
-projected into
+review tooling can surface the need for an explicit fill/imputation policy.
+Time alignment records distinguish comparison-only automatic pairwise metadata
+from bound native `align`/`resample` operations. Explicit operations materialize
+a TimeSeries in the object store and record strategy, exact/nearest/linear
+method, optional resample step and tolerance, source/reference/target/output
+counts, `materialization_status`, `materialization_reason`, overlap, nominal-step
+status, and source line. Partial outputs omit target timestamps that cannot be
+sampled; no method extrapolates beyond the source range. The same fallback is
+also projected into
 `review_document.fallbacks` using the shared ReviewFallback record contract.
 
 ## Native Workflow Graph Metadata

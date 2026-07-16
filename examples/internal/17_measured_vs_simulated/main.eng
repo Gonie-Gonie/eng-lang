@@ -52,16 +52,22 @@ with {
     solver = fixed_step
 }
 
-rmse_T = rmse measured_data.T_zone vs sim.T_zone
+measured_on_sim = resample measured_data.T_zone to sim.T_zone
+with {
+    method = linear
+}
+
+rmse_T = rmse measured_on_sim vs sim.T_zone
 
 print "Measured/simulated RMSE = {rmse_T: .2 K}"
+print "Measured resampling = {measured_on_sim.materialization_status} ({measured_on_sim.output_count} points)"
 
 validate rmse_T < 5 K
 
 report {
     show rmse_T as K
 
-    plot measured_data.T_zone and sim.T_zone over Time
+    plot measured_on_sim and sim.T_zone over Time
     with {
         unit y = degC
         title = "Measured vs simulated zone temperature"

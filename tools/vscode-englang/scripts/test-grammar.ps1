@@ -1087,6 +1087,7 @@ $CompilerQuantityKinds = @($SyntaxCatalog.quantities | ForEach-Object { [string]
 $PublicWorkflowMemberFields = @(
     $SyntaxCatalog.http_response_fields +
     $SyntaxCatalog.coverage_result_fields +
+    $SyntaxCatalog.time_alignment_result_fields +
     $SyntaxCatalog.table_fields +
     $SyntaxCatalog.sample_table_fields +
     $SyntaxCatalog.db_connection_fields +

@@ -969,6 +969,48 @@ const COVERAGE_RESULT_FIELD_COMPLETIONS: &[(&str, &str)] = &[
     ("coverage_year", "alias for coverage calendar year"),
 ];
 
+const TIME_ALIGNMENT_RESULT_FIELD_COMPLETIONS: &[(&str, &str)] = &[
+    (
+        "materialized",
+        "whether the command emitted any TimeSeries points",
+    ),
+    ("complete", "whether every target point was materialized"),
+    (
+        "materialization_status",
+        "TimeSeries output materialization status",
+    ),
+    (
+        "materialization_reason",
+        "TimeSeries output materialization explanation",
+    ),
+    (
+        "alignment_status",
+        "source/reference time-axis alignment status",
+    ),
+    (
+        "step_status",
+        "source/reference nominal-step comparison status",
+    ),
+    ("strategy", "alignment strategy: align or resample"),
+    ("method", "sampling method: exact, nearest, or linear"),
+    ("source_count", "source TimeSeries point count"),
+    ("reference_count", "reference TimeSeries point count"),
+    ("target_count", "requested target-axis point count"),
+    ("output_count", "materialized output TimeSeries point count"),
+    (
+        "matched_count",
+        "exactly matched source/reference timestamp count",
+    ),
+    (
+        "resample_step",
+        "requested regular resample interval in seconds",
+    ),
+    (
+        "tolerance",
+        "exact or nearest matching tolerance in seconds",
+    ),
+];
+
 const DB_CONNECTION_FIELD_COMPLETIONS: &[(&str, &str)] = &[
     (
         "summary",
@@ -1996,6 +2038,13 @@ pub fn editor_syntax_catalog_json() -> Value {
                 "detail": detail,
             }))
             .collect::<Vec<_>>(),
+        "time_alignment_result_fields": TIME_ALIGNMENT_RESULT_FIELD_COMPLETIONS
+            .iter()
+            .map(|(label, detail)| json!({
+                "label": label,
+                "detail": detail,
+            }))
+            .collect::<Vec<_>>(),
         "table_fields": TABLE_FIELD_COMPLETIONS
             .iter()
             .map(|(label, detail)| json!({
@@ -2446,6 +2495,11 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                 &binding.name,
                 COVERAGE_RESULT_FIELD_COMPLETIONS,
                 &["validation", "workflowStep", "timeseries"],
+            ),
+            "TimeSeriesAlignmentResult" => builder.push_member_fields(
+                &binding.name,
+                TIME_ALIGNMENT_RESULT_FIELD_COMPLETIONS,
+                &["workflowStep", "timeseries"],
             ),
             "Table[Case]" => builder.push_member_fields(
                 &binding.name,
@@ -2942,6 +2996,9 @@ fn with_block_semantic_modifiers(
     if is_coverage_with_block(program, block.owner_line) {
         return &["validation", "workflowStep"];
     }
+    if is_time_alignment_with_block(program, block.owner_line) {
+        return &["timeseries", "workflowStep"];
+    }
     if is_sample_with_block(program, block.owner_line) {
         return &["workflowStep"];
     }
@@ -3025,6 +3082,11 @@ fn with_option_semantic_modifiers(
 ) -> &'static [&'static str] {
     if key == "display_unit" || key.starts_with("unit ") {
         return &["report", "workflowStep"];
+    }
+    if is_time_alignment_with_block(program, block.owner_line)
+        && matches!(key, "method" | "tolerance" | "step" | "target_step")
+    {
+        return &["timeseries", "workflowStep"];
     }
     if is_process_with_block(program, block.owner_line) {
         match key {
@@ -3277,6 +3339,12 @@ fn with_option_value_semantic_class(
         "uncertainty" if matches!(value, "linear" | "interval" | "monte_carlo" | "ensemble") => {
             Some(("keyword", &["uncertain"]))
         }
+        "method"
+            if is_time_alignment_with_block(program, block.owner_line)
+                && matches!(value, "exact" | "nearest" | "linear") =>
+        {
+            Some(("keyword", &["timeseries", "workflowStep"]))
+        }
         "solver" | "method" | "algebraic_initialization" | "jacobian" | "mass_matrix"
             if matches!(
                 value,
@@ -3389,6 +3457,15 @@ fn is_coverage_with_block(program: &SemanticProgram, owner_line: Option<usize>) 
         command.line == owner_line
             && command.verb == "check"
             && command.target.trim().starts_with("coverage ")
+    })
+}
+
+fn is_time_alignment_with_block(program: &SemanticProgram, owner_line: Option<usize>) -> bool {
+    let Some(owner_line) = owner_line else {
+        return false;
+    };
+    program.command_styles.iter().any(|command| {
+        command.line == owner_line && matches!(command.verb.as_str(), "align" | "resample")
     })
 }
 
@@ -7645,6 +7722,7 @@ fn hover_kind_label(kind: &str) -> String {
         "object_validation" => "Object validation".to_owned(),
         "http_response_field" => "HTTP response field".to_owned(),
         "coverage_result_field" => "Coverage result field".to_owned(),
+        "time_alignment_result_field" => "Time alignment result field".to_owned(),
         "table_field" => "Table field".to_owned(),
         "sample_table_field" => "Sample table field".to_owned(),
         "db_connection_field" => "DB connection field".to_owned(),
@@ -7732,6 +7810,10 @@ fn public_member_hover_fields(
     match quantity_kind {
         "HttpResponse" => Some((HTTP_RESPONSE_FIELD_COMPLETIONS, "http_response_field")),
         "CoverageResult" => Some((COVERAGE_RESULT_FIELD_COMPLETIONS, "coverage_result_field")),
+        "TimeSeriesAlignmentResult" => Some((
+            TIME_ALIGNMENT_RESULT_FIELD_COMPLETIONS,
+            "time_alignment_result_field",
+        )),
         "Table[Sample]" => Some((SAMPLE_TABLE_FIELD_COMPLETIONS, "sample_table_field")),
         "DbConnection" => Some((DB_CONNECTION_FIELD_COMPLETIONS, "db_connection_field")),
         "Table[Case]" => Some((CASE_TABLE_FIELD_COMPLETIONS, "case_table_field")),
@@ -7839,9 +7921,12 @@ fn public_member_field_quantity_kind(field: &str) -> &'static str {
         "status_code" | "seed" | "rows" => "Int",
         "rmse" | "mae" => "DimensionlessNumber",
         "r2" => "Ratio",
-        "complete" => "Bool",
-        "max_gap_hours" | "expected_step" => "Duration",
+        "complete" | "materialized" => "Bool",
+        "max_gap_hours" | "expected_step" | "resample_step" | "tolerance" => "Duration",
         "actual_count" | "expected_count" | "missing_count" => "Count",
+        "source_count" | "reference_count" | "target_count" | "output_count" | "matched_count" => {
+            "Count"
+        }
         value if value.ends_with("_count") => "Int",
         _ => "String",
     }
@@ -8317,6 +8402,17 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
                 );
             }
         }
+        if binding.semantic_type.quantity_kind == "TimeSeriesAlignmentResult" {
+            for (field, detail) in TIME_ALIGNMENT_RESULT_FIELD_COMPLETIONS {
+                push_completion(
+                    &mut items,
+                    &mut seen,
+                    &format!("{}.{}", binding.name, field),
+                    "property",
+                    detail,
+                );
+            }
+        }
         if binding.semantic_type.quantity_kind.starts_with("Table[")
             || binding
                 .semantic_type
@@ -8732,6 +8828,24 @@ pub fn completion_items_at(
             let mut seen = BTreeMap::new();
             let mut items = Vec::new();
             for (field, detail) in HTTP_RESPONSE_FIELD_COMPLETIONS {
+                if prefix.is_empty() || field.starts_with(&prefix) {
+                    push_completion(&mut items, &mut seen, field, "property", detail);
+                }
+            }
+            return items;
+        }
+        if report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .any(|binding| {
+                receiver_matches_binding_name(&receiver, &binding.name)
+                    && binding.semantic_type.quantity_kind == "TimeSeriesAlignmentResult"
+            })
+        {
+            let mut seen = BTreeMap::new();
+            let mut items = Vec::new();
+            for (field, detail) in TIME_ALIGNMENT_RESULT_FIELD_COMPLETIONS {
                 if prefix.is_empty() || field.starts_with(&prefix) {
                     push_completion(&mut items, &mut seen, field, "property", detail);
                 }
@@ -11006,6 +11120,20 @@ mod tests {
                 .as_array()
                 .is_some_and(|fields| fields.iter().any(|field| field["label"] == "max_gap_hours")),
             "syntax catalog should expose coverage gap field labels"
+        );
+        assert!(
+            syntax_catalog["time_alignment_result_fields"]
+                .as_array()
+                .is_some_and(|fields| fields
+                    .iter()
+                    .any(|field| { field["label"] == "materialization_status" })),
+            "syntax catalog should expose TimeSeries alignment result fields"
+        );
+        assert!(
+            syntax_catalog["time_alignment_result_fields"]
+                .as_array()
+                .is_some_and(|fields| fields.iter().any(|field| field["label"] == "output_count")),
+            "syntax catalog should expose materialized TimeSeries output counts"
         );
         assert!(
             syntax_catalog["http_response_fields"]
@@ -14392,6 +14520,43 @@ with {
     }
 
     #[test]
+    fn snapshot_marks_time_alignment_options_role_aware() {
+        let source = r#"aligned = resample measured.T_zone to simulated.T_zone
+with {
+    method = linear
+    tolerance = 5 min
+    target_step = 10 min
+}
+"#;
+        let snapshot = snapshot_for_source(Path::new("time_alignment_options.eng"), source);
+
+        for (line, label, token_type) in [
+            ("with {", "with", "keyword"),
+            ("method = linear", "method", "property"),
+            ("method = linear", "linear", "keyword"),
+            ("tolerance = 5 min", "tolerance", "property"),
+            ("target_step = 10 min", "target_step", "property"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                label,
+                token_type,
+                "timeseries",
+            );
+        }
+        assert_no_semantic_token_on_line_with_empty_modifiers(
+            &snapshot,
+            source,
+            "method = linear",
+            "linear",
+            "keyword",
+        );
+        assert_no_conflicting_semantic_token_types(&snapshot, source, "time_alignment_options.eng");
+    }
+
+    #[test]
     fn snapshot_marks_domain_conservation_shared_keyword_role_aware() {
         let source = r#"domain PositionOnly {
     across x: Length [m]
@@ -15772,6 +15937,73 @@ gap = coverage.max_gap_hours
             source,
             "actual =",
             "actual_count",
+            "property",
+            "timeseries",
+        );
+    }
+
+    #[test]
+    fn snapshot_exposes_time_alignment_result_member_fields() {
+        let source = "aligned = align measured.T_zone with simulated.T_zone\ncount = aligned.output_count\nstatus = aligned.materialization_status\n";
+        let snapshot = snapshot_for_source(Path::new("alignment_members.eng"), source);
+
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "aligned.output_count"));
+        let line = source
+            .lines()
+            .position(|line| line.contains("count ="))
+            .expect("count line");
+        let member_completions = completion_items_for_source_position(
+            Path::new("alignment_members.eng"),
+            source,
+            line,
+            "count = aligned.".len(),
+        );
+        let output_count = member_completions
+            .iter()
+            .find(|completion| completion.label == "output_count")
+            .expect("alignment result completion should include output_count");
+        assert_eq!(
+            output_count.detail,
+            "materialized output TimeSeries point count"
+        );
+        for field in [
+            "materialized",
+            "complete",
+            "materialization_status",
+            "materialization_reason",
+            "alignment_status",
+            "source_count",
+            "target_count",
+            "resample_step",
+        ] {
+            assert!(
+                member_completions
+                    .iter()
+                    .any(|completion| completion.label == field),
+                "missing alignment result completion {field}"
+            );
+        }
+        assert!(!member_completions
+            .iter()
+            .any(|completion| completion.label == "status"));
+        let count_hover = snapshot
+            .hovers
+            .iter()
+            .find(|hover| hover.name == "aligned.output_count")
+            .expect("alignment result field should expose exact hover metadata");
+        assert_eq!(count_hover.kind, "time_alignment_result_field");
+        assert_eq!(count_hover.quantity_kind, "Count");
+        assert!(count_hover
+            .detail
+            .contains("materialized output TimeSeries point count"));
+        assert_semantic_token_on_line(
+            &snapshot,
+            source,
+            "count =",
+            "output_count",
             "property",
             "timeseries",
         );

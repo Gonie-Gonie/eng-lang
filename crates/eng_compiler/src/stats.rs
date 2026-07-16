@@ -61,7 +61,11 @@ pub fn stats_info(summary: &SummaryDecl, bindings: &[TypedBinding]) -> Option<St
     let binding = bindings
         .iter()
         .find(|binding| binding.name == summary.source)?;
-    let (axis, quantity_kind) = time_series_quantity(&binding.semantic_type.quantity_kind)?;
+    let (axis, quantity_kind) = time_series_quantity(&binding.semantic_type.quantity_kind)
+        .or_else(|| {
+            (binding.semantic_type.quantity_kind == "TimeSeriesAlignmentResult")
+                .then(|| ("Time".to_owned(), "runtime-resolved".to_owned()))
+        })?;
     let statistics = if summary.statistics.is_empty() {
         vec!["mean".to_owned(), "max".to_owned(), "p95".to_owned()]
     } else {

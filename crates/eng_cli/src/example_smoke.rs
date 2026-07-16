@@ -5682,6 +5682,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !result.contains("\"metrics\"")
                 || !result.contains("\"validations\"")
                 || !result.contains("\"time_alignments\"")
+                || !result.contains("\"binding\": \"measured_on_sim\"")
+                || !result.contains("\"materialization_status\": \"materialized\"")
+                || !result.contains("\"output_count\": 7")
                 || !result.contains("\"binding\": \"rmse_T\"")
                 || !result.contains("\"quantity_kind\": \"TemperatureDelta\"")
                 || !result.contains("\"unit\": \"K\"")
@@ -5715,10 +5718,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !report_html.contains("Validations")
                 || !report_html.contains("rmse_T")
                 || !report_html.contains("rmse_T &lt; 5 K")
-                || !plot_spec.contains("\"name\": \"measured_data.T_zone\"")
+                || !plot_spec.contains("\"name\": \"measured_on_sim\"")
                 || !plot_spec.contains("\"name\": \"sim.T_zone\"")
             {
-                eprintln!("expected measured-vs-simulated example to produce SolverResult state/input/parameter/output, method/timestep/final-state metadata, RMSE TemperatureDelta/K, validation, alignment, and multi-series plot artifacts");
+                eprintln!("expected measured-vs-simulated example to produce SolverResult state/input/parameter/output, method/timestep/final-state metadata, a materialized native resampling output, RMSE TemperatureDelta/K, validation, alignment, and multi-series plot artifacts");
                 return ExitCode::from(2);
             }
             println!(
@@ -6949,7 +6952,9 @@ report {
                     if !result.contains("\"binding\": \"rmse_T\"")
                         || !result.contains("\"validations\"")
                         || !result.contains("\"time_alignments\"")
-                        || !plot_spec.contains("\"name\": \"measured_data.T_zone\"")
+                        || !result.contains("\"binding\": \"measured_on_sim\"")
+                        || !result.contains("\"materialization_status\": \"materialized\"")
+                        || !plot_spec.contains("\"name\": \"measured_on_sim\"")
                         || !plot_spec.contains("\"name\": \"sim.T_zone\"")
                         || !output_manifest.contains("\"artifact_registry\"")
                     {
@@ -8878,17 +8883,19 @@ fn measured_fixture_records_time_overlap(
     ) {
         Ok(output) => {
             let result = output.result_json;
-            if !result.contains("\"sample_count\": 4")
+            if !result.contains("\"sample_count\": 7")
                 || !result.contains("\"matched_count\": 4")
                 || !result.contains("\"status\": \"overlap\"")
+                || !result.contains("\"materialization_status\": \"materialized\"")
+                || !result.contains("\"output_count\": 7")
                 || !result.contains("\"violation_count\": 0")
             {
                 eprintln!(
-                    "expected {source} with {measured_fixture} to record partial TimeSeries overlap without policy violations"
+                    "expected {source} with {measured_fixture} to materialize the simulated axis and retain exact-match overlap metadata without policy violations"
                 );
                 return false;
             }
-            println!("ok: {source} recorded measured/simulated partial TimeSeries overlap");
+            println!("ok: {source} materialized measured data on the simulated Time axis");
             true
         }
         Err(error) => {
@@ -8917,7 +8924,7 @@ fn measured_fixture_records_missing_policy(
     ) {
         Ok(output) => {
             let result = output.result_json;
-            if !result.contains("\"sample_count\": 6")
+            if !result.contains("\"sample_count\": 7")
                 || !result.contains("\"target\": \"T_zone\"")
                 || !result.contains("\"policy\": \"error\"")
                 || !result.contains("\"violation_count\": 1")

@@ -390,6 +390,10 @@
         "left_count",
         "right_count",
         "matched_count",
+        "target_count",
+        "output_count",
+        "materialization_status",
+        "materialization_reason",
         "left_nominal_step",
         "right_nominal_step",
         "left_irregular",
@@ -412,6 +416,12 @@
         "left_count": { "type": "integer", "minimum": 0 },
         "right_count": { "type": "integer", "minimum": 0 },
         "matched_count": { "type": "integer", "minimum": 0 },
+        "target_count": { "type": "integer", "minimum": 0 },
+        "output_count": { "type": "integer", "minimum": 0 },
+        "materialization_status": {
+          "enum": ["not_requested", "materialized", "partial", "unavailable"]
+        },
+        "materialization_reason": { "type": "string" },
         "left_nominal_step": { "type": ["number", "null"] },
         "right_nominal_step": { "type": ["number", "null"] },
         "left_irregular": { "type": "boolean" },

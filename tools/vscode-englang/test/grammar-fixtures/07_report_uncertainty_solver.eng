@@ -63,6 +63,10 @@ aligned_to_series = align measured.T_zone to simulated.T_zone
 resampled_series = resample measured.T_zone to simulated.T_zone
 resampled_with_series = resample measured.T_zone with simulated.T_zone
 resampled_by_series = resample measured.T_zone by 30 min
+alignment_output_count = aligned_series.output_count
+alignment_status = aligned_series.materialization_status
+alignment_reason = aligned_series.materialization_reason
+resample_interval = resampled_by_series.resample_step
 
 sim = simulate RoomThermal
 with {

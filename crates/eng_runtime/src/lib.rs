@@ -1329,6 +1329,24 @@ fn apply_runtime_object_shapes(execution: &mut VmExecution, runtime_data: &Runti
             object.len = Some(series.points.len());
         }
     }
+
+    let runtime_load_kinds = execution
+        .objects
+        .iter()
+        .map(|object| (object.name.clone(), vm_object_kind(object)))
+        .collect::<Vec<_>>();
+    for step in &mut execution.steps {
+        for (name, kind) in &runtime_load_kinds {
+            let expected = format!("load {kind} {name}");
+            if ["scalar", "table", "timeseries", "array"]
+                .iter()
+                .any(|candidate| *step == format!("load {candidate} {name}"))
+            {
+                *step = expected;
+                break;
+            }
+        }
+    }
 }
 
 fn render_stdout(report: &CheckReport, runtime_data: &RuntimeData) -> String {
@@ -9514,6 +9532,9 @@ fn evaluate_runtime_expression(
     {
         return Some(value);
     }
+    if let Some(value) = evaluate_time_alignment_field_expression(expression, runtime_data) {
+        return Some(value);
+    }
     if let Some(value) = evaluate_table_row_field_expression(expression, runtime_data) {
         return Some(value);
     }
@@ -9784,6 +9805,53 @@ fn evaluate_coverage_expression(
                 unit: String::new(),
             }),
         "leap_year_policy" => Some(RuntimeFormatValue::Text(coverage.leap_year_policy.clone())),
+        _ => None,
+    }
+}
+
+fn evaluate_time_alignment_field_expression(
+    expression: &str,
+    runtime_data: &RuntimeData,
+) -> Option<RuntimeFormatValue> {
+    let (binding, field) = expression.trim().split_once('.')?;
+    let alignment = runtime_data
+        .time_alignments
+        .iter()
+        .find(|alignment| alignment.binding == binding.trim())?;
+    let count = |value: usize| RuntimeFormatValue::Number {
+        value: value as f64,
+        quantity_kind: "Count".to_owned(),
+        unit: String::new(),
+    };
+    let duration = |value: f64| RuntimeFormatValue::Number {
+        value,
+        quantity_kind: "Duration".to_owned(),
+        unit: "s".to_owned(),
+    };
+    match field.trim() {
+        "materialized" => Some(RuntimeFormatValue::Text(
+            (alignment.output_count > 0).to_string(),
+        )),
+        "complete" => Some(RuntimeFormatValue::Text(
+            (alignment.materialization_status == "materialized").to_string(),
+        )),
+        "materialization_status" => Some(RuntimeFormatValue::Text(
+            alignment.materialization_status.clone(),
+        )),
+        "materialization_reason" => Some(RuntimeFormatValue::Text(
+            alignment.materialization_reason.clone(),
+        )),
+        "alignment_status" => Some(RuntimeFormatValue::Text(alignment.status.clone())),
+        "step_status" => Some(RuntimeFormatValue::Text(alignment.step_status.clone())),
+        "strategy" => Some(RuntimeFormatValue::Text(alignment.strategy.clone())),
+        "method" => Some(RuntimeFormatValue::Text(alignment.method.clone())),
+        "source_count" => Some(count(alignment.left_count)),
+        "reference_count" => Some(count(alignment.right_count)),
+        "target_count" => Some(count(alignment.target_count)),
+        "output_count" => Some(count(alignment.output_count)),
+        "matched_count" => Some(count(alignment.matched_count)),
+        "resample_step" => alignment.resample_step.map(duration),
+        "tolerance" => alignment.tolerance.map(duration),
         _ => None,
     }
 }
@@ -11356,6 +11424,10 @@ fn result_json(
         if index > 0 {
             statistics.push_str(",\n");
         }
+        let computed = runtime_data
+            .statistics
+            .iter()
+            .find(|summary| summary.source == stats.source);
         statistics.push_str("      {\n");
         statistics.push_str(&format!(
             "        \"source\": \"{}\",\n",
@@ -11363,17 +11435,21 @@ fn result_json(
         ));
         statistics.push_str(&format!(
             "        \"quantity_kind\": \"{}\",\n",
-            json_escape(&stats.quantity_kind)
+            json_escape(
+                computed
+                    .map(|summary| summary.quantity_kind.as_str())
+                    .unwrap_or(&stats.quantity_kind)
+            )
         ));
         statistics.push_str(&format!(
             "        \"axis\": \"{}\",\n",
-            json_escape(&stats.axis)
+            json_escape(
+                computed
+                    .map(|summary| summary.axis.as_str())
+                    .unwrap_or(&stats.axis)
+            )
         ));
-        if let Some(computed) = runtime_data
-            .statistics
-            .iter()
-            .find(|summary| summary.source == stats.source)
-        {
+        if let Some(computed) = computed {
             statistics.push_str("        \"statistics\": [\n");
             for (value_index, value) in computed.values.iter().enumerate() {
                 if value_index > 0 {
@@ -12007,6 +12083,22 @@ fn result_json(
         time_alignments.push_str(&format!(
             "        \"matched_count\": {},\n",
             alignment.matched_count
+        ));
+        time_alignments.push_str(&format!(
+            "        \"target_count\": {},\n",
+            alignment.target_count
+        ));
+        time_alignments.push_str(&format!(
+            "        \"output_count\": {},\n",
+            alignment.output_count
+        ));
+        time_alignments.push_str(&format!(
+            "        \"materialization_status\": \"{}\",\n",
+            json_escape(&alignment.materialization_status)
+        ));
+        time_alignments.push_str(&format!(
+            "        \"materialization_reason\": \"{}\",\n",
+            json_escape(&alignment.materialization_reason)
         ));
         push_optional_json_number(
             &mut time_alignments,
@@ -20169,7 +20261,7 @@ mod tests {
     }
 
     #[test]
-    fn run_file_records_timeseries_alignment_and_resampling_hooks() {
+    fn run_file_materializes_timeseries_alignment_and_resampling_outputs() {
         let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
             .canonicalize()
@@ -20227,6 +20319,13 @@ mod tests {
                 "}\n",
                 "resampled_with = resample measured.T_zone with simulated.T_zone\n",
                 "resampled_by = resample measured.T_zone by 30 min\n",
+                "aligned_rmse = rmse aligned vs simulated.T_zone\n",
+                "print \"aligned status={aligned.materialization_status} output={aligned.output_count} complete={aligned.complete}\"\n",
+                "print \"resampled_by step={resampled_by.resample_step} output={resampled_by.output_count}\"\n",
+                "report {\n",
+                "    summarize resampled_by by [mean, max]\n",
+                "    plot resampled_by over Time\n",
+                "}\n",
             ),
         )
         .expect("write source");
@@ -20248,14 +20347,19 @@ mod tests {
             aligned.get("strategy").and_then(Value::as_str),
             Some("align")
         );
-        assert_eq!(
-            aligned.get("method").and_then(Value::as_str),
-            Some("metadata_only")
-        );
+        assert_eq!(aligned.get("method").and_then(Value::as_str), Some("exact"));
         assert_eq!(
             aligned.get("status").and_then(Value::as_str),
             Some("matched")
         );
+        assert_eq!(
+            aligned
+                .get("materialization_status")
+                .and_then(Value::as_str),
+            Some("materialized")
+        );
+        assert_eq!(aligned.get("target_count").and_then(Value::as_u64), Some(3));
+        assert_eq!(aligned.get("output_count").and_then(Value::as_u64), Some(3));
         let resampled =
             json_array_item_by_binding(&result, "/typed_payload/time_alignments", "resampled")
                 .expect("resample hook");
@@ -20300,6 +20404,75 @@ mod tests {
             resampled_by.get("resample_step").and_then(Value::as_f64),
             Some(1800.0)
         );
+        assert_eq!(
+            resampled_by
+                .get("materialization_status")
+                .and_then(Value::as_str),
+            Some("materialized")
+        );
+        assert_eq!(
+            resampled_by.get("output_count").and_then(Value::as_u64),
+            Some(5)
+        );
+        for (binding, expected_len) in [
+            ("aligned", 3),
+            ("aligned_to", 3),
+            ("resampled", 3),
+            ("resampled_with", 3),
+            ("resampled_by", 5),
+        ] {
+            let object =
+                json_array_item_by_field(&result, "/object_store/objects", "name", binding)
+                    .unwrap_or_else(|| panic!("missing materialized object {binding}"));
+            assert_eq!(
+                object.get("kind").and_then(Value::as_str),
+                Some("timeseries")
+            );
+            assert_eq!(
+                object.get("len").and_then(Value::as_u64),
+                Some(expected_len),
+                "unexpected TimeSeries length for {binding}"
+            );
+        }
+        let vm_steps = result
+            .pointer("/typed_payload/vm_steps")
+            .and_then(Value::as_array)
+            .expect("VM steps");
+        assert!(vm_steps
+            .iter()
+            .any(|step| { step.as_str() == Some("load timeseries aligned") }));
+        assert!(!vm_steps
+            .iter()
+            .any(|step| { step.as_str() == Some("load scalar aligned") }));
+        let metric = json_array_item_by_binding(&result, "/typed_payload/metrics", "aligned_rmse")
+            .expect("RMSE should consume the aligned TimeSeries");
+        assert_eq!(metric.get("sample_count").and_then(Value::as_u64), Some(3));
+        let statistics = json_array_item_by_field(
+            &result,
+            "/typed_payload/statistics",
+            "source",
+            "resampled_by",
+        )
+        .expect("summary should consume the resampled TimeSeries");
+        assert_eq!(
+            statistics.get("status").and_then(Value::as_str),
+            Some("computed")
+        );
+        assert_eq!(
+            statistics.get("quantity_kind").and_then(Value::as_str),
+            Some("AbsoluteTemperature")
+        );
+        let plot_spec: Value =
+            serde_json::from_str(&output.plot_spec_json).expect("plot spec json");
+        assert_eq!(
+            plot_spec.pointer("/series/0/name").and_then(Value::as_str),
+            Some("resampled_by")
+        );
+        assert!(output
+            .stdout
+            .contains("aligned status=materialized output=3 complete=true"));
+        assert!(output.stdout.contains("resampled_by step=1800"));
+        assert!(output.stdout.contains("output=5"));
     }
 
     #[test]

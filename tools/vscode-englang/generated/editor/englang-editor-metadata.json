@@ -2084,7 +2084,7 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native: TimeSeries axis metadata, coverage checks, explicit fill/interpolation metadata, quality summaries, alignment/resampling hooks, and integration.",
+                                 "detail":  "Native: TimeSeries axis metadata, coverage checks, explicit fill/interpolation, quality summaries, native exact/nearest/linear alignment and resampling outputs, and integration.",
                                  "kind":  "stdlib",
                                  "label":  "eng.timeseries",
                                  "lsp_kind":  9
@@ -3957,6 +3957,68 @@
                                                     "label":  "source_hash"
                                                 }
                                             ],
+                           "time_alignment_result_fields":  [
+                                                                {
+                                                                    "detail":  "whether the command emitted any TimeSeries points",
+                                                                    "label":  "materialized"
+                                                                },
+                                                                {
+                                                                    "detail":  "whether every target point was materialized",
+                                                                    "label":  "complete"
+                                                                },
+                                                                {
+                                                                    "detail":  "TimeSeries output materialization status",
+                                                                    "label":  "materialization_status"
+                                                                },
+                                                                {
+                                                                    "detail":  "TimeSeries output materialization explanation",
+                                                                    "label":  "materialization_reason"
+                                                                },
+                                                                {
+                                                                    "detail":  "source/reference time-axis alignment status",
+                                                                    "label":  "alignment_status"
+                                                                },
+                                                                {
+                                                                    "detail":  "source/reference nominal-step comparison status",
+                                                                    "label":  "step_status"
+                                                                },
+                                                                {
+                                                                    "detail":  "alignment strategy: align or resample",
+                                                                    "label":  "strategy"
+                                                                },
+                                                                {
+                                                                    "detail":  "sampling method: exact, nearest, or linear",
+                                                                    "label":  "method"
+                                                                },
+                                                                {
+                                                                    "detail":  "source TimeSeries point count",
+                                                                    "label":  "source_count"
+                                                                },
+                                                                {
+                                                                    "detail":  "reference TimeSeries point count",
+                                                                    "label":  "reference_count"
+                                                                },
+                                                                {
+                                                                    "detail":  "requested target-axis point count",
+                                                                    "label":  "target_count"
+                                                                },
+                                                                {
+                                                                    "detail":  "materialized output TimeSeries point count",
+                                                                    "label":  "output_count"
+                                                                },
+                                                                {
+                                                                    "detail":  "exactly matched source/reference timestamp count",
+                                                                    "label":  "matched_count"
+                                                                },
+                                                                {
+                                                                    "detail":  "requested regular resample interval in seconds",
+                                                                    "label":  "resample_step"
+                                                                },
+                                                                {
+                                                                    "detail":  "exact or nearest matching tolerance in seconds",
+                                                                    "label":  "tolerance"
+                                                                }
+                                                            ],
                            "units":  [
                                          {
                                              "canonical_unit":  "m",
