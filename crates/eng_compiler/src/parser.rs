@@ -1082,22 +1082,30 @@ fn parse_domain_type_parameters_after(
             group.clear();
             continue;
         }
-        if let TokenKind::Identifier(value) = &token.kind {
-            group.push(value.clone());
+        if matches!(token.kind, TokenKind::Identifier(_)) {
+            group.push(token);
         }
     }
     push_domain_type_parameter(&mut parameters, &group);
     parameters
 }
 
-fn push_domain_type_parameter(parameters: &mut Vec<DomainTypeParameterDecl>, group: &[String]) {
-    let Some(kind) = group.first() else {
+fn push_domain_type_parameter(parameters: &mut Vec<DomainTypeParameterDecl>, group: &[&Token]) {
+    let Some(kind_token) = group.first().copied() else {
         return;
     };
-    let name = group.get(1).cloned().unwrap_or_else(|| kind.clone());
+    let TokenKind::Identifier(kind) = &kind_token.kind else {
+        return;
+    };
+    let name_token = group.get(1).copied().unwrap_or(kind_token);
+    let TokenKind::Identifier(name) = &name_token.kind else {
+        return;
+    };
     parameters.push(DomainTypeParameterDecl {
         kind: kind.clone(),
-        name,
+        kind_span: kind_token.span,
+        name: name.clone(),
+        name_span: name_token.span,
     });
 }
 
@@ -1812,15 +1820,22 @@ fn parse_domain_variable_decl(
     if !matches!(third.kind, TokenKind::Symbol(Symbol::Colon)) {
         return None;
     }
-    let raw_after_colon = line_text.split_once(':')?.1.trim();
-    let (type_name, unit) = split_type_and_unit(raw_after_colon);
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let type_start = third.span.end.checked_sub(line_start)?;
+    let type_end = tokens.last()?.span.end.checked_sub(line_start)?;
+    let annotation = typed_annotation_parts(first.span, line_text, type_start, type_end)?;
 
     Some(DomainVariableDecl {
         role: role.to_owned(),
         name: name.clone(),
         name_span: second.span,
-        type_name,
-        unit,
+        type_name: annotation.type_name,
+        type_span: annotation.type_span,
+        unit: annotation.unit,
+        unit_span: annotation.unit_span,
         line: first.span.line,
         span: first.span,
     })
@@ -1838,13 +1853,17 @@ fn parse_conservation_decl(
     if !matches!(first.kind, TokenKind::Keyword(Keyword::Conservation)) {
         return None;
     }
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let text_start = first.span.end.checked_sub(line_start)?;
+    let text_end = tokens.last()?.span.end.checked_sub(line_start)?;
+    let (text, text_span) = trimmed_source_parts(first.span, line_text, text_start, text_end)
+        .unwrap_or_else(|| (String::new(), first.span));
     Some(ConservationDecl {
-        text: line_text
-            .trim()
-            .strip_prefix("conservation")
-            .unwrap_or(line_text.trim())
-            .trim()
-            .to_owned(),
+        text,
+        text_span,
         line: first.span.line,
         span: first.span,
     })
@@ -1896,15 +1915,27 @@ fn parse_connect_decl(tokens: &[Token], line_text: &str) -> Option<ConnectDecl> 
     if !matches!(first.kind, TokenKind::Keyword(Keyword::Connect)) {
         return None;
     }
-    let raw = line_text
-        .trim()
-        .strip_prefix("connect")
-        .unwrap_or(line_text.trim())
-        .trim();
-    let (left, right) = raw.split_once("->").or_else(|| raw.split_once(" to "))?;
+    let separator = tokens.iter().skip(1).find(|token| {
+        matches!(
+            token.kind,
+            TokenKind::Symbol(Symbol::Arrow) | TokenKind::Keyword(Keyword::To)
+        )
+    })?;
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let left_start = first.span.end.checked_sub(line_start)?;
+    let left_end = separator.span.start.checked_sub(line_start)?;
+    let right_start = separator.span.end.checked_sub(line_start)?;
+    let right_end = tokens.last()?.span.end.checked_sub(line_start)?;
+    let (left, left_span) = trimmed_source_parts(first.span, line_text, left_start, left_end)?;
+    let (right, right_span) = trimmed_source_parts(first.span, line_text, right_start, right_end)?;
     Some(ConnectDecl {
-        left: left.trim().to_owned(),
-        right: right.trim().to_owned(),
+        left,
+        left_span,
+        right,
+        right_span,
         line: first.span.line,
         span: first.span,
     })
@@ -2063,10 +2094,21 @@ fn parse_equation_decl(
     let eq_token = tokens
         .iter()
         .find(|token| matches!(token.kind, TokenKind::Keyword(Keyword::Eq)))?;
-    let (left, right) = line_text.split_once(" eq ")?;
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let left_start = first.span.start.checked_sub(line_start)?;
+    let left_end = eq_token.span.start.checked_sub(line_start)?;
+    let right_start = eq_token.span.end.checked_sub(line_start)?;
+    let right_end = tokens.last()?.span.end.checked_sub(line_start)?;
+    let (left, left_span) = trimmed_source_parts(first.span, line_text, left_start, left_end)?;
+    let (right, right_span) = trimmed_source_parts(first.span, line_text, right_start, right_end)?;
     Some(EquationDecl {
-        left: left.trim().to_owned(),
-        right: right.trim().to_owned(),
+        left,
+        left_span,
+        right,
+        right_span,
         line: eq_token.span.line,
         span: eq_token.span,
         context,

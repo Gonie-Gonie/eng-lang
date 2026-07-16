@@ -323,6 +323,14 @@ source component name. Unconnected-port Problems underline the port name, and
 unknown or invalid generic port domains underline the complete domain reference.
 Trailing `#` and `//` comments are excluded from both the parsed domain and its
 underline, including CRLF and non-BMP source files.
+Domain generic parameters and domain/component quantity/unit annotations now use
+their exact compiler spans for semantic colors. Connect endpoints split into
+model/solver variable and port colors inside each endpoint range. Domain contract,
+connect compatibility, component parameter/equation/boundary/behavior, and
+physical-equation Problems underline the failing declaration, endpoint, call,
+argument, unit, or equation side. Domain/component/equation/connection Outline
+entries use the same source positions, while synthesized residuals stay out of
+the source Outline. The diagnostic corpus fallback ceiling is 70.
 Invalid network URL Problems underline the complete request/download URL operand.
 Declared URL aliases are resolved before validation; unsupplied runtime
 `args.*` URLs do not create malformed-URL false positives, and trailing comments

@@ -407,6 +407,18 @@ trailing `#` or `//` comment cannot extend either the domain value or its
 Problems range. The fixture-corpus guard validates these compiler-owned ranges
 before UTF-16 conversion.
 
+Domain generic kinds use `type.model`, their named parameters use
+`parameter.declaration.model`, and domain/component quantity and explicit unit
+annotations use `type.quantity` and `type.unit` from parser-owned spans.
+Resolved connect endpoints split each source range into a `variable.model.solver`
+component and `property.model.solver` port. Domain contract/quantity, connect
+endpoint/compatibility, component parameter/equation/boundary, behavior-call,
+and physical-equation diagnostics select the failing declaration, endpoint,
+call, argument, unit, or equation side. Domain, component, source equation, and
+connection Outline selections reuse those ranges; generated residuals are not
+shown as source children. A dedicated corpus guard requires every targeted
+diagnostic in these families to retain a valid compiler-owned range.
+
 HTTP request and download metadata preserve the exact URL operand span. URL
 validation follows declared const/local aliases to a literal when possible and
 uses the operand occurrence for `E-NET-INVALID-URL`; an unsupplied runtime
@@ -549,7 +561,7 @@ from generic fallback colors. Important pairings:
 | `class.state`, `variable.state`, `property.state` | State-space type, system state, and state-member tokens. |
 | `class.input`, `variable.input`, `parameter.input`, `property.input` | State-space input type, system inputs, input parameters, and input members. |
 | `class.output`, `variable.output`, `property.output` | State-space output type, system outputs, output members, and output-like workflow values. |
-| `variable.model`, `function.model`, `keyword.model`, `property.model`, `parameter.model` | Model and prediction artifacts, including `args.*` model roots. |
+| `type.model`, `variable.model`, `function.model`, `keyword.model`, `property.model`, `parameter.model` | Domain model types plus model and prediction artifacts, including `args.*` model roots. |
 | `variable.db`, `keyword.db`, `function.db`, `method.db`, `property.db`, `parameter.db` | SQLite and DB-write boundaries, including `args.*` DB table targets. |
 | `variable.cache`, `keyword.cache`, `function.cache`, `method.cache`, `property.cache` | Cache keys, cache helpers, cache option values, and records. |
 | `keyword.workflowStep`, `function.workflowStep`, `variable.workflowStep`, `property.workflowStep` | Sampling, case, prediction, and workflow-step phrases. |

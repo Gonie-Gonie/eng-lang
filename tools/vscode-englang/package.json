@@ -650,6 +650,11 @@
             "entity.name.type.englang",
             "storage.modifier.output.englang"
           ],
+          "type.model": [
+            "support.type.englang",
+            "entity.name.type.englang",
+            "variable.other.model.englang"
+          ],
           "variable.model": [
             "entity.name.function.englang",
             "variable.other.model.englang",

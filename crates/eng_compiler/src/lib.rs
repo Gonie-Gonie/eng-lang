@@ -12252,6 +12252,152 @@ system Envelope {
     }
 
     #[test]
+    fn component_domain_diagnostics_preserve_exact_source_spans() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/diagnostics/error_messages");
+        let cases = [
+            (
+                "domain_missing_across.eng",
+                "E-DOMAIN-CONTRACT-001",
+                "FlowOnly",
+            ),
+            (
+                "domain_missing_through.eng",
+                "E-DOMAIN-CONTRACT-002",
+                "PositionOnly",
+            ),
+            (
+                "domain_missing_conservation.eng",
+                "E-DOMAIN-CONTRACT-003",
+                "NoBalance",
+            ),
+            (
+                "domain_unknown_quantity.eng",
+                "E-DOMAIN-VAR-001",
+                "Displacement",
+            ),
+            (
+                "connect_bad_endpoint.eng",
+                "E-CONNECT-ENDPOINT-001",
+                "WallA",
+            ),
+            (
+                "connect_unknown_port.eng",
+                "E-CONNECT-UNKNOWN-PORT",
+                "WallA.missing",
+            ),
+            (
+                "port_domain_mismatch.eng",
+                "E-CONNECT-DOMAIN-MISMATCH",
+                "Pipe.inlet",
+            ),
+            (
+                "medium_mismatch.eng",
+                "E-CONNECT-MEDIUM-MISMATCH",
+                "AirPipe.inlet",
+            ),
+            (
+                "frame_mismatch.eng",
+                "E-CONNECT-FRAME-001",
+                "BodySensor.position",
+            ),
+            ("axis_mismatch.eng", "E-CONNECT-AXIS-001", "YFace.heat"),
+            (
+                "duplicate_connection.eng",
+                "E-CONNECT-DUPLICATE-001",
+                "WallB.heat -> WallA.heat",
+            ),
+            (
+                "component_boundary_bad_rhs.eng",
+                "E-ASSEMBLY-BOUNDARY-RHS-001",
+                "warm",
+            ),
+            (
+                "component_boundary_unit_mismatch.eng",
+                "E-ASSEMBLY-BOUNDARY-UNIT-001",
+                "5 m",
+            ),
+            (
+                "component_boundary_unknown_signal.eng",
+                "E-ASSEMBLY-BOUNDARY-SIGNAL-001",
+                "heat.Z",
+            ),
+            (
+                "component_delay_bad_call.eng",
+                "E-DELAY-CALL-001",
+                "delay(outlet.m_dot)",
+            ),
+            (
+                "component_delay_bad_duration.eng",
+                "E-DELAY-DURATION-001",
+                "5 kg",
+            ),
+            (
+                "component_delay_unknown_signal.eng",
+                "E-DELAY-SIGNAL-001",
+                "outlet.unknown",
+            ),
+            (
+                "component_predictor_bad_call.eng",
+                "E-PREDICTOR-CALL-001",
+                "predictor(out.T, out.Q)",
+            ),
+            (
+                "component_predictor_unknown_signal.eng",
+                "E-PREDICTOR-SIGNAL-001",
+                "out.unknown",
+            ),
+            (
+                "component_external_bad_call.eng",
+                "E-EXTERNAL-BEHAVIOR-CALL-001",
+                "external(out.T, out.Q)",
+            ),
+            (
+                "component_external_unknown_signal.eng",
+                "E-EXTERNAL-BEHAVIOR-SIGNAL-001",
+                "out.unknown",
+            ),
+            (
+                "component_math_function_unit_mismatch.eng",
+                "E-COMPONENT-EQUATION-UNIT-001",
+                "source.q",
+            ),
+            (
+                "component_equation_unit_mismatch.eng",
+                "E-COMPONENT-EQUATION-UNIT-001",
+                "kg/s",
+            ),
+            (
+                "component_parameter_unit_mismatch.eng",
+                "E-COMPONENT-PARAM-UNIT-001",
+                "2 kg/s",
+            ),
+            ("eq_boolean.eng", "E-EQ-BOOL-001", "=="),
+            ("equation_unit_mismatch.eng", "E-EQ-UNIT-001", "T_out"),
+        ];
+
+        for (file_name, code, expected) in cases {
+            let path = root.join(file_name);
+            let source = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            let report = check_source(&path, &source, &CheckOptions::default());
+            let observed = report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == code)
+                .filter_map(|diagnostic| diagnostic.source_span)
+                .map(|span| source[span.start..span.end].to_owned())
+                .collect::<Vec<_>>();
+            assert!(
+                observed.iter().any(|actual| actual == expected),
+                "{file_name} {code}: expected `{expected}`, got {observed:?}; diagnostics: {:?}",
+                report.diagnostics
+            );
+        }
+    }
+
+    #[test]
     fn rejects_script_workflow_syntax() {
         let report = check_source(
             "ok.eng",

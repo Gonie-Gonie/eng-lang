@@ -2922,6 +2922,17 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
 
     for domain in &program.domains {
         builder.push_named_span(domain.span, &domain.name, "interface", &["declaration"]);
+        for parameter in &domain.type_parameters {
+            builder.push_named_span(parameter.kind_span, &parameter.kind, "type", &["model"]);
+            if parameter.name_span != parameter.kind_span {
+                builder.push_named_span(
+                    parameter.name_span,
+                    &parameter.name,
+                    "parameter",
+                    &["declaration", "model"],
+                );
+            }
+        }
         if let Some(package) = &domain.package {
             builder.push_on_line(
                 domain.line,
@@ -2932,6 +2943,19 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         }
         for variable in &domain.variables {
             builder.push_named_span(variable.span, &variable.name, "property", &["declaration"]);
+            builder.push_type_identifiers_within_span(
+                variable.type_span,
+                &variable.quantity_kind,
+                &["quantity"],
+            );
+            if let Some(unit_span) = variable.unit_span {
+                builder.push_atomic_named_span(
+                    unit_span,
+                    &variable.display_unit,
+                    "type",
+                    &["unit"],
+                );
+            }
         }
     }
 
@@ -2953,6 +2977,19 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                 "parameter",
                 &["declaration", "readonly"],
             );
+            builder.push_type_identifiers_within_span(
+                parameter.type_span,
+                &parameter.quantity_kind,
+                &["quantity"],
+            );
+            if let Some(unit_span) = parameter.unit_span {
+                builder.push_atomic_named_span(
+                    unit_span,
+                    &parameter.display_unit,
+                    "type",
+                    &["unit"],
+                );
+            }
         }
         for input in &component.inputs {
             builder.push_named_span(
@@ -2961,6 +2998,14 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                 "parameter",
                 &["declaration", "input"],
             );
+            builder.push_type_identifiers_within_span(
+                input.type_span,
+                &input.quantity_kind,
+                &["quantity"],
+            );
+            if let Some(unit_span) = input.unit_span {
+                builder.push_atomic_named_span(unit_span, &input.display_unit, "type", &["unit"]);
+            }
         }
         for local in &component.local_expressions {
             if let Some(span) = local.span {
@@ -2970,6 +3015,30 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
     for component in &program.component_instances {
         builder.push_named_span(component.span, &component.name, "class", &["declaration"]);
+    }
+
+    for connection in &program.connections {
+        for (span, endpoint) in [
+            (connection.left_span, connection.left.as_str()),
+            (connection.right_span, connection.right.as_str()),
+        ] {
+            let Some((component, port)) = endpoint.split_once('.') else {
+                continue;
+            };
+            let component = component.trim();
+            let port = port.trim();
+            if let Some(component_span) = source_span_for_subslice(span, endpoint, component) {
+                builder.push_named_span(
+                    component_span,
+                    component,
+                    "variable",
+                    &["solver", "model"],
+                );
+            }
+            if let Some(port_span) = source_span_for_subslice(span, endpoint, port) {
+                builder.push_named_span(port_span, port, "property", &["solver", "model"]);
+            }
+        }
     }
 
     for class_info in &program.classes {
@@ -4371,7 +4440,7 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
             .variables
             .iter()
             .map(|variable| {
-                make_document_symbol(
+                make_document_symbol_at_span(
                     &lines,
                     variable.name.clone(),
                     format!(
@@ -4379,79 +4448,80 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
                         variable.role, variable.quantity_kind, variable.display_unit
                     ),
                     SYMBOL_KIND_VARIABLE,
-                    variable.line,
+                    variable.span,
                     Vec::new(),
                 )
             })
             .collect::<Vec<_>>();
         children.extend(system.equations.iter().map(|equation| {
-            make_document_symbol(
+            make_document_symbol_at_span(
                 &lines,
                 equation.left.clone(),
                 format!("equation {}", equation.relation),
                 SYMBOL_KIND_OPERATOR,
-                equation.line,
+                equation.left_span,
                 Vec::new(),
             )
         }));
-        children.extend(system.residuals.iter().map(|residual| {
-            make_document_symbol(
-                &lines,
-                residual.name.clone(),
-                "residual".to_owned(),
-                SYMBOL_KIND_OPERATOR,
-                residual.line,
-                Vec::new(),
-            )
-        }));
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
             system.name.clone(),
             "system".to_owned(),
             SYMBOL_KIND_CLASS,
-            system.line,
+            system.span,
             children,
         );
     }
 
     for domain in &program.domains {
         let mut children = domain
-            .variables
+            .type_parameters
             .iter()
-            .map(|variable| {
-                make_document_symbol(
+            .filter(|parameter| parameter.name_span != parameter.kind_span)
+            .map(|parameter| {
+                make_document_symbol_at_span(
                     &lines,
-                    variable.name.clone(),
-                    format!(
-                        "{} {} [{}]",
-                        variable.role, variable.quantity_kind, variable.display_unit
-                    ),
-                    SYMBOL_KIND_PROPERTY,
-                    variable.line,
+                    parameter.name.clone(),
+                    format!("{} type parameter", parameter.kind),
+                    SYMBOL_KIND_TYPE_PARAMETER,
+                    parameter.name_span,
                     Vec::new(),
                 )
             })
             .collect::<Vec<_>>();
+        children.extend(domain.variables.iter().map(|variable| {
+            make_document_symbol_at_span(
+                &lines,
+                variable.name.clone(),
+                format!(
+                    "{} {} [{}]",
+                    variable.role, variable.quantity_kind, variable.display_unit
+                ),
+                SYMBOL_KIND_PROPERTY,
+                variable.span,
+                Vec::new(),
+            )
+        }));
         children.extend(domain.conservations.iter().map(|conservation| {
-            make_document_symbol(
+            make_document_symbol_at_span(
                 &lines,
                 "conservation".to_owned(),
                 conservation.status.clone(),
                 SYMBOL_KIND_OPERATOR,
-                conservation.line,
+                conservation.span,
                 Vec::new(),
             )
         }));
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
             domain.name.clone(),
             "domain".to_owned(),
             SYMBOL_KIND_INTERFACE,
-            domain.line,
+            domain.span,
             children,
         );
     }
@@ -4461,18 +4531,18 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
             .ports
             .iter()
             .map(|port| {
-                make_document_symbol(
+                make_document_symbol_at_span(
                     &lines,
                     port.name.clone(),
                     format!("port {}", port.domain),
                     SYMBOL_KIND_PROPERTY,
-                    port.line,
+                    port.span,
                     Vec::new(),
                 )
             })
             .collect::<Vec<_>>();
         children.extend(component.parameters.iter().map(|parameter| {
-            make_document_symbol(
+            make_document_symbol_at_span(
                 &lines,
                 parameter.name.clone(),
                 format!(
@@ -4480,43 +4550,43 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
                     parameter.quantity_kind, parameter.display_unit
                 ),
                 SYMBOL_KIND_TYPE_PARAMETER,
-                parameter.line,
+                parameter.span,
                 Vec::new(),
             )
         }));
         children.extend(component.inputs.iter().map(|input| {
-            make_document_symbol(
+            make_document_symbol_at_span(
                 &lines,
                 input.name.clone(),
                 format!("input {} [{}]", input.quantity_kind, input.display_unit),
                 SYMBOL_KIND_TYPE_PARAMETER,
-                input.line,
+                input.span,
                 Vec::new(),
             )
         }));
         children.extend(component.local_expressions.iter().map(|local| {
-            make_document_symbol(
+            make_document_symbol_at_span(
                 &lines,
                 local.name.clone(),
                 format!("local {} [{}]", local.quantity_kind, local.display_unit),
                 SYMBOL_KIND_VARIABLE,
-                local.line,
+                local.span.unwrap_or(local.expression_span),
                 Vec::new(),
             )
         }));
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
             component.name.clone(),
             "component template".to_owned(),
             SYMBOL_KIND_CLASS,
-            component.line,
+            component.span,
             children,
         );
     }
     for component in &program.component_instances {
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
@@ -4527,7 +4597,20 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
                 .map(|template| format!("component instance of {template}"))
                 .unwrap_or_else(|| "component instance".to_owned()),
             SYMBOL_KIND_OBJECT,
-            component.line,
+            component.span,
+            Vec::new(),
+        );
+    }
+
+    for connection in &program.connections {
+        push_document_symbol_at_span(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            format!("{} -> {}", connection.left, connection.right),
+            format!("connect {}", connection.status),
+            SYMBOL_KIND_OPERATOR,
+            connection.left_span,
             Vec::new(),
         );
     }
@@ -12100,6 +12183,65 @@ mod tests {
     }
 
     #[test]
+    fn component_domain_fixture_diagnostics_keep_compiler_owned_ranges() {
+        let repo_root = repo_root_for_tests();
+        let mut files = BTreeSet::new();
+        for relative in [
+            "examples",
+            "tests/diagnostics",
+            "tools/vscode-englang/test/grammar-fixtures",
+        ] {
+            files.extend(eng_files_under(&repo_root.join(relative)));
+        }
+
+        let is_target = |code: &str| {
+            code.starts_with("E-DOMAIN-")
+                || code.starts_with("E-CONNECT-")
+                || code.starts_with("E-COMPONENT-")
+                || code.starts_with("E-ASSEMBLY-BOUNDARY-")
+                || code.starts_with("E-DELAY-")
+                || code.starts_with("E-PREDICTOR-")
+                || code.starts_with("E-EXTERNAL-BEHAVIOR-")
+                || code.starts_with("E-EQ-")
+        };
+        let mut observed = 0usize;
+        let mut missing = Vec::new();
+        for path in files {
+            let source = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            let report = check_source(&path, &source, &CheckOptions::default());
+            let lines = source_lines(&source);
+            for diagnostic in report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| is_target(&diagnostic.code))
+            {
+                observed += 1;
+                let line_index = line_index_from_one_based(&lines, diagnostic.line);
+                let line = lines.get(line_index).copied().unwrap_or_default();
+                if compiler_diagnostic_byte_range(line, diagnostic).is_none() {
+                    missing.push(format!(
+                        "{}:{} {}",
+                        path.strip_prefix(&repo_root).unwrap_or(&path).display(),
+                        diagnostic.line,
+                        diagnostic.code
+                    ));
+                }
+            }
+        }
+
+        assert!(
+            observed >= 25,
+            "component/domain diagnostic corpus unexpectedly shrank to {observed} item(s)"
+        );
+        assert!(
+            missing.is_empty(),
+            "component/domain diagnostics missing valid compiler ranges: {}",
+            missing.join(", ")
+        );
+    }
+
+    #[test]
     fn diagnostic_corpus_compiler_range_coverage_does_not_regress() {
         let repo_root = repo_root_for_tests();
         let mut files = BTreeSet::new();
@@ -12136,7 +12278,7 @@ mod tests {
             fallback.len()
         );
         assert!(
-            fallback.len() <= 98,
+            fallback.len() <= 70,
             "compiler-owned diagnostic range coverage regressed to {} fallback item(s): {}",
             fallback.len(),
             fallback.join(", ")
@@ -17580,6 +17722,7 @@ copy file("data/template.txt") to file("outputs/template.txt")
     fn snapshot_marks_connect_endpoints_as_solver_fallback() {
         let source = r#"connect zone.heat to ambient.heat
 connect pump.supply to pipe.inlet
+connect node.node to node.node
 "#;
         let snapshot = snapshot_for_source(Path::new("connect_endpoints.eng"), source);
 
@@ -17592,11 +17735,21 @@ connect pump.supply to pipe.inlet
             ("connect pump.supply to pipe.inlet", "supply", "property"),
             ("connect pump.supply to pipe.inlet", "pipe", "variable"),
             ("connect pump.supply to pipe.inlet", "inlet", "property"),
+            ("connect node.node to node.node", "node", "variable"),
+            ("connect node.node to node.node", "node", "property"),
         ] {
             assert_semantic_token_on_line_with_modifier(
                 &snapshot, source, line, label, token_type, "solver",
             );
         }
+        assert_eq!(
+            semantic_token_modifier_count(&snapshot, source, "node", "variable", "solver"),
+            2
+        );
+        assert_eq!(
+            semantic_token_modifier_count(&snapshot, source, "node", "property", "solver"),
+            2
+        );
         assert_no_conflicting_semantic_token_types(&snapshot, source, "connect_endpoints.eng");
     }
 
@@ -20635,6 +20788,156 @@ waiting = case_runs.waiting_count
             .unwrap()
             .iter()
             .any(|range| range["startLine"] == 0 && range["endLine"] == 4));
+    }
+
+    #[test]
+    fn domain_component_editor_features_use_compiler_owned_spans() {
+        let source = concat!(
+            "note = \"\u{1f600} Fluid Medium M Pressure Pa Pipe inlet outlet dp command\"\r\n",
+            "domain Fluid[Medium M] {\r\n",
+            "    across pressure: Pressure [Pa]\r\n",
+            "    through flow: MassFlowRate [kg/s]\r\n",
+            "    conservation sum(flow) = 0\r\n",
+            "}\r\n",
+            "component Pipe {\r\n",
+            "    port inlet: Fluid[Water]\r\n",
+            "    port outlet: Fluid[Water]\r\n",
+            "    parameter dp: Pressure [Pa] = 1 Pa\r\n",
+            "    input command: Pressure [Pa]\r\n",
+            "    outlet.pressure + dp eq inlet.pressure\r\n",
+            "}\r\n",
+            "system Network {\r\n",
+            "    first = Pipe()\r\n",
+            "    second = Pipe()\r\n",
+            "    connect first.outlet -> second.inlet\r\n",
+            "}\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("domain_component_spans.eng"), source);
+
+        for (line, label, token_type, modifier) in [
+            ("domain Fluid", "Medium", "type", "model"),
+            ("domain Fluid", "M", "parameter", "declaration"),
+            ("across pressure", "Pressure", "type", "quantity"),
+            ("across pressure", "Pa", "type", "unit"),
+            ("parameter dp", "Pressure", "type", "quantity"),
+            ("parameter dp", "Pa", "type", "unit"),
+            ("connect first", "first", "variable", "model"),
+            ("connect first", "outlet", "property", "model"),
+            ("connect first", "second", "variable", "model"),
+            ("connect first", "inlet", "property", "model"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, label, token_type, modifier,
+            );
+        }
+
+        let domain = snapshot
+            .document_symbols
+            .iter()
+            .find(|symbol| symbol.name == "Fluid" && symbol.detail == "domain")
+            .expect("domain Outline symbol");
+        assert_eq!(domain.selection_line, 1);
+        assert_eq!(domain.selection_character, utf16_len("domain "));
+        let medium_parameter = domain
+            .children
+            .iter()
+            .find(|symbol| symbol.name == "M" && symbol.kind == SYMBOL_KIND_TYPE_PARAMETER)
+            .expect("domain type parameter Outline symbol");
+        assert_eq!(medium_parameter.selection_line, 1);
+        assert_eq!(
+            medium_parameter.selection_character,
+            utf16_len("domain Fluid[Medium ")
+        );
+        let pressure = domain
+            .children
+            .iter()
+            .find(|symbol| symbol.name == "pressure")
+            .expect("domain variable Outline symbol");
+        assert_eq!(pressure.selection_line, 2);
+        assert_eq!(pressure.selection_character, utf16_len("    across "));
+        let conservation = domain
+            .children
+            .iter()
+            .find(|symbol| symbol.name == "conservation")
+            .expect("conservation Outline symbol");
+        assert_eq!(conservation.selection_line, 4);
+        assert_eq!(conservation.selection_character, utf16_len("    "));
+
+        let component = snapshot
+            .document_symbols
+            .iter()
+            .find(|symbol| symbol.name == "Pipe" && symbol.detail == "component template")
+            .expect("component Outline symbol");
+        assert_eq!(component.selection_line, 6);
+        assert_eq!(component.selection_character, utf16_len("component "));
+        let parameter = component
+            .children
+            .iter()
+            .find(|symbol| symbol.name == "dp")
+            .expect("component parameter Outline symbol");
+        assert_eq!(parameter.selection_line, 9);
+        assert_eq!(parameter.selection_character, utf16_len("    parameter "));
+        let equation = component
+            .children
+            .iter()
+            .find(|symbol| symbol.name == "equation_1")
+            .expect("component equation Outline symbol");
+        assert_eq!(equation.selection_line, 11);
+        assert_eq!(equation.selection_character, utf16_len("    "));
+
+        let connection = snapshot
+            .document_symbols
+            .iter()
+            .find(|symbol| symbol.name == "first.outlet -> second.inlet")
+            .expect("connection Outline symbol");
+        assert_eq!(connection.selection_line, 16);
+        assert_eq!(connection.selection_character, utf16_len("    connect "));
+    }
+
+    #[test]
+    fn component_diagnostics_use_exact_utf16_source_ranges() {
+        let source = concat!(
+            "domain Fluid {\r\n",
+            "    across height: Length [m]\r\n",
+            "    through m_dot: MassFlowRate [kg/s]\r\n",
+            "    conservation sum(m_dot) = 0\r\n",
+            "}\r\n",
+            "component Supply {\r\n",
+            "    port outlet: Fluid\r\n",
+            "    pressure_seed = delay(\"\u{1f600}\", 5 kg) // repeated \"\u{1f600}\" 5 kg\r\n",
+            "}\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("component_diagnostic_utf16.eng"), source);
+        let (line_index, line) = source
+            .lines()
+            .enumerate()
+            .find(|(_, line)| line.contains("pressure_seed"))
+            .expect("behavior diagnostic line");
+
+        for (code, expected) in [
+            ("E-DELAY-SIGNAL-001", "\"\u{1f600}\""),
+            ("E-DELAY-DURATION-001", "5 kg"),
+        ] {
+            let diagnostic = snapshot
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code)
+                .unwrap_or_else(|| panic!("missing {code}: {:?}", snapshot.diagnostics));
+            let byte_start = line
+                .find(expected)
+                .unwrap_or_else(|| panic!("missing `{expected}` in `{line}`"));
+            assert_eq!(diagnostic.line, line_index + 1);
+            assert_eq!(
+                diagnostic.start_character,
+                utf16_len(&line[..byte_start]),
+                "{code} start"
+            );
+            assert_eq!(
+                diagnostic.end_character,
+                utf16_len(&line[..byte_start + expected.len()]),
+                "{code} end"
+            );
+        }
     }
 
     #[test]

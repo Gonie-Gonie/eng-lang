@@ -319,6 +319,7 @@
     "property.solver": "#A5E8DD",
     "type.solver": "#80CBC4",
     "class.solver": "#80CBC4",
+    "type.model": "#D0B3FF",
     "keyword.model": "#C792EA",
     "function.model": "#C3A6FF",
     "variable.model": "#B388FF",

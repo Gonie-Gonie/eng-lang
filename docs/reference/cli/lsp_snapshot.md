@@ -129,6 +129,14 @@ anchor. Unconnected-port diagnostics use the port name, and invalid port-domain
 diagnostics use the complete domain reference. A corpus gate scans all 153
 example, diagnostic, and grammar-fixture `.eng` files and requires every
 diagnostic in these assembly/port classes to retain a valid compiler range.
+Domain declarations additionally preserve generic kind/name, variable type/unit,
+and conservation ranges. Component declarations preserve parameter annotations
+and defaults, local expressions and equation sides, constructor values, and both
+connect endpoints; system equations preserve both source sides. Domain contract,
+connect compatibility, component parameter/equation/boundary/behavior, and
+physical-equation diagnostics use the failing declaration, endpoint, call,
+argument, unit, or equation side. Their dedicated corpus guard rejects any
+return to inferred ranges.
 Invalid network URL diagnostics use the complete request or download URL operand.
 Declared URL aliases are resolved before validation, while an `args.*` URL that
 has not been supplied yet is not presented as malformed. URL ranges end before
@@ -154,7 +162,7 @@ also has a compiler-owned range. Field defaults and object assignments select
 their value, invalid validation and method return declarations select their
 expression, missing fields select the object name, and method-call diagnostics
 select the receiver, method, or argument. The global non-regression ceiling now
-permits at most 98 diagnostics that still need the older range inference path.
+permits at most 70 diagnostics that still need the older range inference path.
 Older diagnostics retain source-aware inference: dimensionless arithmetic
 diagnostics highlight the offending `+` or `-`, schema fast-assignment
 diagnostics highlight `=`, and file mutation diagnostics target `move` or
@@ -291,6 +299,13 @@ variables, component ports, parameters, inputs and locals, class fields and
 methods, args fields, and class object bindings and fields use parser-owned
 source ranges. Same-line text search remains a compatibility fallback for symbol
 kinds whose exact ranges have not yet migrated.
+
+Domain generic kinds and named parameters are emitted from their own spans.
+Domain variables and component parameters/inputs also emit quantity and explicit
+unit tokens from their annotation ranges. Each resolved connection endpoint is
+split inside its compiler range into a model/solver variable component token and
+model/solver property port token, so repeated endpoint names elsewhere on the
+line cannot be recolored.
 
 System/component type and unit tokens, typed state-space vector type
 expressions, and linear-operator type expressions also use parser-owned ranges.
@@ -484,6 +499,13 @@ selected option.
 
 Sampling bindings and distribution children use their exact compiler-owned name
 and option-key spans for Outline selection.
+
+Domain symbols select the declaration name; generic parameters, variables, and
+conservation children select their own source occurrences. Component ports,
+parameters, inputs, locals, and source equations likewise use compiler spans,
+and each connection has a source symbol selecting its left endpoint. System
+equations select their left expression. Synthesized residual records remain in
+semantic metadata but are omitted from the structural Outline.
 
 Class and object symbols select their exact names. Their field and method
 children do the same, while a class validation child selects its rule

@@ -206,7 +206,9 @@ pub struct DomainDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DomainTypeParameterDecl {
     pub kind: String,
+    pub kind_span: SourceSpan,
     pub name: String,
+    pub name_span: SourceSpan,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -215,7 +217,9 @@ pub struct DomainVariableDecl {
     pub name: String,
     pub name_span: SourceSpan,
     pub type_name: String,
+    pub type_span: SourceSpan,
     pub unit: Option<String>,
+    pub unit_span: Option<SourceSpan>,
     pub line: usize,
     pub span: SourceSpan,
 }
@@ -223,6 +227,7 @@ pub struct DomainVariableDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ConservationDecl {
     pub text: String,
+    pub text_span: SourceSpan,
     pub line: usize,
     pub span: SourceSpan,
 }
@@ -247,7 +252,9 @@ pub struct PortDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ConnectDecl {
     pub left: String,
+    pub left_span: SourceSpan,
     pub right: String,
+    pub right_span: SourceSpan,
     pub line: usize,
     pub span: SourceSpan,
 }
@@ -285,7 +292,9 @@ pub struct StateSpaceVectorDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EquationDecl {
     pub left: String,
+    pub left_span: SourceSpan,
     pub right: String,
+    pub right_span: SourceSpan,
     pub line: usize,
     pub span: SourceSpan,
     pub context: ParseContext,

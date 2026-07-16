@@ -134,7 +134,10 @@ pub struct SystemVariableInfo {
 pub struct EquationInfo {
     pub system: String,
     pub left: String,
+    pub left_span: SourceSpan,
     pub right: String,
+    pub right_span: SourceSpan,
+    pub span: SourceSpan,
     pub relation: String,
     pub left_dimension: String,
     pub right_dimension: String,
@@ -215,7 +218,9 @@ pub struct DomainVariableInfo {
     pub name: String,
     pub span: SourceSpan,
     pub quantity_kind: String,
+    pub type_span: SourceSpan,
     pub display_unit: String,
+    pub unit_span: Option<SourceSpan>,
     pub canonical_unit: String,
     pub dimension: String,
     pub line: usize,
@@ -225,6 +230,8 @@ pub struct DomainVariableInfo {
 pub struct ConservationInfo {
     pub domain: String,
     pub text: String,
+    pub span: SourceSpan,
+    pub expression_span: SourceSpan,
     pub status: String,
     pub line: usize,
 }
@@ -302,7 +309,9 @@ pub struct LinearOperatorInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DomainTypeParameterInfo {
     pub kind: String,
+    pub kind_span: SourceSpan,
     pub name: String,
+    pub name_span: SourceSpan,
     pub display: String,
 }
 
@@ -334,6 +343,7 @@ pub struct PortInfo {
 pub struct ComponentConstructorArgumentInfo {
     pub name: String,
     pub value: String,
+    pub value_span: SourceSpan,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -341,10 +351,13 @@ pub struct ComponentParameterInfo {
     pub name: String,
     pub span: SourceSpan,
     pub quantity_kind: String,
+    pub type_span: SourceSpan,
     pub display_unit: String,
+    pub unit_span: Option<SourceSpan>,
     pub canonical_unit: String,
     pub dimension: String,
     pub default_value: Option<String>,
+    pub default_value_span: Option<SourceSpan>,
     pub value: Option<String>,
     pub source: String,
     pub status: String,
@@ -370,6 +383,9 @@ pub struct ComponentLocalExpressionInfo {
     /// Exact source name span when this metadata represents a named binding.
     pub span: Option<SourceSpan>,
     pub expression: String,
+    pub expression_span: SourceSpan,
+    pub equation_left_span: Option<SourceSpan>,
+    pub equation_right_span: Option<SourceSpan>,
     pub status: String,
     pub quantity_kind: String,
     pub display_unit: String,
@@ -381,7 +397,9 @@ pub struct ComponentLocalExpressionInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ConnectionInfo {
     pub left: String,
+    pub left_span: SourceSpan,
     pub right: String,
+    pub right_span: SourceSpan,
     pub left_component: String,
     pub left_port: String,
     pub right_component: String,
@@ -1020,20 +1038,23 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 Some("Use `name = ...` for local declaration or assignment."),
             ));
         }
-        if line.context == ParseContext::Equation
-            && line.tokens.iter().any(|token| {
+        if line.context == ParseContext::Equation {
+            if let Some(equal_equal) = line.tokens.iter().find(|token| {
                 matches!(
                     token.kind,
                     crate::lexer::TokenKind::Symbol(crate::lexer::Symbol::EqualEqual)
                 )
-            })
-        {
-            diagnostics.push(Diagnostic::error(
-                "E-EQ-BOOL-001",
-                line.line,
-                "Use `eq` for physical equations. `==` returns Bool.",
-                Some("Replace `==` with `eq` inside equation blocks."),
-            ));
+            }) {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-EQ-BOOL-001",
+                        line.line,
+                        "Use `eq` for physical equations. `==` returns Bool.",
+                        Some("Replace `==` with `eq` inside equation blocks."),
+                    )
+                    .with_source_span(equal_equal.span),
+                );
+            }
         }
     }
 
@@ -1106,6 +1127,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     domain.conservations.push(ConservationInfo {
                         domain: domain.name.clone(),
                         text: conservation.text.clone(),
+                        span: conservation.span,
+                        expression_span: conservation.text_span,
                         status: "recorded".to_owned(),
                         line: conservation.line,
                     });
@@ -8341,7 +8364,9 @@ fn analyze_domain_variable(declaration: &DomainVariableDecl, domain: &mut Domain
         name: declaration.name.clone(),
         span: declaration.name_span,
         quantity_kind: declaration.type_name.clone(),
+        type_span: declaration.type_span,
         display_unit,
+        unit_span: declaration.unit_span,
         canonical_unit,
         dimension,
         line: declaration.line,
@@ -8356,7 +8381,9 @@ fn domain_type_parameter_info(parameter: &DomainTypeParameterDecl) -> DomainType
     };
     DomainTypeParameterInfo {
         kind: parameter.kind.clone(),
+        kind_span: parameter.kind_span,
         name: parameter.name.clone(),
+        name_span: parameter.name_span,
         display,
     }
 }
@@ -8368,44 +8395,56 @@ fn validate_domain_contracts(domains: &[DomainInfo], diagnostics: &mut Vec<Diagn
             .iter()
             .any(|variable| variable.role == "across")
         {
-            diagnostics.push(Diagnostic::error(
-                "E-DOMAIN-CONTRACT-001",
-                domain.line,
-                &format!("Domain `{}` has no across variable.", domain.name),
-                Some("Add at least one `across <name>: <Quantity> [unit]` declaration."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-DOMAIN-CONTRACT-001",
+                    domain.line,
+                    &format!("Domain `{}` has no across variable.", domain.name),
+                    Some("Add at least one `across <name>: <Quantity> [unit]` declaration."),
+                )
+                .with_source_span(domain.span),
+            );
         }
         if !domain
             .variables
             .iter()
             .any(|variable| variable.role == "through")
         {
-            diagnostics.push(Diagnostic::error(
-                "E-DOMAIN-CONTRACT-002",
-                domain.line,
-                &format!("Domain `{}` has no through variable.", domain.name),
-                Some("Add at least one `through <name>: <Quantity> [unit]` declaration."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-DOMAIN-CONTRACT-002",
+                    domain.line,
+                    &format!("Domain `{}` has no through variable.", domain.name),
+                    Some("Add at least one `through <name>: <Quantity> [unit]` declaration."),
+                )
+                .with_source_span(domain.span),
+            );
         }
         if domain.conservations.is_empty() {
-            diagnostics.push(Diagnostic::error(
-                "E-DOMAIN-CONTRACT-003",
-                domain.line,
-                &format!("Domain `{}` has no conservation contract.", domain.name),
-                Some("Add a `conservation ...` line that records the domain balance contract."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-DOMAIN-CONTRACT-003",
+                    domain.line,
+                    &format!("Domain `{}` has no conservation contract.", domain.name),
+                    Some("Add a `conservation ...` line that records the domain balance contract."),
+                )
+                .with_source_span(domain.span),
+            );
         }
         for variable in &domain.variables {
             if variable.dimension == "unknown" {
-                diagnostics.push(Diagnostic::error(
-                    "E-DOMAIN-VAR-001",
-                    variable.line,
-                    &format!(
-                        "Domain variable `{}.{}` uses unknown quantity kind `{}`.",
-                        domain.name, variable.name, variable.quantity_kind
-                    ),
-                    Some("Use a known quantity kind from the EngLang quantity registry."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-DOMAIN-VAR-001",
+                        variable.line,
+                        &format!(
+                            "Domain variable `{}.{}` uses unknown quantity kind `{}`.",
+                            domain.name, variable.name, variable.quantity_kind
+                        ),
+                        Some("Use a known quantity kind from the EngLang quantity registry."),
+                    )
+                    .with_source_span(variable.type_span),
+                );
             }
         }
     }
@@ -8481,15 +8520,18 @@ fn analyze_component_scalar_declaration(
     let dimension = dimension_for_quantity(&declaration.type_name);
     let mut resolved_value = declaration.expression.clone();
     let status = if dimension == "unknown" {
-        diagnostics.push(Diagnostic::error(
-            diagnostic_code,
-            declaration.line,
-            &format!(
-                "Component {declaration_kind} `{}` on `{component_name}` uses unknown quantity kind `{}`.",
-                declaration.name, declaration.type_name
-            ),
-            Some("Use a known quantity kind from the EngLang quantity registry."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                diagnostic_code,
+                declaration.line,
+                &format!(
+                    "Component {declaration_kind} `{}` on `{component_name}` uses unknown quantity kind `{}`.",
+                    declaration.name, declaration.type_name
+                ),
+                Some("Use a known quantity kind from the EngLang quantity registry."),
+            )
+            .with_source_span(declaration.type_span),
+        );
         "unknown_quantity"
     } else if let Some(default_value) = &declaration.expression {
         if let Some(value) = resolve_component_parameter_value(
@@ -8497,6 +8539,7 @@ fn analyze_component_scalar_declaration(
             default_value,
             &declaration.type_name,
             declaration.line,
+            declaration.expression_span.unwrap_or(declaration.name_span),
             consts,
             diagnostics,
         ) {
@@ -8513,10 +8556,13 @@ fn analyze_component_scalar_declaration(
         name: declaration.name.clone(),
         span: declaration.name_span,
         quantity_kind: declaration.type_name.clone(),
+        type_span: declaration.type_span,
         display_unit,
+        unit_span: declaration.unit_span,
         canonical_unit,
         dimension,
         default_value: declaration.expression.clone(),
+        default_value_span: declaration.expression_span,
         value: resolved_value,
         source: if declaration.expression.is_some() {
             "default".to_owned()
@@ -8533,6 +8579,7 @@ fn resolve_component_parameter_value(
     value: &str,
     quantity_kind: &str,
     line: usize,
+    source_span: SourceSpan,
     consts: &[ConstInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<String> {
@@ -8543,6 +8590,7 @@ fn resolve_component_parameter_value(
             value,
             quantity_kind,
             line,
+            source_span,
             diagnostics,
         )
         .then(|| value.to_owned());
@@ -8553,15 +8601,18 @@ fn resolve_component_parameter_value(
     {
         let expected_dimension = dimension_for_quantity(quantity_kind);
         if !dimensions_compatible(&expected_dimension, &const_info.dimension) {
-            diagnostics.push(Diagnostic::error(
-                "E-COMPONENT-PARAM-UNIT-001",
-                line,
-                &format!(
-                    "Component parameter `{parameter_name}` expects `{quantity_kind}`, but const `{}` has quantity `{}`.",
-                    const_info.name, const_info.quantity_kind
-                ),
-                Some("Use a constructor/default const with a compatible quantity."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-COMPONENT-PARAM-UNIT-001",
+                    line,
+                    &format!(
+                        "Component parameter `{parameter_name}` expects `{quantity_kind}`, but const `{}` has quantity `{}`.",
+                        const_info.name, const_info.quantity_kind
+                    ),
+                    Some("Use a constructor/default const with a compatible quantity."),
+                )
+                .with_source_span(source_span),
+            );
             return None;
         }
         let resolved = const_info.expression.trim();
@@ -8571,6 +8622,7 @@ fn resolve_component_parameter_value(
                 resolved,
                 quantity_kind,
                 const_info.line,
+                const_info.expression_span,
                 diagnostics,
             )
             .then(|| resolved.to_owned());
@@ -8586,28 +8638,34 @@ fn resolve_component_parameter_value(
                     &default_unit_for_quantity(quantity_kind),
                 ))
             } else {
-                diagnostics.push(Diagnostic::error(
-                    "E-COMPONENT-PARAM-UNIT-001",
-                    line,
-                    &format!(
-                        "Component parameter `{parameter_name}` expects `{quantity_kind}`, but expression `{value}` has dimension `{}`.",
-                        evaluated.dimension
-                    ),
-                    Some("Use a constructor/default expression whose units reduce to the declared parameter quantity."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-COMPONENT-PARAM-UNIT-001",
+                        line,
+                        &format!(
+                            "Component parameter `{parameter_name}` expects `{quantity_kind}`, but expression `{value}` has dimension `{}`.",
+                            evaluated.dimension
+                        ),
+                        Some("Use a constructor/default expression whose units reduce to the declared parameter quantity."),
+                    )
+                    .with_source_span(source_span),
+                );
                 None
             }
         }
         Err(error) => {
-            diagnostics.push(Diagnostic::error(
-                error.code,
-                line,
-                &format!(
-                    "Component parameter `{parameter_name}` expects a numeric literal, importable const, or pure arithmetic expression, got `{value}`: {}.",
-                    error.message
-                ),
-                Some(error.help),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    error.code,
+                    line,
+                    &format!(
+                        "Component parameter `{parameter_name}` expects a numeric literal, importable const, or pure arithmetic expression, got `{value}`: {}.",
+                        error.message
+                    ),
+                    Some(error.help),
+                )
+                .with_source_span(source_span),
+            );
             None
         }
     }
@@ -8618,6 +8676,7 @@ fn component_parameter_literal_compatible(
     value: &str,
     quantity_kind: &str,
     line: usize,
+    source_span: SourceSpan,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> bool {
     let Some((_amount, unit)) = numeric_literal_with_optional_unit(value) else {
@@ -8629,14 +8688,17 @@ fn component_parameter_literal_compatible(
     if unit_compatible_with_quantity(quantity_kind, &unit) {
         true
     } else {
-        diagnostics.push(Diagnostic::error(
-            "E-COMPONENT-PARAM-UNIT-001",
-            line,
-            &format!(
-                "Component parameter `{parameter_name}` value unit `{unit}` is not compatible with `{quantity_kind}`."
-            ),
-            Some("Use a constructor/default value with a unit compatible with the declared parameter quantity."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-COMPONENT-PARAM-UNIT-001",
+                line,
+                &format!(
+                    "Component parameter `{parameter_name}` value unit `{unit}` is not compatible with `{quantity_kind}`."
+                ),
+                Some("Use a constructor/default value with a unit compatible with the declared parameter quantity."),
+            )
+            .with_source_span(source_span),
+        );
         false
     }
 }
@@ -9127,6 +9189,9 @@ fn analyze_component_local_expression(
             name: binding.name.clone(),
             span: Some(binding.span),
             expression: binding.expression.clone(),
+            expression_span: binding.expression_span,
+            equation_left_span: None,
+            equation_right_span: None,
             status: "metadata_only".to_owned(),
             quantity_kind: signal_contract.quantity_kind,
             display_unit: signal_contract.display_unit,
@@ -9150,6 +9215,12 @@ fn analyze_component_equation(equation: &crate::ast::EquationDecl, component: &m
             name: format!("equation_{equation_index}"),
             span: None,
             expression: format!("{} eq {}", left, equation.right),
+            expression_span: source_span_covering(
+                component_equation_left_span(equation),
+                equation.right_span,
+            ),
+            equation_left_span: Some(component_equation_left_span(equation)),
+            equation_right_span: Some(equation.right_span),
             status: "component_equation_source".to_owned(),
             quantity_kind: "unknown".to_owned(),
             display_unit: "unknown".to_owned(),
@@ -9169,6 +9240,70 @@ fn strip_component_equation_label(left: &str) -> &str {
     } else {
         trimmed
     }
+}
+
+fn component_equation_left_span(equation: &crate::ast::EquationDecl) -> SourceSpan {
+    let left = strip_component_equation_label(&equation.left);
+    source_span_for_subslice(equation.left_span, &equation.left, left).unwrap_or(equation.left_span)
+}
+
+fn source_span_covering(left: SourceSpan, right: SourceSpan) -> SourceSpan {
+    debug_assert_eq!(left.line, right.line);
+    let (start, column) = if left.start <= right.start {
+        (left.start, left.column)
+    } else {
+        (right.start, right.column)
+    };
+    SourceSpan::new(start, left.end.max(right.end), left.line, column)
+}
+
+fn component_equation_target_span(
+    local: &ComponentLocalExpressionInfo,
+    target: &str,
+) -> SourceSpan {
+    let Some((left, right)) = local.expression.split_once(" eq ") else {
+        return local.expression_span;
+    };
+    for (text, span) in [
+        (left, local.equation_left_span),
+        (right, local.equation_right_span),
+    ] {
+        let Some(span) = span else {
+            continue;
+        };
+        if let Some(start) = text.find(target) {
+            return source_span_for_child_range(span, start, start + target.len());
+        }
+    }
+    local.expression_span
+}
+
+fn component_equation_right_span(local: &ComponentLocalExpressionInfo) -> SourceSpan {
+    local.equation_right_span.unwrap_or(local.expression_span)
+}
+
+fn component_equation_dimension_mismatch_span(
+    local: &ComponentLocalExpressionInfo,
+    left: &str,
+    right: &str,
+    left_dimension: &str,
+    right_dimension: &str,
+) -> SourceSpan {
+    for (expression, dimension, side_span) in [
+        (left, left_dimension, local.equation_left_span),
+        (right, right_dimension, local.equation_right_span),
+    ] {
+        if dimension != "mismatch" {
+            continue;
+        }
+        if let Some(unit) = numeric_units_in_component_expression(expression).first() {
+            return component_equation_target_span(local, unit);
+        }
+        if let Some(side_span) = side_span {
+            return side_span;
+        }
+    }
+    component_equation_right_span(local)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -9216,10 +9351,14 @@ fn analyze_component_instance_binding(
         return ComponentInstanceBindingAnalysis::HandledInvalid;
     };
 
+    let arguments_span =
+        source_span_for_subslice(binding.expression_span, &binding.expression, arguments)
+            .unwrap_or(binding.expression_span);
     let Some(arguments) = parse_component_constructor_arguments(
         &binding.name,
         template,
-        &arguments,
+        arguments,
+        arguments_span,
         binding.line,
         diagnostics,
     ) else {
@@ -9237,6 +9376,7 @@ fn parse_component_constructor_arguments(
     instance_name: &str,
     template: &ComponentInfo,
     arguments: &str,
+    arguments_span: SourceSpan,
     line: usize,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<Vec<ComponentConstructorArgumentInfo>> {
@@ -9249,9 +9389,11 @@ fn parse_component_constructor_arguments(
     let mut positional_index = 0usize;
     let mut saw_named = false;
     for raw_argument in split_component_constructor_arguments(arguments) {
+        let raw_span = source_span_for_subslice(arguments_span, arguments, raw_argument)
+            .unwrap_or(arguments_span);
         let (name, value) = if let Some((name, value)) = raw_argument.split_once('=') {
             saw_named = true;
-            (name.trim().to_owned(), value.trim().to_owned())
+            (name.trim().to_owned(), value.trim())
         } else {
             if template.parameters.is_empty() {
                 diagnostics.push(Diagnostic::error(
@@ -9289,7 +9431,7 @@ fn parse_component_constructor_arguments(
                 return None;
             };
             positional_index += 1;
-            (parameter.name.clone(), raw_argument.trim().to_owned())
+            (parameter.name.clone(), raw_argument.trim())
         };
         if !is_identifier(&name) || value.is_empty() {
             diagnostics.push(Diagnostic::error(
@@ -9313,13 +9455,19 @@ fn parse_component_constructor_arguments(
             ));
             return None;
         }
-        parsed.push(ComponentConstructorArgumentInfo { name, value });
+        let value_span =
+            source_span_for_subslice(arguments_span, arguments, value).unwrap_or(raw_span);
+        parsed.push(ComponentConstructorArgumentInfo {
+            name,
+            value: value.to_owned(),
+            value_span,
+        });
     }
     Some(parsed)
 }
 
-fn split_component_constructor_arguments(arguments: &str) -> Vec<String> {
-    split_top_level(arguments, &[','])
+fn split_component_constructor_arguments(arguments: &str) -> Vec<&str> {
+    split_top_level_slices(arguments, &[','])
 }
 
 fn instantiate_component_template(
@@ -9398,6 +9546,7 @@ fn instantiate_component_template(
             &argument.value,
             &parameter.quantity_kind,
             binding.line,
+            argument.value_span,
             consts,
             diagnostics,
         )?;
@@ -9468,7 +9617,7 @@ fn is_identifier_continue_character(character: char) -> bool {
     character.is_ascii_alphanumeric() || character == '_'
 }
 
-fn component_constructor_call(expression: &str) -> Option<(String, String)> {
+fn component_constructor_call(expression: &str) -> Option<(&str, &str)> {
     let trimmed = expression.trim();
     let open = trimmed.find('(')?;
     if !trimmed.ends_with(')') {
@@ -9486,7 +9635,7 @@ fn component_constructor_call(expression: &str) -> Option<(String, String)> {
         return None;
     }
     let arguments = trimmed[open + 1..trimmed.len() - 1].trim();
-    Some((name.to_owned(), arguments.to_owned()))
+    Some((name, arguments))
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -9521,29 +9670,37 @@ fn analyze_connections(
         let Some((left_component, left_port)) = split_endpoint(&connection.left) else {
             diagnostics.push(connection_endpoint_diagnostic(
                 &connection.left,
-                connection.line,
+                connection.left_span,
             ));
             continue;
         };
         let Some((right_component, right_port)) = split_endpoint(&connection.right) else {
             diagnostics.push(connection_endpoint_diagnostic(
                 &connection.right,
-                connection.line,
+                connection.right_span,
             ));
             continue;
         };
         let duplicate_key =
             normalized_connection_key(&left_component, &left_port, &right_component, &right_port);
         if !seen_connections.insert(duplicate_key) {
-            diagnostics.push(Diagnostic::error(
-                "E-CONNECT-DUPLICATE-001",
-                connection.line,
-                &format!(
-                    "Connection `{}` -> `{}` duplicates an existing connection.",
-                    connection.left, connection.right
-                ),
-                Some("Remove the duplicate connection so the graph has one edge per port pair."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-CONNECT-DUPLICATE-001",
+                    connection.line,
+                    &format!(
+                        "Connection `{}` -> `{}` duplicates an existing connection.",
+                        connection.left, connection.right
+                    ),
+                    Some(
+                        "Remove the duplicate connection so the graph has one edge per port pair.",
+                    ),
+                )
+                .with_source_span(source_span_covering(
+                    connection.left_span,
+                    connection.right_span,
+                )),
+            );
         }
         let left_resolved = resolved_port(components, &left_component, &left_port);
         let right_resolved = resolved_port(components, &right_component, &right_port);
@@ -9559,43 +9716,57 @@ fn analyze_connections(
                     first_mismatched_parameter(domains, &left.domain_name, left, right)
                         .unwrap_or_else(|| "Parameter".to_owned());
                 let (code, status, label) = parameter_mismatch_diagnostic(&parameter_name);
-                diagnostics.push(Diagnostic::error(
-                    code,
-                    connection.line,
-                    &format!(
-                        "Cannot connect `{}` ({}) to `{}` ({}): {} differs.",
-                        connection.left, left.domain, connection.right, right.domain, label
-                    ),
-                    Some(
-                        "Use matching generic domain arguments on both connected component ports.",
-                    ),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        code,
+                        connection.line,
+                        &format!(
+                            "Cannot connect `{}` ({}) to `{}` ({}): {} differs.",
+                            connection.left, left.domain, connection.right, right.domain, label
+                        ),
+                        Some(
+                            "Use matching generic domain arguments on both connected component ports.",
+                        ),
+                    )
+                    .with_source_span(connection.right_span),
+                );
                 (
                     format!("{} != {}", left.domain, right.domain),
                     status.to_owned(),
                 )
             }
             (Some(left), Some(right)) => {
-                diagnostics.push(Diagnostic::error(
-                    "E-CONNECT-DOMAIN-MISMATCH",
-                    connection.line,
-                    &format!(
-                        "Cannot connect `{}` ({}) to `{}` ({}).",
-                        connection.left, left.domain, connection.right, right.domain
-                    ),
-                    Some("Connect ports only when they declare the same domain."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-CONNECT-DOMAIN-MISMATCH",
+                        connection.line,
+                        &format!(
+                            "Cannot connect `{}` ({}) to `{}` ({}).",
+                            connection.left, left.domain, connection.right, right.domain
+                        ),
+                        Some("Connect ports only when they declare the same domain."),
+                    )
+                    .with_source_span(connection.right_span),
+                );
                 ("mismatch".to_owned(), "domain_mismatch".to_owned())
             }
             _ => {
-                diagnostics.push(Diagnostic::error(
-                    "E-CONNECT-UNKNOWN-PORT",
-                    connection.line,
-                    "Connection endpoint does not resolve to a declared component port.",
-                    Some(
-                        "Use `connect Component.port -> Other.port` with declared component ports.",
-                    ),
-                ));
+                let source_span = match (left_resolved, right_resolved) {
+                    (None, Some(_)) => connection.left_span,
+                    (Some(_), None) => connection.right_span,
+                    _ => source_span_covering(connection.left_span, connection.right_span),
+                };
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-CONNECT-UNKNOWN-PORT",
+                        connection.line,
+                        "Connection endpoint does not resolve to a declared component port.",
+                        Some(
+                            "Use `connect Component.port -> Other.port` with declared component ports.",
+                        ),
+                    )
+                    .with_source_span(source_span),
+                );
                 ("unknown".to_owned(), "unresolved_endpoint".to_owned())
             }
         };
@@ -9608,7 +9779,9 @@ fn analyze_connections(
 
         connections.push(ConnectionInfo {
             left: connection.left.clone(),
+            left_span: connection.left_span,
             right: connection.right.clone(),
+            right_span: connection.right_span,
             left_component,
             left_port,
             right_component,
@@ -10230,20 +10403,20 @@ fn validate_component_behavior_calls(
 ) {
     for component in components {
         for local in &component.local_expressions {
-            for arguments in extract_call_arguments(&local.expression, "delay") {
-                validate_delay_call(domains, component, local, &arguments, diagnostics);
+            for call in extract_behavior_calls(&local.expression, "delay") {
+                validate_delay_call(domains, component, local, &call, diagnostics);
             }
-            for arguments in extract_call_arguments(&local.expression, "predict") {
-                validate_predictor_call(domains, component, local, &arguments, diagnostics);
+            for call in extract_behavior_calls(&local.expression, "predict") {
+                validate_predictor_call(domains, component, local, &call, diagnostics);
             }
-            for arguments in extract_call_arguments(&local.expression, "predictor") {
-                validate_predictor_call(domains, component, local, &arguments, diagnostics);
+            for call in extract_behavior_calls(&local.expression, "predictor") {
+                validate_predictor_call(domains, component, local, &call, diagnostics);
             }
-            for arguments in extract_call_arguments(&local.expression, "external") {
-                validate_external_behavior_call(domains, component, local, &arguments, diagnostics);
+            for call in extract_behavior_calls(&local.expression, "external") {
+                validate_external_behavior_call(domains, component, local, &call, diagnostics);
             }
-            for arguments in extract_call_arguments(&local.expression, "adapter") {
-                validate_external_behavior_call(domains, component, local, &arguments, diagnostics);
+            for call in extract_behavior_calls(&local.expression, "adapter") {
+                validate_external_behavior_call(domains, component, local, &call, diagnostics);
             }
         }
     }
@@ -10253,44 +10426,55 @@ fn validate_delay_call(
     domains: &[DomainInfo],
     component: &ComponentInfo,
     local: &ComponentLocalExpressionInfo,
-    arguments: &str,
+    call: &ExtractedBehaviorCall<'_>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let parts = split_top_level(arguments, &[',']);
+    let parts = split_top_level_slices(call.arguments, &[',']);
     if parts.len() != 2 {
-        diagnostics.push(Diagnostic::error(
-            "E-DELAY-CALL-001",
-            local.line,
-            &format!(
-                "Delay expression `{}` must use `delay(signal, duration)`.",
-                local.expression
-            ),
-            Some("Provide a component port signal and a positive duration such as `delay(outlet.m_dot, 5 s)`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-DELAY-CALL-001",
+                local.line,
+                &format!(
+                    "Delay expression `{}` must use `delay(signal, duration)`.",
+                    local.expression
+                ),
+                Some("Provide a component port signal and a positive duration such as `delay(outlet.m_dot, 5 s)`."),
+            )
+            .with_source_span(component_local_subspan(local, call.source)),
+        );
         return;
     }
     let signal = parts[0].trim();
     if component_behavior_signal_contract(domains, component, local.line, signal).is_none() {
-        diagnostics.push(Diagnostic::error(
-            "E-DELAY-SIGNAL-001",
-            local.line,
-            &format!(
-                "Delay signal `{signal}` is not a known component signal in `{}`.",
-                component.name
-            ),
-            Some("Use a component signal such as `port.variable`, a prior component-local expression, or a behavior expression with resolved quantity/unit metadata."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-DELAY-SIGNAL-001",
+                local.line,
+                &format!(
+                    "Delay signal `{signal}` is not a known component signal in `{}`.",
+                    component.name
+                ),
+                Some("Use a component signal such as `port.variable`, a prior component-local expression, or a behavior expression with resolved quantity/unit metadata."),
+            )
+            .with_source_span(component_local_subspan(local, signal)),
+        );
     }
     if parse_duration_option_seconds(parts[1].trim()).is_none() {
-        diagnostics.push(Diagnostic::error(
-            "E-DELAY-DURATION-001",
-            local.line,
-            &format!(
-                "Delay duration `{}` is not a positive duration.",
-                parts[1].trim()
-            ),
-            Some("Use a duration with time units such as `s`, `min`, or `h`, for example `5 s`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-DELAY-DURATION-001",
+                local.line,
+                &format!(
+                    "Delay duration `{}` is not a positive duration.",
+                    parts[1].trim()
+                ),
+                Some(
+                    "Use a duration with time units such as `s`, `min`, or `h`, for example `5 s`.",
+                ),
+            )
+            .with_source_span(component_local_subspan(local, parts[1].trim())),
+        );
     }
 }
 
@@ -10298,14 +10482,14 @@ fn validate_predictor_call(
     domains: &[DomainInfo],
     component: &ComponentInfo,
     local: &ComponentLocalExpressionInfo,
-    arguments: &str,
+    call: &ExtractedBehaviorCall<'_>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     validate_single_signal_behavior_call(
         domains,
         component,
         local,
-        arguments,
+        call,
         &BehaviorCallSpec {
             label: "Predictor",
             signature: "predictor(signal)` or `predict(signal)",
@@ -10320,14 +10504,14 @@ fn validate_external_behavior_call(
     domains: &[DomainInfo],
     component: &ComponentInfo,
     local: &ComponentLocalExpressionInfo,
-    arguments: &str,
+    call: &ExtractedBehaviorCall<'_>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     validate_single_signal_behavior_call(
         domains,
         component,
         local,
-        arguments,
+        call,
         &BehaviorCallSpec {
             label: "External behavior",
             signature: "external(signal)` or `adapter(signal)",
@@ -10349,34 +10533,40 @@ fn validate_single_signal_behavior_call(
     domains: &[DomainInfo],
     component: &ComponentInfo,
     local: &ComponentLocalExpressionInfo,
-    arguments: &str,
+    call: &ExtractedBehaviorCall<'_>,
     spec: &BehaviorCallSpec,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let parts = split_top_level(arguments, &[',']);
+    let parts = split_top_level_slices(call.arguments, &[',']);
     if parts.len() != 1 {
-        diagnostics.push(Diagnostic::error(
-            spec.call_code,
-            local.line,
-            &format!(
-                "{} expression `{}` must use `{}`.",
-                spec.label, local.expression, spec.signature
-            ),
-            Some("Pass one component signal such as `outlet.T`, a prior component-local signal, or a behavior expression supported by the runtime wrapper contract."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                spec.call_code,
+                local.line,
+                &format!(
+                    "{} expression `{}` must use `{}`.",
+                    spec.label, local.expression, spec.signature
+                ),
+                Some("Pass one component signal such as `outlet.T`, a prior component-local signal, or a behavior expression supported by the runtime wrapper contract."),
+            )
+            .with_source_span(component_local_subspan(local, call.source)),
+        );
         return;
     }
     let signal = parts[0].trim();
     if component_behavior_signal_contract(domains, component, local.line, signal).is_none() {
-        diagnostics.push(Diagnostic::error(
-            spec.signal_code,
-            local.line,
-            &format!(
-                "{} signal `{signal}` is not a known component signal in `{}`.",
-                spec.label, component.name
-            ),
-            Some("Use a component signal such as `port.variable`, a prior component-local expression, or a behavior expression with resolved quantity/unit metadata."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                spec.signal_code,
+                local.line,
+                &format!(
+                    "{} signal `{signal}` is not a known component signal in `{}`.",
+                    spec.label, component.name
+                ),
+                Some("Use a component signal such as `port.variable`, a prior component-local expression, or a behavior expression with resolved quantity/unit metadata."),
+            )
+            .with_source_span(component_local_subspan(local, signal)),
+        );
     }
 }
 
@@ -10512,8 +10702,16 @@ fn component_signal_type<'a>(
         .find(|variable| variable.name == variable_name.trim())
 }
 
-fn extract_call_arguments(expression: &str, call_name: &str) -> Vec<String> {
-    let mut arguments = Vec::new();
+struct ExtractedBehaviorCall<'a> {
+    source: &'a str,
+    arguments: &'a str,
+}
+
+fn extract_behavior_calls<'a>(
+    expression: &'a str,
+    call_name: &str,
+) -> Vec<ExtractedBehaviorCall<'a>> {
+    let mut calls = Vec::new();
     let lowered = expression.to_ascii_lowercase();
     let needle = format!("{call_name}(");
     let mut cursor = 0usize;
@@ -10545,14 +10743,33 @@ fn extract_call_arguments(expression: &str, call_name: &str) -> Vec<String> {
             }
         }
         if let Some(close_index) = close_index {
-            arguments.push(expression[open_index + 1..close_index].to_owned());
+            calls.push(ExtractedBehaviorCall {
+                source: &expression[call_start..close_index + ')'.len_utf8()],
+                arguments: &expression[open_index + '('.len_utf8()..close_index],
+            });
             cursor = close_index + 1;
         } else {
-            arguments.push(expression[open_index + 1..].to_owned());
+            calls.push(ExtractedBehaviorCall {
+                source: &expression[call_start..],
+                arguments: &expression[open_index + '('.len_utf8()..],
+            });
             break;
         }
     }
-    arguments
+    calls
+}
+
+fn component_local_subspan(local: &ComponentLocalExpressionInfo, subslice: &str) -> SourceSpan {
+    let source_len = local
+        .expression_span
+        .end
+        .saturating_sub(local.expression_span.start);
+    if source_len == local.expression.len() {
+        source_span_for_subslice(local.expression_span, &local.expression, subslice)
+            .unwrap_or(local.expression_span)
+    } else {
+        local.expression_span
+    }
 }
 
 fn component_generated_equation_reason(kind: &str) -> String {
@@ -10614,17 +10831,20 @@ fn component_boundary_equations(
                 .iter()
                 .find(|port| port.name == port_name && port.status == "domain_resolved")
             else {
-                diagnostics.push(Diagnostic::error(
-                    "E-ASSEMBLY-BOUNDARY-SIGNAL-001",
-                    local.line,
-                    &format!(
-                        "Component boundary expression `{signal}` is not a known port signal in `{}`.",
-                        component.name
-                    ),
-                    Some(
-                        "Use `name = port.variable = literal` with a declared component port and domain variable.",
-                    ),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-ASSEMBLY-BOUNDARY-SIGNAL-001",
+                        local.line,
+                        &format!(
+                            "Component boundary expression `{signal}` is not a known port signal in `{}`.",
+                            component.name
+                        ),
+                        Some(
+                            "Use `name = port.variable = literal` with a declared component port and domain variable.",
+                        ),
+                    )
+                    .with_source_span(component_local_subspan(local, signal)),
+                );
                 continue;
             };
             let Some(domain) = domains
@@ -10638,17 +10858,20 @@ fn component_boundary_equations(
                 .iter()
                 .find(|variable| variable.name == variable_name)
             else {
-                diagnostics.push(Diagnostic::error(
-                    "E-ASSEMBLY-BOUNDARY-SIGNAL-001",
-                    local.line,
-                    &format!(
-                        "Component boundary expression `{signal}` is not a known domain variable on `{}`.",
-                        port.domain
-                    ),
-                    Some(
-                        "Use a variable declared by the connected port domain, such as `heat.T`.",
-                    ),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-ASSEMBLY-BOUNDARY-SIGNAL-001",
+                        local.line,
+                        &format!(
+                            "Component boundary expression `{signal}` is not a known domain variable on `{}`.",
+                            port.domain
+                        ),
+                        Some(
+                            "Use a variable declared by the connected port domain, such as `heat.T`.",
+                        ),
+                    )
+                    .with_source_span(component_local_subspan(local, signal)),
+                );
                 continue;
             };
             let variable = format!("{}.{}.{}", component.name, port_name, variable_name);
@@ -10658,15 +10881,20 @@ fn component_boundary_equations(
             if let Some((_value, unit)) = numeric_literal_with_optional_unit(rhs) {
                 if let Some(unit) = unit {
                     if !unit_compatible_with_quantity(&domain_variable.quantity_kind, &unit) {
-                        diagnostics.push(Diagnostic::error(
-                            "E-ASSEMBLY-BOUNDARY-UNIT-001",
-                            local.line,
-                            &format!(
-                                "Component boundary RHS unit `{unit}` is not compatible with `{}`.",
-                                domain_variable.quantity_kind
-                            ),
-                            Some("Use a unit compatible with the connected port signal quantity."),
-                        ));
+                        diagnostics.push(
+                            Diagnostic::error(
+                                "E-ASSEMBLY-BOUNDARY-UNIT-001",
+                                local.line,
+                                &format!(
+                                    "Component boundary RHS unit `{unit}` is not compatible with `{}`.",
+                                    domain_variable.quantity_kind
+                                ),
+                                Some(
+                                    "Use a unit compatible with the connected port signal quantity.",
+                                ),
+                            )
+                            .with_source_span(component_local_subspan(local, rhs)),
+                        );
                         continue;
                     }
                 }
@@ -10692,15 +10920,18 @@ fn component_boundary_equations(
                     parameter,
                     &domain_variable.quantity_kind,
                 ) {
-                    diagnostics.push(Diagnostic::error(
-                        "E-ASSEMBLY-BOUNDARY-UNIT-001",
-                        local.line,
-                        &format!(
-                            "Component boundary parameter `{rhs}` is not compatible with `{}`.",
-                            domain_variable.quantity_kind
-                        ),
-                        Some("Use a component parameter with the same physical dimension as the connected port signal."),
-                    ));
+                    diagnostics.push(
+                        Diagnostic::error(
+                            "E-ASSEMBLY-BOUNDARY-UNIT-001",
+                            local.line,
+                            &format!(
+                                "Component boundary parameter `{rhs}` is not compatible with `{}`.",
+                                domain_variable.quantity_kind
+                            ),
+                            Some("Use a component parameter with the same physical dimension as the connected port signal."),
+                        )
+                        .with_source_span(component_local_subspan(local, rhs)),
+                    );
                     continue;
                 }
                 equations.push(ComponentAssemblyEquationInfo {
@@ -10717,12 +10948,15 @@ fn component_boundary_equations(
                 });
                 continue;
             }
-            diagnostics.push(Diagnostic::error(
-                "E-ASSEMBLY-BOUNDARY-RHS-001",
-                local.line,
-                &format!("Component boundary RHS `{rhs}` is not a numeric literal or declared parameter."),
-                Some("Use a numeric literal such as `22 degC` or a declared component parameter such as `T_room`."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-ASSEMBLY-BOUNDARY-RHS-001",
+                    local.line,
+                    &format!("Component boundary RHS `{rhs}` is not a numeric literal or declared parameter."),
+                    Some("Use a numeric literal such as `22 degC` or a declared component parameter such as `T_room`."),
+                )
+                .with_source_span(component_local_subspan(local, rhs)),
+            );
         }
     }
     equations
@@ -10769,19 +11003,23 @@ fn component_local_equations(
             let unknown_signals =
                 unknown_component_equation_signals(&local_expression, &signal_refs);
             if !unknown_signals.is_empty() {
+                let source_span = component_equation_target_span(local, &unknown_signals[0]);
                 let unknown_signal_labels = unknown_signals
                     .iter()
                     .map(|signal| format!("`{signal}`"))
                     .collect::<Vec<_>>()
                     .join(", ");
-                diagnostics.push(Diagnostic::error(
-                    "E-COMPONENT-EQUATION-SIGNAL-001",
-                    local.line,
-                    &format!(
-                        "Component equation references unknown signal(s) {unknown_signal_labels} in `{expression}`."
-                    ),
-                    Some("Use declared component port signals such as `heat.T` or `heat.Q`."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-COMPONENT-EQUATION-SIGNAL-001",
+                        local.line,
+                        &format!(
+                            "Component equation references unknown signal(s) {unknown_signal_labels} in `{expression}`."
+                        ),
+                        Some("Use declared component port signals such as `heat.T` or `heat.Q`."),
+                    )
+                    .with_source_span(source_span),
+                );
                 continue;
             }
             let mut dependencies = signal_refs
@@ -10810,14 +11048,17 @@ fn component_local_equations(
             }));
             sort_component_equation_dependencies(&mut dependencies, &parameter_refs);
             if dependencies.is_empty() {
-                diagnostics.push(Diagnostic::error(
-                    "E-COMPONENT-EQUATION-SIGNAL-001",
-                    local.line,
-                    &format!("Component equation `{expression}` has no connected port signal."),
-                    Some(
-                        "Reference a signal from a port that participates in the component graph.",
-                    ),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-COMPONENT-EQUATION-SIGNAL-001",
+                        local.line,
+                        &format!("Component equation `{expression}` has no connected port signal."),
+                        Some(
+                            "Reference a signal from a port that participates in the component graph.",
+                        ),
+                    )
+                    .with_source_span(local.expression_span),
+                );
                 continue;
             }
             if numeric_literal_with_optional_unit(right).is_some()
@@ -10845,17 +11086,23 @@ fn component_local_equations(
                         || dimensionless_math_function_dimension_error(right, &dimension_symbols),
                     )
                 {
-                    diagnostics.push(Diagnostic::error(
-                        "E-COMPONENT-EQUATION-UNIT-001",
-                        local.line,
-                        &format!(
-                            "Component equation `{expression}` calls `{}` with non-dimensionless argument `{}` ({}).",
-                            function_error.function,
-                            function_error.argument,
-                            function_error.argument_dimension
-                        ),
-                        Some("Use sqrt, exp, ln, sin, and cos only with DimensionlessNumber expressions, or nondimensionalize the argument explicitly."),
-                    ));
+                    diagnostics.push(
+                        Diagnostic::error(
+                            "E-COMPONENT-EQUATION-UNIT-001",
+                            local.line,
+                            &format!(
+                                "Component equation `{expression}` calls `{}` with non-dimensionless argument `{}` ({}).",
+                                function_error.function,
+                                function_error.argument,
+                                function_error.argument_dimension
+                            ),
+                            Some("Use sqrt, exp, ln, sin, and cos only with DimensionlessNumber expressions, or nondimensionalize the argument explicitly."),
+                        )
+                        .with_source_span(component_equation_target_span(
+                            local,
+                            &function_error.argument,
+                        )),
+                    );
                     continue;
                 }
                 let left_dimension = expression_dimension_with_symbols(left, &dimension_symbols);
@@ -10869,14 +11116,23 @@ fn component_local_equations(
                         left,
                         right,
                     ) {
-                        diagnostics.push(Diagnostic::error(
-                            "E-COMPONENT-EQUATION-UNIT-001",
-                            local.line,
-                            &format!(
-                                "Component equation `{expression}` has incompatible dimensions `{left_dimension}` and `{right_dimension}`."
-                            ),
-                            Some("Make both sides reduce to compatible units, such as HeatRate = Conductance * TemperatureDelta."),
-                        ));
+                        diagnostics.push(
+                            Diagnostic::error(
+                                "E-COMPONENT-EQUATION-UNIT-001",
+                                local.line,
+                                &format!(
+                                    "Component equation `{expression}` has incompatible dimensions `{left_dimension}` and `{right_dimension}`."
+                                ),
+                                Some("Make both sides reduce to compatible units, such as HeatRate = Conductance * TemperatureDelta."),
+                            )
+                            .with_source_span(component_equation_dimension_mismatch_span(
+                                local,
+                                left,
+                                right,
+                                left_dimension,
+                                right_dimension,
+                            )),
+                        );
                         continue;
                     }
                 } else {
@@ -10892,12 +11148,15 @@ fn component_local_equations(
                             .map(|parameter| parameter.quantity_kind.clone()),
                     );
                     if dependency_kinds.len() > 1 {
-                        diagnostics.push(Diagnostic::error(
-                            "E-COMPONENT-EQUATION-UNIT-001",
-                            local.line,
-                            &format!("Component equation `{expression}` mixes incompatible signal quantities."),
-                            Some("Use unit-compatible arithmetic, or keep unsupported expressions to one signal quantity kind."),
-                        ));
+                        diagnostics.push(
+                            Diagnostic::error(
+                                "E-COMPONENT-EQUATION-UNIT-001",
+                                local.line,
+                                &format!("Component equation `{expression}` mixes incompatible signal quantities."),
+                                Some("Use unit-compatible arithmetic, or keep unsupported expressions to one signal quantity kind."),
+                            )
+                            .with_source_span(local.expression_span),
+                        );
                         continue;
                     }
                     if let Some(quantity_kind) = dependency_kinds.iter().next() {
@@ -10907,15 +11166,20 @@ fn component_local_equations(
                                 .filter(|unit| !unit_compatible_with_quantity(quantity_kind, unit))
                                 .collect::<Vec<_>>();
                         if !incompatible_units.is_empty() {
-                            diagnostics.push(Diagnostic::error(
-                                "E-COMPONENT-EQUATION-UNIT-001",
-                                local.line,
-                                &format!(
-                                    "Component equation `{expression}` uses unit(s) incompatible with `{quantity_kind}`: {}.",
-                                    incompatible_units.join(", ")
-                                ),
-                                Some("Use numeric constants with units compatible with the referenced port signal quantity."),
-                            ));
+                            let source_span =
+                                component_equation_target_span(local, &incompatible_units[0]);
+                            diagnostics.push(
+                                Diagnostic::error(
+                                    "E-COMPONENT-EQUATION-UNIT-001",
+                                    local.line,
+                                    &format!(
+                                        "Component equation `{expression}` uses unit(s) incompatible with `{quantity_kind}`: {}.",
+                                        incompatible_units.join(", ")
+                                    ),
+                                    Some("Use numeric constants with units compatible with the referenced port signal quantity."),
+                                )
+                                .with_source_span(source_span),
+                            );
                             continue;
                         }
                     }
@@ -11113,29 +11377,37 @@ fn component_equation_literal_rhs(
         .iter()
         .find(|signal| signal.local == left.trim())?;
     if !connected_variables.contains(&signal.qualified) {
-        diagnostics.push(Diagnostic::error(
-            "E-COMPONENT-EQUATION-SIGNAL-001",
-            local.line,
-            &format!(
-                "Component equation references unconnected signal `{left}` in `{}`.",
-                local.expression
-            ),
-            Some("Connect the port before solving a component-local equation over that signal."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-COMPONENT-EQUATION-SIGNAL-001",
+                local.line,
+                &format!(
+                    "Component equation references unconnected signal `{left}` in `{}`.",
+                    local.expression
+                ),
+                Some(
+                    "Connect the port before solving a component-local equation over that signal.",
+                ),
+            )
+            .with_source_span(component_equation_target_span(local, left)),
+        );
         return None;
     }
     let (_value, unit) = numeric_literal_with_optional_unit(right)?;
     if let Some(unit) = unit {
         if !unit_compatible_with_quantity(&signal.quantity_kind, &unit) {
-            diagnostics.push(Diagnostic::error(
-                "E-COMPONENT-EQUATION-UNIT-001",
-                local.line,
-                &format!(
-                    "Component equation RHS unit `{unit}` is not compatible with `{}`.",
-                    signal.quantity_kind
-                ),
-                Some("Use a unit compatible with the connected port signal quantity."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-COMPONENT-EQUATION-UNIT-001",
+                    local.line,
+                    &format!(
+                        "Component equation RHS unit `{unit}` is not compatible with `{}`.",
+                        signal.quantity_kind
+                    ),
+                    Some("Use a unit compatible with the connected port signal quantity."),
+                )
+                .with_source_span(component_equation_right_span(local)),
+            );
             return None;
         }
     }
@@ -11508,13 +11780,14 @@ fn split_endpoint(endpoint: &str) -> Option<(String, String)> {
     Some((component.to_owned(), port.to_owned()))
 }
 
-fn connection_endpoint_diagnostic(endpoint: &str, line: usize) -> Diagnostic {
+fn connection_endpoint_diagnostic(endpoint: &str, source_span: SourceSpan) -> Diagnostic {
     Diagnostic::error(
         "E-CONNECT-ENDPOINT-001",
-        line,
+        source_span.line,
         &format!("Connection endpoint `{endpoint}` is not a component port path."),
         Some("Use `Component.port` on both sides of `connect ... -> ...`."),
     )
+    .with_source_span(source_span)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -12821,15 +13094,18 @@ fn analyze_equation(
         "unit_consistent"
     } else {
         if left_dimension != "unknown" && right_dimension != "unknown" {
-            diagnostics.push(Diagnostic::error(
-                "E-EQ-UNIT-001",
-                equation.line,
-                &format!(
-                    "Equation dimensions do not match: left is {}, right is {}.",
-                    left_dimension, right_dimension
-                ),
-                Some("Both sides of a physical equation must have the same dimension."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-EQ-UNIT-001",
+                    equation.line,
+                    &format!(
+                        "Equation dimensions do not match: left is {}, right is {}.",
+                        left_dimension, right_dimension
+                    ),
+                    Some("Both sides of a physical equation must have the same dimension."),
+                )
+                .with_source_span(equation.right_span),
+            );
         }
         "unit_unresolved"
     };
@@ -12851,7 +13127,10 @@ fn analyze_equation(
     system.equations.push(EquationInfo {
         system: system.name.clone(),
         left: equation.left.clone(),
+        left_span: equation.left_span,
         right: equation.right.clone(),
+        right_span: equation.right_span,
+        span: equation.span,
         relation: "eq".to_owned(),
         left_dimension,
         right_dimension,
@@ -14496,6 +14775,36 @@ fn split_top_level(expression: &str, operators: &[char]) -> Vec<String> {
     let tail = expression[start..].trim();
     if !tail.is_empty() {
         parts.push(tail.to_owned());
+    }
+    parts
+}
+
+fn split_top_level_slices<'a>(expression: &'a str, operators: &[char]) -> Vec<&'a str> {
+    let mut parts = Vec::new();
+    let mut depth = 0i32;
+    let mut start = 0usize;
+
+    for (index, character) in expression.char_indices() {
+        match character {
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            other if depth == 0 && operators.contains(&other) => {
+                if index == 0 {
+                    continue;
+                }
+                let part = expression[start..index].trim();
+                if !part.is_empty() {
+                    parts.push(part);
+                }
+                start = index + other.len_utf8();
+            }
+            _ => {}
+        }
+    }
+
+    let tail = expression[start..].trim();
+    if !tail.is_empty() {
+        parts.push(tail);
     }
     parts
 }

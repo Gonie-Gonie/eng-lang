@@ -164,6 +164,18 @@ Duplicate, unresolved, dimension-mismatched, and side-effecting return
 diagnostics underline that expression. A missing-return diagnostic instead uses
 the function name because no expression exists.
 
+Domain declarations retain generic kind/name spans, variable type/unit spans,
+and conservation keyword/expression spans. Component metadata retains parameter
+type/unit/default spans, local expression and equation-side spans, constructor
+argument values, and both connect endpoints. System equations likewise retain
+their relation and left/right source ranges. Domain contract and quantity errors,
+connect endpoint/compatibility errors, component parameter/equation/boundary and
+delay/predictor/external behavior errors, and physical-equation diagnostics all
+consume these ranges. The same metadata drives quantity/unit and endpoint
+semantic colors plus source-owned domain, component, equation, and connection
+Outline selections; synthesized residual metadata is not presented as a source
+declaration.
+
 Class declarations retain exact field default, validation expression, method
 return type/unit, and method expression spans. Class object fields retain their
 value expression spans. Every `E-CLASS-*` diagnostic consumes one of these
