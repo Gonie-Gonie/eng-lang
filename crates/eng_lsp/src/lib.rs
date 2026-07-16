@@ -1540,7 +1540,7 @@ fn string_literal_byte_ranges(line: &str) -> Vec<(usize, usize)> {
     ranges
 }
 
-fn trimmed_range<'a>(value: &'a str, line_offset: usize) -> Option<(usize, usize, &'a str)> {
+fn trimmed_range(value: &str, line_offset: usize) -> Option<(usize, usize, &str)> {
     let leading = leading_whitespace_len(value);
     let trimmed = value.trim();
     if trimmed.is_empty() {
@@ -1586,14 +1586,10 @@ fn last_backtick_payload(text: &str) -> Option<&str> {
 fn backtick_payload_byte_range(line: &str, text: &str) -> Option<(usize, usize)> {
     let mut rest = text;
     loop {
-        let Some(open) = rest.find('`') else {
-            return None;
-        };
+        let open = rest.find('`')?;
         let payload_start = open + '`'.len_utf8();
         let after_open = &rest[payload_start..];
-        let Some(close) = after_open.find('`') else {
-            return None;
-        };
+        let close = after_open.find('`')?;
         let payload = &after_open[..close];
         if let Some(range) = find_byte_range(line, payload) {
             return Some(range);
@@ -1608,14 +1604,10 @@ fn json_read_field_access_diagnostic_byte_range(
 ) -> Option<(usize, usize)> {
     let mut rest = diagnostic.message.as_str();
     loop {
-        let Some(open) = rest.find('`') else {
-            return None;
-        };
+        let open = rest.find('`')?;
         let payload_start = open + '`'.len_utf8();
         let after_open = &rest[payload_start..];
-        let Some(close) = after_open.find('`') else {
-            return None;
-        };
+        let close = after_open.find('`')?;
         let payload = &after_open[..close];
         if let Some((binding, field)) = payload.split_once('.') {
             let binding = binding.trim();
@@ -3068,34 +3060,34 @@ fn with_block_option_semantic_modifiers(
     let mut has_uncertain = false;
     for option in &block.options {
         let modifiers = with_option_semantic_modifiers(program, block, &option.key);
-        if modifiers.iter().any(|modifier| *modifier == "db") {
+        if modifiers.contains(&"db") {
             return &["db"];
         }
-        if modifiers.iter().any(|modifier| *modifier == "external") {
+        if modifiers.contains(&"external") {
             return &["external", "workflowStep"];
         }
-        if modifiers.iter().any(|modifier| *modifier == "sideEffect") {
+        if modifiers.contains(&"sideEffect") {
             return &["sideEffect"];
         }
-        if modifiers.iter().any(|modifier| *modifier == "solver") {
+        if modifiers.contains(&"solver") {
             return &["solver", "workflowStep"];
         }
-        if modifiers.iter().any(|modifier| *modifier == "report") {
+        if modifiers.contains(&"report") {
             return &["report", "workflowStep"];
         }
-        if modifiers.iter().any(|modifier| *modifier == "validation") {
+        if modifiers.contains(&"validation") {
             return &["validation"];
         }
-        if modifiers.iter().any(|modifier| *modifier == "workflowStep") {
+        if modifiers.contains(&"workflowStep") {
             return &["workflowStep"];
         }
-        if modifiers.iter().any(|modifier| *modifier == "model") {
+        if modifiers.contains(&"model") {
             return &["model"];
         }
-        if modifiers.iter().any(|modifier| *modifier == "cache") {
+        if modifiers.contains(&"cache") {
             has_cache = true;
         }
-        if modifiers.iter().any(|modifier| *modifier == "uncertain") {
+        if modifiers.contains(&"uncertain") {
             has_uncertain = true;
         }
     }
@@ -4579,6 +4571,7 @@ fn folding_ranges(source: &str) -> Vec<LspFoldingRange> {
     ranges
 }
 
+#[allow(clippy::too_many_arguments)]
 fn push_document_symbol(
     symbols: &mut Vec<LspDocumentSymbol>,
     seen: &mut BTreeSet<(usize, String)>,
@@ -4696,10 +4689,7 @@ fn find_symbol_start(line: &str, name: &str) -> Option<usize> {
 }
 
 fn block_end_line(lines: &[&str], start_line: usize) -> Option<usize> {
-    if !brace_events(lines.get(start_line)?)
-        .iter()
-        .any(|event| *event == '{')
-    {
+    if !brace_events(lines.get(start_line)?).contains(&'{') {
         return None;
     }
     let mut depth = 0usize;
@@ -4950,6 +4940,14 @@ impl KnownSemanticSymbol {
     }
 }
 
+struct WordTokenCatalogs<'a, 'value> {
+    quantity_names: &'a BTreeSet<&'value str>,
+    public_types: &'a BTreeSet<&'value str>,
+    unit_ranges: &'a [(usize, usize)],
+    units: &'a [&'value str],
+    constant_keywords: &'a BTreeSet<&'value str>,
+}
+
 struct SemanticTokenBuilder<'a> {
     lines: Vec<&'a str>,
     tokens: Vec<LspSemanticToken>,
@@ -5023,11 +5021,13 @@ impl<'a> SemanticTokenBuilder<'a> {
                     line_index,
                     start,
                     end,
-                    &quantity_names,
-                    &public_types,
-                    &unit_ranges,
-                    &units,
-                    &constant_keywords,
+                    WordTokenCatalogs {
+                        quantity_names: &quantity_names,
+                        public_types: &public_types,
+                        unit_ranges: &unit_ranges,
+                        units: &units,
+                        constant_keywords: &constant_keywords,
+                    },
                 );
                 self.scan_workflow_status_condition_tokens(line_index, start, end);
                 self.scan_legacy_declaration_names(line_index, start, end);
@@ -5215,12 +5215,15 @@ impl<'a> SemanticTokenBuilder<'a> {
         line_index: usize,
         start: usize,
         end: usize,
-        quantity_names: &BTreeSet<&str>,
-        public_types: &BTreeSet<&str>,
-        unit_ranges: &[(usize, usize)],
-        units: &[&str],
-        constant_keywords: &BTreeSet<&str>,
+        catalogs: WordTokenCatalogs<'_, '_>,
     ) {
+        let WordTokenCatalogs {
+            quantity_names,
+            public_types,
+            unit_ranges,
+            units,
+            constant_keywords,
+        } = catalogs;
         let line = self.lines[line_index];
         let bytes = line.as_bytes();
         let mut index = start;
@@ -5900,7 +5903,7 @@ impl<'a> SemanticTokenBuilder<'a> {
                         index += 1;
                     }
                     let token = &line[token_start..index];
-                    if identifiers.iter().any(|identifier| *identifier == token) {
+                    if identifiers.contains(&token) {
                         self.push_byte_range(
                             line_index,
                             token_start,
@@ -6939,10 +6942,7 @@ fn command_style_identifier_paths<'a>(text: &'a str, skip: &[&str]) -> Vec<&'a s
     })
     .filter_map(|part| {
         let part = part.trim_matches('.');
-        if part.is_empty()
-            || skip.iter().any(|keyword| *keyword == part)
-            || !is_simple_identifier_path(part)
-        {
+        if part.is_empty() || skip.contains(&part) || !is_simple_identifier_path(part) {
             None
         } else {
             Some(part)
@@ -9713,7 +9713,7 @@ fn function_argument_option_labels(function_name: &str) -> Option<&'static [&'st
 }
 
 fn function_argument_option_completion_detail(label: &str) -> Option<&'static str> {
-    contextual_workflow_option_completion_detail(label).or_else(|| match label {
+    contextual_workflow_option_completion_detail(label).or(match label {
         "distribution" => Some("uncertainty distribution kind option alias"),
         "error" => Some("measurement absolute error option"),
         "layers" => Some("MLP hidden layer alias"),

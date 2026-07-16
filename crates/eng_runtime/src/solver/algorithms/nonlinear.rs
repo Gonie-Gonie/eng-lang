@@ -142,20 +142,20 @@ where
     let mut line_search_history = Vec::new();
     let mut linear_step_history = Vec::new();
     if residual_norm <= options.tolerance {
-        return Ok(build_newton_result(
+        return Ok(build_newton_result(NewtonResultInput {
             values,
             residual_history,
             residual_value_history,
             line_search_history,
             linear_step_history,
             jacobian_policy,
-            &variable_scale_policy,
-            &variable_scales,
-            0,
-            "newton_converged",
-            None,
-            &residual_values,
-        ));
+            variable_scale_policy: &variable_scale_policy,
+            variable_scales: &variable_scales,
+            iteration_count: 0,
+            convergence_status: "newton_converged",
+            failure: None,
+            residual_values: &residual_values,
+        }));
     }
 
     for iteration in 1..=options.max_iterations {
@@ -175,20 +175,20 @@ where
         let linear = match solve_dense_linear_system(&scaled_jacobian, &rhs, options.tolerance) {
             Ok(linear) => linear,
             Err(failure) => {
-                return Ok(build_newton_result(
+                return Ok(build_newton_result(NewtonResultInput {
                     values,
-                    residual_history.clone(),
-                    residual_value_history.clone(),
-                    line_search_history.clone(),
-                    linear_step_history.clone(),
+                    residual_history: residual_history.clone(),
+                    residual_value_history: residual_value_history.clone(),
+                    line_search_history: line_search_history.clone(),
+                    linear_step_history: linear_step_history.clone(),
                     jacobian_policy,
-                    &variable_scale_policy,
-                    &variable_scales,
-                    iteration,
-                    "newton_linear_solve_failed",
-                    Some(failure),
-                    &residual_values,
-                ));
+                    variable_scale_policy: &variable_scale_policy,
+                    variable_scales: &variable_scales,
+                    iteration_count: iteration,
+                    convergence_status: "newton_linear_solve_failed",
+                    failure: Some(failure),
+                    residual_values: &residual_values,
+                }));
             }
         };
         linear_step_history.push(NewtonLinearStep {
@@ -203,20 +203,20 @@ where
         let accepted = match damped_step(&values, &step, residual_norm, options, &mut residual) {
             Ok(accepted) => accepted,
             Err(failure) => {
-                return Ok(build_newton_result(
+                return Ok(build_newton_result(NewtonResultInput {
                     values,
-                    residual_history.clone(),
-                    residual_value_history.clone(),
-                    line_search_history.clone(),
-                    linear_step_history.clone(),
+                    residual_history: residual_history.clone(),
+                    residual_value_history: residual_value_history.clone(),
+                    line_search_history: line_search_history.clone(),
+                    linear_step_history: linear_step_history.clone(),
                     jacobian_policy,
-                    &variable_scale_policy,
-                    &variable_scales,
-                    iteration,
-                    "newton_line_search_failed",
-                    Some(failure),
-                    &residual_values,
-                ));
+                    variable_scale_policy: &variable_scale_policy,
+                    variable_scales: &variable_scales,
+                    iteration_count: iteration,
+                    convergence_status: "newton_line_search_failed",
+                    failure: Some(failure),
+                    residual_values: &residual_values,
+                }));
             }
         };
         line_search_history.push(NewtonLineSearchStep {
@@ -232,59 +232,75 @@ where
         residual_value_history.push(residual_values.clone());
 
         if residual_norm <= options.tolerance {
-            return Ok(build_newton_result(
+            return Ok(build_newton_result(NewtonResultInput {
                 values,
                 residual_history,
                 residual_value_history,
-                line_search_history.clone(),
-                linear_step_history.clone(),
+                line_search_history: line_search_history.clone(),
+                linear_step_history: linear_step_history.clone(),
                 jacobian_policy,
-                &variable_scale_policy,
-                &variable_scales,
-                iteration,
-                "newton_converged",
-                None,
-                &residual_values,
-            ));
+                variable_scale_policy: &variable_scale_policy,
+                variable_scales: &variable_scales,
+                iteration_count: iteration,
+                convergence_status: "newton_converged",
+                failure: None,
+                residual_values: &residual_values,
+            }));
         }
     }
 
-    Ok(build_newton_result(
+    Ok(build_newton_result(NewtonResultInput {
         values,
         residual_history,
         residual_value_history,
         line_search_history,
         linear_step_history,
         jacobian_policy,
-        &variable_scale_policy,
-        &variable_scales,
-        options.max_iterations,
-        "newton_not_converged",
-        Some(SolverFailure::new(
+        variable_scale_policy: &variable_scale_policy,
+        variable_scales: &variable_scales,
+        iteration_count: options.max_iterations,
+        convergence_status: "newton_not_converged",
+        failure: Some(SolverFailure::new(
             "E-NEWTON-NONCONVERGENCE",
             format!(
                 "Newton solver did not converge after {} iteration(s); final residual norm was {}",
                 options.max_iterations, residual_norm
             ),
         )),
-        &residual_values,
-    ))
+        residual_values: &residual_values,
+    }))
 }
 
-fn build_newton_result(
+struct NewtonResultInput<'a> {
     values: Vec<f64>,
     residual_history: Vec<f64>,
     residual_value_history: Vec<Vec<f64>>,
     line_search_history: Vec<NewtonLineSearchStep>,
     linear_step_history: Vec<NewtonLinearStep>,
-    jacobian_policy: &str,
-    variable_scale_policy: &str,
-    variable_scales: &[f64],
+    jacobian_policy: &'a str,
+    variable_scale_policy: &'a str,
+    variable_scales: &'a [f64],
     iteration_count: usize,
-    convergence_status: &str,
+    convergence_status: &'a str,
     failure: Option<SolverFailure>,
-    residual_values: &[f64],
-) -> NewtonResult {
+    residual_values: &'a [f64],
+}
+
+fn build_newton_result(input: NewtonResultInput<'_>) -> NewtonResult {
+    let NewtonResultInput {
+        values,
+        residual_history,
+        residual_value_history,
+        line_search_history,
+        linear_step_history,
+        jacobian_policy,
+        variable_scale_policy,
+        variable_scales,
+        iteration_count,
+        convergence_status,
+        failure,
+        residual_values,
+    } = input;
     NewtonResult {
         values,
         residual_history,

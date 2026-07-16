@@ -94,12 +94,14 @@ impl ResidualGraph {
                     match lower_linear_residual_expression(
                         &equation.residual,
                         &equation.dependencies,
-                        &variable_indices,
-                        &variables,
-                        &variable_units,
-                        Some((&unit, &quantity_kind)),
-                        Some(&parameter_values),
-                        COMPONENT_RESIDUAL_LOWERING,
+                        LinearResidualLoweringContext {
+                            variable_aliases: &variable_indices,
+                            variables: &variables,
+                            variable_units: &variable_units,
+                            residual_unit: Some((&unit, &quantity_kind)),
+                            constant_aliases: Some(&parameter_values),
+                            profile: COMPONENT_RESIDUAL_LOWERING,
+                        },
                     ) {
                         Ok(parsed) => Some(parsed),
                         Err(failure) => {
@@ -324,12 +326,14 @@ impl ResidualGraph {
                 let parsed = lower_linear_residual_expression(
                     &equation.residual,
                     &equation.dependencies,
-                    &variable_aliases,
-                    &variables,
-                    &variable_units,
-                    Some((&unit, &quantity_kind)),
-                    Some(&parameter_values),
-                    DYNAMIC_COMPONENT_RESIDUAL_LOWERING,
+                    LinearResidualLoweringContext {
+                        variable_aliases: &variable_aliases,
+                        variables: &variables,
+                        variable_units: &variable_units,
+                        residual_unit: Some((&unit, &quantity_kind)),
+                        constant_aliases: Some(&parameter_values),
+                        profile: DYNAMIC_COMPONENT_RESIDUAL_LOWERING,
+                    },
                 )?;
                 let rhs_value = dynamic_residual_rhs_value(equation, parsed.constant)?;
                 let scale = ResidualScale::from_quantity_unit(&quantity_kind, &unit);
@@ -598,16 +602,28 @@ fn dynamic_residual_rhs_value(
     }
 }
 
+struct LinearResidualLoweringContext<'a> {
+    variable_aliases: &'a HashMap<String, usize>,
+    variables: &'a [ResidualVariableRef],
+    variable_units: &'a HashMap<String, (String, String)>,
+    residual_unit: Option<(&'a str, &'a str)>,
+    constant_aliases: Option<&'a HashMap<String, ResidualConstantAlias>>,
+    profile: ResidualExpressionLoweringProfile,
+}
+
 fn lower_linear_residual_expression(
     expression: &str,
     dependencies: &[String],
-    variable_aliases: &HashMap<String, usize>,
-    variables: &[ResidualVariableRef],
-    variable_units: &HashMap<String, (String, String)>,
-    residual_unit: Option<(&str, &str)>,
-    constant_aliases: Option<&HashMap<String, ResidualConstantAlias>>,
-    profile: ResidualExpressionLoweringProfile,
+    context: LinearResidualLoweringContext<'_>,
 ) -> Result<LoweredLinearResidualExpression, SolverFailure> {
+    let LinearResidualLoweringContext {
+        variable_aliases,
+        variables,
+        variable_units,
+        residual_unit,
+        constant_aliases,
+        profile,
+    } = context;
     let dependency_indices = dependencies
         .iter()
         .filter_map(|dependency| variable_aliases.get(dependency).copied())
@@ -1735,12 +1751,14 @@ mod tests {
         let component_failure = lower_linear_residual_expression(
             "x * y",
             &dependencies,
-            &variable_aliases,
-            &variables,
-            &variable_units,
-            Some(("1", "Dimensionless")),
-            None,
-            COMPONENT_RESIDUAL_LOWERING,
+            LinearResidualLoweringContext {
+                variable_aliases: &variable_aliases,
+                variables: &variables,
+                variable_units: &variable_units,
+                residual_unit: Some(("1", "Dimensionless")),
+                constant_aliases: None,
+                profile: COMPONENT_RESIDUAL_LOWERING,
+            },
         )
         .unwrap_err();
         assert_eq!(component_failure.code, "E-COMPONENT-ASSEMBLY-RESIDUAL");
@@ -1751,12 +1769,14 @@ mod tests {
         let dynamic_failure = lower_linear_residual_expression(
             "x * y",
             &dependencies,
-            &variable_aliases,
-            &variables,
-            &variable_units,
-            Some(("1", "Dimensionless")),
-            None,
-            DYNAMIC_COMPONENT_RESIDUAL_LOWERING,
+            LinearResidualLoweringContext {
+                variable_aliases: &variable_aliases,
+                variables: &variables,
+                variable_units: &variable_units,
+                residual_unit: Some(("1", "Dimensionless")),
+                constant_aliases: None,
+                profile: DYNAMIC_COMPONENT_RESIDUAL_LOWERING,
+            },
         )
         .unwrap_err();
         assert_eq!(

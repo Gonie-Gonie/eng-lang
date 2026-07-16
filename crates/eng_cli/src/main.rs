@@ -1405,6 +1405,39 @@ fn json_usize(value: &serde_json::Value, key: &str) -> Option<usize> {
         .and_then(|value| usize::try_from(value).ok())
 }
 
+fn file_stem(path: &str) -> String {
+    Path::new(path)
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("source")
+        .to_owned()
+}
+
+fn print_help() {
+    println!(
+        r#"EngLang {version}
+
+Usage:
+  eng doctor
+  eng new <project_name>
+  eng check <file.eng> [--review]
+  eng review <file.eng> [--json] [--output <dir>] [--against <review.json>]
+  eng fmt <file.eng> [--check|--write]
+  eng ide-check <file.eng>
+  eng jit-plan <file.eng>
+  eng jit-bench <file.eng> [--iterations N] [--<arg> <value>...]
+  eng run <file.eng> [--profile safe|normal|repro] [--open-report] [--save-artifacts] [--skip-unchanged] [--<arg> <value>...]
+  eng cache invalidate [--manifest build/result/cache_manifest.json] [--all|--owner-kind <kind>|--owner-name <name>|--cache-key-hash <hash>] [--dry-run]
+  eng build <file.eng> [--standalone] [--profile repro]
+  eng view <result.engres>
+  eng test <project_or_examples>
+
+The supported core path intentionally stays free of Python dependencies.
+"#,
+        version = env!("CARGO_PKG_VERSION")
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1655,37 +1688,4 @@ mod tests {
         assert!(target.exists());
         let _ = std::fs::remove_dir_all(&root);
     }
-}
-
-fn file_stem(path: &str) -> String {
-    Path::new(path)
-        .file_stem()
-        .and_then(|value| value.to_str())
-        .unwrap_or("source")
-        .to_owned()
-}
-
-fn print_help() {
-    println!(
-        r#"EngLang {version}
-
-Usage:
-  eng doctor
-  eng new <project_name>
-  eng check <file.eng> [--review]
-  eng review <file.eng> [--json] [--output <dir>] [--against <review.json>]
-  eng fmt <file.eng> [--check|--write]
-  eng ide-check <file.eng>
-  eng jit-plan <file.eng>
-  eng jit-bench <file.eng> [--iterations N] [--<arg> <value>...]
-  eng run <file.eng> [--profile safe|normal|repro] [--open-report] [--save-artifacts] [--skip-unchanged] [--<arg> <value>...]
-  eng cache invalidate [--manifest build/result/cache_manifest.json] [--all|--owner-kind <kind>|--owner-name <name>|--cache-key-hash <hash>] [--dry-run]
-  eng build <file.eng> [--standalone] [--profile repro]
-  eng view <result.engres>
-  eng test <project_or_examples>
-
-The supported core path intentionally stays free of Python dependencies.
-"#,
-        version = env!("CARGO_PKG_VERSION")
-    );
 }

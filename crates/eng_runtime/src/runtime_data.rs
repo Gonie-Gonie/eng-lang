@@ -4432,10 +4432,10 @@ fn interpolate_timeseries_fill_points(
     let mut missing_count = 0usize;
     let mut filled_count = 0usize;
     let mut skipped_count = 0usize;
-    for slot in 0..expected_count {
+    for (slot, observed_value) in observed.iter().enumerate().take(expected_count) {
         let x = start + slot as f64 * step;
-        if let Some(value) = observed[slot] {
-            points.push(RuntimePoint { x, y: value });
+        if let Some(value) = observed_value {
+            points.push(RuntimePoint { x, y: *value });
             continue;
         }
         missing_count += 1;
@@ -7243,12 +7243,11 @@ fn table_transform_temporal_compare(actual: &str, expected: &str, operator: &str
 }
 
 fn table_temporal_ordering(actual: &str, expected: &str) -> Option<Ordering> {
-    match (
+    if let (Some(actual), Some(expected)) = (
         parse_utc_timestamp_seconds(actual.trim()),
         parse_utc_timestamp_seconds(expected.trim()),
     ) {
-        (Some(actual), Some(expected)) => return Some(actual.cmp(&expected)),
-        _ => {}
+        return Some(actual.cmp(&expected));
     }
     match (
         table_selection_date_prefix(actual),
@@ -11162,14 +11161,19 @@ fn materialize_component_solutions(
             let solver = option_value(&request.options, "solver").unwrap_or("dense_linear");
             let mut solution = match solver.trim() {
                 "fixed_point" => fixed_point_component_solution_from_solve_request(
-                    &assembly.name,
                     &solver_assembly,
                     &request,
-                    "fixed_point_residual_graph",
-                    "fixed-point source solve initial values could not be materialized",
-                    "fixed-point source solve residual scale overrides could not be materialized",
-                    "fixed-point source solve variable scales could not be materialized",
-                    "fixed_point_source_failed",
+                    FixedPointSourceSolveContext {
+                        assembly_name: &assembly.name,
+                        method: "fixed_point_residual_graph",
+                        initial_reason:
+                            "fixed-point source solve initial values could not be materialized",
+                        residual_scale_reason:
+                            "fixed-point source solve residual scale overrides could not be materialized",
+                        variable_scale_reason:
+                            "fixed-point source solve variable scales could not be materialized",
+                        failure_convergence_status: "fixed_point_source_failed",
+                    },
                 ),
                 "newton" | "nonlinear_newton" => {
                     nonlinear_component_solution_from_solve_request(&solver_assembly, &request)
@@ -11233,16 +11237,28 @@ fn materialize_component_solutions(
     solutions
 }
 
+struct FixedPointSourceSolveContext<'a> {
+    assembly_name: &'a str,
+    method: &'a str,
+    initial_reason: &'a str,
+    residual_scale_reason: &'a str,
+    variable_scale_reason: &'a str,
+    failure_convergence_status: &'a str,
+}
+
 fn fixed_point_component_solution_from_solve_request(
-    assembly_name: &str,
     solver_assembly: &EquationAssembly,
     request: &ComponentSolveRequest,
-    method: &str,
-    initial_reason: &str,
-    residual_scale_reason: &str,
-    variable_scale_reason: &str,
-    failure_convergence_status: &str,
+    context: FixedPointSourceSolveContext<'_>,
 ) -> RuntimeComponentSolution {
+    let FixedPointSourceSolveContext {
+        assembly_name,
+        method,
+        initial_reason,
+        residual_scale_reason,
+        variable_scale_reason,
+        failure_convergence_status,
+    } = context;
     let options = fixed_point_options_from_solve_request(&request.options);
     let initial_values = match fixed_point_initial_values_from_solve_request(
         &request.options,
@@ -11339,14 +11355,19 @@ fn materialize_system_algebraic_solutions(report: &CheckReport) -> Vec<RuntimeCo
                     }
                 }
                 "fixed_point" => fixed_point_component_solution_from_solve_request(
-                    &system.name,
                     &solver_assembly,
                     &request,
-                    "source_system_fixed_point_residual_graph",
-                    "source system fixed-point initial values could not be materialized",
-                    "source system fixed-point residual scale overrides could not be materialized",
-                    "source system fixed-point variable scales could not be materialized",
-                    "source_system_fixed_point_failed",
+                    FixedPointSourceSolveContext {
+                        assembly_name: &system.name,
+                        method: "source_system_fixed_point_residual_graph",
+                        initial_reason:
+                            "source system fixed-point initial values could not be materialized",
+                        residual_scale_reason:
+                            "source system fixed-point residual scale overrides could not be materialized",
+                        variable_scale_reason:
+                            "source system fixed-point variable scales could not be materialized",
+                        failure_convergence_status: "source_system_fixed_point_failed",
+                    },
                 ),
                 "newton" | "nonlinear_newton" => {
                     nonlinear_component_solution_from_solve_request(&solver_assembly, &request)
@@ -11941,6 +11962,12 @@ fn dae_component_solution_from_solve_request(
             );
         }
     };
+    let residual_context = SourceResidualEvaluationContext {
+        assembly: solver_assembly,
+        graph: &residual_graph,
+        parsed_residuals: &parsed_residuals,
+        scale_overrides: &residual_scale_overrides,
+    };
     let initial_state = match source_initial_values_from_options(
         &request.options,
         "initial",
@@ -12031,23 +12058,17 @@ fn dae_component_solution_from_solve_request(
             |sample| {
                 if let Some(graph) = behavior_graph.as_mut() {
                     source_dae_residual_values_with_behavior(
-                        solver_assembly,
-                        &residual_graph,
-                        &parsed_residuals,
+                        residual_context,
                         graph,
                         &behavior_output_symbols,
                         sample,
                         SourceResidualSubset::AlgebraicOnly,
-                        &residual_scale_overrides,
                     )
                 } else {
                     source_dae_residual_values(
-                        solver_assembly,
-                        &residual_graph,
-                        &parsed_residuals,
+                        residual_context,
                         sample,
                         SourceResidualSubset::AlgebraicOnly,
-                        &residual_scale_overrides,
                     )
                 }
             },
@@ -12145,24 +12166,14 @@ fn dae_component_solution_from_solve_request(
         };
         if let Some(graph) = behavior_graph.as_mut() {
             source_dae_residual_values_with_behavior(
-                solver_assembly,
-                &residual_graph,
-                &parsed_residuals,
+                residual_context,
                 graph,
                 &behavior_output_symbols,
                 dae_sample,
                 SourceResidualSubset::All,
-                &residual_scale_overrides,
             )
         } else {
-            source_dae_residual_values(
-                solver_assembly,
-                &residual_graph,
-                &parsed_residuals,
-                dae_sample,
-                SourceResidualSubset::All,
-                &residual_scale_overrides,
-            )
+            source_dae_residual_values(residual_context, dae_sample, SourceResidualSubset::All)
         }
     });
     let dae = match dae {
@@ -12393,17 +12404,16 @@ fn dae_component_solution_from_solve_request(
         DAE_SOURCE_INPUT_PROFILE,
     ) {
         if let Ok(evaluation) = source_residual_evaluation_for_dae_final(
-            solver_assembly,
-            &residual_graph,
-            &parsed_residuals,
+            residual_context,
             behavior_graph.as_mut(),
             &behavior_output_symbols,
-            &dae_input,
-            dae_options.mass_matrix.as_ref(),
-            &solver_result,
-            &final_inputs,
-            tolerance,
-            &residual_scale_overrides,
+            SourceResidualFinalSample {
+                input: &dae_input,
+                mass_matrix: dae_options.mass_matrix.as_ref(),
+                solver_result: &solver_result,
+                inputs: &final_inputs,
+                tolerance,
+            },
         ) {
             solution.residual_norm = evaluation.residual_norm;
             solution.residuals = evaluation.residuals;
@@ -13013,6 +13023,13 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
     let mut rhs_algebraic_guess = solve_input.initial_algebraic.clone();
     let mut rhs_derivative_guess = vec![0.0; split.state_layout.len()];
     let mut derivative_step_diagnostics = Vec::new();
+    let algebraic_context = AdaptiveDynamicComponentAlgebraicContext {
+        assembly,
+        algebraic_layout: &split.algebraic_layout,
+        parsed_residuals: &parsed_residuals,
+        options: &options,
+        scale_overrides: &residual_scale_overrides,
+    };
     let adaptive_result = match solve_adaptive_heun_ode(
         &solver_input,
         &adaptive_options,
@@ -13025,16 +13042,14 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
                 sample.time_s,
             )?;
             let algebraic = adaptive_dynamic_component_algebraic_values(
-                assembly,
-                &split.algebraic_layout,
-                &parsed_residuals,
-                sample.time_s,
-                sample.state,
-                &inputs,
-                sample.parameters,
-                &rhs_algebraic_guess,
-                &options,
-                &residual_scale_overrides,
+                algebraic_context,
+                AdaptiveDynamicComponentAlgebraicSample {
+                    time_s: sample.time_s,
+                    state: sample.state,
+                    inputs: &inputs,
+                    parameters: sample.parameters,
+                    algebraic_guess: &rhs_algebraic_guess,
+                },
             )?;
             if !algebraic.values.is_empty() {
                 rhs_algebraic_guess.clone_from(&algebraic.values);
@@ -13088,15 +13103,11 @@ fn expression_dynamic_component_adaptive_solution_from_solve_request(
     let mut solver_result = adaptive_result.solver_result;
     let (algebraic_trajectories, mut algebraic_step_diagnostics) =
         adaptive_dynamic_component_algebraic_trajectories(
-            assembly,
-            &split.algebraic_layout,
-            &parsed_residuals,
+            algebraic_context,
             &solve_input,
             &input_series,
             series,
             &solver_result,
-            &options,
-            &residual_scale_overrides,
         )?;
     solver_result.output.algebraic_trajectories = algebraic_trajectories;
     let uses_derivative_newton = !derivative_step_diagnostics.is_empty();
@@ -13185,18 +13196,41 @@ fn append_source_derivative_step_diagnostics(
     solution.step_diagnostics.extend(diagnostics);
 }
 
-fn adaptive_dynamic_component_algebraic_values(
-    assembly: &EquationAssembly,
-    algebraic_layout: &StateLayout,
-    parsed_residuals: &[ParsedSourceResidual],
+#[derive(Clone, Copy)]
+struct AdaptiveDynamicComponentAlgebraicContext<'a> {
+    assembly: &'a EquationAssembly,
+    algebraic_layout: &'a StateLayout,
+    parsed_residuals: &'a [ParsedSourceResidual],
+    options: &'a DynamicComponentOptions,
+    scale_overrides: &'a [ResidualScaleOverride],
+}
+
+struct AdaptiveDynamicComponentAlgebraicSample<'a> {
     time_s: f64,
-    state: &[f64],
-    inputs: &[SolverScalar],
-    parameters: &[SolverScalar],
-    algebraic_guess: &[f64],
-    options: &DynamicComponentOptions,
-    scale_overrides: &[ResidualScaleOverride],
+    state: &'a [f64],
+    inputs: &'a [SolverScalar],
+    parameters: &'a [SolverScalar],
+    algebraic_guess: &'a [f64],
+}
+
+fn adaptive_dynamic_component_algebraic_values(
+    context: AdaptiveDynamicComponentAlgebraicContext<'_>,
+    sample: AdaptiveDynamicComponentAlgebraicSample<'_>,
 ) -> Result<AdaptiveDynamicComponentAlgebraicSolve, SolverFailure> {
+    let AdaptiveDynamicComponentAlgebraicContext {
+        assembly,
+        algebraic_layout,
+        parsed_residuals,
+        options,
+        scale_overrides,
+    } = context;
+    let AdaptiveDynamicComponentAlgebraicSample {
+        time_s,
+        state,
+        inputs,
+        parameters,
+        algebraic_guess,
+    } = sample;
     if algebraic_layout.is_empty() {
         return Ok(AdaptiveDynamicComponentAlgebraicSolve {
             values: Vec::new(),
@@ -13265,9 +13299,11 @@ fn adaptive_dynamic_component_algebraic_values(
             Ok(AdaptiveDynamicComponentAlgebraicSolve {
                 values: newton.values.clone(),
                 newton: Some(newton),
-                residual_scales: has_scale_overrides
-                    .then_some(algebraic_residual_scales)
-                    .unwrap_or_default(),
+                residual_scales: if has_scale_overrides {
+                    algebraic_residual_scales
+                } else {
+                    Vec::new()
+                },
             })
         }
         Err(failure) => Err(failure),
@@ -13275,16 +13311,17 @@ fn adaptive_dynamic_component_algebraic_values(
 }
 
 fn adaptive_dynamic_component_algebraic_trajectories(
-    assembly: &EquationAssembly,
-    algebraic_layout: &StateLayout,
-    parsed_residuals: &[ParsedSourceResidual],
+    context: AdaptiveDynamicComponentAlgebraicContext<'_>,
     solve_input: &DynamicComponentAssemblySolveInput,
     input_series: &[Option<usize>],
     series: &[RuntimeTimeSeries],
     solver_result: &SolverResult,
-    options: &DynamicComponentOptions,
-    scale_overrides: &[ResidualScaleOverride],
 ) -> Result<(Vec<StateTrajectory>, Vec<RuntimeComponentStepDiagnostic>), SolverFailure> {
+    let AdaptiveDynamicComponentAlgebraicContext {
+        assembly,
+        algebraic_layout,
+        ..
+    } = context;
     if algebraic_layout.is_empty() {
         return Ok((Vec::new(), Vec::new()));
     }
@@ -13317,16 +13354,14 @@ fn adaptive_dynamic_component_algebraic_trajectories(
             time_s,
         )?;
         let algebraic = adaptive_dynamic_component_algebraic_values(
-            assembly,
-            algebraic_layout,
-            parsed_residuals,
-            time_s,
-            &state,
-            &inputs,
-            &solve_input.parameters,
-            &algebraic_guess,
-            options,
-            scale_overrides,
+            context,
+            AdaptiveDynamicComponentAlgebraicSample {
+                time_s,
+                state: &state,
+                inputs: &inputs,
+                parameters: &solve_input.parameters,
+                algebraic_guess: &algebraic_guess,
+            },
         )?;
         if !algebraic.values.is_empty() {
             algebraic_guess.clone_from(&algebraic.values);
@@ -14716,11 +14751,9 @@ fn explicit_dynamic_component_source_assembly(
         .filter(|dependency| algebraic_names.contains(dependency.as_str()))
         .cloned()
         .collect::<std::collections::HashSet<_>>();
-    explicit.algebraic_variables = explicit
+    explicit
         .algebraic_variables
-        .into_iter()
-        .filter(|variable| selected_algebraic_names.contains(variable.name.as_str()))
-        .collect();
+        .retain(|variable| selected_algebraic_names.contains(variable.name.as_str()));
     explicit.unknowns = explicit
         .states
         .iter()
@@ -15527,7 +15560,9 @@ fn remap_source_initial_failure(
     )
 }
 
-fn parse_component_initial_option(value: &str) -> Option<(bool, Vec<(f64, Option<String>)>)> {
+type ComponentInitialValues = Vec<(f64, Option<String>)>;
+
+fn parse_component_initial_option(value: &str) -> Option<(bool, ComponentInitialValues)> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
         return None;
@@ -15860,91 +15895,75 @@ fn source_residual_evaluation_for_unknowns(
     )
 }
 
+#[derive(Clone, Copy)]
+struct SourceResidualEvaluationContext<'a> {
+    assembly: &'a EquationAssembly,
+    graph: &'a ResidualGraph,
+    parsed_residuals: &'a [ParsedSourceResidual],
+    scale_overrides: &'a [ResidualScaleOverride],
+}
+
 fn source_dae_residual_values(
-    assembly: &EquationAssembly,
-    graph: &ResidualGraph,
-    parsed_residuals: &[ParsedSourceResidual],
+    context: SourceResidualEvaluationContext<'_>,
     sample: DaeSample<'_>,
     subset: SourceResidualSubset,
-    scale_overrides: &[ResidualScaleOverride],
 ) -> Result<Vec<f64>, SolverFailure> {
-    source_residual_evaluation_for_dae_sample(
-        assembly,
-        graph,
-        parsed_residuals,
-        sample,
-        DEFAULT_NEWTON_TOLERANCE,
-        subset,
-        scale_overrides,
-    )
-    .map(|evaluation| evaluation.normalized_values)
+    source_residual_evaluation_for_dae_sample(context, sample, DEFAULT_NEWTON_TOLERANCE, subset)
+        .map(|evaluation| evaluation.normalized_values)
 }
 
 fn source_dae_residual_values_with_behavior(
-    assembly: &EquationAssembly,
-    graph: &ResidualGraph,
-    parsed_residuals: &[ParsedSourceResidual],
+    context: SourceResidualEvaluationContext<'_>,
     behavior_graph: &mut BehaviorGraphRhsAdapter,
     behavior_output_symbols: &[SourceBehaviorOutputSymbol],
     sample: DaeSample<'_>,
     subset: SourceResidualSubset,
-    scale_overrides: &[ResidualScaleOverride],
 ) -> Result<Vec<f64>, SolverFailure> {
     let behavior_symbols = source_dae_behavior_symbols(
-        assembly,
+        context.assembly,
         sample.clone(),
         behavior_graph,
         behavior_output_symbols,
     )?;
     source_residual_evaluation_for_dae_sample_with_extra_symbols(
-        assembly,
-        graph,
-        parsed_residuals,
+        context,
         sample,
         DEFAULT_NEWTON_TOLERANCE,
         subset,
         Some(&behavior_symbols),
-        scale_overrides,
     )
     .map(|evaluation| evaluation.normalized_values)
 }
 
 fn source_residual_evaluation_for_dae_sample(
-    assembly: &EquationAssembly,
-    graph: &ResidualGraph,
-    parsed_residuals: &[ParsedSourceResidual],
+    context: SourceResidualEvaluationContext<'_>,
     sample: DaeSample<'_>,
     tolerance: f64,
     subset: SourceResidualSubset,
-    scale_overrides: &[ResidualScaleOverride],
 ) -> Result<SourceResidualEvaluation, SolverFailure> {
     source_residual_evaluation_for_dae_sample_with_extra_symbols(
-        assembly,
-        graph,
-        parsed_residuals,
-        sample,
-        tolerance,
-        subset,
-        None,
-        scale_overrides,
+        context, sample, tolerance, subset, None,
     )
 }
 
 fn source_residual_evaluation_for_dae_sample_with_extra_symbols(
-    assembly: &EquationAssembly,
-    graph: &ResidualGraph,
-    parsed_residuals: &[ParsedSourceResidual],
+    context: SourceResidualEvaluationContext<'_>,
     sample: DaeSample<'_>,
     tolerance: f64,
     subset: SourceResidualSubset,
     extra_symbols: Option<&HashMap<String, f64>>,
-    scale_overrides: &[ResidualScaleOverride],
 ) -> Result<SourceResidualEvaluation, SolverFailure> {
+    let SourceResidualEvaluationContext {
+        assembly,
+        graph,
+        parsed_residuals,
+        scale_overrides,
+    } = context;
     if sample.state.len() != assembly.states.len()
         || sample.state_derivative.len() != assembly.states.len()
         || sample
             .mass_state_derivative
-            .map_or(false, |values| values.len() != assembly.states.len())
+            .is_some_and(|values| values.len() != assembly.states.len())
         || sample.algebraic.len() != assembly.algebraic_variables.len()
         || sample.inputs.len() != assembly.inputs.len()
         || (!sample.parameters.is_empty() && sample.parameters.len() != assembly.parameters.len())
@@ -16128,19 +16147,27 @@ fn insert_assembly_parameter_symbols(
     Ok(())
 }
 
+struct SourceResidualFinalSample<'a> {
+    input: &'a DaeInput,
+    mass_matrix: Option<&'a DaeMassMatrix>,
+    solver_result: &'a SolverResult,
+    inputs: &'a [f64],
+    tolerance: f64,
+}
+
 fn source_residual_evaluation_for_dae_final(
-    assembly: &EquationAssembly,
-    graph: &ResidualGraph,
-    parsed_residuals: &[ParsedSourceResidual],
+    context: SourceResidualEvaluationContext<'_>,
     behavior_graph: Option<&mut BehaviorGraphRhsAdapter>,
     behavior_output_symbols: &[SourceBehaviorOutputSymbol],
-    input: &DaeInput,
-    mass_matrix: Option<&DaeMassMatrix>,
-    solver_result: &SolverResult,
-    inputs: &[f64],
-    tolerance: f64,
-    scale_overrides: &[ResidualScaleOverride],
+    final_sample: SourceResidualFinalSample<'_>,
 ) -> Result<SourceResidualEvaluation, SolverFailure> {
+    let SourceResidualFinalSample {
+        input,
+        mass_matrix,
+        solver_result,
+        inputs,
+        tolerance,
+    } = final_sample;
     let state = solver_result
         .output
         .state_trajectories
@@ -16184,7 +16211,7 @@ fn source_residual_evaluation_for_dae_final(
     };
     let behavior_symbols = if let Some(graph) = behavior_graph {
         Some(source_dae_behavior_symbols(
-            assembly,
+            context.assembly,
             sample.clone(),
             graph,
             behavior_output_symbols,
@@ -16193,14 +16220,11 @@ fn source_residual_evaluation_for_dae_final(
         None
     };
     source_residual_evaluation_for_dae_sample_with_extra_symbols(
-        assembly,
-        graph,
-        parsed_residuals,
+        context,
         sample,
         tolerance,
         SourceResidualSubset::All,
         behavior_symbols.as_ref(),
-        scale_overrides,
     )
 }
 
@@ -16692,7 +16716,7 @@ fn newton_residual_history_diagnostics(
                     "newton_iteration".to_owned()
                 },
                 failure_artifact: (index + 1 == newton.residual_history.len())
-                    .then(|| failure)
+                    .then_some(failure)
                     .flatten()
                     .map(|failure| RuntimeSolverFailureArtifact {
                         code: failure.code.clone(),
@@ -16896,7 +16920,7 @@ struct FixedPointExpressionMap {
 #[derive(Clone, Debug, PartialEq)]
 enum FixedPointUpdateRule {
     Linear(FixedPointPivot),
-    Expression(FixedPointExpressionMap),
+    Expression(Box<FixedPointExpressionMap>),
 }
 
 impl FixedPointUpdateRule {
@@ -16935,13 +16959,16 @@ fn fixed_point_update_plan(
     let mut residual_order = (0..residual_count).collect::<Vec<_>>();
     residual_order.sort_by_key(|index| {
         let residual = &graph.residuals[*index];
-        let source_priority = residual
+        let source_priority = if residual
             .source
             .generated_reason
             .as_deref()
             .is_some_and(|reason| reason.contains("component-local equation"))
-            .then_some(1)
-            .unwrap_or(2);
+        {
+            1
+        } else {
+            2
+        };
         if residual.terms.len() == 1 {
             (0, residual.terms.len())
         } else {
@@ -16976,7 +17003,7 @@ fn fixed_point_update_plan(
         }) {
             used_variables.insert(mapping.variable_index);
             used_residuals.insert(residual_index);
-            rules.push(FixedPointUpdateRule::Expression(mapping.clone()));
+            rules.push(FixedPointUpdateRule::Expression(Box::new(mapping.clone())));
         }
     }
 
@@ -17038,14 +17065,16 @@ fn fixed_point_expression_update_maps(
         ) {
             for term in &side.terms {
                 maps.push(fixed_point_expression_update_map(
-                    graph,
-                    residual_index,
-                    term.variable_index,
-                    right,
-                    &symbols,
-                    &symbol_units,
-                    side.constant,
-                    side.terms.clone(),
+                    FixedPointExpressionMapInput {
+                        graph,
+                        residual_index,
+                        variable_index: term.variable_index,
+                        expression_text: right,
+                        symbols: &symbols,
+                        symbol_units: &symbol_units,
+                        side_constant: side.constant,
+                        side_terms: side.terms.clone(),
+                    },
                 )?);
             }
         } else if let Some(side) = fixed_point_affine_variable_side(
@@ -17057,14 +17086,16 @@ fn fixed_point_expression_update_maps(
         ) {
             for term in &side.terms {
                 maps.push(fixed_point_expression_update_map(
-                    graph,
-                    residual_index,
-                    term.variable_index,
-                    left,
-                    &symbols,
-                    &symbol_units,
-                    side.constant,
-                    side.terms.clone(),
+                    FixedPointExpressionMapInput {
+                        graph,
+                        residual_index,
+                        variable_index: term.variable_index,
+                        expression_text: left,
+                        symbols: &symbols,
+                        symbol_units: &symbol_units,
+                        side_constant: side.constant,
+                        side_terms: side.terms.clone(),
+                    },
                 )?);
             }
         }
@@ -17136,16 +17167,30 @@ fn trim_wrapping_parentheses(mut value: &str) -> &str {
     }
 }
 
-fn fixed_point_expression_update_map(
-    graph: &ResidualGraph,
+struct FixedPointExpressionMapInput<'a> {
+    graph: &'a ResidualGraph,
     residual_index: usize,
     variable_index: usize,
-    expression_text: &str,
-    symbols: &HashMap<String, f64>,
-    symbol_units: &HashMap<String, ArithmeticUnitMetadata>,
+    expression_text: &'a str,
+    symbols: &'a HashMap<String, f64>,
+    symbol_units: &'a HashMap<String, ArithmeticUnitMetadata>,
     side_constant: f64,
     side_terms: Vec<FixedPointExpressionSideTerm>,
+}
+
+fn fixed_point_expression_update_map(
+    input: FixedPointExpressionMapInput<'_>,
 ) -> Result<FixedPointExpressionMap, SolverFailure> {
+    let FixedPointExpressionMapInput {
+        graph,
+        residual_index,
+        variable_index,
+        expression_text,
+        symbols,
+        symbol_units,
+        side_constant,
+        side_terms,
+    } = input;
     let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
     let expression = parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
         expression_text,
@@ -26266,7 +26311,7 @@ with {
         )];
         let axes = materialize_time_axes(&tables);
 
-        let coverage = vec![materialize_axis_timeseries_coverage(&tables, &axes[0]).unwrap()];
+        let coverage = [materialize_axis_timeseries_coverage(&tables, &axes[0]).unwrap()];
 
         assert_eq!(coverage.len(), 1);
         assert_eq!(coverage[0].name, "weather.Time.coverage");
@@ -27850,9 +27895,12 @@ system Envelope {
             parse_source_residual_expressions(&assembly, &parse_symbols).unwrap();
 
         let evaluation = source_residual_evaluation_for_dae_sample(
-            &assembly,
-            &graph,
-            &parsed_residuals,
+            SourceResidualEvaluationContext {
+                assembly: &assembly,
+                graph: &graph,
+                parsed_residuals: &parsed_residuals,
+                scale_overrides: &[],
+            },
             DaeSample {
                 time_s: 0.0,
                 state: &[4.0],
@@ -27864,7 +27912,6 @@ system Envelope {
             },
             1e-9,
             SourceResidualSubset::All,
-            &[],
         )
         .unwrap();
 

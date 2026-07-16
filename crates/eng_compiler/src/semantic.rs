@@ -1204,13 +1204,15 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     }
                     analyze_explicit_decl(
                         declaration,
-                        &mut diagnostics,
-                        &mut expected_types,
-                        &mut hover_hints,
-                        &mut typed_bindings,
-                        &mut type_infos,
-                        &mut unit_derivations,
-                        &mut inferred_declarations,
+                        ExplicitAnalysisOutputs {
+                            diagnostics: &mut diagnostics,
+                            expected_types: &mut expected_types,
+                            hover_hints: &mut hover_hints,
+                            typed_bindings: &mut typed_bindings,
+                            type_infos: &mut type_infos,
+                            unit_derivations: &mut unit_derivations,
+                            inferred_declarations: &mut inferred_declarations,
+                        },
                     );
                 }
             }
@@ -1788,10 +1790,8 @@ fn validate_command_expression(
         }
         validate_comparison_dimensions(
             "Validation",
-            &left,
-            &right,
-            left_type,
-            right_type,
+            (&left, &right),
+            (left_type, right_type),
             command.line,
             typed_bindings,
             diagnostics,
@@ -1888,20 +1888,16 @@ fn validate_between_command_expression(
         }
         validate_comparison_dimensions(
             "Validation",
-            &value,
-            &lower,
-            value_type,
-            lower_type,
+            (&value, &lower),
+            (value_type, lower_type),
             command.line,
             typed_bindings,
             diagnostics,
         );
         validate_comparison_dimensions(
             "Validation",
-            &value,
-            &upper,
-            value_type,
-            upper_type,
+            (&value, &upper),
+            (value_type, upper_type),
             command.line,
             typed_bindings,
             diagnostics,
@@ -2075,14 +2071,14 @@ fn push_direct_uncertainty_comparison_diagnostic(
 
 fn validate_comparison_dimensions(
     context: &str,
-    left: &str,
-    right: &str,
-    left_type: &SemanticType,
-    right_type: &SemanticType,
+    expressions: (&str, &str),
+    semantic_types: (&SemanticType, &SemanticType),
     line: usize,
     typed_bindings: &[TypedBinding],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
+    let (left, right) = expressions;
+    let (left_type, right_type) = semantic_types;
     let left_dimension = dimension_for_quantity(&left_type.quantity_kind);
     let right_dimension = dimension_for_quantity(&right_type.quantity_kind);
     if dimensions_compatible(&left_dimension, &right_dimension) {
@@ -3236,19 +3232,17 @@ fn validate_uncertainty_policy_options(
                     ));
                 }
             }
-            "seed" => {
-                if parse_deterministic_seed(&option.value).is_none() {
-                    option.status = "invalid_seed".to_owned();
-                    diagnostics.push(Diagnostic::error(
-                        "E-WITH-UNCERTAINTY-SEED-001",
-                        option.line,
-                        &format!(
-                            "Uncertainty propagation seed must be a deterministic integer, got `{}`.",
-                            option.value
-                        ),
-                        Some("Use `seed = 7` or another non-negative integer seed."),
-                    ));
-                }
+            "seed" if parse_deterministic_seed(&option.value).is_none() => {
+                option.status = "invalid_seed".to_owned();
+                diagnostics.push(Diagnostic::error(
+                    "E-WITH-UNCERTAINTY-SEED-001",
+                    option.line,
+                    &format!(
+                        "Uncertainty propagation seed must be a deterministic integer, got `{}`.",
+                        option.value
+                    ),
+                    Some("Use `seed = 7` or another non-negative integer seed."),
+                ));
             }
             _ => {}
         }
@@ -4200,10 +4194,8 @@ fn analyze_assert_decl(
         ) {
             validate_comparison_dimensions(
                 "Assert",
-                &assertion.left,
-                &assertion.right,
-                left,
-                right,
+                (&assertion.left, &assertion.right),
+                (left, right),
                 assertion.line,
                 typed_bindings,
                 diagnostics,
@@ -8826,16 +8818,14 @@ fn instantiate_component_template(
             ));
             return None;
         };
-        let Some(resolved_argument) = resolve_component_parameter_value(
+        let resolved_argument = resolve_component_parameter_value(
             &argument.name,
             &argument.value,
             &parameter.quantity_kind,
             binding.line,
             consts,
             diagnostics,
-        ) else {
-            return None;
-        };
+        )?;
         parameter_values.insert(argument.name.clone(), (resolved_argument, "constructor"));
     }
 
@@ -10527,9 +10517,7 @@ fn component_equation_literal_rhs(
         ));
         return None;
     }
-    let Some((_value, unit)) = numeric_literal_with_optional_unit(right) else {
-        return None;
-    };
+    let (_value, unit) = numeric_literal_with_optional_unit(right)?;
     if let Some(unit) = unit {
         if !unit_compatible_with_quantity(&signal.quantity_kind, &unit) {
             diagnostics.push(Diagnostic::error(
@@ -11021,16 +11009,26 @@ fn analyze_const_decl(
     });
 }
 
-fn analyze_explicit_decl(
-    declaration: &ExplicitDecl,
-    diagnostics: &mut Vec<Diagnostic>,
-    expected_types: &mut Vec<ExpectedType>,
-    hover_hints: &mut Vec<HoverHint>,
-    typed_bindings: &mut Vec<TypedBinding>,
-    type_infos: &mut Vec<TypeInfo>,
-    unit_derivations: &mut Vec<UnitDerivation>,
-    inferred_declarations: &mut Vec<InferredDeclaration>,
-) {
+struct ExplicitAnalysisOutputs<'a> {
+    diagnostics: &'a mut Vec<Diagnostic>,
+    expected_types: &'a mut Vec<ExpectedType>,
+    hover_hints: &'a mut Vec<HoverHint>,
+    typed_bindings: &'a mut Vec<TypedBinding>,
+    type_infos: &'a mut Vec<TypeInfo>,
+    unit_derivations: &'a mut Vec<UnitDerivation>,
+    inferred_declarations: &'a mut Vec<InferredDeclaration>,
+}
+
+fn analyze_explicit_decl(declaration: &ExplicitDecl, outputs: ExplicitAnalysisOutputs<'_>) {
+    let ExplicitAnalysisOutputs {
+        diagnostics,
+        expected_types,
+        hover_hints,
+        typed_bindings,
+        type_infos,
+        unit_derivations,
+        inferred_declarations,
+    } = outputs;
     expected_types.push(expected_type_from_explicit_decl(declaration));
 
     if let Some(expression) = &declaration.expression {
@@ -12558,16 +12556,13 @@ fn leading_statement_command(
     commands: &'static [&'static str],
 ) -> Option<&'static str> {
     let trimmed = expression.trim_start();
-    for command in commands {
-        if trimmed.strip_prefix(command).is_some_and(|rest| {
+    commands.iter().copied().find(|&command| {
+        trimmed.strip_prefix(command).is_some_and(|rest| {
             rest.chars()
                 .next()
                 .is_some_and(|character| character.is_whitespace() || character == '(')
-        }) {
-            return Some(command);
-        }
-    }
-    None
+        })
+    })
 }
 
 fn leading_statement_word(
@@ -12575,14 +12570,11 @@ fn leading_statement_word(
     commands: &'static [&'static str],
 ) -> Option<&'static str> {
     let trimmed = expression.trim_start();
-    for command in commands {
-        if trimmed.strip_prefix(command).is_some_and(|rest| {
+    commands.iter().copied().find(|&command| {
+        trimmed.strip_prefix(command).is_some_and(|rest| {
             rest.is_empty() || rest.chars().next().is_some_and(char::is_whitespace)
-        }) {
-            return Some(command);
-        }
-    }
-    None
+        })
+    })
 }
 
 fn derivative_states(left: &str, right: &str, variables: &[SystemVariableInfo]) -> Vec<String> {
@@ -13688,7 +13680,7 @@ fn dimensionless_math_function_dimension_error(
     None
 }
 
-fn dimensionless_math_function_call<'a>(expression: &'a str) -> Option<(&'static str, &'a str)> {
+fn dimensionless_math_function_call(expression: &str) -> Option<(&'static str, &str)> {
     let expression = strip_outer_parens(expression.trim());
     for function in DIMENSIONLESS_MATH_FUNCTIONS {
         let Some(rest) = expression.strip_prefix(function) else {

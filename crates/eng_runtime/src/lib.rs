@@ -625,16 +625,16 @@ pub fn run_source(
         &cache_diagnostics,
         &options.profile,
     );
-    let run_log_json = run_log_json(
-        &check_report,
-        &runtime_data,
-        &options.profile,
-        &profile_diagnostics,
-        &external_boundary_records,
-        &cache_manifest_records,
-        &working_dir,
-        &result_dir,
-    );
+    let run_log_json = run_log_json(RunLogInput {
+        report: &check_report,
+        runtime_data: &runtime_data,
+        profile: &options.profile,
+        profile_diagnostics: &profile_diagnostics,
+        external_boundaries: &external_boundary_records,
+        cache_records: &cache_manifest_records,
+        working_dir: &working_dir,
+        output_dir: &result_dir,
+    });
     let process_results_json =
         process_results_json(&check_report, &process_results, &options.profile);
     let csv_export_artifacts = write_csv_exports(&check_report, &runtime_data, &result_dir)?;
@@ -694,69 +694,69 @@ pub fn run_source(
     output_artifacts.extend(csv_export_artifacts);
     output_artifacts.extend(write_artifacts);
     output_artifacts.extend(file_operation_artifacts);
-    let mut review_json = runtime_review_json(
-        &review_json(&check_report),
-        &check_report,
-        &runtime_data,
-        &process_results,
-        &external_boundary_records,
-        &output_artifacts,
-        &cache_manifest_records,
-        &template_render_output.records,
-        &db_manifest_records,
-    );
+    let mut review_json = runtime_review_json(RuntimeReviewInput {
+        base_review: &review_json(&check_report),
+        report: &check_report,
+        runtime_data: &runtime_data,
+        process_results: &process_results,
+        external_boundary_records: &external_boundary_records,
+        artifacts: &output_artifacts,
+        cache_records: &cache_manifest_records,
+        template_render_records: &template_render_output.records,
+        db_manifest_records: &db_manifest_records,
+    });
     let report_html =
         eng_report::render_html_with_spec(&check_report, "plots/timeseries.svg", &report_spec);
-    let result_json = result_json(
+    let result_json = result_json(ResultJsonInput {
         path,
-        &check_report,
-        &execution,
-        &runtime_data,
-        &process_results,
-        &db_manifest_records,
-        &cache_manifest_records,
-        &template_render_output.records,
-        &ResultArtifactHashes {
+        report: &check_report,
+        execution: &execution,
+        runtime_data: &runtime_data,
+        process_results: &process_results,
+        db_manifest_records: &db_manifest_records,
+        cache_records: &cache_manifest_records,
+        template_render_records: &template_render_output.records,
+        hashes: &ResultArtifactHashes {
             bytecode: &bytecode_hash,
             plot_spec: &plot_spec_hash,
             report_spec: &report_spec_hash,
         },
-        &ProfileContext {
+        profile_context: &ProfileContext {
             profile: &options.profile,
             diagnostics: &profile_diagnostics,
         },
-    );
-    let initial_run_plan_json = run_plan_json(
-        path,
-        &check_report,
-        &runtime_data,
-        &process_results,
-        &external_boundary_records,
-        &cache_manifest_records,
-        &db_manifest_records,
-        &output_artifacts,
-        &static_run_plan_json,
-        &result_json,
-        &review_json,
-        &options.profile,
-        &rerun_decision,
-    );
+    });
+    let initial_run_plan_json = run_plan_json(RunPlanInput {
+        source_path: path,
+        report: &check_report,
+        runtime_data: &runtime_data,
+        process_results: &process_results,
+        external_boundary_records: &external_boundary_records,
+        cache_records: &cache_manifest_records,
+        db_records: &db_manifest_records,
+        output_artifacts: &output_artifacts,
+        static_run_plan_json: &static_run_plan_json,
+        result_json: &result_json,
+        review_json: &review_json,
+        profile: &options.profile,
+        rerun_decision: &rerun_decision,
+    });
     review_json = enrich_runtime_review_workflow_graph(&review_json, &initial_run_plan_json);
-    let run_plan_json = run_plan_json(
-        path,
-        &check_report,
-        &runtime_data,
-        &process_results,
-        &external_boundary_records,
-        &cache_manifest_records,
-        &db_manifest_records,
-        &output_artifacts,
-        &static_run_plan_json,
-        &result_json,
-        &review_json,
-        &options.profile,
-        &rerun_decision,
-    );
+    let run_plan_json = run_plan_json(RunPlanInput {
+        source_path: path,
+        report: &check_report,
+        runtime_data: &runtime_data,
+        process_results: &process_results,
+        external_boundary_records: &external_boundary_records,
+        cache_records: &cache_manifest_records,
+        db_records: &db_manifest_records,
+        output_artifacts: &output_artifacts,
+        static_run_plan_json: &static_run_plan_json,
+        result_json: &result_json,
+        review_json: &review_json,
+        profile: &options.profile,
+        rerun_decision: &rerun_decision,
+    });
     let result_artifact_hash = hash_text(&result_json);
     let review_artifact_hash = hash_text(&review_json);
     let static_run_plan_artifact_hash = hash_text(&static_run_plan_json);
@@ -1385,16 +1385,28 @@ fn runtime_log_entries(report: &CheckReport, runtime_data: &RuntimeData) -> Vec<
         .collect()
 }
 
-fn run_log_json(
-    report: &CheckReport,
-    runtime_data: &RuntimeData,
-    profile: &ExecutionProfile,
-    profile_diagnostics: &[ProfileDiagnostic],
-    external_boundaries: &[ExternalBoundaryRecord],
-    cache_records: &[CacheManifestRecord],
-    working_dir: &Path,
-    output_dir: &Path,
-) -> String {
+struct RunLogInput<'a> {
+    report: &'a CheckReport,
+    runtime_data: &'a RuntimeData,
+    profile: &'a ExecutionProfile,
+    profile_diagnostics: &'a [ProfileDiagnostic],
+    external_boundaries: &'a [ExternalBoundaryRecord],
+    cache_records: &'a [CacheManifestRecord],
+    working_dir: &'a Path,
+    output_dir: &'a Path,
+}
+
+fn run_log_json(input: RunLogInput<'_>) -> String {
+    let RunLogInput {
+        report,
+        runtime_data,
+        profile,
+        profile_diagnostics,
+        external_boundaries,
+        cache_records,
+        working_dir,
+        output_dir,
+    } = input;
     let entries = runtime_log_entries(report, runtime_data);
     let mut json = String::new();
     json.push_str("{\n");
@@ -1921,15 +1933,17 @@ fn execute_live_http_request(
     result_dir: &Path,
 ) -> Result<LiveNetworkResponse, RuntimeError> {
     let body = execute_live_http(
-        &request.method,
-        &request.url_value,
-        &request.query,
-        request.line,
-        request.retry.unwrap_or(0),
-        request.timeout.as_deref(),
-        request.body.as_deref(),
-        request.body_size_limit_bytes,
-        request.expected_sha256.as_deref(),
+        LiveHttpRequest {
+            method: &request.method,
+            url: &request.url_value,
+            query: &request.query,
+            owner_line: request.line,
+            retry: request.retry.unwrap_or(0),
+            timeout_label: request.timeout.as_deref(),
+            request_body: request.body.as_deref(),
+            body_size_limit: request.body_size_limit_bytes,
+            expected_hash: request.expected_sha256.as_deref(),
+        },
         runtime_data,
         report,
     )?;
@@ -1954,15 +1968,17 @@ fn execute_live_http_download(
     target_path: &Path,
 ) -> Result<LiveNetworkResponse, RuntimeError> {
     let body = execute_live_http(
-        "GET",
-        &download.url_value,
-        &download.query,
-        download.line,
-        download.retry.unwrap_or(0),
-        download.timeout.as_deref(),
-        None,
-        download.body_size_limit_bytes,
-        download.expected_sha256.as_deref(),
+        LiveHttpRequest {
+            method: "GET",
+            url: &download.url_value,
+            query: &download.query,
+            owner_line: download.line,
+            retry: download.retry.unwrap_or(0),
+            timeout_label: download.timeout.as_deref(),
+            request_body: None,
+            body_size_limit: download.body_size_limit_bytes,
+            expected_hash: download.expected_sha256.as_deref(),
+        },
         runtime_data,
         report,
     )?;
@@ -1984,33 +2000,46 @@ struct LiveHttpBody {
     status_class: String,
 }
 
-fn execute_live_http(
-    method: &str,
-    url: &str,
-    query: &[eng_compiler::NetQueryParam],
+#[derive(Clone, Copy)]
+struct LiveHttpRequest<'a> {
+    method: &'a str,
+    url: &'a str,
+    query: &'a [eng_compiler::NetQueryParam],
     owner_line: usize,
     retry: usize,
-    timeout_label: Option<&str>,
-    request_body: Option<&str>,
+    timeout_label: Option<&'a str>,
+    request_body: Option<&'a str>,
     body_size_limit: Option<usize>,
-    expected_hash: Option<&str>,
+    expected_hash: Option<&'a str>,
+}
+
+fn execute_live_http(
+    request: LiveHttpRequest<'_>,
     runtime_data: &RuntimeData,
     report: &CheckReport,
 ) -> Result<LiveHttpBody, RuntimeError> {
-    let timeout = timeout_label
+    let timeout = request
+        .timeout_label
         .map(parse_process_timeout_duration)
         .transpose()?
         .unwrap_or_else(|| Duration::from_secs(30));
-    let query = live_network_query_pairs(query, runtime_data, report, owner_line)?;
+    let query = live_network_query_pairs(request.query, runtime_data, report, request.owner_line)?;
     let mut last_error = None;
-    for attempt in 0..=retry {
-        match execute_live_http_attempt(method, url, &query, timeout, request_body, body_size_limit)
-        {
+    for attempt in 0..=request.retry {
+        match execute_live_http_attempt(
+            request.method,
+            request.url,
+            &query,
+            timeout,
+            request.request_body,
+            request.body_size_limit,
+        ) {
             Ok(body) => {
-                if let Some(expected) = expected_hash {
+                if let Some(expected) = request.expected_hash {
                     if normalize_cache_hash(expected) != body.hash {
                         return Err(invalid_input(&format!(
-                            "E-NET-HASH-MISMATCH: live HTTP `{url}` expected SHA256 `{}` but observed `{}`",
+                            "E-NET-HASH-MISMATCH: live HTTP `{}` expected SHA256 `{}` but observed `{}`",
+                            request.url,
                             normalize_cache_hash(expected),
                             body.hash
                         )));
@@ -2020,7 +2049,7 @@ fn execute_live_http(
             }
             Err(error) => {
                 last_error = Some(error);
-                if attempt == retry {
+                if attempt == request.retry {
                     break;
                 }
             }
@@ -5633,7 +5662,7 @@ fn parse_template_placeholder_content(content: &str) -> Option<(String, Option<S
 
 fn is_template_placeholder_name(name: &str) -> bool {
     let mut parts = name.split('.');
-    parts.next().is_some_and(|part| is_identifier(part)) && parts.all(is_identifier)
+    parts.next().is_some_and(is_identifier) && parts.all(is_identifier)
 }
 
 fn split_template_assignment(entry: &str) -> Option<(&str, &str)> {
@@ -7733,21 +7762,38 @@ fn static_run_plan_json(
     )
 }
 
-fn run_plan_json(
-    source_path: &Path,
-    report: &CheckReport,
-    runtime_data: &RuntimeData,
-    process_results: &[ProcessExecutionRecord],
-    external_boundary_records: &[ExternalBoundaryRecord],
-    cache_records: &[CacheManifestRecord],
-    db_records: &[DbManifestRecord],
-    output_artifacts: &[OutputArtifact],
-    static_run_plan_json: &str,
-    result_json: &str,
-    review_json: &str,
-    profile: &ExecutionProfile,
-    rerun_decision: &RerunDecision,
-) -> String {
+struct RunPlanInput<'a> {
+    source_path: &'a Path,
+    report: &'a CheckReport,
+    runtime_data: &'a RuntimeData,
+    process_results: &'a [ProcessExecutionRecord],
+    external_boundary_records: &'a [ExternalBoundaryRecord],
+    cache_records: &'a [CacheManifestRecord],
+    db_records: &'a [DbManifestRecord],
+    output_artifacts: &'a [OutputArtifact],
+    static_run_plan_json: &'a str,
+    result_json: &'a str,
+    review_json: &'a str,
+    profile: &'a ExecutionProfile,
+    rerun_decision: &'a RerunDecision,
+}
+
+fn run_plan_json(input: RunPlanInput<'_>) -> String {
+    let RunPlanInput {
+        source_path,
+        report,
+        runtime_data,
+        process_results,
+        external_boundary_records,
+        cache_records,
+        db_records,
+        output_artifacts,
+        static_run_plan_json,
+        result_json,
+        review_json,
+        profile,
+        rerun_decision,
+    } = input;
     let mut nodes = Vec::new();
     let mut edges = Vec::new();
     nodes.push(run_plan_node(
@@ -8226,6 +8272,7 @@ fn run_plan_json(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_plan_node(
     id: &str,
     kind: &str,
@@ -11123,18 +11170,32 @@ fn is_identifier(value: &str) -> bool {
         && chars.all(|character| character.is_ascii_alphanumeric() || character == '_')
 }
 
-fn result_json(
-    path: &Path,
-    report: &CheckReport,
-    execution: &VmExecution,
-    runtime_data: &RuntimeData,
-    process_results: &[ProcessExecutionRecord],
-    db_manifest_records: &[DbManifestRecord],
-    cache_records: &[CacheManifestRecord],
-    template_render_records: &[TemplateRenderRecord],
-    hashes: &ResultArtifactHashes<'_>,
-    profile_context: &ProfileContext<'_>,
-) -> String {
+struct ResultJsonInput<'a> {
+    path: &'a Path,
+    report: &'a CheckReport,
+    execution: &'a VmExecution,
+    runtime_data: &'a RuntimeData,
+    process_results: &'a [ProcessExecutionRecord],
+    db_manifest_records: &'a [DbManifestRecord],
+    cache_records: &'a [CacheManifestRecord],
+    template_render_records: &'a [TemplateRenderRecord],
+    hashes: &'a ResultArtifactHashes<'a>,
+    profile_context: &'a ProfileContext<'a>,
+}
+
+fn result_json(input: ResultJsonInput<'_>) -> String {
+    let ResultJsonInput {
+        path,
+        report,
+        execution,
+        runtime_data,
+        process_results,
+        db_manifest_records,
+        cache_records,
+        template_render_records,
+        hashes,
+        profile_context,
+    } = input;
     let mut data_hashes = String::new();
     for (index, promotion) in report.semantic_program.csv_promotions.iter().enumerate() {
         if index > 0 {
@@ -12717,17 +12778,30 @@ fn system_step_diagnostic_review_summary(
     (diagnostics.len(), accepted, rejected, max_error_norm)
 }
 
-fn runtime_review_json(
-    base_review: &str,
-    report: &CheckReport,
-    runtime_data: &RuntimeData,
-    process_results: &[ProcessExecutionRecord],
-    external_boundary_records: &[ExternalBoundaryRecord],
-    artifacts: &[OutputArtifact],
-    cache_records: &[CacheManifestRecord],
-    template_render_records: &[TemplateRenderRecord],
-    db_manifest_records: &[DbManifestRecord],
-) -> String {
+struct RuntimeReviewInput<'a> {
+    base_review: &'a str,
+    report: &'a CheckReport,
+    runtime_data: &'a RuntimeData,
+    process_results: &'a [ProcessExecutionRecord],
+    external_boundary_records: &'a [ExternalBoundaryRecord],
+    artifacts: &'a [OutputArtifact],
+    cache_records: &'a [CacheManifestRecord],
+    template_render_records: &'a [TemplateRenderRecord],
+    db_manifest_records: &'a [DbManifestRecord],
+}
+
+fn runtime_review_json(input: RuntimeReviewInput<'_>) -> String {
+    let RuntimeReviewInput {
+        base_review,
+        report,
+        runtime_data,
+        process_results,
+        external_boundary_records,
+        artifacts,
+        cache_records,
+        template_render_records,
+        db_manifest_records,
+    } = input;
     let enriched_boundaries =
         enrich_runtime_review_boundaries(base_review, process_results, external_boundary_records);
     let enriched_queries =
@@ -15243,18 +15317,18 @@ fn apply_external_case_manifest_payload(
 fn finalize_case_manifest_status(manifest: &mut RuntimeCaseManifest) {
     if manifest.failure_reason.is_some() {
         manifest.status = "failed".to_owned();
-    } else if manifest.status == "skipped" {
-        return;
-    } else if manifest.generated_input_file.is_some()
-        || !manifest.process_bindings.is_empty()
-        || !manifest.process_statuses.is_empty()
-        || !manifest.output_artifacts.is_empty()
-        || !manifest.result_files.is_empty()
-        || !manifest.metrics.is_empty()
-    {
-        manifest.status = "succeeded".to_owned();
-    } else {
-        manifest.status = "pending".to_owned();
+    } else if manifest.status != "skipped" {
+        manifest.status = if manifest.generated_input_file.is_some()
+            || !manifest.process_bindings.is_empty()
+            || !manifest.process_statuses.is_empty()
+            || !manifest.output_artifacts.is_empty()
+            || !manifest.result_files.is_empty()
+            || !manifest.metrics.is_empty()
+        {
+            "succeeded".to_owned()
+        } else {
+            "pending".to_owned()
+        };
     }
 }
 
@@ -15263,7 +15337,7 @@ fn push_case_process_statuses_json(json: &mut String, processes: &[RuntimeCasePr
         if index > 0 {
             json.push_str(", ");
         }
-        json.push_str("{");
+        json.push('{');
         json.push_str(&format!("\"name\": \"{}\"", json_escape(&process.name)));
         json.push_str(&format!(
             ", \"command\": \"{}\"",
@@ -15273,7 +15347,7 @@ fn push_case_process_statuses_json(json: &mut String, processes: &[RuntimeCasePr
             ", \"status\": \"{}\"",
             json_escape(&process.status)
         ));
-        json.push_str("}");
+        json.push('}');
     }
 }
 
@@ -15341,7 +15415,7 @@ fn infer_case_dir_from_output_path(path: &str, case_id: &str) -> Option<String> 
 }
 
 fn output_path_segments(path: &str) -> Vec<&str> {
-    path.split(|ch| ch == '/' || ch == '\\')
+    path.split(['/', '\\'])
         .filter(|segment| !segment.is_empty())
         .collect()
 }
@@ -15675,7 +15749,7 @@ fn push_manifest_file_json(json: &mut String, key: &str, value: Option<&Value>, 
     let indent_text = " ".repeat(indent);
     json.push_str(&format!("{indent_text}\"{key}\": "));
     if let Some(value) = value {
-        json.push_str("{");
+        json.push('{');
         json.push_str(&format!(
             "\"path\": {}, ",
             optional_json_string_literal(json_field_string(value, "path").as_deref())
@@ -15702,7 +15776,7 @@ fn push_prediction_outputs_json(json: &mut String, value: &Value) {
         if index > 0 {
             json.push_str(", ");
         }
-        json.push_str("{");
+        json.push('{');
         json.push_str(&format!(
             "\"column\": {}, ",
             optional_json_string_literal(json_field_string(output, "column").as_deref())
@@ -15715,7 +15789,7 @@ fn push_prediction_outputs_json(json: &mut String, value: &Value) {
             "\"unit\": {}",
             optional_json_string_literal(json_field_string(output, "unit").as_deref())
         ));
-        json.push_str("}");
+        json.push('}');
     }
 }
 
@@ -16024,7 +16098,7 @@ fn push_native_prediction_outputs_json(json: &mut String, table: &runtime_data::
         if index > 0 {
             json.push_str(", ");
         }
-        json.push_str("{");
+        json.push('{');
         json.push_str(&format!(
             "\"column\": {}, ",
             optional_json_string_literal(Some(column.name.as_str()))
@@ -16037,7 +16111,7 @@ fn push_native_prediction_outputs_json(json: &mut String, table: &runtime_data::
             "\"unit\": {}",
             optional_json_string_literal(column.unit.as_deref())
         ));
-        json.push_str("}");
+        json.push('}');
     }
 }
 
@@ -16131,10 +16205,7 @@ fn model_diagnostics_json(
             .expected_outputs
             .iter()
             .any(|output| output.artifact_kind == "model_artifact");
-        let has_model_card = process
-            .expected_outputs
-            .iter()
-            .any(|output| is_model_card_output(output));
+        let has_model_card = process.expected_outputs.iter().any(is_model_card_output);
         if has_model_artifact && !has_model_card {
             diagnostics.push((
                 "error",

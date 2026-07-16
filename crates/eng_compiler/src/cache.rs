@@ -33,16 +33,18 @@ pub fn analyze_cache_records(program: &SemanticProgram, source_hash: &str) -> Ca
     for process in &program.process_runs {
         let options = options_for_owner(program, process.line);
         if let Some(record) = build_cache_record(
-            "process",
-            &process.binding,
-            process.line,
-            &options,
-            process_cache_parts(program, process.line, &process.command),
-            source_hash,
-            None,
-            None,
-            "declared",
-            &program.arg_values,
+            CacheRecordInput {
+                owner_kind: "process",
+                owner_name: &process.binding,
+                line: process.line,
+                options: &options,
+                default_parts: process_cache_parts(program, process.line, &process.command),
+                source_hash,
+                expected_hash: None,
+                observed_hash: None,
+                status: "declared",
+                arg_values: &program.arg_values,
+            },
             &mut analysis.diagnostics,
         ) {
             analysis.records.push(record);
@@ -52,16 +54,18 @@ pub fn analyze_cache_records(program: &SemanticProgram, source_hash: &str) -> Ca
     for model in &program.ml_infos {
         let options = options_for_owner(program, model.line);
         if let Some(record) = build_cache_record(
-            "model",
-            &model.binding,
-            model.line,
-            &options,
-            model_cache_parts(model),
-            source_hash,
-            None,
-            None,
-            "declared",
-            &program.arg_values,
+            CacheRecordInput {
+                owner_kind: "model",
+                owner_name: &model.binding,
+                line: model.line,
+                options: &options,
+                default_parts: model_cache_parts(model),
+                source_hash,
+                expected_hash: None,
+                observed_hash: None,
+                status: "declared",
+                arg_values: &program.arg_values,
+            },
             &mut analysis.diagnostics,
         ) {
             analysis.records.push(record);
@@ -71,20 +75,22 @@ pub fn analyze_cache_records(program: &SemanticProgram, source_hash: &str) -> Ca
     for request in &program.net_requests {
         let options = options_for_owner(program, request.line);
         if let Some(record) = build_cache_record(
-            "network_request",
-            &request.binding,
-            request.line,
-            &options,
-            network_request_cache_parts(request),
-            source_hash,
-            request.expected_sha256.clone(),
-            request.response_hash.clone(),
-            if request.response_hash.is_some() {
-                "offline_response_available"
-            } else {
-                "declared"
+            CacheRecordInput {
+                owner_kind: "network_request",
+                owner_name: &request.binding,
+                line: request.line,
+                options: &options,
+                default_parts: network_request_cache_parts(request),
+                source_hash,
+                expected_hash: request.expected_sha256.clone(),
+                observed_hash: request.response_hash.clone(),
+                status: if request.response_hash.is_some() {
+                    "offline_response_available"
+                } else {
+                    "declared"
+                },
+                arg_values: &program.arg_values,
             },
-            &program.arg_values,
             &mut analysis.diagnostics,
         ) {
             analysis.records.push(record);
@@ -94,20 +100,22 @@ pub fn analyze_cache_records(program: &SemanticProgram, source_hash: &str) -> Ca
     for download in &program.net_downloads {
         let options = options_for_owner(program, download.line);
         if let Some(record) = build_cache_record(
-            "network_download",
-            &download.target_value,
-            download.line,
-            &options,
-            network_download_cache_parts(download),
-            source_hash,
-            download.expected_sha256.clone(),
-            download.response_hash.clone(),
-            if download.response_hash.is_some() {
-                "offline_response_available"
-            } else {
-                "declared"
+            CacheRecordInput {
+                owner_kind: "network_download",
+                owner_name: &download.target_value,
+                line: download.line,
+                options: &options,
+                default_parts: network_download_cache_parts(download),
+                source_hash,
+                expected_hash: download.expected_sha256.clone(),
+                observed_hash: download.response_hash.clone(),
+                status: if download.response_hash.is_some() {
+                    "offline_response_available"
+                } else {
+                    "declared"
+                },
+                arg_values: &program.arg_values,
             },
-            &program.arg_values,
             &mut analysis.diagnostics,
         ) {
             analysis.records.push(record);
@@ -117,19 +125,35 @@ pub fn analyze_cache_records(program: &SemanticProgram, source_hash: &str) -> Ca
     analysis
 }
 
-fn build_cache_record(
-    owner_kind: &str,
-    owner_name: &str,
+struct CacheRecordInput<'a> {
+    owner_kind: &'a str,
+    owner_name: &'a str,
     line: usize,
-    options: &[WithOptionInfo],
+    options: &'a [WithOptionInfo],
     default_parts: Vec<String>,
-    source_hash: &str,
+    source_hash: &'a str,
     expected_hash: Option<String>,
     observed_hash: Option<String>,
-    status: &str,
-    arg_values: &[ArgValueInfo],
+    status: &'a str,
+    arg_values: &'a [ArgValueInfo],
+}
+
+fn build_cache_record(
+    input: CacheRecordInput<'_>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<CacheRecordInfo> {
+    let CacheRecordInput {
+        owner_kind,
+        owner_name,
+        line,
+        options,
+        default_parts,
+        source_hash,
+        expected_hash,
+        observed_hash,
+        status,
+        arg_values,
+    } = input;
     let cache_enabled = option_value(options, "cache").is_some_and(parse_bool);
     let raw_cache_key = option_value(options, "cache_key");
     if !cache_enabled && raw_cache_key.is_none() {

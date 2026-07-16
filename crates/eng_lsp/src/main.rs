@@ -7627,11 +7627,11 @@ fn has_semantic_modifier(token: &eng_lsp::LspSemanticToken, modifier: &str) -> b
         .any(|candidate| candidate == modifier)
 }
 
-fn semantic_symbol_token_at_position<'a>(
-    tokens: &'a [eng_lsp::LspSemanticToken],
+fn semantic_symbol_token_at_position(
+    tokens: &[eng_lsp::LspSemanticToken],
     line: usize,
     character: usize,
-) -> Option<&'a eng_lsp::LspSemanticToken> {
+) -> Option<&eng_lsp::LspSemanticToken> {
     tokens
         .iter()
         .filter(|token| {
@@ -7805,13 +7805,13 @@ fn hover_for_symbol_role<'a>(
     let symbol_label = symbol.rsplit('.').next().unwrap_or(symbol);
     hovers
         .iter()
-        .filter(|hover| line.map_or(true, |line| hover.line == line))
+        .filter(|hover| line.is_none_or(|line| hover.line == line))
         .filter(|hover| semantic_role_hover_kind(&hover.kind) == semantic_role_fallback)
         .find(|hover| hover.name == symbol)
         .or_else(|| {
             hovers
                 .iter()
-                .filter(|hover| line.map_or(true, |line| hover.line == line))
+                .filter(|hover| line.is_none_or(|line| hover.line == line))
                 .filter(|hover| semantic_role_hover_kind(&hover.kind) == semantic_role_fallback)
                 .find(|hover| {
                     hover

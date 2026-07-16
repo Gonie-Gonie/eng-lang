@@ -33,9 +33,7 @@ pub fn ml_info(binding: &FastBinding) -> Option<MlInfo> {
     let lowered = expression.to_ascii_lowercase();
     let kind = if lowered.starts_with("train_test_split(") {
         "TrainTestSplit"
-    } else if is_table_regression_expression(expression) {
-        "RegressionModel"
-    } else if lowered.starts_with("regression(") {
+    } else if is_table_regression_expression(expression) || lowered.starts_with("regression(") {
         "RegressionModel"
     } else if lowered.starts_with("mlp(") || lowered.starts_with("ann(") {
         "MlpModel"

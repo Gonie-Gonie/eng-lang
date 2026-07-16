@@ -1513,21 +1513,14 @@ fn base_completion_items() -> Vec<CompletionView> {
         .into_iter()
         .map(CompletionView::from_lsp)
         .collect::<Vec<_>>();
-    for snippet in [
-        (
-            "class object",
-            "class Construction {\n    name: String\n    u_value: Conductance [W/K]\n    validate {\n        u_value > 0 W/K\n    }\n    method summary() -> String = self.name\n}\n\nwall = Construction {\n    name = \"south_wall\"\n    u_value = 120 W/K\n}\n\nbetter_wall = wall with {\n    u_value = 100 W/K\n}",
-            "class declaration, validation, method, object literal, and copy-with",
-        ),
-    ] {
-        push_native_completion(&mut items, CompletionView {
-            label: snippet.0.to_owned(),
-            insert: snippet.1.to_owned(),
-            insert_snippet: None,
-            detail: snippet.2.to_owned(),
-            kind: "snippet".to_owned(),
-        });
-    }
+    push_native_completion(&mut items, CompletionView {
+        label: "class object".to_owned(),
+        insert: "class Construction {\n    name: String\n    u_value: Conductance [W/K]\n    validate {\n        u_value > 0 W/K\n    }\n    method summary() -> String = self.name\n}\n\nwall = Construction {\n    name = \"south_wall\"\n    u_value = 120 W/K\n}\n\nbetter_wall = wall with {\n    u_value = 100 W/K\n}"
+            .to_owned(),
+        insert_snippet: None,
+        detail: "class declaration, validation, method, object literal, and copy-with".to_owned(),
+        kind: "snippet".to_owned(),
+    });
     items
 }
 
@@ -3368,9 +3361,7 @@ fn complete_lsp_range(range: Option<&Value>) -> bool {
 }
 
 fn lsp_range_coordinates(range: Option<&Value>) -> Option<[u64; 4]> {
-    let Some(range) = range else {
-        return None;
-    };
+    let range = range?;
     let coordinates = [
         "/start/line",
         "/start/character",

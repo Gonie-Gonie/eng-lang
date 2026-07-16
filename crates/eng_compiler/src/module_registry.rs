@@ -455,9 +455,9 @@ mod tests {
             .iter()
             .any(|test| test == "cargo test -p eng_compiler net_"));
         assert!(registry.modules.iter().all(|module| {
-            module.diagnostics.iter().all(|value| value != "")
-                && module.examples.iter().all(|value| value != "")
-                && module.tests.iter().all(|value| value != "")
+            module.diagnostics.iter().all(|value| !value.is_empty())
+                && module.examples.iter().all(|value| !value.is_empty())
+                && module.tests.iter().all(|value| !value.is_empty())
         }));
     }
 

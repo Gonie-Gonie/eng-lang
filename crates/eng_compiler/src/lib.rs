@@ -5727,26 +5727,30 @@ fn push_timeseries_uncertainty_calculations_json(json: &mut String, report: &Che
             push_timeseries_uncertainty_calculation_entry(
                 json,
                 &mut first_entry,
-                "timeseries_statistics",
-                None,
-                &stats.source,
-                &summary_statistics,
-                "statistics",
-                &sensor_std.value,
-                stats.line,
+                TimeSeriesUncertaintyCalculationEntry {
+                    kind: "timeseries_statistics",
+                    binding: None,
+                    source: &stats.source,
+                    statistics: &summary_statistics,
+                    operation: "statistics",
+                    sensor_std: &sensor_std.value,
+                    line: stats.line,
+                },
             );
         }
         if !duration_statistics.is_empty() {
             push_timeseries_uncertainty_calculation_entry(
                 json,
                 &mut first_entry,
-                "timeseries_duration_above",
-                None,
-                &stats.source,
-                &duration_statistics,
-                "duration_above",
-                &sensor_std.value,
-                stats.line,
+                TimeSeriesUncertaintyCalculationEntry {
+                    kind: "timeseries_duration_above",
+                    binding: None,
+                    source: &stats.source,
+                    statistics: &duration_statistics,
+                    operation: "duration_above",
+                    sensor_std: &sensor_std.value,
+                    line: stats.line,
+                },
             );
         }
     }
@@ -5757,29 +5761,44 @@ fn push_timeseries_uncertainty_calculations_json(json: &mut String, report: &Che
         push_timeseries_uncertainty_calculation_entry(
             json,
             &mut first_entry,
-            "timeseries_integrate",
-            Some(&integration.binding),
-            &integration.source,
-            &[],
-            "integrate",
-            &sensor_std.value,
-            integration.line,
+            TimeSeriesUncertaintyCalculationEntry {
+                kind: "timeseries_integrate",
+                binding: Some(&integration.binding),
+                source: &integration.source,
+                statistics: &[],
+                operation: "integrate",
+                sensor_std: &sensor_std.value,
+                line: integration.line,
+            },
         );
     }
     json.push_str("\n  ],\n");
 }
 
+struct TimeSeriesUncertaintyCalculationEntry<'a> {
+    kind: &'a str,
+    binding: Option<&'a str>,
+    source: &'a str,
+    statistics: &'a [String],
+    operation: &'a str,
+    sensor_std: &'a str,
+    line: usize,
+}
+
 fn push_timeseries_uncertainty_calculation_entry(
     json: &mut String,
     first_entry: &mut bool,
-    kind: &str,
-    binding: Option<&str>,
-    source: &str,
-    statistics: &[String],
-    operation: &str,
-    sensor_std: &str,
-    line: usize,
+    entry: TimeSeriesUncertaintyCalculationEntry<'_>,
 ) {
+    let TimeSeriesUncertaintyCalculationEntry {
+        kind,
+        binding,
+        source,
+        statistics,
+        operation,
+        sensor_std,
+        line,
+    } = entry;
     if !*first_entry {
         json.push_str(",\n");
     }
@@ -7693,7 +7712,7 @@ fn push_review_fallback_record_json(
         source_lines,
         false,
     );
-    json.push_str("\n");
+    json.push('\n');
     json.push_str(&format!("{spaces}}}"));
 }
 
@@ -7916,7 +7935,7 @@ fn push_review_risk_json(
     ));
     json.push_str(&format!("        \"line\": {},\n", line));
     write_source_span_json(json, "        ", line, source_lines, false);
-    json.push_str("\n");
+    json.push('\n');
     json.push_str("      }");
 }
 

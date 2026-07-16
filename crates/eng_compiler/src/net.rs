@@ -83,6 +83,14 @@ pub struct NetAnalysis {
     pub diagnostics: Vec<Diagnostic>,
 }
 
+struct NetBuildContext<'a> {
+    line: usize,
+    options: &'a [WithOptionInfo],
+    parsed: &'a ParsedProgram,
+    source_base: Option<&'a Path>,
+    arg_values: &'a [ArgValueInfo],
+}
+
 pub fn analyze_net_boundaries(
     parsed: &ParsedProgram,
     source_base: Option<&Path>,
@@ -102,11 +110,13 @@ pub fn analyze_net_boundaries(
                     &binding.name,
                     &method,
                     &url_literal,
-                    binding.line,
-                    &options,
-                    parsed,
-                    source_base,
-                    &program.arg_values,
+                    NetBuildContext {
+                        line: binding.line,
+                        options: &options,
+                        parsed,
+                        source_base,
+                        arg_values: &program.arg_values,
+                    },
                     &mut analysis.diagnostics,
                 );
                 analysis.requests.push(boundary);
@@ -116,11 +126,13 @@ pub fn analyze_net_boundaries(
                 let boundary = build_download(
                     &download.url,
                     &download.target,
-                    download.line,
-                    &options,
-                    parsed,
-                    source_base,
-                    &program.arg_values,
+                    NetBuildContext {
+                        line: download.line,
+                        options: &options,
+                        parsed,
+                        source_base,
+                        arg_values: &program.arg_values,
+                    },
                     &mut analysis.diagnostics,
                 );
                 analysis.downloads.push(boundary);
@@ -159,13 +171,16 @@ fn build_request(
     binding: &str,
     method: &str,
     url_literal: &str,
-    line: usize,
-    options: &[WithOptionInfo],
-    parsed: &ParsedProgram,
-    source_base: Option<&Path>,
-    arg_values: &[ArgValueInfo],
+    context: NetBuildContext<'_>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> NetRequestInfo {
+    let NetBuildContext {
+        line,
+        options,
+        parsed,
+        source_base,
+        arg_values,
+    } = context;
     let url_value =
         resolve_value(url_literal, arg_values).unwrap_or_else(|| url_literal.to_owned());
     validate_url(&url_value, line, diagnostics);
@@ -214,13 +229,16 @@ fn build_request(
 fn build_download(
     url_literal: &str,
     target_literal: &str,
-    line: usize,
-    options: &[WithOptionInfo],
-    parsed: &ParsedProgram,
-    source_base: Option<&Path>,
-    arg_values: &[ArgValueInfo],
+    context: NetBuildContext<'_>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> NetDownloadInfo {
+    let NetBuildContext {
+        line,
+        options,
+        parsed,
+        source_base,
+        arg_values,
+    } = context;
     let url_value =
         resolve_value(url_literal, arg_values).unwrap_or_else(|| url_literal.to_owned());
     validate_url(&url_value, line, diagnostics);
