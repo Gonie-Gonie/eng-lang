@@ -2369,7 +2369,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     for schema in &program.schemas {
         builder.push_named_span(schema.span, &schema.name, "class", &["declaration"]);
         for column in &schema.columns {
-            builder.push_on_line(column.line, &column.name, "property", &["declaration"]);
+            builder.push_named_span(column.span, &column.name, "property", &["declaration"]);
             builder.push_on_line(column.line, &column.type_name, "type", &["quantity"]);
             if let Some(unit) = &column.unit {
                 builder.push_on_line(column.line, unit, "type", &["unit"]);
@@ -2726,32 +2726,32 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         builder.push_named_span(system.span, &system.name, "class", &["declaration"]);
         for variable in &system.variables {
             match variable.role.as_str() {
-                "state" => builder.push_on_line(
-                    variable.line,
+                "state" => builder.push_named_span(
+                    variable.span,
                     &variable.name,
                     "variable",
                     &["declaration", "state"],
                 ),
-                "input" => builder.push_on_line(
-                    variable.line,
+                "input" => builder.push_named_span(
+                    variable.span,
                     &variable.name,
                     "variable",
                     &["declaration", "input"],
                 ),
-                "parameter" => builder.push_on_line(
-                    variable.line,
+                "parameter" => builder.push_named_span(
+                    variable.span,
                     &variable.name,
                     "parameter",
                     &["declaration", "readonly"],
                 ),
-                "output" => builder.push_on_line(
-                    variable.line,
+                "output" => builder.push_named_span(
+                    variable.span,
                     &variable.name,
                     "variable",
                     &["declaration", "output"],
                 ),
-                _ => builder.push_on_line(
-                    variable.line,
+                _ => builder.push_named_span(
+                    variable.span,
                     &variable.name,
                     "variable",
                     &["declaration"],
@@ -2767,7 +2767,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             "outputs" => ["declaration", "output"].as_slice(),
             _ => ["declaration"].as_slice(),
         };
-        builder.push_on_line(vector.line, &vector.name, "variable", modifiers);
+        builder.push_named_span(vector.span, &vector.name, "variable", modifiers);
     }
 
     for domain in &program.domains {
@@ -2797,28 +2797,25 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             );
         }
         for parameter in &component.parameters {
-            builder.push_on_line(
-                parameter.line,
+            builder.push_named_span(
+                parameter.span,
                 &parameter.name,
                 "parameter",
                 &["declaration", "readonly"],
             );
         }
         for input in &component.inputs {
-            builder.push_on_line(
-                input.line,
+            builder.push_named_span(
+                input.span,
                 &input.name,
                 "parameter",
                 &["declaration", "input"],
             );
         }
         for local in &component.local_expressions {
-            builder.push_on_line(
-                local.line,
-                &local.name,
-                "variable",
-                &["declaration", "local"],
-            );
+            if let Some(span) = local.span {
+                builder.push_named_span(span, &local.name, "variable", &["declaration", "local"]);
+            }
         }
     }
     for component in &program.component_instances {
@@ -2828,7 +2825,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     for class_info in &program.classes {
         builder.push_named_span(class_info.span, &class_info.name, "class", &["declaration"]);
         for field in &class_info.fields {
-            builder.push_on_line(field.line, &field.name, "property", &["declaration"]);
+            builder.push_named_span(field.span, &field.name, "property", &["declaration"]);
             builder.push_on_line(field.line, &field.type_name, "type", &["quantity"]);
         }
         for validation in &class_info.validations {
@@ -2840,7 +2837,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for object in &program.class_objects {
-        builder.push_on_line(object.line, &object.name, "variable", &["declaration"]);
+        builder.push_named_span(object.span, &object.name, "variable", &["declaration"]);
         builder.push_on_line(
             object.line,
             &object.class_name,
@@ -2854,7 +2851,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             builder.push_keywords_on_line(object.line, &["with"], &["model"]);
         }
         for field in &object.fields {
-            builder.push_on_line(field.line, &field.name, "property", &["declaration"]);
+            builder.push_named_span(field.span, &field.name, "property", &["declaration"]);
         }
         for validation in &object.validations {
             builder.push_keywords_on_line(validation.line, &["validate"], &["validation"]);
@@ -2864,7 +2861,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     for args_block in &program.args_blocks {
         builder.push_keywords_on_line(args_block.line, &["args"], &["declaration"]);
         for field in &args_block.fields {
-            builder.push_on_line(field.line, &field.name, "parameter", &["declaration"]);
+            builder.push_named_span(field.span, &field.name, "parameter", &["declaration"]);
             builder.push_on_line(field.line, &field.type_name, "type", &[]);
         }
     }
@@ -11209,6 +11206,58 @@ mod tests {
                 .document_symbols
                 .iter()
                 .any(|symbol| symbol.name == name && symbol.detail.contains(detail)));
+        }
+    }
+
+    #[test]
+    fn nested_structural_declarations_use_compiler_name_spans() {
+        let source = concat!(
+            "schema Measurements {\r\n",
+            "    sample: Ratio [1]\r\n",
+            "}\r\n",
+            "args {\r\n",
+            "    limit: Int = 1\r\n",
+            "}\r\n",
+            "system Plant {\r\n",
+            "    parameter gain: Ratio [1] = 1\r\n",
+            "    state temperature: AbsoluteTemperature = 20 degC\r\n",
+            "    states state_vector = [temperature]\r\n",
+            "}\r\n",
+            "component Controller {\r\n",
+            "    parameter setpoint: Ratio [1] = 1\r\n",
+            "    input signal: Ratio [1]\r\n",
+            "    local_value = setpoint\r\n",
+            "}\r\n",
+            "class Settings {\r\n",
+            "    threshold: Ratio [1] = 1\r\n",
+            "}\r\n",
+            "settings = Settings {\r\n",
+            "    threshold = 1\r\n",
+            "}\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("nested_name_spans.eng"), source);
+
+        for (line_fragment, name, token_type) in [
+            ("sample: Ratio", "sample", "property"),
+            ("limit: Int", "limit", "parameter"),
+            ("parameter gain", "gain", "parameter"),
+            ("state temperature", "temperature", "variable"),
+            ("states state_vector", "state_vector", "variable"),
+            ("parameter setpoint", "setpoint", "parameter"),
+            ("input signal", "signal", "parameter"),
+            ("local_value =", "local_value", "variable"),
+            ("threshold: Ratio", "threshold", "property"),
+            ("settings = Settings", "settings", "variable"),
+            ("threshold = 1", "threshold", "property"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line_fragment,
+                name,
+                token_type,
+                "declaration",
+            );
         }
     }
 

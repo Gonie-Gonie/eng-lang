@@ -102,6 +102,7 @@ pub struct ConstInfo {
 pub struct SystemVariableInfo {
     pub role: String,
     pub name: String,
+    pub span: SourceSpan,
     pub quantity_kind: String,
     pub display_unit: String,
     pub canonical_unit: String,
@@ -213,6 +214,7 @@ pub struct StateSpaceVectorInfo {
     pub system: String,
     pub role: String,
     pub name: String,
+    pub span: SourceSpan,
     pub vector_type: String,
     pub members: Vec<String>,
     pub status: String,
@@ -304,6 +306,7 @@ pub struct ComponentConstructorArgumentInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ComponentParameterInfo {
     pub name: String,
+    pub span: SourceSpan,
     pub quantity_kind: String,
     pub display_unit: String,
     pub canonical_unit: String,
@@ -331,6 +334,8 @@ pub struct ComponentInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ComponentLocalExpressionInfo {
     pub name: String,
+    /// Exact source name span when this metadata represents a named binding.
+    pub span: Option<SourceSpan>,
     pub expression: String,
     pub status: String,
     pub quantity_kind: String,
@@ -485,6 +490,7 @@ pub struct ComponentJacobianSparsityInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClassFieldInfo {
     pub name: String,
+    pub span: SourceSpan,
     pub type_name: String,
     pub quantity_kind: String,
     pub display_unit: String,
@@ -532,6 +538,7 @@ pub struct ClassInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClassObjectFieldInfo {
     pub name: String,
+    pub span: SourceSpan,
     pub expression: String,
     pub quantity_kind: String,
     pub display_unit: String,
@@ -555,6 +562,7 @@ pub struct ClassObjectValidationInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClassObjectInfo {
     pub name: String,
+    pub span: SourceSpan,
     pub class_name: String,
     pub source_object: Option<String>,
     pub construction: String,
@@ -567,6 +575,7 @@ pub struct ClassObjectInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ArgsFieldInfo {
     pub name: String,
+    pub span: SourceSpan,
     pub type_name: String,
     pub default_value: Option<String>,
     pub redacted: bool,
@@ -6975,6 +6984,7 @@ fn export_field_name(expression: &str) -> String {
 fn analyze_args_field(field: &ArgsFieldDecl, args_block: &mut ArgsBlockInfo) {
     args_block.fields.push(ArgsFieldInfo {
         name: field.name.clone(),
+        span: field.span,
         type_name: field.type_name.clone(),
         default_value: field.default_value.clone(),
         redacted: secret_type_inner(&field.type_name).is_some(),
@@ -7017,6 +7027,7 @@ fn analyze_class_field(
 
     class_info.fields.push(ClassFieldInfo {
         name: field.name.clone(),
+        span: field.span,
         type_name: field.type_name.clone(),
         quantity_kind: field.type_name.clone(),
         display_unit,
@@ -7178,6 +7189,7 @@ fn analyze_class_object_decl(
     });
     class_objects.push(ClassObjectInfo {
         name: object.name.clone(),
+        span: object.span,
         class_name: object.class_name.clone(),
         source_object: None,
         construction: "literal".to_owned(),
@@ -7257,6 +7269,7 @@ fn analyze_class_object_copy_decl(
     }
     class_objects.push(ClassObjectInfo {
         name: object.name.clone(),
+        span: object.span,
         class_name: source.class_name.clone(),
         source_object: Some(object.source_name.clone()),
         construction: "copy_with".to_owned(),
@@ -7398,6 +7411,7 @@ fn analyze_class_object_field(
         .fields
         .push(ClassObjectFieldInfo {
             name: field.name.clone(),
+            span: field.span,
             expression: field.expression.clone(),
             quantity_kind,
             display_unit,
@@ -7991,6 +8005,7 @@ fn analyze_component_scalar_declaration(
 
     ComponentParameterInfo {
         name: declaration.name.clone(),
+        span: declaration.name_span,
         quantity_kind: declaration.type_name.clone(),
         display_unit,
         canonical_unit,
@@ -8604,6 +8619,7 @@ fn analyze_component_local_expression(
         .local_expressions
         .push(ComponentLocalExpressionInfo {
             name: binding.name.clone(),
+            span: Some(binding.span),
             expression: binding.expression.clone(),
             status: "metadata_only".to_owned(),
             quantity_kind: signal_contract.quantity_kind,
@@ -8626,6 +8642,7 @@ fn analyze_component_equation(equation: &crate::ast::EquationDecl, component: &m
         .local_expressions
         .push(ComponentLocalExpressionInfo {
             name: format!("equation_{equation_index}"),
+            span: None,
             expression: format!("{} eq {}", left, equation.right),
             status: "component_equation_seed".to_owned(),
             quantity_kind: "unknown".to_owned(),
@@ -11233,6 +11250,7 @@ fn analyze_system_variable(
     system.variables.push(SystemVariableInfo {
         role: declaration.role.clone(),
         name: declaration.name.clone(),
+        span: declaration.name_span,
         quantity_kind: declaration.type_name.clone(),
         display_unit,
         canonical_unit,
@@ -11454,6 +11472,7 @@ fn analyze_state_space_vector_decl(
         system: system_name.to_owned(),
         role: declaration.role.clone(),
         name: declaration.name.clone(),
+        span: declaration.name_span,
         vector_type: vector_type.to_owned(),
         members: declaration.members.clone(),
         status: if declaration.members.is_empty() {

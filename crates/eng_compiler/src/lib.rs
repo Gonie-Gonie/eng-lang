@@ -8850,6 +8850,75 @@ mod tests {
     }
 
     #[test]
+    fn nested_structural_symbols_preserve_exact_name_spans() {
+        let source = concat!(
+            "schema Measurements {\r\n",
+            "    sample: Ratio [1]\r\n",
+            "}\r\n",
+            "args {\r\n",
+            "    limit: Int = 1\r\n",
+            "}\r\n",
+            "system Plant {\r\n",
+            "    parameter gain: Ratio [1] = 1\r\n",
+            "    state temperature: AbsoluteTemperature = 20 degC\r\n",
+            "    states state_vector = [temperature]\r\n",
+            "}\r\n",
+            "component Controller {\r\n",
+            "    parameter setpoint: Ratio [1] = 1\r\n",
+            "    input signal: Ratio [1]\r\n",
+            "    local_value = setpoint\r\n",
+            "}\r\n",
+            "class Settings {\r\n",
+            "    threshold: Ratio [1] = 1\r\n",
+            "}\r\n",
+            "settings = Settings {\r\n",
+            "    threshold = 1\r\n",
+            "}\r\n",
+        );
+        let report = check_source("nested_name_spans.eng", source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let program = &report.semantic_program;
+        let component = &program.component_templates[0];
+        let object = &program.class_objects[0];
+        let spans = [
+            (
+                &program.schemas[0].columns[0].name,
+                program.schemas[0].columns[0].span,
+            ),
+            (
+                &program.args_blocks[0].fields[0].name,
+                program.args_blocks[0].fields[0].span,
+            ),
+            (
+                &program.systems[0].variables[0].name,
+                program.systems[0].variables[0].span,
+            ),
+            (
+                &program.systems[0].variables[1].name,
+                program.systems[0].variables[1].span,
+            ),
+            (
+                &program.state_space_vectors[0].name,
+                program.state_space_vectors[0].span,
+            ),
+            (&component.parameters[0].name, component.parameters[0].span),
+            (&component.inputs[0].name, component.inputs[0].span),
+            (
+                &program.classes[0].fields[0].name,
+                program.classes[0].fields[0].span,
+            ),
+            (&object.name, object.span),
+            (&object.fields[0].name, object.fields[0].span),
+        ];
+        for (name, span) in spans {
+            assert_eq!(&source[span.start..span.end], name);
+        }
+        let local = &component.local_expressions[0];
+        let local_span = local.span.expect("component local binding span");
+        assert_eq!(&source[local_span.start..local_span.end], local.name);
+    }
+
+    #[test]
     fn semantic_program_separates_component_templates_and_instances() {
         let report = check_source(
             "component_metadata_contract.eng",
