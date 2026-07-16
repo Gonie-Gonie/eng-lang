@@ -124,6 +124,7 @@ pub struct Diagnostic {
     pub message: String,
     pub line: usize,
     pub help: Option<String>,
+    pub source_span: Option<SourceSpan>,
 }
 
 impl Diagnostic {
@@ -134,6 +135,7 @@ impl Diagnostic {
             message: message.to_owned(),
             line,
             help: help.map(str::to_owned),
+            source_span: None,
         }
     }
 
@@ -144,7 +146,14 @@ impl Diagnostic {
             message: message.to_owned(),
             line,
             help: help.map(str::to_owned),
+            source_span: None,
         }
+    }
+
+    pub fn with_source_span(mut self, source_span: SourceSpan) -> Self {
+        self.line = source_span.line;
+        self.source_span = Some(source_span);
+        self
     }
 }
 
@@ -1983,10 +1992,10 @@ pub fn review_json(report: &CheckReport) -> String {
             json_escape(&diagnostic.code)
         ));
         json.push_str(&format!("      \"line\": {},\n", diagnostic.line));
-        write_source_span_json(
+        write_diagnostic_source_span_json(
             &mut json,
             "      ",
-            diagnostic.line,
+            diagnostic,
             &report.source_lines,
             true,
         );
@@ -2020,10 +2029,10 @@ pub fn review_json(report: &CheckReport) -> String {
             json_escape(&diagnostic.code)
         ));
         json.push_str(&format!("      \"line\": {},\n", diagnostic.line));
-        write_source_span_json(
+        write_diagnostic_source_span_json(
             &mut json,
             "      ",
-            diagnostic.line,
+            diagnostic,
             &report.source_lines,
             true,
         );
@@ -8495,6 +8504,26 @@ fn write_source_span_json(
     ));
 }
 
+fn write_diagnostic_source_span_json(
+    json: &mut String,
+    indent: &str,
+    diagnostic: &Diagnostic,
+    source_lines: &[String],
+    trailing_comma: bool,
+) {
+    let column = diagnostic
+        .source_span
+        .map(|source_span| source_span.column)
+        .unwrap_or_else(|| source_span_column(source_lines, diagnostic.line));
+    json.push_str(&format!(
+        "{}\"source_span\": {{ \"line\": {}, \"column\": {} }}{}",
+        indent,
+        diagnostic.line,
+        column,
+        if trailing_comma { "," } else { "" }
+    ));
+}
+
 fn source_span_column(source_lines: &[String], line: usize) -> usize {
     source_lines
         .get(line.saturating_sub(1))
@@ -8728,6 +8757,87 @@ mod tests {
         assert_eq!(warning["line"].as_u64(), Some(2));
         assert_eq!(warning["source_span"]["line"].as_u64(), Some(2));
         assert_eq!(warning["source_span"]["column"].as_u64(), Some(3));
+    }
+
+    #[test]
+    fn inline_with_options_preserve_nested_values_and_precise_spans() {
+        let source = concat!(
+            "samples = sample lhs\n",
+            "with { title = \"a,b\"; count = 2; x = uniform(0, 1); env = { A = \"x,y\"; B = \"z\" } }\n",
+        );
+        let parsed = parse_source(source);
+        let options = parsed
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                AstItem::WithOption(option) => Some(option),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(options.len(), 4);
+        let distribution = options
+            .iter()
+            .find(|option| option.key == "x")
+            .expect("distribution option");
+        assert_eq!(distribution.value, "uniform(0, 1)");
+        assert_eq!(
+            &source[distribution.span.start..distribution.span.end],
+            "x = uniform(0, 1)"
+        );
+        assert_eq!(
+            &source[distribution.key_span.start..distribution.key_span.end],
+            "x"
+        );
+        assert_eq!(
+            &source[distribution.value_span.start..distribution.value_span.end],
+            "uniform(0, 1)"
+        );
+
+        let env = options
+            .iter()
+            .find(|option| option.key == "env")
+            .expect("env option");
+        assert_eq!(env.value, "{ A = \"x,y\"; B = \"z\" }");
+        assert_eq!(
+            &source[env.value_span.start..env.value_span.end],
+            "{ A = \"x,y\"; B = \"z\" }"
+        );
+    }
+
+    #[test]
+    fn option_diagnostics_expose_compiler_owned_value_spans() {
+        let source = concat!(
+            "samples = sample lhs\r\n",
+            "with { bogus = \"😀\"; count = 0; seed = 42; x = uniform(0, 1) }\r\n",
+        );
+        let report = check_source(
+            "diagnostic_option_span.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        let diagnostic = report
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-SAMPLING-COUNT-INVALID")
+            .expect("sample count diagnostic");
+        let source_span = diagnostic.source_span.expect("compiler-owned source span");
+
+        assert_eq!(&source[source_span.start..source_span.end], "0");
+        let review: serde_json::Value =
+            serde_json::from_str(&review_json(&report)).expect("review json");
+        let review_diagnostic = review["diagnostics"]
+            .as_array()
+            .and_then(|diagnostics| {
+                diagnostics
+                    .iter()
+                    .find(|diagnostic| diagnostic["code"] == "E-SAMPLING-COUNT-INVALID")
+            })
+            .expect("review count diagnostic");
+        assert_eq!(
+            review_diagnostic["source_span"]["column"].as_u64(),
+            Some(source_span.column as u64)
+        );
     }
 
     #[test]

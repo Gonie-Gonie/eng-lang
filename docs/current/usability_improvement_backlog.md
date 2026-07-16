@@ -1,3 +1,4 @@
+- Batch 994: Made inline and block `with` options preserve exact whole/key/value source spans, fixed top-level option splitting around nested calls, lists, objects, and quoted separators, corrected CRLF byte offsets, attached compiler-owned ranges to selected option/network/process/sampling diagnostics, and made LSP diagnostics prefer those ranges with UTF-16 conversion before legacy range inference.
 - Batch 993: Replaced CI's mutating Rust format step with a failing `fmt-check` command, added Markdown final-LF/trailing-whitespace hygiene across 209 source files to `docs-check`, normalized three advanced-solver READMEs, documented the gates, and reconciled stale formatting/token-acceptance checklist entries with existing example and editor coverage.
 - Batch 992: Added actual stale-process cancellation for invalidated shared VS Code snapshots and superseded saved-file checks, preserved same-revision request sharing, ignored callbacks after diagnostics disposal, exposed a clamped `englang.liveDiagnosticsDelayMs` setting, and added Electron/Node race coverage plus tooling-status visibility.
 - Batch 991: Added shared semantic-role hover fallbacks for units, quantities, declared fields, TimeSeries axes/operations, side effects, external boundaries, uncertainty, and validation; preserved richer symbol hovers ahead of fallbacks; resolved composite units through UTF-16 semantic-token ranges; and added user-facing labels plus Rust, protocol, VS Code, and native payload coverage.
@@ -165,7 +166,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - DB query support: typed SQLite table readback is implemented; arbitrary query APIs, parameter binding, and query transaction policy remain open.
 - Native IDE usability: current-file Outline, workspace symbol search, unsaved-aware static-import definition/references/rename, and compiler quick fixes are implemented; keep improving token insight and inspector flows for repeated debugging tasks.
 - VS Code navigation: current-file highlights plus unsaved-aware workspace symbols and static-import definition/references/rename are implemented; broader package/index identities remain open.
-- VS Code linter/highlighting: continue expanding checked-code role-aware color coverage as more source spans become first-class metadata.
+- VS Code linter/highlighting: `with` option keys and values now have first-class parser spans and selected option diagnostics consume them directly; continue migrating non-option diagnostics and symbol occurrences away from inferred ranges.
 
 ## Documentation Policy
 

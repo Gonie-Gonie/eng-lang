@@ -115,12 +115,15 @@ Diagnostics are shaped like LSP diagnostics:
 }
 ```
 
-`line` is zero-based. `character` uses LSP UTF-16 offsets. Diagnostics use
-source-aware ranges when possible: dimensionless arithmetic diagnostics
-highlight the offending `+` or `-`, schema fast-assignment diagnostics
-highlight `=`, and file mutation diagnostics target `move` or `delete`. Generic
-diagnostics fall back through backticked message/help text, then the first
-identifier or visible token on the line.
+`line` is zero-based. `character` uses LSP UTF-16 offsets. A compiler-owned
+`Diagnostic::source_span` is the first choice and is converted from source-byte
+coordinates to UTF-16. This currently covers precise `with` option key/value
+ranges used by selected network, process, sampling, and uncertainty checks.
+Older diagnostics retain source-aware inference: dimensionless arithmetic
+diagnostics highlight the offending `+` or `-`, schema fast-assignment
+diagnostics highlight `=`, and file mutation diagnostics target `move` or
+`delete`. The final fallback searches backticked message/help text, then the
+first identifier or visible token on the line.
 
 Severity follows LSP numeric severity:
 

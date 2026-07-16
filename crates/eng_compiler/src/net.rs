@@ -392,21 +392,29 @@ fn request_body_option(
 ) -> Option<String> {
     let option = option_for_key(options, "body")?;
     if !matches!(method, "POST" | "PUT" | "PATCH") {
-        diagnostics.push(Diagnostic::error(
-            "E-NET-BODY-METHOD",
-            option.line,
-            &format!("HTTP request body is not supported for method `{method}`."),
-            Some("Use `http post`, `http put`, or `http patch` when sending a request body."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-NET-BODY-METHOD",
+                option.line,
+                &format!("HTTP request body is not supported for method `{method}`."),
+                Some("Use `http post`, `http put`, or `http patch` when sending a request body."),
+            )
+            .with_source_span(option.value_span),
+        );
         return None;
     }
     if is_secret_expression(&option.value) {
-        diagnostics.push(Diagnostic::error(
-            "E-NET-BODY-POLICY",
-            option.line,
-            "HTTP request body currently supports string literals and non-secret args values only.",
-            Some("Bind request bodies with a string literal or a non-secret `args.<name>` value."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-NET-BODY-POLICY",
+                option.line,
+                "HTTP request body currently supports string literals and non-secret args values only.",
+                Some(
+                    "Bind request bodies with a string literal or a non-secret `args.<name>` value.",
+                ),
+            )
+            .with_source_span(option.value_span),
+        );
         return None;
     }
     Some(
@@ -451,24 +459,30 @@ fn retry_policy(options: &[WithOptionInfo], diagnostics: &mut Vec<Diagnostic>) -
     let parsed = match raw.parse::<usize>() {
         Ok(value) => value,
         Err(_) => {
-            diagnostics.push(Diagnostic::error(
-                "E-NET-RETRY-POLICY",
-                option.line,
-                &format!("Network retry policy `{raw}` is not a whole number."),
-                Some("Use `retry = 0` to disable retries or an integer from 1 to 5."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-NET-RETRY-POLICY",
+                    option.line,
+                    &format!("Network retry policy `{raw}` is not a whole number."),
+                    Some("Use `retry = 0` to disable retries or an integer from 1 to 5."),
+                )
+                .with_source_span(option.value_span),
+            );
             return None;
         }
     };
     if parsed > MAX_RETRY_ATTEMPTS {
-        diagnostics.push(Diagnostic::error(
-            "E-NET-RETRY-POLICY",
-            option.line,
-            &format!(
-                "Network retry policy `{parsed}` exceeds the maximum of {MAX_RETRY_ATTEMPTS}."
-            ),
-            Some("Use a retry count from 0 to 5."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-NET-RETRY-POLICY",
+                option.line,
+                &format!(
+                    "Network retry policy `{parsed}` exceeds the maximum of {MAX_RETRY_ATTEMPTS}."
+                ),
+                Some("Use a retry count from 0 to 5."),
+            )
+            .with_source_span(option.value_span),
+        );
         return None;
     }
     Some(parsed)
@@ -479,15 +493,18 @@ fn timeout_policy(options: &[WithOptionInfo], diagnostics: &mut Vec<Diagnostic>)
     match normalize_timeout_duration(&option.value) {
         Ok(timeout) => Some(timeout),
         Err(message) => {
-            diagnostics.push(Diagnostic::error(
-                "E-NET-TIMEOUT",
-                option.line,
-                &format!(
-                    "Network timeout policy `{}` is invalid.",
-                    option.value.trim()
-                ),
-                Some(&message),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-NET-TIMEOUT",
+                    option.line,
+                    &format!(
+                        "Network timeout policy `{}` is invalid.",
+                        option.value.trim()
+                    ),
+                    Some(&message),
+                )
+                .with_source_span(option.value_span),
+            );
             None
         }
     }
@@ -520,15 +537,18 @@ fn body_size_limit_policy(
     match normalize_body_size_limit(&option.value) {
         Ok(limit) => Some(limit),
         Err(message) => {
-            diagnostics.push(Diagnostic::error(
-                "E-NET-BODY-SIZE-LIMIT",
-                option.line,
-                &format!(
-                    "Network response body size limit `{}` is invalid.",
-                    option.value.trim()
-                ),
-                Some(&message),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-NET-BODY-SIZE-LIMIT",
+                    option.line,
+                    &format!(
+                        "Network response body size limit `{}` is invalid.",
+                        option.value.trim()
+                    ),
+                    Some(&message),
+                )
+                .with_source_span(option.value_span),
+            );
             None
         }
     }

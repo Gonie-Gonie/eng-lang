@@ -446,6 +446,8 @@ pub struct WithOptionDecl {
     pub value: String,
     pub line: usize,
     pub span: SourceSpan,
+    pub key_span: SourceSpan,
+    pub value_span: SourceSpan,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

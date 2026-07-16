@@ -20,6 +20,7 @@ use crate::quantities::{
     QuantityCompletion,
 };
 use crate::schema::{ConfigPromotion, CsvPromotion, SchemaInfo};
+use crate::source::SourceSpan;
 use crate::stats::{AxisInfo, IntegrationInfo, StatsInfo};
 use crate::table::TableTransformInfo;
 use crate::type_info::{TypeInfo, TypeInfoSource};
@@ -747,6 +748,8 @@ pub struct WithOptionInfo {
     pub value: String,
     pub status: String,
     pub line: usize,
+    pub key_span: SourceSpan,
+    pub value_span: SourceSpan,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -3040,17 +3043,22 @@ fn analyze_with_option(
 ) -> WithOptionInfo {
     let mut status = "accepted".to_owned();
     if !known_with_option(&option.key) && !extra_known_options.contains(&option.key) {
-        diagnostics.push(Diagnostic::error(
-            "E-WITH-OPTION-001",
-            option.line,
-            &format!("Unknown with option `{}`.", option.key),
-            Some("Use supported options such as `method`, `backend`, `title`, `type`, `uncertainty`, `unit x`, or `unit y`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-WITH-OPTION-001",
+                option.line,
+                &format!("Unknown with option `{}`.", option.key),
+                Some("Use supported options such as `method`, `backend`, `title`, `type`, `uncertainty`, `unit x`, or `unit y`."),
+            )
+            .with_source_span(option.key_span),
+        );
         return WithOptionInfo {
             key: option.key.clone(),
             value: option.value.clone(),
             status: "unknown_option".to_owned(),
             line: option.line,
+            key_span: option.key_span,
+            value_span: option.value_span,
         };
     }
     if option.key == "display_unit" || option.key.starts_with("unit ") {
@@ -3075,6 +3083,8 @@ fn analyze_with_option(
         value: option.value.clone(),
         status,
         line: option.line,
+        key_span: option.key_span,
+        value_span: option.value_span,
     }
 }
 
@@ -3084,75 +3094,96 @@ fn validate_timeseries_sensor_std_option(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> bool {
     let Some(owner_type) = owner_type else {
-        diagnostics.push(Diagnostic::error(
-            "E-UNC-TS-STD-001",
-            option.line,
-            "`sensor_std` must be attached to a typed TimeSeries binding.",
-            Some("Attach `with { sensor_std = 0.2 K }` to a `TimeSeries[...] of ...` binding."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-UNC-TS-STD-001",
+                option.line,
+                "`sensor_std` must be attached to a typed TimeSeries binding.",
+                Some("Attach `with { sensor_std = 0.2 K }` to a `TimeSeries[...] of ...` binding."),
+            )
+            .with_source_span(option.value_span),
+        );
         return false;
     };
     let Some((_axis, value_quantity)) =
         crate::stats::time_series_quantity(&owner_type.quantity_kind)
     else {
-        diagnostics.push(Diagnostic::error(
-            "E-UNC-TS-STD-001",
-            option.line,
-            "`sensor_std` is supported only for TimeSeries uncertainty metadata.",
-            Some("Use scalar uncertainty constructors for scalar values."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-UNC-TS-STD-001",
+                option.line,
+                "`sensor_std` is supported only for TimeSeries uncertainty metadata.",
+                Some("Use scalar uncertainty constructors for scalar values."),
+            )
+            .with_source_span(option.value_span),
+        );
         return false;
     };
     let Some((stddev, unit)) = numeric_literal_with_optional_unit(&option.value) else {
-        diagnostics.push(Diagnostic::error(
-            "E-UNC-TS-STD-001",
-            option.line,
-            &format!(
-                "`sensor_std` must be a numeric value with a unit, got `{}`.",
-                option.value
-            ),
-            Some("Use a form such as `sensor_std = 0.2 K`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-UNC-TS-STD-001",
+                option.line,
+                &format!(
+                    "`sensor_std` must be a numeric value with a unit, got `{}`.",
+                    option.value
+                ),
+                Some("Use a form such as `sensor_std = 0.2 K`."),
+            )
+            .with_source_span(option.value_span),
+        );
         return false;
     };
     if stddev < 0.0 {
-        diagnostics.push(Diagnostic::error(
-            "E-UNC-TS-STD-001",
-            option.line,
-            "`sensor_std` must be non-negative.",
-            Some("Use zero or a positive standard deviation."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-UNC-TS-STD-001",
+                option.line,
+                "`sensor_std` must be non-negative.",
+                Some("Use zero or a positive standard deviation."),
+            )
+            .with_source_span(option.value_span),
+        );
         return false;
     }
     let Some(unit) = unit else {
-        diagnostics.push(Diagnostic::error(
-            "E-UNC-TS-STD-001",
-            option.line,
-            "`sensor_std` must include a unit.",
-            Some("Use a form such as `sensor_std = 0.2 K`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-UNC-TS-STD-001",
+                option.line,
+                "`sensor_std` must include a unit.",
+                Some("Use a form such as `sensor_std = 0.2 K`."),
+            )
+            .with_source_span(option.value_span),
+        );
         return false;
     };
     let Some(unit_quantity) = candidates_for_unit(&unit).first().copied() else {
-        diagnostics.push(Diagnostic::error(
-            "E-UNC-TS-STD-001",
-            option.line,
-            &format!("`sensor_std` unit `{unit}` is not supported."),
-            Some("Use a registered unit compatible with the TimeSeries value quantity."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-UNC-TS-STD-001",
+                option.line,
+                &format!("`sensor_std` unit `{unit}` is not supported."),
+                Some("Use a registered unit compatible with the TimeSeries value quantity."),
+            )
+            .with_source_span(option.value_span),
+        );
         return false;
     };
     let expected_dimension = dimension_for_quantity(&value_quantity);
     let actual_dimension = dimension_for_quantity(unit_quantity.quantity_kind);
     if !dimensions_compatible(&expected_dimension, &actual_dimension) {
-        diagnostics.push(Diagnostic::error(
-            "E-UNC-TS-STD-001",
-            option.line,
-            &format!(
-                "`sensor_std` has dimension {actual_dimension}, expected {expected_dimension}."
-            ),
-            Some("Use a sensor standard deviation unit compatible with the TimeSeries value."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-UNC-TS-STD-001",
+                option.line,
+                &format!(
+                    "`sensor_std` has dimension {actual_dimension}, expected {expected_dimension}."
+                ),
+                Some("Use a sensor standard deviation unit compatible with the TimeSeries value."),
+            )
+            .with_source_span(option.value_span),
+        );
         return false;
     }
     true
@@ -4375,40 +4406,52 @@ fn validate_process_env_option(option: &WithOptionInfo, diagnostics: &mut Vec<Di
         .strip_prefix('{')
         .and_then(|value| value.strip_suffix('}'))
     else {
-        diagnostics.push(Diagnostic::error(
-            "E-PROCESS-ENV-001",
-            option.line,
-            "`env` expects an inline object.",
-            Some("Use `env = { NAME = \"value\" }` with portable environment variable names."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-PROCESS-ENV-001",
+                option.line,
+                "`env` expects an inline object.",
+                Some("Use `env = { NAME = \"value\" }` with portable environment variable names."),
+            )
+            .with_source_span(option.value_span),
+        );
         return;
     };
     for entry in split_top_level(inner, &[',', ';']) {
         let Some((key, value)) = entry.split_once('=') else {
-            diagnostics.push(Diagnostic::error(
-                "E-PROCESS-ENV-001",
-                option.line,
-                &format!("Process env entry `{entry}` must use `NAME = value`."),
-                Some("Use `env = { NAME = \"value\" }`."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-PROCESS-ENV-001",
+                    option.line,
+                    &format!("Process env entry `{entry}` must use `NAME = value`."),
+                    Some("Use `env = { NAME = \"value\" }`."),
+                )
+                .with_source_span(option.value_span),
+            );
             continue;
         };
         let key = key.trim();
         if !is_process_env_key(key) {
-            diagnostics.push(Diagnostic::error(
-                "E-PROCESS-ENV-001",
-                option.line,
-                &format!("Process env key `{key}` is not portable."),
-                Some("Use ASCII names such as `OMP_NUM_THREADS` or `CASE_ID`."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-PROCESS-ENV-001",
+                    option.line,
+                    &format!("Process env key `{key}` is not portable."),
+                    Some("Use ASCII names such as `OMP_NUM_THREADS` or `CASE_ID`."),
+                )
+                .with_source_span(option.value_span),
+            );
         }
         if value.trim().is_empty() {
-            diagnostics.push(Diagnostic::error(
-                "E-PROCESS-ENV-001",
-                option.line,
-                &format!("Process env key `{key}` has an empty value expression."),
-                Some("Provide a string, args value, path expression, or numeric literal."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-PROCESS-ENV-001",
+                    option.line,
+                    &format!("Process env key `{key}` has an empty value expression."),
+                    Some("Provide a string, args value, path expression, or numeric literal."),
+                )
+                .with_source_span(option.value_span),
+            );
         }
     }
 }
@@ -4428,23 +4471,31 @@ fn validate_process_cwd_option(option: &WithOptionInfo, diagnostics: &mut Vec<Di
         || matches!(value, "true" | "false")
         || numeric_literal_with_optional_unit(value).is_some()
     {
-        diagnostics.push(Diagnostic::error(
-            "E-PROCESS-CWD-001",
-            option.line,
-            &format!("Process cwd `{value}` is not a path expression."),
-            Some("Use a string, `dir(...)`, `join(...)`, `args.<name>`, or a bound DirectoryPath."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-PROCESS-CWD-001",
+                option.line,
+                &format!("Process cwd `{value}` is not a path expression."),
+                Some(
+                    "Use a string, `dir(...)`, `join(...)`, `args.<name>`, or a bound DirectoryPath.",
+                ),
+            )
+            .with_source_span(option.value_span),
+        );
     }
 }
 
 fn validate_process_timeout_option(option: &WithOptionInfo, diagnostics: &mut Vec<Diagnostic>) {
     if parse_duration_option_seconds(&option.value).is_none() {
-        diagnostics.push(Diagnostic::error(
-            "E-PROCESS-TIMEOUT",
-            option.line,
-            &format!("Process timeout `{}` is invalid.", option.value.trim()),
-            Some("Use a positive duration with units such as `10 s`, `10 min`, or `1 h`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-PROCESS-TIMEOUT",
+                option.line,
+                &format!("Process timeout `{}` is invalid.", option.value.trim()),
+                Some("Use a positive duration with units such as `10 s`, `10 min`, or `1 h`."),
+            )
+            .with_source_span(option.value_span),
+        );
     }
 }
 
@@ -4452,21 +4503,27 @@ fn validate_process_retry_option(option: &WithOptionInfo, diagnostics: &mut Vec<
     const MAX_PROCESS_RETRY_ATTEMPTS: usize = 5;
     let raw = option.value.trim();
     let Ok(value) = raw.parse::<usize>() else {
-        diagnostics.push(Diagnostic::error(
-            "E-PROCESS-RETRY-POLICY",
-            option.line,
-            &format!("Process retry policy `{raw}` is not a whole number."),
-            Some("Use `retry = 0` to disable retries or an integer from 1 to 5."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-PROCESS-RETRY-POLICY",
+                option.line,
+                &format!("Process retry policy `{raw}` is not a whole number."),
+                Some("Use `retry = 0` to disable retries or an integer from 1 to 5."),
+            )
+            .with_source_span(option.value_span),
+        );
         return;
     };
     if value > MAX_PROCESS_RETRY_ATTEMPTS {
-        diagnostics.push(Diagnostic::error(
-            "E-PROCESS-RETRY-POLICY",
-            option.line,
-            &format!("Process retry policy `{value}` exceeds the maximum of {MAX_PROCESS_RETRY_ATTEMPTS}."),
-            Some("Use a retry count from 0 to 5."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-PROCESS-RETRY-POLICY",
+                option.line,
+                &format!("Process retry policy `{value}` exceeds the maximum of {MAX_PROCESS_RETRY_ATTEMPTS}."),
+                Some("Use a retry count from 0 to 5."),
+            )
+            .with_source_span(option.value_span),
+        );
     }
 }
 
@@ -4478,15 +4535,18 @@ fn validate_process_allow_failure_option(
         option.value.trim().to_ascii_lowercase().as_str(),
         "true" | "false"
     ) {
-        diagnostics.push(Diagnostic::error(
-            "E-PROCESS-ALLOW-FAILURE",
-            option.line,
-            &format!(
-                "`allow_failure` expects true or false, got `{}`.",
-                option.value.trim()
-            ),
-            Some("Use `allow_failure = true` only when a failed process is expected data."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-PROCESS-ALLOW-FAILURE",
+                option.line,
+                &format!(
+                    "`allow_failure` expects true or false, got `{}`.",
+                    option.value.trim()
+                ),
+                Some("Use `allow_failure = true` only when a failed process is expected data."),
+            )
+            .with_source_span(option.value_span),
+        );
     }
 }
 
@@ -4586,21 +4646,27 @@ fn sample_count_option(
     };
     let raw = option.value.trim();
     let Ok(count) = raw.parse::<usize>() else {
-        diagnostics.push(Diagnostic::error(
-            "E-SAMPLING-COUNT-INVALID",
-            option.line,
-            &format!("Sample count `{raw}` is not a positive integer."),
-            Some("Use `count = 100` or another positive integer."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SAMPLING-COUNT-INVALID",
+                option.line,
+                &format!("Sample count `{raw}` is not a positive integer."),
+                Some("Use `count = 100` or another positive integer."),
+            )
+            .with_source_span(option.value_span),
+        );
         return None;
     };
     if count == 0 {
-        diagnostics.push(Diagnostic::error(
-            "E-SAMPLING-COUNT-INVALID",
-            option.line,
-            "Sample count must be greater than zero.",
-            Some("Use `count = 1` or larger."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SAMPLING-COUNT-INVALID",
+                option.line,
+                "Sample count must be greater than zero.",
+                Some("Use `count = 1` or larger."),
+            )
+            .with_source_span(option.value_span),
+        );
         return None;
     }
     Some(count)
@@ -4613,12 +4679,15 @@ fn sample_seed_option(
     let option = accepted_option(options, "seed")?;
     let raw = option.value.trim();
     let Ok(seed) = raw.parse::<u64>() else {
-        diagnostics.push(Diagnostic::error(
-            "E-SAMPLING-SEED-INVALID",
-            option.line,
-            &format!("Sample seed `{raw}` is not a non-negative integer."),
-            Some("Use `seed = 42` for reproducible random or LHS sampling."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SAMPLING-SEED-INVALID",
+                option.line,
+                &format!("Sample seed `{raw}` is not a non-negative integer."),
+                Some("Use `seed = 42` for reproducible random or LHS sampling."),
+            )
+            .with_source_span(option.value_span),
+        );
         return None;
     };
     Some(seed)
@@ -4633,56 +4702,68 @@ fn sample_distribution_option(
         .strip_prefix("uniform(")
         .and_then(|rest| rest.strip_suffix(')'));
     let Some(inner) = inner else {
-        diagnostics.push(Diagnostic::error(
-            "E-SAMPLING-RANGE-UNIT",
-            option.line,
-            &format!(
-                "Sample parameter `{}` must use `uniform(lower, upper)`.",
-                option.key
-            ),
-            Some("Use endpoints with compatible units, for example `uniform(2.5, 5.0)`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SAMPLING-RANGE-UNIT",
+                option.line,
+                &format!(
+                    "Sample parameter `{}` must use `uniform(lower, upper)`.",
+                    option.key
+                ),
+                Some("Use endpoints with compatible units, for example `uniform(2.5, 5.0)`."),
+            )
+            .with_source_span(option.value_span),
+        );
         return None;
     };
     let parts = split_top_level(inner, &[',']);
     let [lower_raw, upper_raw] = parts.as_slice() else {
-        diagnostics.push(Diagnostic::error(
-            "E-SAMPLING-RANGE-UNIT",
-            option.line,
-            &format!(
-                "Sample parameter `{}` requires lower and upper endpoints.",
-                option.key
-            ),
-            Some("Use `uniform(lower, upper)`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SAMPLING-RANGE-UNIT",
+                option.line,
+                &format!(
+                    "Sample parameter `{}` requires lower and upper endpoints.",
+                    option.key
+                ),
+                Some("Use `uniform(lower, upper)`."),
+            )
+            .with_source_span(option.value_span),
+        );
         return None;
     };
-    let lower = sample_distribution_endpoint(lower_raw, option.line, diagnostics)?;
-    let upper = sample_distribution_endpoint(upper_raw, option.line, diagnostics)?;
+    let lower = sample_distribution_endpoint(lower_raw, option.value_span, diagnostics)?;
+    let upper = sample_distribution_endpoint(upper_raw, option.value_span, diagnostics)?;
     if lower.quantity_kind != upper.quantity_kind
         || normalize_sample_unit(&lower.display_unit) != normalize_sample_unit(&upper.display_unit)
     {
-        diagnostics.push(Diagnostic::error(
-            "E-SAMPLING-RANGE-UNIT",
-            option.line,
-            &format!(
-                "Sample parameter `{}` endpoints have incompatible units `{}` and `{}`.",
-                option.key, lower.display_unit, upper.display_unit
-            ),
-            Some("Use endpoints with the same quantity and unit."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SAMPLING-RANGE-UNIT",
+                option.line,
+                &format!(
+                    "Sample parameter `{}` endpoints have incompatible units `{}` and `{}`.",
+                    option.key, lower.display_unit, upper.display_unit
+                ),
+                Some("Use endpoints with the same quantity and unit."),
+            )
+            .with_source_span(option.value_span),
+        );
         return None;
     }
     if upper.value < lower.value {
-        diagnostics.push(Diagnostic::error(
-            "E-SAMPLING-RANGE-UNIT",
-            option.line,
-            &format!(
-                "Sample parameter `{}` upper endpoint is below the lower endpoint.",
-                option.key
-            ),
-            Some("Write `uniform(lower, upper)` with lower <= upper."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SAMPLING-RANGE-UNIT",
+                option.line,
+                &format!(
+                    "Sample parameter `{}` upper endpoint is below the lower endpoint.",
+                    option.key
+                ),
+                Some("Write `uniform(lower, upper)` with lower <= upper."),
+            )
+            .with_source_span(option.value_span),
+        );
         return None;
     }
     Some(SampleDistributionInfo {
@@ -4706,28 +4787,34 @@ struct SampleDistributionEndpoint {
 
 fn sample_distribution_endpoint(
     expression: &str,
-    line: usize,
+    source_span: SourceSpan,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<SampleDistributionEndpoint> {
     let Some((value, unit)) = numeric_literal_with_optional_unit(expression.trim()) else {
-        diagnostics.push(Diagnostic::error(
-            "E-SAMPLING-RANGE-UNIT",
-            line,
-            &format!(
-                "Sample endpoint `{}` is not a numeric literal.",
-                expression.trim()
-            ),
-            Some("Use numeric endpoints such as `2.5` or `5 W/m2`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SAMPLING-RANGE-UNIT",
+                source_span.line,
+                &format!(
+                    "Sample endpoint `{}` is not a numeric literal.",
+                    expression.trim()
+                ),
+                Some("Use numeric endpoints such as `2.5` or `5 W/m2`."),
+            )
+            .with_source_span(source_span),
+        );
         return None;
     };
     if !value.is_finite() {
-        diagnostics.push(Diagnostic::error(
-            "E-SAMPLING-RANGE-UNIT",
-            line,
-            &format!("Sample endpoint `{}` is not finite.", expression.trim()),
-            Some("Use finite numeric endpoints."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SAMPLING-RANGE-UNIT",
+                source_span.line,
+                &format!("Sample endpoint `{}` is not finite.", expression.trim()),
+                Some("Use finite numeric endpoints."),
+            )
+            .with_source_span(source_span),
+        );
         return None;
     }
     let Some(unit) = unit else {
@@ -4739,12 +4826,15 @@ fn sample_distribution_endpoint(
         });
     };
     let Some(quantity) = candidates_for_unit(&unit).first().copied() else {
-        diagnostics.push(Diagnostic::error(
-            "E-SAMPLING-RANGE-UNIT",
-            line,
-            &format!("Sample endpoint unit `{unit}` is unknown."),
-            Some("Use a known EngLang unit or make the range dimensionless."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SAMPLING-RANGE-UNIT",
+                source_span.line,
+                &format!("Sample endpoint unit `{unit}` is unknown."),
+                Some("Use a known EngLang unit or make the range dimensionless."),
+            )
+            .with_source_span(source_span),
+        );
         return None;
     };
     Some(SampleDistributionEndpoint {

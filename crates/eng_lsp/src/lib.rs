@@ -1267,10 +1267,26 @@ fn diagnostic_character_range(diagnostic: &Diagnostic, source: Option<&str>) -> 
     let lines = source_lines(source);
     let line_index = line_index_from_one_based(&lines, diagnostic.line);
     let line = lines.get(line_index).copied().unwrap_or_default();
-    let Some((start_byte, end_byte)) = diagnostic_byte_range(line, diagnostic) else {
+    let Some((start_byte, end_byte)) = compiler_diagnostic_byte_range(line, diagnostic)
+        .or_else(|| diagnostic_byte_range(line, diagnostic))
+    else {
         return (0, 1);
     };
     byte_range_to_utf16(line, start_byte, end_byte)
+}
+
+fn compiler_diagnostic_byte_range(line: &str, diagnostic: &Diagnostic) -> Option<(usize, usize)> {
+    let source_span = diagnostic.source_span?;
+    if source_span.line != diagnostic.line {
+        return None;
+    }
+    let start = source_span.column.checked_sub(1)?;
+    let length = source_span.end.checked_sub(source_span.start)?;
+    let end = start.checked_add(length)?;
+    if start >= end || line.get(start..end).is_none() {
+        return None;
+    }
+    Some((start, end))
 }
 
 fn diagnostic_byte_range(line: &str, diagnostic: &Diagnostic) -> Option<(usize, usize)> {
@@ -12181,6 +12197,38 @@ print "done"
         assert_eq!(
             diagnostic["range"]["end"]["character"].as_u64(),
             Some((equals_character + 1) as u64)
+        );
+    }
+
+    #[test]
+    fn diagnostic_json_prefers_compiler_spans_and_converts_them_to_utf16() {
+        let source = concat!(
+            "samples = sample lhs\n",
+            "with { bogus = \"😀\"; count = 0; seed = 42; x = uniform(0, 1) }\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("sampling.eng"), source);
+        let json = snapshot_json(&snapshot);
+        let diagnostic = json["diagnostics"]
+            .as_array()
+            .and_then(|diagnostics| {
+                diagnostics
+                    .iter()
+                    .find(|diagnostic| diagnostic["code"] == "E-SAMPLING-COUNT-INVALID")
+            })
+            .expect("sample count diagnostic");
+        let line = source.lines().nth(1).expect("inline with line");
+        let value_start_byte = line.find("count = 0").expect("count option") + "count = ".len();
+        let value_start_utf16 = utf16_len(&line[..value_start_byte]);
+
+        assert_ne!(value_start_byte, value_start_utf16);
+        assert_eq!(diagnostic["range"]["start"]["line"].as_u64(), Some(1));
+        assert_eq!(
+            diagnostic["range"]["start"]["character"].as_u64(),
+            Some(value_start_utf16 as u64)
+        );
+        assert_eq!(
+            diagnostic["range"]["end"]["character"].as_u64(),
+            Some((value_start_utf16 + 1) as u64)
         );
     }
 

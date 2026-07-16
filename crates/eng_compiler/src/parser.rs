@@ -2160,11 +2160,13 @@ fn parse_with_option_decl(
     ) {
         return None;
     }
-    parse_with_option_text(
-        line_text.trim().trim_end_matches(','),
-        first.span,
-        owner_line,
-    )
+    let (option_start, mut option_end) = trimmed_byte_range(line_text, 0, line_text.len())?;
+    if line_text.as_bytes().get(option_end.saturating_sub(1)) == Some(&b',') {
+        option_end = option_end.saturating_sub(1);
+    }
+    let (option_start, option_end) = trimmed_byte_range(line_text, option_start, option_end)?;
+    let span = source_span_for_line_range(first.span, option_start, option_end);
+    parse_with_option_text(&line_text[option_start..option_end], span, owner_line)
 }
 
 fn parse_inline_with_options(
@@ -2178,15 +2180,26 @@ fn parse_inline_with_options(
     if !matches!(first.kind, TokenKind::Keyword(Keyword::With)) {
         return Vec::new();
     }
-    let Some((_, after_open)) = line_text.split_once('{') else {
+    let Some(open_index) = line_text.find('{') else {
         return Vec::new();
     };
-    let Some((inside, _)) = after_open.rsplit_once('}') else {
+    let Some(close_index) = line_text.rfind('}') else {
         return Vec::new();
     };
-    inside
-        .split([';', ','])
-        .filter_map(|part| parse_with_option_text(part.trim(), first.span, owner_line))
+    if close_index <= open_index {
+        return Vec::new();
+    }
+    let inside_start = open_index + '{'.len_utf8();
+    let inside = &line_text[inside_start..close_index];
+    split_top_level_ranges(inside, &[';', ','])
+        .into_iter()
+        .filter_map(|(part_start, part_end)| {
+            let (part_start, part_end) = trimmed_byte_range(inside, part_start, part_end)?;
+            let line_start = inside_start + part_start;
+            let line_end = inside_start + part_end;
+            let span = source_span_for_line_range(first.span, line_start, line_end);
+            parse_with_option_text(&line_text[line_start..line_end], span, owner_line)
+        })
         .collect()
 }
 
@@ -2198,23 +2211,107 @@ fn parse_with_option_text(
     if text.is_empty() {
         return None;
     }
-    let (key, value) = if let Some(rest) = text.strip_prefix("unit ") {
-        let (axis, value) = rest.split_once('=')?;
-        (format!("unit {}", axis.trim()), value.trim().to_owned())
+    let equals_index = text.find('=')?;
+    let (key_start, key_end) = trimmed_byte_range(text, 0, equals_index)?;
+    let (value_start, value_end) =
+        trimmed_byte_range(text, equals_index + '='.len_utf8(), text.len())?;
+    let key_text = &text[key_start..key_end];
+    let value_text = &text[value_start..value_end];
+    let key = if let Some(axis) = key_text.strip_prefix("unit ") {
+        let axis = axis.trim();
+        if axis.is_empty() {
+            return None;
+        }
+        format!("unit {axis}")
     } else {
-        let (key, value) = text.split_once('=')?;
-        (key.trim().to_owned(), value.trim().to_owned())
+        key_text.to_owned()
     };
-    if key.is_empty() || value.is_empty() {
-        return None;
-    }
     Some(WithOptionDecl {
         owner_line,
         key,
-        value: strip_wrapping_quotes(&value),
+        value: strip_wrapping_quotes(value_text),
         line: span.line,
         span,
+        key_span: source_span_for_parent_range(span, key_start, key_end),
+        value_span: source_span_for_parent_range(span, value_start, value_end),
     })
+}
+
+fn trimmed_byte_range(text: &str, start: usize, end: usize) -> Option<(usize, usize)> {
+    let slice = text.get(start..end)?;
+    let trimmed = slice.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let leading = slice.len() - slice.trim_start().len();
+    let trimmed_start = start + leading;
+    Some((trimmed_start, trimmed_start + trimmed.len()))
+}
+
+fn source_span_for_line_range(line_anchor: SourceSpan, start: usize, end: usize) -> SourceSpan {
+    let line_start = line_anchor
+        .start
+        .saturating_sub(line_anchor.column.saturating_sub(1));
+    SourceSpan::new(
+        line_start + start,
+        line_start + end,
+        line_anchor.line,
+        start + 1,
+    )
+}
+
+fn source_span_for_parent_range(parent: SourceSpan, start: usize, end: usize) -> SourceSpan {
+    SourceSpan::new(
+        parent.start + start,
+        parent.start + end,
+        parent.line,
+        parent.column + start,
+    )
+}
+
+fn split_top_level_ranges(text: &str, separators: &[char]) -> Vec<(usize, usize)> {
+    let mut ranges = Vec::new();
+    let mut start = 0usize;
+    let mut paren_depth = 0usize;
+    let mut bracket_depth = 0usize;
+    let mut brace_depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+
+    for (index, character) in text.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+
+        match character {
+            '"' => in_string = true,
+            '(' => paren_depth += 1,
+            ')' => paren_depth = paren_depth.saturating_sub(1),
+            '[' => bracket_depth += 1,
+            ']' => bracket_depth = bracket_depth.saturating_sub(1),
+            '{' => brace_depth += 1,
+            '}' => brace_depth = brace_depth.saturating_sub(1),
+            separator
+                if paren_depth == 0
+                    && bracket_depth == 0
+                    && brace_depth == 0
+                    && separators.contains(&separator) =>
+            {
+                ranges.push((start, index));
+                start = index + separator.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    ranges.push((start, text.len()));
+    ranges
 }
 
 fn parse_standalone_command_style_decl(

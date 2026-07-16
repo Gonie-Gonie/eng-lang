@@ -30,6 +30,15 @@ The CLI, LSP, VS Code extension, and native IDE all rely on these spans so that
 Problems ranges, underlines, hover locations, and highlight inspection rows point
 at the same source text.
 
+`Diagnostic::source_span` is optional while older checks are migrated. When it
+is present, it is authoritative: review JSON uses its starting column and the
+LSP converts its byte column and byte length to UTF-16 editor coordinates.
+Checks without a compiler-owned range still use the documented LSP range
+inference path. `with` options preserve separate whole-option, key, and value
+spans so option diagnostics do not need to search the source line by wording.
+Line starts are counted from the original bytes, including two-byte CRLF line
+endings.
+
 ## Lexer And Parser
 
 `lexer.rs` classifies comments, identifiers, keywords, numbers, string
@@ -40,7 +49,9 @@ legacy syntax markers that semantic analysis can diagnose precisely.
 The parser records enough context to distinguish top-level statements, `args`,
 `schema`, `where`, `with`, validation, report, class/object, workflow, and
 solver-oriented blocks before semantic analysis attaches type, unit, artifact,
-and editor metadata.
+and editor metadata. Inline `with { ... }` parsing splits only at top-level
+commas or semicolons, preserving separators inside calls, lists, nested objects,
+and quoted strings.
 
 ## Semantic Analysis
 
