@@ -417,6 +417,15 @@ evaluation, and prediction expressions. Grammar uses such as `promote json
 records` remain keywords, and member uses such as `payload.records` remain
 properties.
 
+Lexical numbers require identifier boundaries and consume a valid decimal
+exponent as part of the same token. Names and literals such as `p95`, `rk4`,
+`expected_sha256`, and `case_001` therefore do not acquire nested number colors.
+Operator fallback excludes numeric exponents, generated hyphenated workflow
+literals, known units, and exact compiler-owned unit spans, so `1.25e-3`,
+`latin-hypercube`, and even a diagnosed composite unit such as `lb/s` remain
+atomic. `lsp-check` applies this number/operator non-string overlap invariant to
+all example and grammar-fixture snapshots.
+
 ## VS Code Fallback Mapping
 
 VS Code maps semantic tokens to TextMate fallback scopes in

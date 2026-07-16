@@ -323,6 +323,11 @@ Fast-binding aliases and model workflow operands use the same exact-range
 policy. `model_alias = model`, `train regression records`, and `predict model
 using records` keep resolved variable colors without changing grammar keywords
 or dotted member fields that use the same spelling.
+Numeric fallback also respects identifier boundaries: percentile helpers,
+solver literals, hash option names, and numbered bindings are not split into
+identifier plus number colors. Decimal exponents, hyphenated workflow literals,
+and compiler-owned composite units remain single semantic ranges without an
+embedded operator color.
 
 Role-aware highlighting also works on unsaved edits, so token colors do
 not have to wait for a file save. Sample-table member completions include

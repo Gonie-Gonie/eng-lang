@@ -387,6 +387,12 @@ expression ranges. This keeps soft-keyword bindings such as `model` and
 workflow modifiers into one token, and leaves actual grammar and member
 positions independently classified.
 
+Lexical number tokens require identifier boundaries and include valid decimal
+exponents. Operator tokens are excluded from those numbers, generated
+hyphenated workflow literals, catalog units, and exact compiler-owned unit
+spans. The snapshot coverage gate rejects any remaining non-string overlap
+where a `number` or `operator` token would split another semantic token.
+
 ## Document Symbols And Folding Ranges
 
 `document_symbols` uses LSP-style document symbol JSON with numeric symbol

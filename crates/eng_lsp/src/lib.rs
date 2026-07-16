@@ -2323,7 +2323,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             &semantic_modifiers_for_quantity(&constant.quantity_kind),
         );
         if let (Some(unit), Some(unit_span)) = (&constant.unit, constant.unit_span) {
-            builder.push_named_span(unit_span, unit, "type", &["unit"]);
+            builder.push_atomic_named_span(unit_span, unit, "type", &["unit"]);
         }
     }
 
@@ -2368,7 +2368,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                 &semantic_modifiers_for_quantity(&parameter.quantity_kind),
             );
             if let (Some(unit), Some(unit_span)) = (&parameter.unit, parameter.unit_span) {
-                builder.push_named_span(unit_span, unit, "type", &["unit"]);
+                builder.push_atomic_named_span(unit_span, unit, "type", &["unit"]);
             }
         }
         builder.push_type_identifiers_within_span(
@@ -2377,7 +2377,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             &semantic_modifiers_for_quantity(&function.return_quantity_kind),
         );
         if let (Some(unit), Some(unit_span)) = (&function.return_unit, function.return_unit_span) {
-            builder.push_named_span(unit_span, unit, "type", &["unit"]);
+            builder.push_atomic_named_span(unit_span, unit, "type", &["unit"]);
         }
         for local in &function.locals {
             builder.push_named_span(
@@ -2400,7 +2400,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                 &["quantity"],
             );
             if let (Some(unit), Some(unit_span)) = (&column.unit, column.unit_span) {
-                builder.push_named_span(unit_span, unit, "type", &["unit"]);
+                builder.push_atomic_named_span(unit_span, unit, "type", &["unit"]);
             }
         }
         for constraint in &schema.constraints {
@@ -2810,7 +2810,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                 &semantic_modifiers_for_quantity(&variable.quantity_kind),
             );
             if let (Some(unit), Some(unit_span)) = (&variable.unit, variable.unit_span) {
-                builder.push_named_span(unit_span, unit, "type", &["unit"]);
+                builder.push_atomic_named_span(unit_span, unit, "type", &["unit"]);
             }
         }
     }
@@ -2835,7 +2835,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                 &["quantity"],
             );
             if let (Some(unit), Some(unit_span)) = (&member.unit, member.unit_span) {
-                builder.push_named_span(unit_span, unit, "type", &["unit"]);
+                builder.push_atomic_named_span(unit_span, unit, "type", &["unit"]);
             }
         }
     }
@@ -2923,7 +2923,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                 &["quantity"],
             );
             if let Some(unit_span) = field.unit_span {
-                builder.push_named_span(unit_span, &field.display_unit, "type", &["unit"]);
+                builder.push_atomic_named_span(unit_span, &field.display_unit, "type", &["unit"]);
             }
         }
         for validation in &class_info.validations {
@@ -5352,15 +5352,18 @@ impl<'a> SemanticTokenBuilder<'a> {
                 );
                 self.scan_workflow_status_condition_tokens(line_index, start, end);
                 self.scan_legacy_declaration_names(line_index, start, end);
-                self.scan_hyphenated_workflow_builtin_tokens(
+                let hyphenated_ranges = self.scan_hyphenated_workflow_builtin_tokens(
                     line_index,
                     start,
                     end,
                     &constant_keywords,
                 );
                 self.scan_generic_type_tokens(line_index, start, end, &generic_type_bases);
-                self.scan_number_tokens(line_index, start, end, &unit_ranges);
-                self.scan_symbol_operator_tokens(line_index, start, end, &unit_ranges);
+                let number_ranges = self.scan_number_tokens(line_index, start, end, &unit_ranges);
+                let mut operator_excluded_ranges = unit_ranges;
+                operator_excluded_ranges.extend(hyphenated_ranges);
+                operator_excluded_ranges.extend(number_ranges);
+                self.scan_symbol_operator_tokens(line_index, start, end, &operator_excluded_ranges);
             }
         }
     }
@@ -5806,8 +5809,9 @@ impl<'a> SemanticTokenBuilder<'a> {
         start: usize,
         end: usize,
         constant_keywords: &BTreeSet<&str>,
-    ) {
+    ) -> Vec<(usize, usize)> {
         let line = self.lines[line_index];
+        let mut occupied = Vec::new();
         for token in HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS {
             let mut search_start = start;
             while search_start < end {
@@ -5831,10 +5835,12 @@ impl<'a> SemanticTokenBuilder<'a> {
                         token_type,
                         modifiers,
                     );
+                    occupied.push((token_start, token_end));
                 }
                 search_start = token_end;
             }
         }
+        occupied
     }
 
     fn scan_unit_tokens(
@@ -5895,10 +5901,11 @@ impl<'a> SemanticTokenBuilder<'a> {
         start: usize,
         end: usize,
         excluded_ranges: &[(usize, usize)],
-    ) {
+    ) -> Vec<(usize, usize)> {
         let line = self.lines[line_index];
         let bytes = line.as_bytes();
         let mut index = start;
+        let mut occupied = Vec::new();
         while index < end {
             if index < bytes.len() && bytes[index].is_ascii_digit() {
                 let token_start = index;
@@ -5906,11 +5913,37 @@ impl<'a> SemanticTokenBuilder<'a> {
                 while index < end && index < bytes.len() && bytes[index].is_ascii_digit() {
                     index += 1;
                 }
-                if index < end && index < bytes.len() && bytes[index] == b'.' {
+                if index + 1 < end
+                    && index + 1 < bytes.len()
+                    && bytes[index] == b'.'
+                    && bytes[index + 1].is_ascii_digit()
+                {
                     index += 1;
                     while index < end && index < bytes.len() && bytes[index].is_ascii_digit() {
                         index += 1;
                     }
+                }
+                if index < end && index < bytes.len() && matches!(bytes[index], b'e' | b'E') {
+                    let mut exponent_end = index + 1;
+                    if exponent_end < end
+                        && exponent_end < bytes.len()
+                        && matches!(bytes[exponent_end], b'+' | b'-')
+                    {
+                        exponent_end += 1;
+                    }
+                    let exponent_digits = exponent_end;
+                    while exponent_end < end
+                        && exponent_end < bytes.len()
+                        && bytes[exponent_end].is_ascii_digit()
+                    {
+                        exponent_end += 1;
+                    }
+                    if exponent_end > exponent_digits {
+                        index = exponent_end;
+                    }
+                }
+                if !is_number_token_boundary(line, token_start, index) {
+                    continue;
                 }
                 if line.get(token_start..index) == Some("1")
                     && is_dimensionless_unit_annotation(line, token_start, index)
@@ -5922,6 +5955,7 @@ impl<'a> SemanticTokenBuilder<'a> {
                         "type",
                         &["unit"],
                     );
+                    occupied.push((token_start, index));
                     continue;
                 }
                 if !excluded_ranges
@@ -5935,11 +5969,13 @@ impl<'a> SemanticTokenBuilder<'a> {
                         "number",
                         &[],
                     );
+                    occupied.push((token_start, index));
                 }
                 continue;
             }
             index += 1;
         }
+        occupied
     }
 
     fn scan_symbol_operator_tokens(
@@ -6183,6 +6219,38 @@ impl<'a> SemanticTokenBuilder<'a> {
         }
     }
 
+    fn push_atomic_named_span(
+        &mut self,
+        span: SourceSpan,
+        label: &str,
+        token_type: &str,
+        modifiers: &[&str],
+    ) {
+        let Some(line_index) = span.line.checked_sub(1) else {
+            return;
+        };
+        let Some(byte_start) = span.column.checked_sub(1) else {
+            return;
+        };
+        let Some(byte_length) = span.end.checked_sub(span.start) else {
+            return;
+        };
+        let Some(byte_end) = byte_start.checked_add(byte_length) else {
+            return;
+        };
+        if self
+            .lines
+            .get(line_index)
+            .and_then(|line| line.get(byte_start..byte_end))
+            != Some(label)
+        {
+            self.push_on_line(span.line, label, token_type, modifiers);
+            return;
+        }
+        self.remove_tokens_within_byte_range(line_index, byte_start, byte_length);
+        self.push_byte_range(line_index, byte_start, byte_length, token_type, modifiers);
+    }
+
     fn push_preferred_named_span(
         &mut self,
         span: SourceSpan,
@@ -6235,6 +6303,35 @@ impl<'a> SemanticTokenBuilder<'a> {
         }
         self.tokens
             .retain(|token| token.line != line || token.start != start || token.length != length);
+        self.rebuild_token_keys();
+    }
+
+    fn remove_tokens_within_byte_range(
+        &mut self,
+        line: usize,
+        byte_start: usize,
+        byte_length: usize,
+    ) {
+        let Some(line_text) = self.lines.get(line).copied() else {
+            return;
+        };
+        let Some(byte_end) = byte_start.checked_add(byte_length) else {
+            return;
+        };
+        if byte_end > line_text.len() {
+            return;
+        }
+        let start = utf16_len(&line_text[..byte_start]);
+        let end = start + utf16_len(&line_text[byte_start..byte_end]);
+        self.tokens.retain(|token| {
+            token.line != line
+                || token.start < start
+                || token.start.saturating_add(token.length) > end
+        });
+        self.rebuild_token_keys();
+    }
+
+    fn rebuild_token_keys(&mut self) {
         self.token_keys.clear();
         for (index, token) in self.tokens.iter().enumerate() {
             self.token_keys.insert(
@@ -7844,6 +7941,15 @@ fn comment_start(line: &str) -> Option<usize> {
 }
 
 fn is_identifier_boundary(line: &str, start: usize, end: usize) -> bool {
+    let bytes = line.as_bytes();
+    let before = start
+        .checked_sub(1)
+        .and_then(|index| bytes.get(index).copied());
+    let after = bytes.get(end).copied();
+    before.is_none_or(|byte| !is_ident_byte(byte)) && after.is_none_or(|byte| !is_ident_byte(byte))
+}
+
+fn is_number_token_boundary(line: &str, start: usize, end: usize) -> bool {
     let bytes = line.as_bytes();
     let before = start
         .checked_sub(1)
@@ -15472,6 +15578,67 @@ operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.012 1/min]
             }),
             "semantic operator scan should not split slash-delimited unit tokens"
         );
+    }
+
+    #[test]
+    fn lexical_numbers_and_operators_do_not_split_atomic_semantic_tokens() {
+        let source = concat!(
+            "prefix = \"😀\"\r\n",
+            "p95_Q_series: Ratio [1] = p95(Q_series)\r\n",
+            "solver_mode = rk4\r\n",
+            "expected_sha256: String = \"0123456789abcdef\"\r\n",
+            "case_001: String = \"case\"\r\n",
+            "sampling_mode = latin-hypercube\r\n",
+            "scientific = 1.25e-3\r\n",
+            "schema UnsupportedUnit {\r\n",
+            "    flow: MassFlowRate [lb/s]\r\n",
+            "}\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("lexical_atomic_tokens.eng"), source);
+
+        for (line, label, token_type) in [
+            ("p95_Q_series:", "p95_Q_series", "variable"),
+            ("p95_Q_series:", "p95", "function"),
+            ("solver_mode =", "rk4", "keyword"),
+            ("expected_sha256:", "expected_sha256", "variable"),
+            ("case_001:", "case_001", "variable"),
+            ("sampling_mode =", "latin-hypercube", "keyword"),
+            ("scientific =", "1.25e-3", "number"),
+            ("flow: MassFlowRate", "lb/s", "type"),
+        ] {
+            assert_semantic_token_on_line_type(&snapshot, source, line, label, token_type);
+        }
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "flow: MassFlowRate",
+            "lb/s",
+            "type",
+            "unit",
+        );
+
+        for forbidden in ["95", "4", "256", "001"] {
+            assert!(
+                snapshot.semantic_tokens.tokens.iter().all(|token| {
+                    token.token_type != "number"
+                        || semantic_token_source_text(source, token) != Some(forbidden)
+                }),
+                "identifier or literal subrange `{forbidden}` must not be a number token"
+            );
+        }
+        for (line_needle, operator) in [
+            ("sampling_mode =", "-"),
+            ("scientific =", "-"),
+            ("flow: MassFlowRate", "/"),
+        ] {
+            assert_no_semantic_token_on_line_type(
+                &snapshot,
+                source,
+                line_needle,
+                operator,
+                "operator",
+            );
+        }
     }
 
     #[test]
