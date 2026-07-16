@@ -14,7 +14,9 @@ use toml::Value as TomlValue;
 pub struct SchemaColumn {
     pub name: String,
     pub type_name: String,
+    pub type_span: SourceSpan,
     pub unit: Option<String>,
+    pub unit_span: Option<SourceSpan>,
     pub default_value: Option<String>,
     pub is_index: bool,
     pub optional: bool,
@@ -155,7 +157,9 @@ pub fn analyze_schema(
                     schemas[schema_index].columns.push(SchemaColumn {
                         name: declaration.name.clone(),
                         type_name,
+                        type_span: declaration.type_span,
                         unit: declaration.unit.clone(),
+                        unit_span: declaration.unit_span,
                         default_value: declaration.expression.clone(),
                         is_index: declaration
                             .type_name

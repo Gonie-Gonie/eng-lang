@@ -86,7 +86,9 @@ pub struct ClassDecl {
 pub struct ClassFieldDecl {
     pub name: String,
     pub type_name: String,
+    pub type_span: SourceSpan,
     pub unit: Option<String>,
+    pub unit_span: Option<SourceSpan>,
     pub default_value: Option<String>,
     pub line: usize,
     pub span: SourceSpan,
@@ -114,6 +116,7 @@ pub struct ClassMethodDecl {
 pub struct ClassObjectDecl {
     pub name: String,
     pub class_name: String,
+    pub class_name_span: SourceSpan,
     pub line: usize,
     pub span: SourceSpan,
     pub context: ParseContext,
@@ -123,6 +126,7 @@ pub struct ClassObjectDecl {
 pub struct ClassObjectCopyDecl {
     pub name: String,
     pub source_name: String,
+    pub source_name_span: SourceSpan,
     pub line: usize,
     pub span: SourceSpan,
     pub context: ParseContext,
@@ -141,6 +145,7 @@ pub struct ClassObjectFieldDecl {
 pub struct ArgsFieldDecl {
     pub name: String,
     pub type_name: String,
+    pub type_span: SourceSpan,
     pub default_value: Option<String>,
     pub line: usize,
     pub span: SourceSpan,
@@ -216,6 +221,7 @@ pub struct PortDecl {
     pub name: String,
     pub name_span: SourceSpan,
     pub domain: String,
+    pub domain_span: SourceSpan,
     pub line: usize,
     pub span: SourceSpan,
 }
@@ -482,7 +488,9 @@ pub struct ExpectationDecl {
 pub struct ExplicitDecl {
     pub name: String,
     pub type_name: String,
+    pub type_span: SourceSpan,
     pub unit: Option<String>,
+    pub unit_span: Option<SourceSpan>,
     pub expression: Option<String>,
     pub line: usize,
     pub span: SourceSpan,

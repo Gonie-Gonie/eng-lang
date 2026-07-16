@@ -8881,6 +8881,9 @@ mod tests {
             "settings = Settings {\r\n",
             "    threshold = 1\r\n",
             "}\r\n",
+            "settings_copy = settings with {\r\n",
+            "    threshold = 2\r\n",
+            "}\r\n",
         );
         let report = check_source("nested_name_spans.eng", source, &CheckOptions::default());
         assert!(!report.has_errors(), "{:?}", report.diagnostics);
@@ -8936,10 +8939,69 @@ mod tests {
         let local = &component.local_expressions[0];
         let local_span = local.span.expect("component local binding span");
         assert_eq!(&source[local_span.start..local_span.end], local.name);
+        let copy = &program.class_objects[1];
+        let semantic_reference_spans = [
+            (program.schemas[0].columns[0].type_span, "Ratio"),
+            (
+                program.schemas[0].columns[0]
+                    .unit_span
+                    .expect("schema column unit span"),
+                "1",
+            ),
+            (program.args_blocks[0].fields[0].type_span, "Int"),
+            (component.ports[0].domain_span, "SignalDomain"),
+            (program.classes[0].fields[0].type_span, "Ratio"),
+            (
+                program.classes[0].fields[0]
+                    .unit_span
+                    .expect("class field unit span"),
+                "1",
+            ),
+            (
+                object.class_name_span.expect("object class-name span"),
+                "Settings",
+            ),
+            (
+                copy.source_object_span.expect("copy source-object span"),
+                "settings",
+            ),
+        ];
+        for (span, expected) in semantic_reference_spans {
+            assert_eq!(&source[span.start..span.end], expected);
+        }
+        assert!(copy.class_name_span.is_none());
 
         let parsed = parse_source(source);
         let mut ast_spans = Vec::new();
+        let mut ast_reference_spans = Vec::new();
         for item in &parsed.items {
+            match item {
+                AstItem::ExplicitDecl(declaration)
+                    if declaration.context == ParseContext::Schema =>
+                {
+                    ast_reference_spans.push((declaration.type_span, "Ratio"));
+                    ast_reference_spans
+                        .push((declaration.unit_span.expect("schema AST unit span"), "1"));
+                }
+                AstItem::ArgsField(declaration) => {
+                    ast_reference_spans.push((declaration.type_span, "Int"));
+                }
+                AstItem::ClassField(declaration) => {
+                    ast_reference_spans.push((declaration.type_span, "Ratio"));
+                    ast_reference_spans
+                        .push((declaration.unit_span.expect("class AST unit span"), "1"));
+                }
+                AstItem::Port(declaration) => {
+                    ast_reference_spans.push((declaration.domain_span, "SignalDomain"));
+                }
+                AstItem::ClassObject(declaration) => {
+                    ast_reference_spans.push((declaration.class_name_span, "Settings"));
+                }
+                AstItem::ClassObjectCopy(declaration) => {
+                    ast_reference_spans.push((declaration.source_name_span, "settings"));
+                }
+                _ => {}
+            }
             let symbol = match item {
                 AstItem::DomainVariable(declaration) => (
                     declaration.role.as_str(),
@@ -8967,6 +9029,10 @@ mod tests {
         for (anchor, name, anchor_span, name_span) in ast_spans {
             assert_eq!(&source[anchor_span.start..anchor_span.end], anchor);
             assert_eq!(&source[name_span.start..name_span.end], name);
+        }
+        assert_eq!(ast_reference_spans.len(), 8);
+        for (span, expected) in ast_reference_spans {
+            assert_eq!(&source[span.start..span.end], expected);
         }
     }
 

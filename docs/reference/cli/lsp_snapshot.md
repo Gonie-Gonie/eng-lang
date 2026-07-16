@@ -251,6 +251,12 @@ methods, args fields, and class object bindings and fields use parser-owned sour
 ranges. Same-line text search remains a compatibility fallback for symbol kinds
 whose exact ranges have not yet migrated.
 
+Structural references on those declarations also use parser-owned ranges: schema,
+class, and args types; schema/class units; component-port domains; object-literal class
+names; and copy-with source objects. Generic type expressions are emitted as
+separate identifier tokens, so punctuation, whitespace, and nested type arguments
+do not create overlapping semantic-token ranges.
+
 Compiler symbol metadata remains the preferred hover source. When a semantic
 token has no matching symbol hover, the snapshot adds a role hover for units,
 quantities, declared fields, TimeSeries axes/operations, side effects, external

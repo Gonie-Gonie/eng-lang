@@ -1176,13 +1176,16 @@ fn parse_class_field_decl(
         .map(|(left, right)| (left.trim(), Some(right.trim().to_owned())))
         .unwrap_or((raw_after_colon, None));
     let (type_name, unit) = split_type_and_unit(type_part);
+    let (type_span, unit_span) = type_and_unit_source_spans(first.span, line_text, type_part)?;
     if type_name.is_empty() {
         return None;
     }
     Some(ClassFieldDecl {
         name,
         type_name,
+        type_span,
         unit,
+        unit_span,
         default_value,
         line: first.span.line,
         span: first.span,
@@ -1308,6 +1311,7 @@ fn parse_class_object_decl(tokens: &[Token], context: ParseContext) -> Option<Cl
     Some(ClassObjectDecl {
         name: name.clone(),
         class_name: class_name.clone(),
+        class_name_span: third.span,
         line: first.span.line,
         span: first.span,
         context,
@@ -1345,6 +1349,7 @@ fn parse_class_object_copy_decl(
     Some(ClassObjectCopyDecl {
         name: name.clone(),
         source_name: source_name.clone(),
+        source_name_span: third.span,
         line: first.span.line,
         span: first.span,
         context,
@@ -1618,6 +1623,7 @@ fn parse_args_field_decl(
         .map(|(left, right)| (left.trim(), Some(right.trim().to_owned())))
         .unwrap_or((raw_after_colon, None));
     let (type_name, _) = split_type_and_unit(type_part);
+    let (type_span, _) = type_and_unit_source_spans(first.span, line_text, type_part)?;
     if type_name.is_empty() {
         return None;
     }
@@ -1625,6 +1631,7 @@ fn parse_args_field_decl(
     Some(ArgsFieldDecl {
         name,
         type_name,
+        type_span,
         default_value,
         line: first.span.line,
         span: first.span,
@@ -1772,11 +1779,13 @@ fn parse_port_decl(tokens: &[Token], line_text: &str, context: ParseContext) -> 
     if !matches!(third.kind, TokenKind::Symbol(Symbol::Colon)) {
         return None;
     }
-    let domain = line_text.split_once(':')?.1.trim().to_owned();
+    let domain = line_text.split_once(':')?.1.trim();
+    let domain_span = source_span_for_subslice_after_colon(first.span, line_text, domain)?;
     Some(PortDecl {
         name: name.clone(),
         name_span: second.span,
-        domain,
+        domain: domain.to_owned(),
+        domain_span,
         line: first.span.line,
         span: first.span,
     })
@@ -1924,10 +1933,13 @@ fn parse_operator_decl(
         .map(|(left, right)| (left.trim(), Some(right.trim().to_owned())))
         .unwrap_or((raw_after_colon, None));
     let (type_name, unit) = split_type_and_unit(type_part);
+    let (type_span, unit_span) = type_and_unit_source_spans(first.span, line_text, type_part)?;
     Some(ExplicitDecl {
         name: name.clone(),
         type_name,
+        type_span,
         unit,
+        unit_span,
         expression,
         line: first.span.line,
         span: first.span,
@@ -3340,11 +3352,14 @@ fn parse_explicit_decl(
         .map(|(left, right)| (left.trim(), Some(right.trim().to_owned())))
         .unwrap_or((raw_after_colon, None));
     let (type_name, unit) = split_type_and_unit(type_part);
+    let (type_span, unit_span) = type_and_unit_source_spans(first.span, line_text, type_part)?;
 
     Some(ExplicitDecl {
         name,
         type_name,
+        type_span,
         unit,
+        unit_span,
         expression,
         line: first.span.line,
         span: first.span,
@@ -3382,6 +3397,76 @@ fn split_type_and_unit(type_part: &str) -> (String, Option<String>) {
         }
     }
     split_trailing_unit(trimmed)
+}
+
+fn type_and_unit_source_spans(
+    line_anchor: SourceSpan,
+    line_text: &str,
+    type_part: &str,
+) -> Option<(SourceSpan, Option<SourceSpan>)> {
+    let trimmed = type_part.trim();
+    let (type_end, unit_range) = trailing_unit_source_range(trimmed)
+        .map(|(type_end, unit_start, unit_end)| (type_end, Some((unit_start, unit_end))))
+        .unwrap_or((trimmed.len(), None));
+    let trimmed_start = subslice_start_after_colon(line_text, trimmed)?;
+    let type_span = source_span_for_line_range(
+        line_anchor,
+        trimmed_start,
+        trimmed_start.saturating_add(type_end),
+    );
+    let unit_span = unit_range.map(|(unit_start, unit_end)| {
+        source_span_for_line_range(
+            line_anchor,
+            trimmed_start.saturating_add(unit_start),
+            trimmed_start.saturating_add(unit_end),
+        )
+    });
+    Some((type_span, unit_span))
+}
+
+fn trailing_unit_source_range(trimmed: &str) -> Option<(usize, usize, usize)> {
+    if !trimmed.ends_with(']') {
+        return None;
+    }
+    let unit_open = trimmed.rfind('[')?;
+    if unit_open > 0
+        && !trimmed[..unit_open]
+            .chars()
+            .last()
+            .is_some_and(char::is_whitespace)
+    {
+        return None;
+    }
+    let unit_source = &trimmed[unit_open + '['.len_utf8()..trimmed.len() - ']'.len_utf8()];
+    let unit = unit_source.trim();
+    if unit.is_empty() {
+        return None;
+    }
+    let unit_leading = unit_source.len() - unit_source.trim_start().len();
+    let unit_start = unit_open + '['.len_utf8() + unit_leading;
+    let type_end = trimmed[..unit_open].trim_end().len();
+    Some((type_end, unit_start, unit_start + unit.len()))
+}
+
+fn source_span_for_subslice_after_colon(
+    line_anchor: SourceSpan,
+    line_text: &str,
+    subslice: &str,
+) -> Option<SourceSpan> {
+    let start = subslice_start_after_colon(line_text, subslice)?;
+    Some(source_span_for_line_range(
+        line_anchor,
+        start,
+        start + subslice.len(),
+    ))
+}
+
+fn subslice_start_after_colon(line_text: &str, subslice: &str) -> Option<usize> {
+    let search_start = line_text.find(':')? + ':'.len_utf8();
+    line_text
+        .get(search_start..)?
+        .find(subslice)
+        .map(|relative| search_start + relative)
 }
 
 fn split_trailing_unit(type_part: &str) -> (String, Option<String>) {

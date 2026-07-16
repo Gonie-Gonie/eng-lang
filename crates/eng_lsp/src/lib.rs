@@ -2370,9 +2370,13 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         builder.push_named_span(schema.span, &schema.name, "class", &["declaration"]);
         for column in &schema.columns {
             builder.push_named_span(column.span, &column.name, "property", &["declaration"]);
-            builder.push_on_line(column.line, &column.type_name, "type", &["quantity"]);
-            if let Some(unit) = &column.unit {
-                builder.push_on_line(column.line, unit, "type", &["unit"]);
+            builder.push_type_identifiers_within_span(
+                column.type_span,
+                &column.type_name,
+                &["quantity"],
+            );
+            if let (Some(unit), Some(unit_span)) = (&column.unit, column.unit_span) {
+                builder.push_named_span(unit_span, unit, "type", &["unit"]);
             }
         }
         for constraint in &schema.constraints {
@@ -2789,8 +2793,8 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         builder.push_named_span(component.span, &component.name, "class", &["declaration"]);
         for port in &component.ports {
             builder.push_named_span(port.span, &port.name, "property", &["declaration"]);
-            builder.push_on_line(
-                port.line,
+            builder.push_within_span(
+                port.domain_span,
                 &port.domain_name,
                 "interface",
                 &["defaultLibrary"],
@@ -2826,7 +2830,14 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         builder.push_named_span(class_info.span, &class_info.name, "class", &["declaration"]);
         for field in &class_info.fields {
             builder.push_named_span(field.span, &field.name, "property", &["declaration"]);
-            builder.push_on_line(field.line, &field.type_name, "type", &["quantity"]);
+            builder.push_type_identifiers_within_span(
+                field.type_span,
+                &field.type_name,
+                &["quantity"],
+            );
+            if let Some(unit_span) = field.unit_span {
+                builder.push_named_span(unit_span, &field.display_unit, "type", &["unit"]);
+            }
         }
         for validation in &class_info.validations {
             builder.push_keywords_on_line(validation.line, &["validate"], &["validation"]);
@@ -2838,15 +2849,19 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
 
     for object in &program.class_objects {
         builder.push_named_span(object.span, &object.name, "variable", &["declaration"]);
-        builder.push_on_line(
-            object.line,
-            &object.class_name,
-            "class",
-            &["defaultLibrary"],
-        );
+        if let Some(class_name_span) = object.class_name_span {
+            builder.push_named_span(
+                class_name_span,
+                &object.class_name,
+                "class",
+                &["defaultLibrary"],
+            );
+        }
         if object.construction == "copy_with" {
-            if let Some(source_object) = &object.source_object {
-                builder.push_on_line(object.line, source_object, "variable", &["model"]);
+            if let (Some(source_object), Some(source_object_span)) =
+                (&object.source_object, object.source_object_span)
+            {
+                builder.push_named_span(source_object_span, source_object, "variable", &["model"]);
             }
             builder.push_keywords_on_line(object.line, &["with"], &["model"]);
         }
@@ -2862,7 +2877,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         builder.push_keywords_on_line(args_block.line, &["args"], &["declaration"]);
         for field in &args_block.fields {
             builder.push_named_span(field.span, &field.name, "parameter", &["declaration"]);
-            builder.push_on_line(field.line, &field.type_name, "type", &[]);
+            builder.push_type_identifiers_within_span(field.type_span, &field.type_name, &[]);
         }
     }
 
@@ -5555,6 +5570,9 @@ impl<'a> SemanticTokenBuilder<'a> {
                 {
                     continue;
                 }
+                if is_identifier_label_token(line, unit_end) {
+                    continue;
+                }
                 let after_unit = skip_ascii_whitespace(line.as_bytes(), unit_end, end);
                 if after_unit < end
                     && line
@@ -5700,6 +5718,123 @@ impl<'a> SemanticTokenBuilder<'a> {
             if let Some(start) = find_token_in_line(line, &candidate) {
                 self.push_byte_range(line_index, start, candidate.len(), token_type, modifiers);
                 return;
+            }
+        }
+    }
+
+    fn push_within_span(
+        &mut self,
+        span: SourceSpan,
+        label: &str,
+        token_type: &str,
+        modifiers: &[&str],
+    ) {
+        if label.trim().is_empty() {
+            return;
+        }
+        let Some(line_index) = span.line.checked_sub(1) else {
+            return;
+        };
+        let Some(byte_start) = span.column.checked_sub(1) else {
+            return;
+        };
+        let Some(byte_length) = span.end.checked_sub(span.start) else {
+            return;
+        };
+        let Some(byte_end) = byte_start.checked_add(byte_length) else {
+            return;
+        };
+        let Some(source_range) = self
+            .lines
+            .get(line_index)
+            .and_then(|line| line.get(byte_start..byte_end))
+        else {
+            return;
+        };
+        for candidate in token_candidates(label) {
+            if let Some(relative_start) = find_token_in_line(source_range, &candidate) {
+                self.push_byte_range(
+                    line_index,
+                    byte_start + relative_start,
+                    candidate.len(),
+                    token_type,
+                    modifiers,
+                );
+                return;
+            }
+        }
+    }
+
+    fn push_type_identifiers_within_span(
+        &mut self,
+        span: SourceSpan,
+        type_name: &str,
+        modifiers: &[&str],
+    ) {
+        let identifier_labels = |value: &str| {
+            value
+                .split(|character: char| !(character.is_ascii_alphanumeric() || character == '_'))
+                .filter(|label| is_simple_identifier_segment(label) && *label != "of")
+                .map(str::to_owned)
+                .collect::<BTreeSet<_>>()
+        };
+        let labels = identifier_labels(type_name);
+        if labels.is_empty() {
+            return;
+        }
+        let trimmed_type = type_name.trim();
+        let modifier_labels = if is_simple_identifier_segment(trimmed_type) {
+            BTreeSet::from([trimmed_type.to_owned()])
+        } else if let Some((_, quantity)) = trimmed_type.rsplit_once(" of ") {
+            identifier_labels(quantity)
+        } else {
+            BTreeSet::new()
+        };
+        let Some(line_index) = span.line.checked_sub(1) else {
+            return;
+        };
+        let Some(byte_start) = span.column.checked_sub(1) else {
+            return;
+        };
+        let Some(byte_length) = span.end.checked_sub(span.start) else {
+            return;
+        };
+        let Some(byte_end) = byte_start.checked_add(byte_length) else {
+            return;
+        };
+        let Some(source_range) = self
+            .lines
+            .get(line_index)
+            .and_then(|line| line.get(byte_start..byte_end))
+        else {
+            return;
+        };
+        let bytes = source_range.as_bytes();
+        let mut index = 0usize;
+        while index < bytes.len() {
+            if !is_ident_start(bytes[index]) {
+                index += 1;
+                continue;
+            }
+            let token_start = index;
+            index += 1;
+            while index < bytes.len() && is_ident_byte(bytes[index]) {
+                index += 1;
+            }
+            let token = &source_range[token_start..index];
+            if labels.contains(token) {
+                let token_modifiers = if modifier_labels.contains(token) {
+                    modifiers
+                } else {
+                    &[]
+                };
+                self.push_byte_range(
+                    line_index,
+                    byte_start + token_start,
+                    index - token_start,
+                    "type",
+                    token_modifiers,
+                );
             }
         }
     }
@@ -11270,6 +11405,162 @@ mod tests {
                 "declaration",
             );
         }
+    }
+
+    #[test]
+    fn structural_reference_tokens_use_their_compiler_owned_occurrences() {
+        let source = concat!(
+            "schema CollisionSchema {\r\n",
+            "    Ratio: Optional[Ratio] [1]\r\n",
+            "    Secret: Secret[String]\r\n",
+            "    kW: HeatRate [kW]\r\n",
+            "}\r\n",
+            "args {\r\n",
+            "    Int: Int = 1\r\n",
+            "}\r\n",
+            "domain SignalDomain {\r\n",
+            "    across potential: Ratio [1]\r\n",
+            "    through flow: Ratio [1]\r\n",
+            "    conservation sum(flow) = 0\r\n",
+            "}\r\n",
+            "component CollisionComponent {\r\n",
+            "    port SignalDomain: SignalDomain\r\n",
+            "}\r\n",
+            "class Settings {\r\n",
+            "    Temperature: Temperature [K] = 300 K\r\n",
+            "}\r\n",
+            "Settings = Settings {\r\n",
+            "    Temperature = 300 K\r\n",
+            "}\r\n",
+            "SettingsCopy = Settings with {\r\n",
+            "    Temperature = 301 K\r\n",
+            "}\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("structural_reference_spans.eng"), source);
+        assert_no_conflicting_semantic_token_types(
+            &snapshot,
+            source,
+            "structural_reference_spans.eng",
+        );
+        for (left_index, left) in snapshot.semantic_tokens.tokens.iter().enumerate() {
+            for right in snapshot.semantic_tokens.tokens.iter().skip(left_index + 1) {
+                if left.line != right.line {
+                    continue;
+                }
+                assert!(
+                    left.start + left.length <= right.start
+                        || right.start + right.length <= left.start,
+                    "semantic token ranges overlap on line {}: {left:?} and {right:?}",
+                    left.line + 1
+                );
+            }
+        }
+
+        let assert_occurrence = |line_needle: &str,
+                                 label: &str,
+                                 occurrence: usize,
+                                 token_type: &str,
+                                 modifier: Option<&str>| {
+            let (line_index, line) = source
+                .lines()
+                .enumerate()
+                .find(|(_, line)| line.contains(line_needle))
+                .expect("fixture line");
+            let start = line
+                .match_indices(label)
+                .nth(occurrence)
+                .map(|(start, _)| start)
+                .expect("fixture occurrence");
+            assert!(
+                snapshot.semantic_tokens.tokens.iter().any(|token| {
+                    token.line == line_index
+                        && token.start == start
+                        && token.length == label.len()
+                        && token.token_type == token_type
+                        && modifier.is_none_or(|expected| {
+                            token.modifiers.iter().any(|actual| actual == expected)
+                        })
+                }),
+                "occurrence {occurrence} of `{label}` on `{line}` should be `{token_type}` with modifier {modifier:?}"
+            );
+        };
+
+        assert_occurrence(
+            "Ratio: Optional[Ratio]",
+            "Ratio",
+            0,
+            "property",
+            Some("declaration"),
+        );
+        assert_occurrence(
+            "Ratio: Optional[Ratio]",
+            "Ratio",
+            1,
+            "type",
+            Some("quantity"),
+        );
+        assert_occurrence(
+            "Secret: Secret[String]",
+            "Secret",
+            0,
+            "property",
+            Some("declaration"),
+        );
+        assert_occurrence("Secret: Secret[String]", "Secret", 1, "type", None);
+        assert_occurrence("Secret: Secret[String]", "String", 0, "type", None);
+        assert_occurrence(
+            "Temperature: Temperature",
+            "Temperature",
+            0,
+            "property",
+            Some("declaration"),
+        );
+        assert_occurrence(
+            "Temperature: Temperature",
+            "Temperature",
+            1,
+            "type",
+            Some("quantity"),
+        );
+        assert_occurrence("kW: HeatRate", "kW", 0, "property", Some("declaration"));
+        assert_occurrence("kW: HeatRate", "kW", 1, "type", Some("unit"));
+        assert_occurrence("Int: Int", "Int", 0, "parameter", Some("declaration"));
+        assert_occurrence("Int: Int", "Int", 1, "type", None);
+        assert_occurrence(
+            "port SignalDomain",
+            "SignalDomain",
+            0,
+            "property",
+            Some("declaration"),
+        );
+        assert_occurrence(
+            "port SignalDomain",
+            "SignalDomain",
+            1,
+            "interface",
+            Some("defaultLibrary"),
+        );
+        assert_occurrence(
+            "Settings = Settings",
+            "Settings",
+            0,
+            "variable",
+            Some("declaration"),
+        );
+        assert_occurrence(
+            "Settings = Settings",
+            "Settings",
+            1,
+            "class",
+            Some("defaultLibrary"),
+        );
+        assert_occurrence(
+            "SettingsCopy = Settings",
+            "Settings",
+            1,
+            "variable",
+            Some("model"),
+        );
     }
 
     #[test]

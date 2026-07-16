@@ -48,6 +48,11 @@ reference scans must also skip already-classified declaration ranges so differen
 token types never overlap.
 Domain variables, component ports, and class methods keep separate keyword anchors
 and lexer-owned name spans; editor declarations consume the name spans.
+Schema, class, and args type references, schema/class units, port domain references, and
+class-object class/copy-source references retain parser-owned source ranges in
+semantic metadata. Normalized type names are resolved only inside their source
+range, generic types emit one token per identifier instead of an overlapping token
+for the whole expression, and lexical unit fallback ignores declaration labels.
 Component templates and system-local component instances are separate compiler
 collections. Editor symbol passes consume both collections: template declarations
 own their nested port/parameter/local tokens, while instance bindings own only the
