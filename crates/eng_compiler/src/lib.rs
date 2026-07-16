@@ -8886,7 +8886,7 @@ mod tests {
     }
 
     #[test]
-    fn function_symbols_preserve_exact_parser_owned_name_spans() {
+    fn function_signatures_preserve_exact_parser_owned_spans() {
         let source = concat!(
             "fn value(value: Ratio [1], factor: Ratio [1]) -> Ratio [1] {\r\n",
             "    result = value * factor\r\n",
@@ -8913,7 +8913,25 @@ mod tests {
                 &source[parameter.name_span.start..parameter.name_span.end],
                 parameter.name
             );
+            assert_eq!(
+                &source[parameter.type_span.start..parameter.type_span.end],
+                parameter.type_name
+            );
+            let unit_span = parameter.unit_span.expect("parameter unit span");
+            assert_eq!(
+                &source[unit_span.start..unit_span.end],
+                parameter.unit.as_deref().expect("parameter unit")
+            );
         }
+        assert_eq!(
+            &source[declaration.return_type_span.start..declaration.return_type_span.end],
+            declaration.return_type
+        );
+        let return_unit_span = declaration.return_unit_span.expect("return unit span");
+        assert_eq!(
+            &source[return_unit_span.start..return_unit_span.end],
+            declaration.return_unit.as_deref().expect("return unit")
+        );
 
         let report = check_source("function_spans.eng", source, &CheckOptions::default());
         let function = report
@@ -8930,9 +8948,57 @@ mod tests {
                 &source[parameter.span.start..parameter.span.end],
                 parameter.name
             );
+            assert_eq!(
+                &source[parameter.type_span.start..parameter.type_span.end],
+                parameter.quantity_kind
+            );
+            let unit_span = parameter.unit_span.expect("semantic parameter unit span");
+            assert_eq!(
+                &source[unit_span.start..unit_span.end],
+                parameter.unit.as_deref().expect("semantic parameter unit")
+            );
         }
+        assert_eq!(
+            &source[function.return_type_span.start..function.return_type_span.end],
+            function.return_quantity_kind
+        );
+        let semantic_return_unit_span = function
+            .return_unit_span
+            .expect("semantic return unit span");
+        assert_eq!(
+            &source[semantic_return_unit_span.start..semantic_return_unit_span.end],
+            function
+                .return_unit
+                .as_deref()
+                .expect("semantic return unit")
+        );
         let local = function.locals.first().expect("function local");
         assert_eq!(&source[local.span.start..local.span.end], local.name);
+
+        let invalid_source = concat!(
+            "fn invalid(value: MissingParam [1]) -> MissingReturn [1] {\r\n",
+            "    return value\r\n",
+            "}\r\n",
+        );
+        let invalid_report = check_source(
+            "invalid_function_spans.eng",
+            invalid_source,
+            &CheckOptions::default(),
+        );
+        for (code, expected) in [
+            ("E-FN-TYPE-001", "MissingReturn"),
+            ("E-FN-TYPE-002", "MissingParam"),
+        ] {
+            let diagnostic = invalid_report
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code)
+                .unwrap_or_else(|| panic!("missing {code} diagnostic"));
+            let span = diagnostic
+                .source_span
+                .expect("function type diagnostic span");
+            assert_eq!(&invalid_source[span.start..span.end], expected);
+        }
     }
 
     #[test]

@@ -355,6 +355,10 @@ Core semantic role expectations:
 | Schema/class/component field | `property` with `declaration`. |
 | `args` field | `parameter` with `declaration`. |
 | Function parameter | `parameter` with `declaration`. |
+| Function parameter declared type | `type` with the compiler-resolved quantity/type modifiers. |
+| Function parameter explicit unit | `type` with `unit`. |
+| Function return declared type | `type` with the compiler-resolved quantity/type modifiers. |
+| Function return explicit unit | `type` with `unit`. |
 | System state declaration | `variable` with `declaration` and `state`. |
 | System input declaration | `variable` with `declaration` and `input`. |
 | System parameter declaration | `parameter` with `declaration` and `readonly`. |
@@ -380,6 +384,12 @@ parser-owned spans. The outline uses the same import-target and const-name
 selection ranges, and compiler diagnostics use the import target or const
 expression span. This avoids same-line text search when a const name is repeated
 in its initializer and keeps UTF-16 ranges correct for non-BMP import paths.
+
+Function names, parameter names, parameter type/unit annotations, and return
+type/unit annotations also use parser-owned spans. Function and parameter
+outline selections use their exact name occurrences, while `E-FN-TYPE-001` and
+`E-FN-TYPE-002` underline the corresponding return or parameter type instead of
+the `fn` keyword.
 
 ## VS Code Fallback Mapping
 

@@ -120,7 +120,8 @@ Diagnostics are shaped like LSP diagnostics:
 coordinates to UTF-16. This currently covers precise `with` option key/value
 ranges used by selected network, process, sampling, and uncertainty checks. It
 also covers typed state-space vector type arguments and initial values, legacy
-vector member lists, and linear-operator type or matrix expressions. Older
+vector member lists, linear-operator type or matrix expressions, and unknown
+function parameter or return types. Older
 diagnostics retain source-aware inference: dimensionless arithmetic
 diagnostics highlight the offending `+` or `-`, schema fast-assignment
 diagnostics highlight `=`, and file mutation diagnostics target `move` or
@@ -250,12 +251,13 @@ Component hover/completion details distinguish a `component template` from a
 `component instance of Name`. Both remain present when a source declares a template
 and constructs one or more system-local instances.
 
-Declaration tokens for import targets, const names/types/units, schema columns,
-state-space type blocks and members, system variables and state vectors,
-domain variables, component ports, parameters, inputs and locals, class fields and
-methods, args fields, and class object bindings and fields use parser-owned source
-ranges. Same-line text search remains a compatibility fallback for symbol kinds
-whose exact ranges have not yet migrated.
+Declaration tokens for import targets, const names/types/units, function names,
+parameter names/types/units, function return types/units, schema columns,
+state-space type blocks and members, system variables and state vectors, domain
+variables, component ports, parameters, inputs and locals, class fields and
+methods, args fields, and class object bindings and fields use parser-owned
+source ranges. Same-line text search remains a compatibility fallback for symbol
+kinds whose exact ranges have not yet migrated.
 
 System/component type and unit tokens, typed state-space vector type
 expressions, and linear-operator type expressions also use parser-owned ranges.
@@ -378,6 +380,12 @@ including CRLF sources and targets containing non-BMP characters. Const type
 and explicit unit ranges use the same spans as semantic highlighting, and
 import/const Problems ranges underline the target or expression rather than the
 declaration keyword.
+
+Function and parameter selection ranges also come from compiler-owned name
+spans, so a parameter that repeats its function name selects the parameter
+occurrence. Parameter and return type/unit colors share their parser spans with
+unknown-type Problems ranges and remain correct after non-BMP text in a generic
+type expression.
 
 Each state-space vector type is a top-level struct-like symbol whose member
 fields are nested children with role, quantity type, and unit detail.

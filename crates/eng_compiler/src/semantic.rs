@@ -58,6 +58,9 @@ pub struct FunctionParamInfo {
     pub name: String,
     pub span: SourceSpan,
     pub quantity_kind: String,
+    pub type_span: SourceSpan,
+    pub unit: Option<String>,
+    pub unit_span: Option<SourceSpan>,
     pub display_unit: String,
     pub canonical_unit: String,
     pub dimension: String,
@@ -78,6 +81,9 @@ pub struct FunctionInfo {
     pub parameters: Vec<FunctionParamInfo>,
     pub locals: Vec<FunctionLocalInfo>,
     pub return_quantity_kind: String,
+    pub return_type_span: SourceSpan,
+    pub return_unit: Option<String>,
+    pub return_unit_span: Option<SourceSpan>,
     pub return_display_unit: String,
     pub return_canonical_unit: String,
     pub return_dimension: String,
@@ -3593,15 +3599,18 @@ fn analyze_function_decl(
     let return_canonical_unit = default_unit_for_type(&function.return_type);
     let return_dimension = dimension_for_type(&function.return_type);
     if !known_decl_type(&function.return_type) {
-        diagnostics.push(Diagnostic::error(
-            "E-FN-TYPE-001",
-            function.span.line,
-            &format!(
-                "Function `{}` returns unknown quantity kind `{}`.",
-                function.name, function.return_type
-            ),
-            Some("Use a known quantity kind or supported scalar type such as String, CsvFile, or DirectoryPath."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-FN-TYPE-001",
+                function.span.line,
+                &format!(
+                    "Function `{}` returns unknown quantity kind `{}`.",
+                    function.name, function.return_type
+                ),
+                Some("Use a known quantity kind or supported scalar type such as String, CsvFile, or DirectoryPath."),
+            )
+            .with_source_span(function.return_type_span),
+        );
     }
     FunctionInfo {
         name: function.name.clone(),
@@ -3609,6 +3618,9 @@ fn analyze_function_decl(
         parameters,
         locals: Vec::new(),
         return_quantity_kind: function.return_type.clone(),
+        return_type_span: function.return_type_span,
+        return_unit: function.return_unit.clone(),
+        return_unit_span: function.return_unit_span,
         return_display_unit,
         return_canonical_unit,
         return_dimension,
@@ -3629,22 +3641,28 @@ fn analyze_function_parameter(
     let canonical_unit = default_unit_for_type(&parameter.type_name);
     let dimension = dimension_for_type(&parameter.type_name);
     if !known_decl_type(&parameter.type_name) {
-        diagnostics.push(Diagnostic::error(
-            "E-FN-TYPE-002",
-            parameter.name_span.line,
-            &format!(
-                "Function parameter `{}` has unknown quantity kind `{}`.",
-                parameter.name, parameter.type_name
-            ),
-            Some(
-                "Annotate function parameters with known quantity kinds or supported scalar types.",
-            ),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-FN-TYPE-002",
+                parameter.name_span.line,
+                &format!(
+                    "Function parameter `{}` has unknown quantity kind `{}`.",
+                    parameter.name, parameter.type_name
+                ),
+                Some(
+                    "Annotate function parameters with known quantity kinds or supported scalar types.",
+                ),
+            )
+            .with_source_span(parameter.type_span),
+        );
     }
     FunctionParamInfo {
         name: parameter.name.clone(),
         span: parameter.name_span,
         quantity_kind: parameter.type_name.clone(),
+        type_span: parameter.type_span,
+        unit: parameter.unit.clone(),
+        unit_span: parameter.unit_span,
         display_unit,
         canonical_unit,
         dimension,

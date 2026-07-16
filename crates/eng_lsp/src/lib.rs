@@ -2362,6 +2362,22 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                 "parameter",
                 &["declaration"],
             );
+            builder.push_type_identifiers_within_span(
+                parameter.type_span,
+                &parameter.quantity_kind,
+                &semantic_modifiers_for_quantity(&parameter.quantity_kind),
+            );
+            if let (Some(unit), Some(unit_span)) = (&parameter.unit, parameter.unit_span) {
+                builder.push_named_span(unit_span, unit, "type", &["unit"]);
+            }
+        }
+        builder.push_type_identifiers_within_span(
+            function.return_type_span,
+            &function.return_quantity_kind,
+            &semantic_modifiers_for_quantity(&function.return_quantity_kind),
+        );
+        if let (Some(unit), Some(unit_span)) = (&function.return_unit, function.return_unit_span) {
+            builder.push_named_span(unit_span, unit, "type", &["unit"]);
         }
         for local in &function.locals {
             builder.push_named_span(
@@ -3987,7 +4003,7 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
             .parameters
             .iter()
             .map(|parameter| {
-                make_document_symbol(
+                make_document_symbol_at_span(
                     &lines,
                     parameter.name.clone(),
                     format!(
@@ -3995,22 +4011,22 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
                         parameter.quantity_kind, parameter.display_unit
                     ),
                     SYMBOL_KIND_TYPE_PARAMETER,
-                    function.line,
+                    parameter.span,
                     Vec::new(),
                 )
             })
             .collect::<Vec<_>>();
         children.extend(function.locals.iter().map(|local| {
-            make_document_symbol(
+            make_document_symbol_at_span(
                 &lines,
                 local.name.clone(),
                 "local".to_owned(),
                 SYMBOL_KIND_VARIABLE,
-                local.line,
+                local.span,
                 Vec::new(),
             )
         }));
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
@@ -4020,7 +4036,7 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
                 function.return_quantity_kind, function.return_display_unit
             ),
             SYMBOL_KIND_FUNCTION,
-            function.line,
+            function.span,
             children,
         );
     }
@@ -4725,19 +4741,28 @@ fn push_document_symbol_at_span(
     if span.line == 0 || !seen.insert((span.line, name.clone())) {
         return;
     }
+    let symbol = make_document_symbol_at_span(lines, name, detail, kind, span, children);
+    symbols.push(symbol);
+}
+
+fn make_document_symbol_at_span(
+    lines: &[&str],
+    name: String,
+    detail: String,
+    kind: u8,
+    span: SourceSpan,
+    children: Vec<LspDocumentSymbol>,
+) -> LspDocumentSymbol {
     let mut symbol = make_document_symbol(lines, name.clone(), detail, kind, span.line, children);
     let line = line_index_from_one_based(lines, span.line);
     let Some(byte_start) = span.column.checked_sub(1) else {
-        symbols.push(symbol);
-        return;
+        return symbol;
     };
     let Some(byte_length) = span.end.checked_sub(span.start) else {
-        symbols.push(symbol);
-        return;
+        return symbol;
     };
     let Some(byte_end) = byte_start.checked_add(byte_length) else {
-        symbols.push(symbol);
-        return;
+        return symbol;
     };
     if lines
         .get(line)
@@ -4747,7 +4772,7 @@ fn push_document_symbol_at_span(
         symbol.selection_line = line;
         symbol.selection_character = utf16_len(&lines[line][..byte_start]);
     }
-    symbols.push(symbol);
+    symbol
 }
 
 fn mark_document_symbols_seen(symbols: &[LspDocumentSymbol], seen: &mut BTreeSet<(usize, String)>) {
@@ -15895,6 +15920,121 @@ use eng.stats
             utf16_len(&const_line[..expression_start])
         );
         assert_eq!(const_diagnostic.end_character, utf16_len(const_line));
+    }
+
+    #[test]
+    fn function_signature_editor_ranges_use_compiler_owned_spans() {
+        let source = concat!(
+            "fn repeated(meta: Object[\"\u{1f600}\"], repeated: Ratio [1]) -> Ratio [1] {\r\n",
+            "    return repeated\r\n",
+            "}\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("function_signature_ranges.eng"), source);
+        let signature = source.lines().next().expect("function signature");
+        let parameter_prefix = "fn repeated(meta: Object[\"\u{1f600}\"], ";
+        let parameter_token = snapshot
+            .semantic_tokens
+            .tokens
+            .iter()
+            .find(|token| {
+                token.line == 0
+                    && token.token_type == "parameter"
+                    && token.start == utf16_len(parameter_prefix)
+                    && semantic_token_source_text(source, token) == Some("repeated")
+            })
+            .expect("repeated parameter declaration token");
+        assert!(parameter_token
+            .modifiers
+            .iter()
+            .any(|modifier| modifier == "declaration"));
+
+        let ratio_starts = signature
+            .match_indices("Ratio")
+            .map(|(start, _)| utf16_len(&signature[..start]))
+            .collect::<Vec<_>>();
+        let emitted_ratio_starts = snapshot
+            .semantic_tokens
+            .tokens
+            .iter()
+            .filter(|token| {
+                token.line == 0
+                    && token.token_type == "type"
+                    && semantic_token_source_text(source, token) == Some("Ratio")
+                    && token
+                        .modifiers
+                        .iter()
+                        .any(|modifier| modifier == "quantity")
+            })
+            .map(|token| token.start)
+            .collect::<Vec<_>>();
+        assert_eq!(emitted_ratio_starts, ratio_starts);
+
+        let unit_starts = signature
+            .match_indices("[1]")
+            .map(|(start, _)| utf16_len(&signature[..start + 1]))
+            .collect::<Vec<_>>();
+        let emitted_unit_starts = snapshot
+            .semantic_tokens
+            .tokens
+            .iter()
+            .filter(|token| {
+                token.line == 0
+                    && token.token_type == "type"
+                    && semantic_token_source_text(source, token) == Some("1")
+                    && token.modifiers.iter().any(|modifier| modifier == "unit")
+            })
+            .map(|token| token.start)
+            .collect::<Vec<_>>();
+        assert_eq!(emitted_unit_starts, unit_starts);
+
+        let function_symbol = snapshot
+            .document_symbols
+            .iter()
+            .find(|symbol| symbol.name == "repeated")
+            .expect("function document symbol");
+        assert_eq!(function_symbol.selection_line, 0);
+        assert_eq!(function_symbol.selection_character, utf16_len("fn "));
+        let parameter_symbol = function_symbol
+            .children
+            .iter()
+            .find(|symbol| symbol.name == "repeated")
+            .expect("parameter document symbol");
+        assert_eq!(parameter_symbol.selection_line, 0);
+        assert_eq!(
+            parameter_symbol.selection_character,
+            utf16_len(parameter_prefix)
+        );
+
+        let invalid_source = concat!(
+            "fn invalid(meta: Object[\"\u{1f600}\"], value: MissingParam [1]) -> MissingReturn [1] {\r\n",
+            "    return value\r\n",
+            "}\r\n",
+        );
+        let invalid_snapshot = snapshot_for_source(
+            Path::new("invalid_function_signature_ranges.eng"),
+            invalid_source,
+        );
+        let invalid_signature = invalid_source.lines().next().expect("invalid signature");
+        for (code, label) in [
+            ("E-FN-TYPE-001", "MissingReturn"),
+            ("E-FN-TYPE-002", "MissingParam"),
+        ] {
+            let diagnostic = invalid_snapshot
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code)
+                .unwrap_or_else(|| panic!("missing {code} diagnostic"));
+            let byte_start = invalid_signature.find(label).expect("diagnostic label");
+            assert_eq!(diagnostic.line, 1);
+            assert_eq!(
+                diagnostic.start_character,
+                utf16_len(&invalid_signature[..byte_start])
+            );
+            assert_eq!(
+                diagnostic.end_character,
+                utf16_len(&invalid_signature[..byte_start + label.len()])
+            );
+        }
     }
 
     #[test]

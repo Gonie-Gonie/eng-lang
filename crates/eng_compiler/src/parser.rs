@@ -1502,13 +1502,15 @@ fn parse_function_decl(tokens: &[Token], line_text: &str) -> Option<FunctionDecl
         return None;
     };
     let parameters = parse_function_parameters(tokens, line_text);
-    let (return_type, return_unit) = parse_function_return(line_text)?;
+    let return_parts = parse_function_return(tokens, line_text)?;
     Some(FunctionDecl {
         name: name.clone(),
         name_span: second.span,
         parameters,
-        return_type,
-        return_unit,
+        return_type: return_parts.type_name,
+        return_type_span: return_parts.type_span,
+        return_unit: return_parts.unit,
+        return_unit_span: return_parts.unit_span,
         span: first.span,
     })
 }
@@ -1577,31 +1579,37 @@ fn parse_function_parameter(
     }
     let type_end = type_tokens.last()?.span.end.checked_sub(line_start)?;
     let type_start = colon_token.span.end.checked_sub(line_start)?;
-    let type_part = line_text.get(type_start..type_end)?.trim();
-    let (type_name, unit) = split_type_and_unit(type_part);
-    if type_name.is_empty() {
-        return None;
-    }
+    let parts = typed_annotation_parts(name_token.span, line_text, type_start, type_end)?;
     Some(FunctionParamDecl {
         name: name.clone(),
         name_span: name_token.span,
-        type_name,
-        unit,
+        type_name: parts.type_name,
+        type_span: parts.type_span,
+        unit: parts.unit,
+        unit_span: parts.unit_span,
     })
 }
 
-fn parse_function_return(line_text: &str) -> Option<(String, Option<String>)> {
-    let (_, after_arrow) = line_text.split_once("->")?;
-    let return_part = after_arrow
-        .split_once('{')
-        .map(|(left, _)| left)
-        .or_else(|| after_arrow.split_once('=').map(|(left, _)| left))
-        .unwrap_or(after_arrow)
-        .trim();
-    if return_part.is_empty() {
-        return None;
-    }
-    Some(split_type_and_unit(return_part))
+fn parse_function_return(tokens: &[Token], line_text: &str) -> Option<TypedAnnotationParts> {
+    let first = tokens.first()?;
+    let column_offset = first.span.column.checked_sub(1)?;
+    let line_start = first.span.start.checked_sub(column_offset)?;
+    let arrow_index = tokens
+        .iter()
+        .position(|token| matches!(token.kind, TokenKind::Symbol(Symbol::Arrow)))?;
+    let arrow = &tokens[arrow_index];
+    let return_end = tokens[arrow_index + 1..]
+        .iter()
+        .take_while(|token| {
+            !matches!(
+                token.kind,
+                TokenKind::Symbol(Symbol::LBrace | Symbol::Equal)
+            )
+        })
+        .last()?;
+    let type_start = arrow.span.end.checked_sub(line_start)?;
+    let type_end = return_end.span.end.checked_sub(line_start)?;
+    typed_annotation_parts(first.span, line_text, type_start, type_end)
 }
 
 fn parse_return_decl(
@@ -3402,6 +3410,13 @@ fn parse_reserved_keyword_use(tokens: &[Token]) -> Option<AstItem> {
     None
 }
 
+struct TypedAnnotationParts {
+    type_name: String,
+    type_span: SourceSpan,
+    unit: Option<String>,
+    unit_span: Option<SourceSpan>,
+}
+
 struct TypedDeclarationParts {
     type_name: String,
     type_span: SourceSpan,
@@ -3409,6 +3424,28 @@ struct TypedDeclarationParts {
     unit_span: Option<SourceSpan>,
     expression: Option<String>,
     expression_span: Option<SourceSpan>,
+}
+
+fn typed_annotation_parts(
+    line_anchor: SourceSpan,
+    line_text: &str,
+    start: usize,
+    end: usize,
+) -> Option<TypedAnnotationParts> {
+    let (trimmed_start, trimmed_end) = trimmed_byte_range(line_text, start, end)?;
+    let type_part = line_text.get(trimmed_start..trimmed_end)?;
+    let (type_name, unit) = split_type_and_unit(type_part);
+    if type_name.is_empty() {
+        return None;
+    }
+    let (type_span, unit_span) =
+        type_and_unit_source_spans_at(line_anchor, trimmed_start, type_part);
+    Some(TypedAnnotationParts {
+        type_name,
+        type_span,
+        unit,
+        unit_span,
+    })
 }
 
 fn typed_declaration_parts(
@@ -3464,10 +3501,22 @@ fn type_and_unit_source_spans(
     type_part: &str,
 ) -> Option<(SourceSpan, Option<SourceSpan>)> {
     let trimmed = type_part.trim();
+    let trimmed_start = subslice_start_after_colon(line_text, trimmed)?;
+    Some(type_and_unit_source_spans_at(
+        line_anchor,
+        trimmed_start,
+        trimmed,
+    ))
+}
+
+fn type_and_unit_source_spans_at(
+    line_anchor: SourceSpan,
+    trimmed_start: usize,
+    trimmed: &str,
+) -> (SourceSpan, Option<SourceSpan>) {
     let (type_end, unit_range) = trailing_unit_source_range(trimmed)
         .map(|(type_end, unit_start, unit_end)| (type_end, Some((unit_start, unit_end))))
         .unwrap_or((trimmed.len(), None));
-    let trimmed_start = subslice_start_after_colon(line_text, trimmed)?;
     let type_span = source_span_for_line_range(
         line_anchor,
         trimmed_start,
@@ -3480,7 +3529,7 @@ fn type_and_unit_source_spans(
             trimmed_start.saturating_add(unit_end),
         )
     });
-    Some((type_span, unit_span))
+    (type_span, unit_span)
 }
 
 fn trailing_unit_source_range(trimmed: &str) -> Option<(usize, usize, usize)> {

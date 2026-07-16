@@ -98,6 +98,13 @@ source annotation, while `display_unit` is the resolved display unit. Import
 and const diagnostics, semantic tokens, and outline selection ranges consume
 these fields directly.
 
+Function declarations retain exact parameter name/type/optional-unit spans and
+return type/optional-unit spans. `FunctionParamInfo.unit` and
+`FunctionInfo.return_unit` identify explicit source annotations, while their
+`display_unit` fields remain resolved values. Unknown signature-type diagnostics,
+quantity/unit semantic tokens, and function/parameter/local outline selections
+consume the same parser-owned ranges.
+
 ## Editor Payload
 
 `eng_lsp` maps the same `CheckReport` into editor-facing data:

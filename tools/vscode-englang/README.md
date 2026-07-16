@@ -304,6 +304,10 @@ ranges for solver colors and precise Problems underlines.
 Import targets and const name/type/unit declarations also use compiler-owned
 ranges for namespace/readonly colors, outline selection, and target/expression
 Problems underlines, including CRLF and UTF-16 source positions.
+Function parameter and return type/unit annotations use the same compiler-owned
+ranges for quantity/unit colors and unknown-type underlines. Function,
+parameter, and local outline selections stay on their exact declaration names
+even when names repeat on one signature line.
 
 Role-aware highlighting also works on unsaved edits, so token colors do
 not have to wait for a file save. Sample-table member completions include

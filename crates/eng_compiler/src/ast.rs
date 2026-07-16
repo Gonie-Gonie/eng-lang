@@ -32,7 +32,9 @@ pub struct FunctionDecl {
     pub name_span: SourceSpan,
     pub parameters: Vec<FunctionParamDecl>,
     pub return_type: String,
+    pub return_type_span: SourceSpan,
     pub return_unit: Option<String>,
+    pub return_unit_span: Option<SourceSpan>,
     pub span: SourceSpan,
 }
 
@@ -41,7 +43,9 @@ pub struct FunctionParamDecl {
     pub name: String,
     pub name_span: SourceSpan,
     pub type_name: String,
+    pub type_span: SourceSpan,
     pub unit: Option<String>,
+    pub unit_span: Option<SourceSpan>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
