@@ -1461,10 +1461,11 @@ fn parse_function_decl(tokens: &[Token], line_text: &str) -> Option<FunctionDecl
     let TokenKind::Identifier(name) = &second.kind else {
         return None;
     };
-    let parameters = parse_function_parameters(line_text);
+    let parameters = parse_function_parameters(tokens, line_text);
     let (return_type, return_unit) = parse_function_return(line_text)?;
     Some(FunctionDecl {
         name: name.clone(),
+        name_span: second.span,
         parameters,
         return_type,
         return_unit,
@@ -1489,32 +1490,61 @@ fn parse_inline_function_return_decl(tokens: &[Token], line_text: &str) -> Optio
     })
 }
 
-fn parse_function_parameters(line_text: &str) -> Vec<FunctionParamDecl> {
-    let Some(open) = line_text.find('(') else {
+fn parse_function_parameters(tokens: &[Token], line_text: &str) -> Vec<FunctionParamDecl> {
+    let Some(first) = tokens.first() else {
         return Vec::new();
     };
-    let Some(close_offset) = line_text[open + 1..].find(')') else {
+    let Some(column_offset) = first.span.column.checked_sub(1) else {
         return Vec::new();
     };
-    let close = open + 1 + close_offset;
-    line_text[open + 1..close]
-        .split(',')
-        .filter_map(parse_function_parameter)
+    let Some(line_start) = first.span.start.checked_sub(column_offset) else {
+        return Vec::new();
+    };
+    let Some(open_index) = tokens
+        .iter()
+        .position(|token| matches!(token.kind, TokenKind::Symbol(Symbol::LParen)))
+    else {
+        return Vec::new();
+    };
+    let Some(close_offset) = tokens[open_index + 1..]
+        .iter()
+        .position(|token| matches!(token.kind, TokenKind::Symbol(Symbol::RParen)))
+    else {
+        return Vec::new();
+    };
+    let close_index = open_index + 1 + close_offset;
+    tokens[open_index + 1..close_index]
+        .split(|token| matches!(token.kind, TokenKind::Symbol(Symbol::Comma)))
+        .filter_map(|parameter_tokens| {
+            parse_function_parameter(parameter_tokens, line_text, line_start)
+        })
         .collect()
 }
 
-fn parse_function_parameter(raw: &str) -> Option<FunctionParamDecl> {
-    let (name, type_part) = raw.split_once(':')?;
-    let name = name.trim();
-    if name.is_empty() {
+fn parse_function_parameter(
+    tokens: &[Token],
+    line_text: &str,
+    line_start: usize,
+) -> Option<FunctionParamDecl> {
+    let [name_token, colon_token, type_tokens @ ..] = tokens else {
+        return None;
+    };
+    let TokenKind::Identifier(name) = &name_token.kind else {
+        return None;
+    };
+    if !matches!(colon_token.kind, TokenKind::Symbol(Symbol::Colon)) {
         return None;
     }
-    let (type_name, unit) = split_type_and_unit(type_part.trim());
+    let type_end = type_tokens.last()?.span.end.checked_sub(line_start)?;
+    let type_start = colon_token.span.end.checked_sub(line_start)?;
+    let type_part = line_text.get(type_start..type_end)?.trim();
+    let (type_name, unit) = split_type_and_unit(type_part);
     if type_name.is_empty() {
         return None;
     }
     Some(FunctionParamDecl {
-        name: name.to_owned(),
+        name: name.clone(),
+        name_span: name_token.span,
         type_name,
         unit,
     })

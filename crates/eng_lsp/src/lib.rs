@@ -2341,23 +2341,23 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for function in &program.functions {
-        builder.push_on_line(
-            function.line,
+        builder.push_named_span(
+            function.span,
             &function.name,
             "function",
             &["declaration", "definition"],
         );
         for parameter in &function.parameters {
-            builder.push_on_line(
-                function.line,
+            builder.push_named_span(
+                parameter.span,
                 &parameter.name,
                 "parameter",
                 &["declaration"],
             );
         }
         for local in &function.locals {
-            builder.push_on_line(
-                local.line,
+            builder.push_named_span(
+                local.span,
                 &local.name,
                 "variable",
                 &["declaration", "local"],
@@ -3627,8 +3627,8 @@ fn add_function_scoped_symbol_semantic_tokens(
             .map(|local| local.name.as_str())
             .collect::<Vec<_>>();
         for line in start_line..=end_line {
-            builder.push_identifiers_on_line(line, &parameters, "parameter", &[]);
-            builder.push_identifiers_on_line(line, &locals, "variable", &["local"]);
+            builder.push_unclassified_identifiers_on_line(line, &parameters, "parameter", &[]);
+            builder.push_unclassified_identifiers_on_line(line, &locals, "variable", &["local"]);
         }
     }
 }
@@ -5917,6 +5917,39 @@ impl<'a> SemanticTokenBuilder<'a> {
         token_type: &str,
         modifiers: &[&str],
     ) {
+        self.push_identifiers_on_line_with_policy(
+            line_index,
+            identifiers,
+            token_type,
+            modifiers,
+            false,
+        );
+    }
+
+    fn push_unclassified_identifiers_on_line(
+        &mut self,
+        line_index: usize,
+        identifiers: &[&str],
+        token_type: &str,
+        modifiers: &[&str],
+    ) {
+        self.push_identifiers_on_line_with_policy(
+            line_index,
+            identifiers,
+            token_type,
+            modifiers,
+            true,
+        );
+    }
+
+    fn push_identifiers_on_line_with_policy(
+        &mut self,
+        line_index: usize,
+        identifiers: &[&str],
+        token_type: &str,
+        modifiers: &[&str],
+        skip_classified: bool,
+    ) {
         if identifiers.is_empty() {
             return;
         }
@@ -5934,7 +5967,14 @@ impl<'a> SemanticTokenBuilder<'a> {
                         index += 1;
                     }
                     let token = &line[token_start..index];
-                    if identifiers.contains(&token) {
+                    if identifiers.contains(&token)
+                        && !(skip_classified
+                            && self.has_semantic_token_at_byte_range(
+                                line_index,
+                                token_start,
+                                index - token_start,
+                            ))
+                    {
                         self.push_byte_range(
                             line_index,
                             token_start,
@@ -11005,6 +11045,59 @@ mod tests {
         assert_eq!(tokens[0].length, "value".len());
         assert_eq!(tokens[0].token_type, "variable");
         assert_eq!(tokens[0].modifiers, vec!["declaration"]);
+    }
+
+    #[test]
+    fn function_header_tokens_do_not_overlap_when_names_repeat() {
+        let source = "fn value(value: Ratio [1]) -> Ratio [1] = value\r\n";
+        let snapshot = snapshot_for_source(Path::new("function_name_spans.eng"), source);
+        let line = source.lines().next().unwrap();
+        let function_start = line.find("value").unwrap();
+        let parameter_start = line[function_start + "value".len()..]
+            .find("value")
+            .map(|offset| function_start + "value".len() + offset)
+            .unwrap();
+        let reference_start = line.rfind("value").unwrap();
+        let tokens = &snapshot.semantic_tokens.tokens;
+
+        assert!(tokens.iter().any(|token| {
+            token.line == 0
+                && token.start == function_start
+                && token.length == "value".len()
+                && token.token_type == "function"
+                && token
+                    .modifiers
+                    .iter()
+                    .any(|modifier| modifier == "declaration")
+        }));
+        assert!(tokens.iter().any(|token| {
+            token.line == 0
+                && token.start == parameter_start
+                && token.length == "value".len()
+                && token.token_type == "parameter"
+                && token
+                    .modifiers
+                    .iter()
+                    .any(|modifier| modifier == "declaration")
+        }));
+        assert!(tokens.iter().any(|token| {
+            token.line == 0
+                && token.start == reference_start
+                && token.length == "value".len()
+                && token.token_type == "parameter"
+                && !token
+                    .modifiers
+                    .iter()
+                    .any(|modifier| modifier == "declaration")
+        }));
+        assert_eq!(
+            tokens
+                .iter()
+                .filter(|token| token.line == 0 && token.start == function_start)
+                .count(),
+            1,
+            "the function name must not also receive a parameter token"
+        );
     }
 
     #[test]

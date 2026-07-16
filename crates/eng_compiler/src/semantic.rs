@@ -55,6 +55,7 @@ pub struct ImportInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FunctionParamInfo {
     pub name: String,
+    pub span: SourceSpan,
     pub quantity_kind: String,
     pub display_unit: String,
     pub canonical_unit: String,
@@ -66,11 +67,13 @@ pub struct FunctionLocalInfo {
     pub name: String,
     pub expression: String,
     pub line: usize,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FunctionInfo {
     pub name: String,
+    pub span: SourceSpan,
     pub parameters: Vec<FunctionParamInfo>,
     pub locals: Vec<FunctionLocalInfo>,
     pub return_quantity_kind: String,
@@ -1236,6 +1239,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                             name: binding.name.clone(),
                             expression: binding.expression.clone(),
                             line: binding.line,
+                            span: binding.span,
                         });
                     }
                     continue;
@@ -3497,7 +3501,7 @@ fn analyze_function_decl(
     let parameters = function
         .parameters
         .iter()
-        .map(|parameter| analyze_function_parameter(parameter, function.span.line, diagnostics))
+        .map(|parameter| analyze_function_parameter(parameter, diagnostics))
         .collect::<Vec<_>>();
     let return_display_unit = function
         .return_unit
@@ -3518,6 +3522,7 @@ fn analyze_function_decl(
     }
     FunctionInfo {
         name: function.name.clone(),
+        span: function.name_span,
         parameters,
         locals: Vec::new(),
         return_quantity_kind: function.return_type.clone(),
@@ -3532,7 +3537,6 @@ fn analyze_function_decl(
 
 fn analyze_function_parameter(
     parameter: &FunctionParamDecl,
-    line: usize,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> FunctionParamInfo {
     let display_unit = parameter
@@ -3544,7 +3548,7 @@ fn analyze_function_parameter(
     if !known_decl_type(&parameter.type_name) {
         diagnostics.push(Diagnostic::error(
             "E-FN-TYPE-002",
-            line,
+            parameter.name_span.line,
             &format!(
                 "Function parameter `{}` has unknown quantity kind `{}`.",
                 parameter.name, parameter.type_name
@@ -3556,6 +3560,7 @@ fn analyze_function_parameter(
     }
     FunctionParamInfo {
         name: parameter.name.clone(),
+        span: parameter.name_span,
         quantity_kind: parameter.type_name.clone(),
         display_unit,
         canonical_unit,

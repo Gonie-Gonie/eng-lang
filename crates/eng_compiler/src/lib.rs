@@ -8694,6 +8694,56 @@ mod tests {
     }
 
     #[test]
+    fn function_symbols_preserve_exact_parser_owned_name_spans() {
+        let source = concat!(
+            "fn value(value: Ratio [1], factor: Ratio [1]) -> Ratio [1] {\r\n",
+            "    result = value * factor\r\n",
+            "    return result\r\n",
+            "}\r\n",
+        );
+        let parsed = parse_source(source);
+        let declaration = parsed
+            .items
+            .iter()
+            .find_map(|item| match item {
+                AstItem::Function(declaration) => Some(declaration),
+                _ => None,
+            })
+            .expect("function declaration");
+
+        assert_eq!(&source[declaration.span.start..declaration.span.end], "fn");
+        assert_eq!(
+            &source[declaration.name_span.start..declaration.name_span.end],
+            "value"
+        );
+        for parameter in &declaration.parameters {
+            assert_eq!(
+                &source[parameter.name_span.start..parameter.name_span.end],
+                parameter.name
+            );
+        }
+
+        let report = check_source("function_spans.eng", source, &CheckOptions::default());
+        let function = report
+            .semantic_program
+            .functions
+            .first()
+            .expect("function metadata");
+        assert_eq!(
+            &source[function.span.start..function.span.end],
+            function.name
+        );
+        for parameter in &function.parameters {
+            assert_eq!(
+                &source[parameter.span.start..parameter.span.end],
+                parameter.name
+            );
+        }
+        let local = function.locals.first().expect("function local");
+        assert_eq!(&source[local.span.start..local.span.end], local.name);
+    }
+
+    #[test]
     fn parser_records_top_level_workflow_and_binding_items() {
         let report = check_source("ok.eng", "L = 1 m + 20 cm\n", &CheckOptions::default());
 

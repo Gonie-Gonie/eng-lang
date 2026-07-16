@@ -27,6 +27,7 @@ pub struct ImportDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FunctionDecl {
     pub name: String,
+    pub name_span: SourceSpan,
     pub parameters: Vec<FunctionParamDecl>,
     pub return_type: String,
     pub return_unit: Option<String>,
@@ -36,6 +37,7 @@ pub struct FunctionDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FunctionParamDecl {
     pub name: String,
+    pub name_span: SourceSpan,
     pub type_name: String,
     pub unit: Option<String>,
 }
