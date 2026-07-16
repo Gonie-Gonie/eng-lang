@@ -2403,6 +2403,7 @@
         "name",
         "status",
         "line",
+        "source_span",
         "component_count",
         "port_count",
         "connection_count",
@@ -2421,8 +2422,9 @@
       ],
       "properties": {
         "name": { "type": "string" },
-        "status": { "type": "string" },
+        "status": { "enum": ["no_compatible_connections", "assembled_graph"] },
         "line": { "type": "integer", "minimum": 1 },
+        "source_span": { "$ref": "#/$defs/reviewSourceSpan" },
         "component_count": { "type": "integer", "minimum": 0 },
         "port_count": { "type": "integer", "minimum": 0 },
         "connection_count": { "type": "integer", "minimum": 0 },

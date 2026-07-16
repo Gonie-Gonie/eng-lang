@@ -123,8 +123,13 @@ also covers typed state-space vector type arguments and initial values, legacy
 vector member lists, linear-operator type or matrix expressions, and unknown
 function parameter or return types. Function return diagnostics use the exact
 block or inline return expression; missing-return diagnostics use the function
-name because there is no expression. Older
-diagnostics retain source-aware inference: dimensionless arithmetic
+name because there is no expression. Component assembly balance and
+algebraic-loop diagnostics use the first source component name as their stable
+anchor. Unconnected-port diagnostics use the port name, and invalid port-domain
+diagnostics use the complete domain reference. A corpus gate scans all 153
+example, diagnostic, and grammar-fixture `.eng` files and requires every
+diagnostic in these assembly/port classes to retain a valid compiler range.
+Older diagnostics retain source-aware inference: dimensionless arithmetic
 diagnostics highlight the offending `+` or `-`, schema fast-assignment
 diagnostics highlight `=`, and file mutation diagnostics target `move` or
 `delete`. The final fallback searches backticked message/help text, then the

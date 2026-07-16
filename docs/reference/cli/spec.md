@@ -144,6 +144,7 @@ E-DOMAIN-CONTRACT-003  domain has no conservation contract
 E-DOMAIN-VAR-001       domain variable uses an unknown quantity kind
 E-PORT-DOMAIN-001      component port references an unknown domain
 E-PORT-DOMAIN-002      generic domain reference has wrong argument count
+W-CONNECT-UNCONNECTED-PORT resolved component port has no connection edge
 E-CONNECT-ENDPOINT-001 connection endpoint is not Component.port
 E-CONNECT-UNKNOWN-PORT connection endpoint does not resolve to a port
 E-CONNECT-DOMAIN-MISMATCH connected ports have incompatible domains
@@ -528,7 +529,13 @@ For the domain/component metadata track, `result.engres` includes
 `typed_payload.component_solutions`. This path assembles homogeneous connection
 constraints into residuals, solves square linear residual graphs with the dense
 linear solver, and records convergence status plus failure/limitation artifacts
-for skipped non-square or overdetermined graphs. `review.json` and
+for skipped non-square or overdetermined graphs. Compiler assembly summaries use
+`assembled_graph` or `no_compatible_connections`, carry an exact first-component
+`source_span`, and classify generated, boundary, and local equations as
+`assembled_constraint`, `component_boundary_constraint`, and
+`component_equation_constraint`. Runtime report specs preserve the span while
+replacing the assembly status with the execution result; runtime-only
+source-system assemblies use a null span. `review.json` and
 `report_spec.json` also include `assembly_summary.domain_plans` and
 `assembly_summary.solver_preview` so tools can identify `multi_domain_preview`
 graphs and the explicit

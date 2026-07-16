@@ -141,6 +141,11 @@ Q = 10 kW // design heat rate
 U = 0.35 W/(m2*K)
 ```
 
+Line comments terminate parser-visible declaration text. For example,
+`port inlet: Fluid # primary inlet` records the domain as `Fluid`; the comment
+is not part of the domain name or its diagnostic range. The same rule applies
+to `//` comments.
+
 Strings use double quotes:
 
 ```eng partial

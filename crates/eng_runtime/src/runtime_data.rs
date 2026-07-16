@@ -940,6 +940,7 @@ fn report_assembly_summary_from_source_system_solution(
     ReportAssemblySummary {
         name: solution.assembly.clone(),
         status: solution.status.clone(),
+        source_span: None,
         component_count: 0,
         port_count: 0,
         connection_count: 0,

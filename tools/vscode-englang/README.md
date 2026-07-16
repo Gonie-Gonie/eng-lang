@@ -311,6 +311,11 @@ even when names repeat on one signature line.
 Block and inline function returns also keep compiler-owned expression ranges, so
 duplicate, unresolved, dimension-mismatch, and return-side-effect Problems
 underline the expression rather than the function header.
+Component assembly balance and algebraic-loop Problems underline the first
+source component name. Unconnected-port Problems underline the port name, and
+unknown or invalid generic port domains underline the complete domain reference.
+Trailing `#` and `//` comments are excluded from both the parsed domain and its
+underline, including CRLF and non-BMP source files.
 `where`/`with` openers, `where` locals, and `with` option keys now use exact
 compiler-owned ranges for semantic colors and outline selection. Inline option
 list/enum values and `file`/`dir`/`join` helpers are limited to their own value

@@ -399,6 +399,14 @@ Function return metadata also preserves the exact expression after a block
 return-side-effect diagnostics use that compiler range; missing-return
 diagnostics select the function name.
 
+Component assembly balance and algebraic-loop diagnostics select the first
+source component name used as the assembly anchor. Unconnected-port diagnostics
+select the exact port name, while unknown or invalid generic domains select the
+complete port-domain reference. Port parsing ends at the final lexer token, so a
+trailing `#` or `//` comment cannot extend either the domain value or its
+Problems range. The fixture-corpus guard validates these compiler-owned ranges
+before UTF-16 conversion.
+
 `where`/`with` opener tokens and `where` local declarations use their
 parser-owned semantic spans. `with` option properties stay inside `key_span`;
 model list values, enum-like values, and `file`/`dir`/`join` helpers stay inside

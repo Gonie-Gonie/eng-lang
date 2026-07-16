@@ -393,6 +393,8 @@ pub struct ConnectionInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ComponentAssemblyInfo {
     pub name: String,
+    /// Exact source anchor for the synthesized assembly, using its first component name.
+    pub span: SourceSpan,
     pub status: String,
     pub component_count: usize,
     pub port_count: usize,
@@ -8721,7 +8723,7 @@ fn analyze_component_equation(equation: &crate::ast::EquationDecl, component: &m
     let equation_index = component
         .local_expressions
         .iter()
-        .filter(|local| local.status == "component_equation_seed")
+        .filter(|local| local.status == "component_equation_source")
         .count()
         + 1;
     let left = strip_component_equation_label(&equation.left);
@@ -8731,7 +8733,7 @@ fn analyze_component_equation(equation: &crate::ast::EquationDecl, component: &m
             name: format!("equation_{equation_index}"),
             span: None,
             expression: format!("{} eq {}", left, equation.right),
-            status: "component_equation_seed".to_owned(),
+            status: "component_equation_source".to_owned(),
             quantity_kind: "unknown".to_owned(),
             display_unit: "unknown".to_owned(),
             canonical_unit: "unknown".to_owned(),
@@ -8842,7 +8844,7 @@ fn parse_component_constructor_arguments(
                         "Component instance `{instance_name}` calls `{}` with positional arguments, but `{}` has no declared component parameters.",
                         template.name, template.name
                     ),
-                    Some("Declare component parameters or use named arguments that are referenced by component-local boundary/equation seeds."),
+                    Some("Declare component parameters or use named arguments that are referenced by component-local boundary or equation expressions."),
                 ));
                 return None;
             }
@@ -8943,7 +8945,7 @@ fn instantiate_component_template(
                     binding.name,
                     unused_arguments.join(", ")
                 ),
-                Some("Declare component parameters for typed constructor arguments, or pass only names referenced by component-local boundary/equation seeds."),
+                Some("Declare component parameters for typed constructor arguments, or pass only names referenced by component-local boundary or equation expressions."),
             ));
             return None;
         }
@@ -9204,12 +9206,15 @@ fn analyze_connections(
             if port.status == "domain_resolved"
                 && !connected_ports.contains(&format!("{}.{}", component.name, port.name))
             {
-                diagnostics.push(Diagnostic::warning(
-                    "W-CONNECT-UNCONNECTED-PORT",
-                    port.line,
-                    &format!("Port `{}.{}` is not connected.", component.name, port.name),
-                    Some("Connect the port explicitly or leave a review note explaining the boundary assumption."),
-                ));
+                diagnostics.push(
+                    Diagnostic::warning(
+                        "W-CONNECT-UNCONNECTED-PORT",
+                        port.line,
+                        &format!("Port `{}.{}` is not connected.", component.name, port.name),
+                        Some("Connect the port explicitly or leave a review note explaining the boundary assumption."),
+                    )
+                    .with_source_span(port.span),
+                );
             }
         }
     }
@@ -9229,37 +9234,43 @@ fn resolve_component_port_domains(
             else {
                 port.status = "unknown_domain".to_owned();
                 if let Some(diagnostics) = diagnostics.as_deref_mut() {
-                    diagnostics.push(Diagnostic::error(
-                        "E-PORT-DOMAIN-001",
-                        port.line,
-                        &format!(
-                            "Port `{}` on component `{}` references unknown domain `{}`.",
-                            port.name, component.name, port.domain
-                        ),
-                        Some("Declare the domain before using it in a component port."),
-                    ));
+                    diagnostics.push(
+                        Diagnostic::error(
+                            "E-PORT-DOMAIN-001",
+                            port.line,
+                            &format!(
+                                "Port `{}` on component `{}` references unknown domain `{}`.",
+                                port.name, component.name, port.domain
+                            ),
+                            Some("Declare the domain before using it in a component port."),
+                        )
+                        .with_source_span(port.domain_span),
+                    );
                 }
                 continue;
             };
             if port.type_arguments.len() != domain.type_parameters.len() {
                 port.status = "generic_arity_mismatch".to_owned();
                 if let Some(diagnostics) = diagnostics.as_deref_mut() {
-                    diagnostics.push(Diagnostic::error(
-                        "E-PORT-DOMAIN-002",
-                        port.line,
-                        &format!(
-                            "Port `{}` on component `{}` references `{}` with {} type argument(s), but domain `{}` expects {}.",
-                            port.name,
-                            component.name,
-                            port.domain,
-                            port.type_arguments.len(),
-                            domain.name,
-                            domain.type_parameters.len()
-                        ),
-                        Some(
-                            "Use `Domain[Argument]` for generic domains or remove arguments for non-generic domains.",
-                        ),
-                    ));
+                    diagnostics.push(
+                        Diagnostic::error(
+                            "E-PORT-DOMAIN-002",
+                            port.line,
+                            &format!(
+                                "Port `{}` on component `{}` references `{}` with {} type argument(s), but domain `{}` expects {}.",
+                                port.name,
+                                component.name,
+                                port.domain,
+                                port.type_arguments.len(),
+                                domain.name,
+                                domain.type_parameters.len()
+                            ),
+                            Some(
+                                "Use `Domain[Argument]` for generic domains or remove arguments for non-generic domains.",
+                            ),
+                        )
+                        .with_source_span(port.domain_span),
+                    );
                 }
                 continue;
             }
@@ -9443,7 +9454,7 @@ fn build_component_assembly_graphs(
                     rhs: None,
                     reason: component_generated_equation_reason("across_equality"),
                     dependencies,
-                    status: "assembly_seed".to_owned(),
+                    status: "assembled_constraint".to_owned(),
                     line: connection_set.line,
                 });
             }
@@ -9474,7 +9485,7 @@ fn build_component_assembly_graphs(
                 rhs: None,
                 reason: component_generated_equation_reason("through_conservation"),
                 dependencies,
-                status: "assembly_seed".to_owned(),
+                status: "assembled_constraint".to_owned(),
                 line: connection_set.line,
             });
         }
@@ -9634,6 +9645,11 @@ fn build_component_assembly_graphs(
         delay_call_count,
         external_call_count,
     );
+    let span = components
+        .iter()
+        .min_by_key(|component| component.span.start)
+        .expect("component assembly requires at least one component")
+        .span;
     let line = components
         .iter()
         .map(|component| component.line)
@@ -9642,10 +9658,11 @@ fn build_component_assembly_graphs(
         .unwrap_or(1);
     vec![ComponentAssemblyInfo {
         name: "component_graph".to_owned(),
+        span,
         status: if equations.is_empty() {
             "no_compatible_connections".to_owned()
         } else {
-            "assembly_seed".to_owned()
+            "assembled_graph".to_owned()
         },
         component_count: components.len(),
         port_count: source_order_ports.len(),
@@ -9682,18 +9699,21 @@ fn emit_component_assembly_boundary_warnings(
 ) {
     for assembly in assemblies {
         for algebraic_loop in &assembly.residual_graph.algebraic_loops {
-            diagnostics.push(Diagnostic::warning(
-                "W-ASSEMBLY-ALGEBRAIC-LOOP",
-                assembly.line,
-                &format!(
-                    "Component assembly `{}` contains an algebraic dependency loop: {}.",
-                    assembly.name,
-                    algebraic_loop.join(" -> ")
-                ),
-                Some(
-                    "Review the residual dependency graph before treating the assembly as a physical solve.",
-                ),
-            ));
+            diagnostics.push(
+                Diagnostic::warning(
+                    "W-ASSEMBLY-ALGEBRAIC-LOOP",
+                    assembly.line,
+                    &format!(
+                        "Component assembly `{}` contains an algebraic dependency loop: {}.",
+                        assembly.name,
+                        algebraic_loop.join(" -> ")
+                    ),
+                    Some(
+                        "Review the residual dependency graph before treating the assembly as a physical solve.",
+                    ),
+                )
+                .with_source_span(assembly.span),
+            );
         }
         let Some(code) = assembly.boundary.diagnostic_code.as_deref() else {
             continue;
@@ -9705,14 +9725,17 @@ fn emit_component_assembly_boundary_warnings(
             assembly.boundary.equation_count,
             assembly.boundary.unknown_count
         );
-        diagnostics.push(Diagnostic::warning(
-            code,
-            assembly.line,
-            &message,
-            Some(
-                "The current component graph path records a reviewable assembly seed and limitation artifact; numeric multi-domain solving remains planned.",
-            ),
-        ));
+        diagnostics.push(
+            Diagnostic::warning(
+                code,
+                assembly.line,
+                &message,
+                Some(
+                    "Add or remove independent component or boundary equations before requesting a numeric solve; the unbalanced graph remains available in limitation artifacts.",
+                ),
+            )
+            .with_source_span(assembly.span),
+        );
     }
 }
 
@@ -9922,7 +9945,7 @@ fn validate_single_signal_behavior_call(
                 "{} expression `{}` must use `{}`.",
                 spec.label, local.expression, spec.signature
             ),
-            Some("Pass one component signal such as `outlet.T`, a prior component-local signal, or a behavior expression while full behavior contracts remain runtime-wrapper seeds."),
+            Some("Pass one component signal such as `outlet.T`, a prior component-local signal, or a behavior expression supported by the runtime wrapper contract."),
         ));
         return;
     }
@@ -10237,9 +10260,9 @@ fn component_boundary_equations(
                     expression: format!("{variable} eq {rhs}"),
                     residual: format!("{variable} - ({rhs})"),
                     rhs: Some(rhs.to_owned()),
-                    reason: "component-local boundary equation seed".to_owned(),
+                    reason: "component-local boundary equation".to_owned(),
                     dependencies: vec![variable],
-                    status: "component_boundary_seed".to_owned(),
+                    status: "component_boundary_constraint".to_owned(),
                     line: local.line,
                 });
                 continue;
@@ -10270,9 +10293,9 @@ fn component_boundary_equations(
                     expression: format!("{variable} eq {}", parameter.qualified),
                     residual: format!("{variable} - {}", parameter.qualified),
                     rhs: None,
-                    reason: "component-local boundary equation seed".to_owned(),
+                    reason: "component-local boundary equation".to_owned(),
                     dependencies: vec![variable, parameter.qualified.clone()],
-                    status: "component_boundary_seed".to_owned(),
+                    status: "component_boundary_constraint".to_owned(),
                     line: local.line,
                 });
                 continue;
@@ -10316,7 +10339,7 @@ fn component_local_equations(
         let signal_refs = component_signal_refs(domains, component);
         let parameter_refs = component_parameter_refs(component);
         for local in &component.local_expressions {
-            if local.status != "component_equation_seed" {
+            if local.status != "component_equation_source" {
                 continue;
             }
             let Some((left, right)) = local.expression.split_once(" eq ") else {
@@ -10494,7 +10517,7 @@ fn component_local_equations(
                 rhs: None,
                 reason: "component-local equation source".to_owned(),
                 dependencies,
-                status: "component_equation_seed".to_owned(),
+                status: "component_equation_constraint".to_owned(),
                 line: local.line,
             });
         }
@@ -10708,7 +10731,7 @@ fn component_equation_literal_rhs(
         rhs: Some(right.to_owned()),
         reason: "component-local equation source".to_owned(),
         dependencies: vec![signal.qualified.clone()],
-        status: "component_equation_seed".to_owned(),
+        status: "component_equation_constraint".to_owned(),
         line: local.line,
     })
 }

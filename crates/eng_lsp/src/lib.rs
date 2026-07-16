@@ -11698,6 +11698,66 @@ mod tests {
         files
     }
 
+    #[test]
+    fn assembly_and_port_fixture_diagnostics_keep_compiler_owned_ranges() {
+        let repo_root = repo_root_for_tests();
+        let mut files = BTreeSet::new();
+        for relative in [
+            "examples",
+            "tests/diagnostics",
+            "tools/vscode-englang/test/grammar-fixtures",
+        ] {
+            files.extend(eng_files_under(&repo_root.join(relative)));
+        }
+
+        let is_target = |code: &str| {
+            matches!(
+                code,
+                "W-ASSEMBLY-ALGEBRAIC-LOOP"
+                    | "E-ASSEMBLY-UNDERDETERMINED"
+                    | "E-ASSEMBLY-OVERDETERMINED"
+                    | "W-CONNECT-UNCONNECTED-PORT"
+                    | "E-PORT-DOMAIN-001"
+                    | "E-PORT-DOMAIN-002"
+            )
+        };
+        let mut observed = 0usize;
+        let mut missing = Vec::new();
+        for path in files {
+            let source = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            let report = check_source(&path, &source, &CheckOptions::default());
+            let lines = source_lines(&source);
+            for diagnostic in report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| is_target(&diagnostic.code))
+            {
+                observed += 1;
+                let line_index = line_index_from_one_based(&lines, diagnostic.line);
+                let line = lines.get(line_index).copied().unwrap_or_default();
+                if compiler_diagnostic_byte_range(line, diagnostic).is_none() {
+                    missing.push(format!(
+                        "{}:{} {}",
+                        path.strip_prefix(&repo_root).unwrap_or(&path).display(),
+                        diagnostic.line,
+                        diagnostic.code
+                    ));
+                }
+            }
+        }
+
+        assert!(
+            observed >= 130,
+            "assembly/port diagnostic corpus unexpectedly shrank to {observed} item(s)"
+        );
+        assert!(
+            missing.is_empty(),
+            "assembly/port diagnostics missing valid compiler ranges: {}",
+            missing.join(", ")
+        );
+    }
+
     fn read_json_file(path: &Path) -> serde_json::Value {
         let content = std::fs::read_to_string(path)
             .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
@@ -13777,6 +13837,41 @@ print "done"
             diagnostic["range"]["end"]["character"].as_u64(),
             Some((value_start_utf16 + 1) as u64)
         );
+    }
+
+    #[test]
+    fn assembly_and_port_diagnostics_use_compiler_owned_name_ranges() {
+        let source = concat!(
+            "note = \"😀 component port Supply spare\"\r\n",
+            "domain Fluid {\r\n",
+            "    across height: Length [m]\r\n",
+            "    through m_dot: MassFlowRate [kg/s]\r\n",
+            "    conservation sum(m_dot) = 0\r\n",
+            "}\r\n",
+            "component Supply {\r\n",
+            "    port outlet: Fluid\r\n",
+            "}\r\n",
+            "component Return {\r\n",
+            "    port inlet: Fluid\r\n",
+            "}\r\n",
+            "component Spare {\r\n",
+            "    port spare: Fluid # port spare\r\n",
+            "    port slash: Fluid // port slash\r\n",
+            "}\r\n",
+            "component Invalid {\r\n",
+            "    port invalid: Fluid[Water]\r\n",
+            "}\r\n",
+            "component Unknown {\r\n",
+            "    port unknown: MissingDomain\r\n",
+            "}\r\n",
+            "connect Supply.outlet -> Return.inlet\r\n",
+        );
+
+        assert_first_diagnostic_underlines(source, "W-ASSEMBLY-ALGEBRAIC-LOOP", "Supply");
+        assert_first_diagnostic_underlines(source, "E-ASSEMBLY-UNDERDETERMINED", "Supply");
+        assert_first_diagnostic_underlines(source, "W-CONNECT-UNCONNECTED-PORT", "spare");
+        assert_first_diagnostic_underlines(source, "E-PORT-DOMAIN-001", "MissingDomain");
+        assert_first_diagnostic_underlines(source, "E-PORT-DOMAIN-002", "Fluid[Water]");
     }
 
     #[test]

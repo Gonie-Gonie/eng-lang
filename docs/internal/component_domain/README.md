@@ -275,6 +275,10 @@ equations, generated reasons, variable/equation counts, residual graph
 dependencies, `jacobian_sparsity`, and solver-plan status. It also includes `domain_count`,
 `domain_plans`, and `solver_preview` so report, IDE, and automation consumers can distinguish a
 single-domain graph from a multi-domain metadata graph.
+Compiler-built rows use `assembled_graph` when constraints exist and preserve
+the first source component name in `source_span`. Connection-generated,
+component-boundary, and component-local equations use `assembled_constraint`,
+`component_boundary_constraint`, and `component_equation_constraint`.
 The `component_graph` section is a normalized graph JSON view with component
 nodes, port nodes, connection edges, connection sets, domain labels,
 behavior nodes for delay/Predictor/external expressions, medium/frame/axis

@@ -1827,8 +1827,21 @@ fn parse_port_decl(tokens: &[Token], line_text: &str, context: ParseContext) -> 
     if !matches!(third.kind, TokenKind::Symbol(Symbol::Colon)) {
         return None;
     }
-    let domain = line_text.split_once(':')?.1.trim();
-    let domain_span = source_span_for_subslice_after_colon(first.span, line_text, domain)?;
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let domain_start = third.span.end.checked_sub(line_start)?;
+    let domain_end = tokens.last()?.span.end.checked_sub(line_start)?;
+    let raw_domain = line_text.get(domain_start..domain_end)?;
+    let leading = raw_domain
+        .len()
+        .checked_sub(raw_domain.trim_start().len())?;
+    let trailing = raw_domain.len().checked_sub(raw_domain.trim_end().len())?;
+    let domain_start = domain_start.checked_add(leading)?;
+    let domain_end = domain_end.checked_sub(trailing)?;
+    let domain = line_text.get(domain_start..domain_end)?;
+    let domain_span = source_span_for_line_range(first.span, domain_start, domain_end);
     Some(PortDecl {
         name: name.clone(),
         name_span: second.span,
@@ -3602,19 +3615,6 @@ fn trailing_unit_source_range(trimmed: &str) -> Option<(usize, usize, usize)> {
     let unit_start = unit_open + '['.len_utf8() + unit_leading;
     let type_end = trimmed[..unit_open].trim_end().len();
     Some((type_end, unit_start, unit_start + unit.len()))
-}
-
-fn source_span_for_subslice_after_colon(
-    line_anchor: SourceSpan,
-    line_text: &str,
-    subslice: &str,
-) -> Option<SourceSpan> {
-    let start = subslice_start_after_colon(line_text, subslice)?;
-    Some(source_span_for_line_range(
-        line_anchor,
-        start,
-        start + subslice.len(),
-    ))
 }
 
 fn subslice_start_after_colon(line_text: &str, subslice: &str) -> Option<usize> {

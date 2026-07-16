@@ -654,6 +654,7 @@ pub struct ReportSourceSpan {
 pub struct ReportAssemblySummary {
     pub name: String,
     pub status: String,
+    pub source_span: Option<ReportSourceSpan>,
     pub component_count: usize,
     pub port_count: usize,
     pub connection_count: usize,
@@ -1551,6 +1552,10 @@ pub fn report_spec_from_report(
         .map(|assembly| ReportAssemblySummary {
             name: assembly.name.clone(),
             status: assembly.status.clone(),
+            source_span: Some(ReportSourceSpan {
+                line: assembly.span.line,
+                column: assembly.span.column,
+            }),
             component_count: assembly.component_count,
             port_count: assembly.port_count,
             connection_count: assembly.connection_count,
@@ -4028,6 +4033,14 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             json_escape(&assembly.status)
         ));
         json.push_str(&format!("      \"line\": {},\n", assembly.line));
+        if let Some(source_span) = &assembly.source_span {
+            json.push_str(&format!(
+                "      \"source_span\": {{ \"line\": {}, \"column\": {} }},\n",
+                source_span.line, source_span.column
+            ));
+        } else {
+            json.push_str("      \"source_span\": null,\n");
+        }
         json.push_str(&format!(
             "      \"component_count\": {},\n",
             assembly.component_count
@@ -9191,6 +9204,15 @@ mod tests {
         );
         assert_eq!(spec.component_graph.connections[0].source_span.column, 1);
         assert_eq!(spec.assemblies[0].connection_sets.len(), 1);
+        let assembly_span = spec.assemblies[0]
+            .source_span
+            .as_ref()
+            .expect("component assembly source span");
+        assert_eq!(assembly_span.line, 7);
+        assert_eq!(assembly_span.column, 11);
+        assert!(json.contains(
+            "\"line\": 7,\n      \"source_span\": { \"line\": 7, \"column\": 11 },\n      \"component_count\""
+        ));
         assert_eq!(spec.assemblies[0].local_expression_count, 1);
         assert_eq!(spec.assemblies[0].equations.len(), 2);
         assert!(spec.assemblies[0]

@@ -3715,6 +3715,10 @@ pub fn review_json(report: &CheckReport) -> String {
         ));
         json.push_str(&format!("      \"line\": {},\n", assembly.line));
         json.push_str(&format!(
+            "      \"source_span\": {{ \"line\": {}, \"column\": {} }},\n",
+            assembly.span.line, assembly.span.column
+        ));
+        json.push_str(&format!(
             "      \"component_count\": {},\n",
             assembly.component_count
         ));
@@ -10355,7 +10359,7 @@ mod tests {
         );
         assert_eq!(report.semantic_program.component_assemblies.len(), 1);
         let assembly = &report.semantic_program.component_assemblies[0];
-        assert_eq!(assembly.status, "assembly_seed");
+        assert_eq!(assembly.status, "assembled_graph");
         assert_eq!(assembly.local_expression_count, 1);
         assert_eq!(
             assembly.solver_preview.delay_history,
@@ -10523,7 +10527,8 @@ mod tests {
             .equations
             .iter()
             .any(|equation| equation.kind == "component_boundary"
-                && equation.rhs.as_deref() == Some("22 degC")));
+                && equation.rhs.as_deref() == Some("22 degC")
+                && equation.status == "component_boundary_constraint"));
         assert_eq!(
             assembly.residual_graph.status,
             "linear_residual_graph_candidate"
@@ -10938,7 +10943,8 @@ system Loop {
             .any(|equation| equation.kind == "component_equation"
                 && equation.expression == "room.heat.Q eq 0 kW"
                 && equation.residual == "room.heat.Q"
-                && equation.rhs.as_deref() == Some("0 kW")));
+                && equation.rhs.as_deref() == Some("0 kW")
+                && equation.status == "component_equation_constraint"));
         assert_eq!(
             assembly.residual_graph.status,
             "linear_residual_graph_candidate"
@@ -11336,6 +11342,130 @@ system Envelope {
             diagnostic.code == "W-CONNECT-UNCONNECTED-PORT"
                 && diagnostic.severity == Severity::Warning
         }));
+    }
+
+    #[test]
+    fn assembly_and_port_diagnostics_preserve_exact_source_anchors() {
+        let source = concat!(
+            "note = \"😀 component port Supply spare\"\r\n",
+            "domain Fluid {\r\n",
+            "    across height: Length [m]\r\n",
+            "    through m_dot: MassFlowRate [kg/s]\r\n",
+            "    conservation sum(m_dot) = 0\r\n",
+            "}\r\n",
+            "component Supply {\r\n",
+            "    port outlet: Fluid\r\n",
+            "}\r\n",
+            "component Return {\r\n",
+            "    port inlet: Fluid\r\n",
+            "}\r\n",
+            "component Spare {\r\n",
+            "    port spare: Fluid # port spare\r\n",
+            "    port slash: Fluid // port slash\r\n",
+            "}\r\n",
+            "component Invalid {\r\n",
+            "    port invalid: Fluid[Water]\r\n",
+            "}\r\n",
+            "component Unknown {\r\n",
+            "    port unknown: MissingDomain\r\n",
+            "}\r\n",
+            "connect Supply.outlet -> Return.inlet\r\n",
+        );
+        let report = check_source(
+            "assembly_diagnostic_spans.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        let span_text = |span: SourceSpan| &source[span.start..span.end];
+
+        let assembly = &report.semantic_program.component_assemblies[0];
+        assert_eq!(assembly.status, "assembled_graph");
+        assert_eq!(span_text(assembly.span), "Supply");
+        let spare = report
+            .semantic_program
+            .component_templates
+            .iter()
+            .find(|component| component.name == "Spare")
+            .expect("Spare component");
+        assert_eq!(spare.ports[0].domain, "Fluid");
+        assert_eq!(span_text(spare.ports[0].domain_span), "Fluid");
+        assert_eq!(spare.ports[1].domain, "Fluid");
+        assert_eq!(span_text(spare.ports[1].domain_span), "Fluid");
+        assert!(assembly
+            .equations
+            .iter()
+            .all(|equation| equation.status == "assembled_constraint"));
+        for code in ["W-ASSEMBLY-ALGEBRAIC-LOOP", "E-ASSEMBLY-UNDERDETERMINED"] {
+            let diagnostics = report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == code)
+                .collect::<Vec<_>>();
+            assert!(!diagnostics.is_empty(), "expected {code}");
+            for diagnostic in diagnostics {
+                assert_eq!(
+                    span_text(diagnostic.source_span.expect("assembly diagnostic span")),
+                    "Supply"
+                );
+            }
+        }
+        let unbalanced = report
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-ASSEMBLY-UNDERDETERMINED")
+            .expect("unbalanced assembly diagnostic");
+        assert!(unbalanced
+            .help
+            .as_deref()
+            .is_some_and(|help| help.contains("before requesting a numeric solve")));
+        assert!(!unbalanced
+            .help
+            .as_deref()
+            .is_some_and(|help| help.contains("planned") || help.contains("seed")));
+
+        let unconnected = report
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "W-CONNECT-UNCONNECTED-PORT")
+            .unwrap_or_else(|| panic!("unconnected port diagnostic: {:?}", report.diagnostics));
+        assert_eq!(
+            span_text(unconnected.source_span.expect("unconnected port span")),
+            "spare"
+        );
+        let invalid_domain = report
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-PORT-DOMAIN-002")
+            .expect("generic domain arity diagnostic");
+        assert_eq!(
+            span_text(invalid_domain.source_span.expect("port domain span")),
+            "Fluid[Water]"
+        );
+        let unknown_domain = report
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-PORT-DOMAIN-001")
+            .expect("unknown port domain diagnostic");
+        assert_eq!(
+            span_text(unknown_domain.source_span.expect("unknown domain span")),
+            "MissingDomain"
+        );
+
+        let review = review_json(&report);
+        assert!(!review.contains("assembly_seed"));
+        let review: serde_json::Value = serde_json::from_str(&review).expect("review json");
+        assert_eq!(
+            review
+                .pointer("/assembly_summary/0/source_span/line")
+                .and_then(serde_json::Value::as_u64),
+            Some(7)
+        );
+        assert_eq!(
+            review
+                .pointer("/assembly_summary/0/source_span/column")
+                .and_then(serde_json::Value::as_u64),
+            Some(11)
+        );
     }
 
     #[test]
