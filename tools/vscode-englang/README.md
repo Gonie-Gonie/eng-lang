@@ -155,6 +155,19 @@ To build the VSIX without installing it:
 .\dev.bat vscode-package
 ```
 
+For focused extension validation without creating a VSIX, use:
+
+```bat
+.\dev.bat vscode-smoke
+.\dev.bat vscode-test
+```
+
+`vscode-smoke` checks generated grammar/editor metadata plus the extension
+JavaScript contract and smoke programs. `vscode-test` additionally builds the
+debug `eng-lsp` and checks full semantic fallback coverage across the example
+and grammar-fixture snapshots. Packaging retains the same checks against the
+release binary before it writes the VSIX.
+
 If the `code` CLI is not on PATH, run `Extensions: Install from VSIX...` in VS
 Code and select the generated VSIX. For extension-host development instead of
 local installation, open `tools\vscode-englang` in VS Code and launch the

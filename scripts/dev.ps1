@@ -4052,15 +4052,29 @@ function Assert-VscodeExtensionContract {
         }
     }
     foreach ($RequiredVscodeInstallPattern in @(
+        '(?m)^\s+"vscode-smoke"\s*\{\s*Invoke-VscodeSmoke\s*\}',
+        '(?m)^\s+"vscode-test"\s*\{\s*Invoke-VscodeTest\s*\}',
         '(?m)^\s+"vscode-status"\s*\{\s*Invoke-VscodeStatus\s*\}',
         '(?m)^\s+"vscode-package"\s*\{\s*Invoke-VscodePackage\s*\}',
         '(?m)^\s+"vscode-install"\s*\{\s*Invoke-VscodeInstall\s*\}',
+        '(?m)^\s+\.\\dev\.bat vscode-smoke\s+Validate generated metadata and VS Code extension smoke tests\s*$',
+        '(?m)^\s+\.\\dev\.bat vscode-test\s+Build eng-lsp and validate full VS Code semantic coverage\s*$',
         '(?m)^\s+\.\\dev\.bat vscode-status  Show local VS Code extension install/package status\s*$',
         '(?m)^\s+\.\\dev\.bat vscode-package Build a local installable VS Code extension VSIX\s*$',
         '(?m)^\s+\.\\dev\.bat vscode-install Build and install the EngLang VS Code extension with the code CLI\s*$'
     )) {
         if ($DevScriptSource -notmatch $RequiredVscodeInstallPattern) {
             throw "dev wrapper missing VS Code local install contract pattern $RequiredVscodeInstallPattern"
+        }
+    }
+    foreach ($RequiredVscodeTestDocToken in @(
+        ".\dev.bat vscode-smoke",
+        ".\dev.bat vscode-test",
+        "without creating a VSIX",
+        "full semantic fallback coverage"
+    )) {
+        if (-not $VscodeReadmeSource.Contains($RequiredVscodeTestDocToken)) {
+            throw "VS Code README missing focused test token $RequiredVscodeTestDocToken"
         }
     }
     foreach ($RequiredVscodeInstallDocToken in @(
@@ -7031,6 +7045,30 @@ function Assert-VscodeExtensionContract {
     Write-Host "VS Code extension contract check passed."
 }
 
+function Invoke-VscodeSmoke {
+    Set-DevEnvironment
+    $cargo = Get-Cargo
+    if ($null -eq $cargo) {
+        Write-Host "Cargo not found. Run .\dev.bat setup."
+        exit 1
+    }
+    Assert-VscodeExtensionContract
+    Write-Host "VS Code smoke passed."
+}
+
+function Invoke-VscodeTest {
+    Set-DevEnvironment
+    $cargo = Get-Cargo
+    if ($null -eq $cargo) {
+        Write-Host "Cargo not found. Run .\dev.bat setup."
+        exit 1
+    }
+    Invoke-Native $cargo "build" "-p" "eng_lsp"
+    Assert-VscodeSemanticFallbackCoverage -LspExecutable (Join-Path $RepoRoot "target\debug\eng-lsp.exe")
+    Assert-VscodeExtensionContract
+    Write-Host "VS Code test passed."
+}
+
 function Invoke-IdeCheck {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -9475,6 +9513,8 @@ Usage:
   .\dev.bat vscode-build-grammar Regenerate VS Code TextMate grammar from source JSON
   .\dev.bat vscode-build-editor-metadata Regenerate VS Code editor metadata from eng-lsp
   .\dev.bat vscode-grammar-test  Check VS Code TextMate grammar source, generated output, and token fixtures
+  .\dev.bat vscode-smoke   Validate generated metadata and VS Code extension smoke tests
+  .\dev.bat vscode-test    Build eng-lsp and validate full VS Code semantic coverage
   .\dev.bat vscode-status  Show local VS Code extension install/package status
   .\dev.bat vscode-package Build a local installable VS Code extension VSIX
   .\dev.bat vscode-install Build and install the EngLang VS Code extension with the code CLI
@@ -9513,6 +9553,8 @@ switch ($Command) {
     "vscode-build-grammar" { Invoke-VscodeBuildGrammar }
     "vscode-build-editor-metadata" { Invoke-VscodeBuildEditorMetadata }
     "vscode-grammar-test" { Invoke-VscodeGrammarTest }
+    "vscode-smoke" { Invoke-VscodeSmoke }
+    "vscode-test" { Invoke-VscodeTest }
     "vscode-status" { Invoke-VscodeStatus }
     "vscode-package" { Invoke-VscodePackage }
     "vscode-install" { Invoke-VscodeInstall }
