@@ -207,7 +207,7 @@ $GrammarOnlyOperatorWordAliases = @(
     "where"
 )
 # Preserve TextMate-only aliases until the compiler-owned catalog exposes these
-# artifact, byte-size, and compatibility quantity labels directly.
+# artifact and compatibility type labels directly.
 $GrammarOnlyTypeAliases = @(
     "ArtifactManifest",
     "CacheManifest",
@@ -228,13 +228,17 @@ $GrammarOnlyTypeAliases = @(
     "TableRow",
     "Time",
     "PredictionManifest",
-    "Area",
-    "Volume",
     "Mass"
 )
 
-$PublicTypeBases = @($PublicTypeItems | ForEach-Object { [string]$_.base }) + $GrammarOnlyTypeAliases
+$CompilerPublicTypeBases = @($PublicTypeItems | ForEach-Object { [string]$_.base })
 $QuantityLabels = @($QuantityItems | ForEach-Object { [string]$_.label })
+$CompilerOwnedTypeLabels = @($CompilerPublicTypeBases + $QuantityLabels | Sort-Object -Unique)
+$PromotedGrammarOnlyTypeAliases = @($GrammarOnlyTypeAliases | Where-Object { $CompilerOwnedTypeLabels -contains $_ })
+if ($PromotedGrammarOnlyTypeAliases.Count -gt 0) {
+    throw "GrammarOnlyTypeAliases duplicates compiler-owned type labels: $($PromotedGrammarOnlyTypeAliases -join ', ')"
+}
+$PublicTypeBases = $CompilerPublicTypeBases + $GrammarOnlyTypeAliases
 $UnitLabels = @($UnitItems | ForEach-Object { [string]$_.label }) + $LegacyUnitAliases
 $TimeseriesStatWorkflowBuiltins = @($WorkflowBuiltinGroupItems["timeseries"] | Where-Object { [string]$_ -ne "integrate" })
 $TemplateValues = @{

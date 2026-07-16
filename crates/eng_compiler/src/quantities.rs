@@ -26,6 +26,18 @@ pub const QUANTITY_COMPLETIONS: &[QuantityCompletion] = &[
         description: "Linear distance.",
     },
     QuantityCompletion {
+        quantity_kind: "Area",
+        canonical_unit: "m2",
+        dimension: "Area",
+        description: "Surface area.",
+    },
+    QuantityCompletion {
+        quantity_kind: "Volume",
+        canonical_unit: "m3",
+        dimension: "Volume",
+        description: "Spatial volume.",
+    },
+    QuantityCompletion {
         quantity_kind: "Conductance",
         canonical_unit: "W/K",
         dimension: "Power/Temperature",
@@ -128,6 +140,8 @@ pub fn completion_count() -> usize {
 pub fn candidates_for_unit(unit: &str) -> Vec<QuantityCompletion> {
     match normalize_unit(unit).as_str() {
         "m" | "cm" | "mm" => completions_for(&["Length"]),
+        "m2" | "m^2" => completions_for(&["Area"]),
+        "m3" | "m^3" => completions_for(&["Volume"]),
         "k" => completions_for(&["AbsoluteTemperature", "TemperatureDelta"]),
         "degc" => completions_for(&["AbsoluteTemperature"]),
         "w/k" => completions_for(&["Conductance"]),

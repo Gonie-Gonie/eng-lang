@@ -350,6 +350,18 @@
   },
   {
     "fixture": "02_units_quantities.eng",
+    "scope": "support.type.englang",
+    "text": "Area",
+    "fullMatch": true
+  },
+  {
+    "fixture": "02_units_quantities.eng",
+    "scope": "support.type.englang",
+    "text": "Volume",
+    "fullMatch": true
+  },
+  {
+    "fixture": "02_units_quantities.eng",
     "scope": "constant.other.unit.englang",
     "text": "J/kg/K",
     "fullMatch": true
@@ -1331,6 +1343,30 @@
     "fixture": "02_units_quantities.eng",
     "scope": "constant.other.unit.englang",
     "text": "person/m2",
+    "fullMatch": true
+  },
+  {
+    "fixture": "02_units_quantities.eng",
+    "scope": "constant.other.unit.englang",
+    "text": "m2",
+    "fullMatch": true
+  },
+  {
+    "fixture": "02_units_quantities.eng",
+    "scope": "constant.other.unit.englang",
+    "text": "m^2",
+    "fullMatch": true
+  },
+  {
+    "fixture": "02_units_quantities.eng",
+    "scope": "constant.other.unit.englang",
+    "text": "m3",
+    "fullMatch": true
+  },
+  {
+    "fixture": "02_units_quantities.eng",
+    "scope": "constant.other.unit.englang",
+    "text": "m^3",
     "fullMatch": true
   },
   {

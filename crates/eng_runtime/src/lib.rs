@@ -18299,6 +18299,16 @@ mod tests {
     }
 
     #[test]
+    fn converts_native_area_and_volume_unit_aliases() {
+        assert_eq!(convert_between_units(25.0, "m^2", "m2", "Area"), Some(25.0));
+        assert_eq!(
+            convert_between_units(73.0, "m^3", "m3", "Volume"),
+            Some(73.0)
+        );
+        assert_eq!(convert_between_units(25.0, "m^2", "m3", "Area"), None);
+    }
+
+    #[test]
     fn workflow_modules_native_workflow_artifact_contracts() {
         let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../..")

@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v2",
-    "completion_items_count":  427,
+    "completion_items_count":  433,
     "completion_items":  [
                              {
                                  "detail":  "Schema array value",
@@ -2426,6 +2426,18 @@
                                  "lsp_kind":  7
                              },
                              {
+                                 "detail":  "canonical unit m2",
+                                 "kind":  "class",
+                                 "label":  "Area",
+                                 "lsp_kind":  7
+                             },
+                             {
+                                 "detail":  "canonical unit m3",
+                                 "kind":  "class",
+                                 "label":  "Volume",
+                                 "lsp_kind":  7
+                             },
+                             {
                                  "detail":  "canonical unit W/K",
                                  "kind":  "class",
                                  "label":  "Conductance",
@@ -2525,6 +2537,30 @@
                                  "detail":  "Length unit",
                                  "kind":  "unit",
                                  "label":  "mm",
+                                 "lsp_kind":  11
+                             },
+                             {
+                                 "detail":  "Area unit",
+                                 "kind":  "unit",
+                                 "label":  "m2",
+                                 "lsp_kind":  11
+                             },
+                             {
+                                 "detail":  "Area unit",
+                                 "kind":  "unit",
+                                 "label":  "m^2",
+                                 "lsp_kind":  11
+                             },
+                             {
+                                 "detail":  "Volume unit",
+                                 "kind":  "unit",
+                                 "label":  "m3",
+                                 "lsp_kind":  11
+                             },
+                             {
+                                 "detail":  "Volume unit",
+                                 "kind":  "unit",
+                                 "label":  "m^3",
                                  "lsp_kind":  11
                              },
                              {

@@ -1090,6 +1090,18 @@
                                                   "label":  "Length"
                                               },
                                               {
+                                                  "canonical_unit":  "m2",
+                                                  "detail":  "Surface area.",
+                                                  "dimension":  "Area",
+                                                  "label":  "Area"
+                                              },
+                                              {
+                                                  "canonical_unit":  "m3",
+                                                  "detail":  "Spatial volume.",
+                                                  "dimension":  "Volume",
+                                                  "label":  "Volume"
+                                              },
+                                              {
                                                   "canonical_unit":  "W/K",
                                                   "detail":  "Thermal conductance.",
                                                   "dimension":  "Power/Temperature",
@@ -1324,6 +1336,30 @@
                                              "dimension":  "Length",
                                              "label":  "mm",
                                              "quantity_hint":  "Length"
+                                         },
+                                         {
+                                             "canonical_unit":  "m2",
+                                             "dimension":  "Area",
+                                             "label":  "m2",
+                                             "quantity_hint":  "Area"
+                                         },
+                                         {
+                                             "canonical_unit":  "m2",
+                                             "dimension":  "Area",
+                                             "label":  "m^2",
+                                             "quantity_hint":  "Area"
+                                         },
+                                         {
+                                             "canonical_unit":  "m3",
+                                             "dimension":  "Volume",
+                                             "label":  "m3",
+                                             "quantity_hint":  "Volume"
+                                         },
+                                         {
+                                             "canonical_unit":  "m3",
+                                             "dimension":  "Volume",
+                                             "label":  "m^3",
+                                             "quantity_hint":  "Volume"
                                          },
                                          {
                                              "canonical_unit":  "K",

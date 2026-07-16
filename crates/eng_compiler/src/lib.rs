@@ -13662,6 +13662,51 @@ write csv "outputs/q.csv", Q
     }
 
     #[test]
+    fn records_native_area_and_volume_units_with_symbolic_aliases() {
+        let report = check_source(
+            "ok.eng",
+            concat!(
+                "floor_area = 24 m2\n",
+                "symbolic_area = 25 m^2\n",
+                "room_volume = 72 m3\n",
+                "symbolic_volume = 73 m^3\n",
+            ),
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:#?}", report.diagnostics);
+        for (name, quantity_kind, display_unit) in [
+            ("floor_area", "Area", "m2"),
+            ("symbolic_area", "Area", "m2"),
+            ("room_volume", "Volume", "m3"),
+            ("symbolic_volume", "Volume", "m3"),
+        ] {
+            let declaration = report
+                .inferred_declarations
+                .iter()
+                .find(|declaration| declaration.name == name)
+                .unwrap_or_else(|| panic!("missing inferred declaration {name}"));
+            assert_eq!(declaration.quantity_kind, quantity_kind);
+            assert_eq!(declaration.display_unit, display_unit);
+        }
+        for (name, source_unit, canonical_unit) in [
+            ("floor_area", "m2", "m2"),
+            ("symbolic_area", "m^2", "m2"),
+            ("room_volume", "m3", "m3"),
+            ("symbolic_volume", "m^3", "m3"),
+        ] {
+            let derivation = report
+                .semantic_program
+                .unit_derivations
+                .iter()
+                .find(|derivation| derivation.name == name)
+                .unwrap_or_else(|| panic!("missing unit derivation {name}"));
+            assert_eq!(derivation.source_unit.as_deref(), Some(source_unit));
+            assert_eq!(derivation.canonical_unit, canonical_unit);
+        }
+    }
+
+    #[test]
     fn records_duration_quantity_and_unit_derivation() {
         let report = check_source("ok.eng", "unmet = 2 h", &CheckOptions::default());
 
