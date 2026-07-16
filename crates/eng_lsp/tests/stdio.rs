@@ -801,7 +801,11 @@ fn stdio_document_cache_tracks_versions_for_diagnostics() {
             "jsonrpc": "2.0",
             "id": 1,
             "method": "initialize",
-            "params": {}
+            "params": {
+                "initializationOptions": {
+                    "diagnosticsDebounceMs": 500
+                }
+            }
         }),
     );
     let initialize = read_message(&mut stdout);
@@ -851,14 +855,45 @@ fn stdio_document_cache_tracks_versions_for_diagnostics() {
                     "version": 2
                 },
                 "contentChanges": [
+                    { "text": "Q := 3 kW\n" }
+                ]
+            }
+        }),
+    );
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": {
+                    "uri": uri,
+                    "version": 3
+                },
+                "contentChanges": [
                     { "text": fixed_source }
                 ]
             }
         }),
     );
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 19,
+            "method": "textDocument/hover",
+            "params": {
+                "textDocument": { "uri": uri },
+                "position": { "line": 0, "character": 0 }
+            }
+        }),
+    );
+    let hover_during_debounce = read_message(&mut stdout);
+    assert_eq!(hover_during_debounce["id"], 19);
+
     let changed = read_message(&mut stdout);
     assert_eq!(changed["method"], "textDocument/publishDiagnostics");
-    assert_eq!(changed["params"]["version"], 2);
+    assert_eq!(changed["params"]["version"], 3);
     assert!(!diagnostics_contain_code(&changed, "E-SYNTAX-DECL-001"));
 
     write_message(
@@ -869,7 +904,7 @@ fn stdio_document_cache_tracks_versions_for_diagnostics() {
             "params": {
                 "textDocument": {
                     "uri": uri,
-                    "version": 1
+                    "version": 2
                 },
                 "contentChanges": [
                     { "text": bad_source }
@@ -904,7 +939,7 @@ fn stdio_document_cache_tracks_versions_for_diagnostics() {
     );
     let saved = read_message(&mut stdout);
     assert_eq!(saved["method"], "textDocument/publishDiagnostics");
-    assert_eq!(saved["params"]["version"], 2);
+    assert_eq!(saved["params"]["version"], 3);
     assert!(!diagnostics_contain_code(&saved, "E-SYNTAX-DECL-001"));
 
     write_message(

@@ -220,8 +220,9 @@ separate.
 
 - Public package: `Internal`
 - Main status: `Internal`
-- Evidence: `eng-lsp.exe` smoke/editor-request checks, stdio tests, optional
-  VS Code source.
+- Evidence: `eng-lsp.exe` smoke/editor-request checks, a versioned persistent
+  document cache with debounced diagnostics, stdio tests, and optional VS Code
+  source.
 - Not included: stable long-running editor protocol contract.
 - Next cleanup action: keep editor tooling commands labeled as internal smoke
   and diagnostic checks.

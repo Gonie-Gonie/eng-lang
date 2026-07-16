@@ -2,6 +2,9 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::mpsc::{self, RecvTimeoutError, TryRecvError};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use eng_compiler::{
     bundled_module_registry, format_source, parse_source, AstItem, ImportSourceOverrides,
@@ -1052,6 +1055,96 @@ impl DocumentState {
 
 type Documents = HashMap<String, DocumentState>;
 
+const DEFAULT_PERSISTENT_DIAGNOSTICS_DEBOUNCE_MS: u64 = 150;
+const MAX_PERSISTENT_DIAGNOSTICS_DEBOUNCE_MS: u64 = 5_000;
+const MAX_QUEUED_LSP_MESSAGES: usize = 64;
+
+#[derive(Debug)]
+struct PendingDiagnostics {
+    delay: Duration,
+    due_at: Option<Instant>,
+    uris: HashSet<String>,
+}
+
+impl Default for PendingDiagnostics {
+    fn default() -> Self {
+        Self::new(Duration::from_millis(
+            DEFAULT_PERSISTENT_DIAGNOSTICS_DEBOUNCE_MS,
+        ))
+    }
+}
+
+impl PendingDiagnostics {
+    fn new(delay: Duration) -> Self {
+        Self {
+            delay,
+            due_at: None,
+            uris: HashSet::new(),
+        }
+    }
+
+    fn set_delay(&mut self, delay: Duration, now: Instant) {
+        self.delay = delay;
+        if !self.uris.is_empty() {
+            self.due_at = Some(now + delay);
+        }
+    }
+
+    fn schedule(&mut self, uris: impl IntoIterator<Item = String>, now: Instant) {
+        self.uris.extend(uris);
+        if !self.uris.is_empty() {
+            self.due_at = Some(now + self.delay);
+        }
+    }
+
+    fn cancel(&mut self, uri: &str) {
+        self.uris.remove(uri);
+        if self.uris.is_empty() {
+            self.due_at = None;
+        }
+    }
+
+    fn timeout(&self, now: Instant) -> Option<Duration> {
+        self.due_at
+            .map(|due_at| due_at.saturating_duration_since(now))
+    }
+
+    fn take_due(&mut self, now: Instant) -> Vec<String> {
+        if self.due_at.is_none_or(|due_at| due_at > now) {
+            return Vec::new();
+        }
+        self.due_at = None;
+        let mut uris = self.uris.drain().collect::<Vec<_>>();
+        uris.sort();
+        uris
+    }
+}
+
+enum LspInputEvent {
+    Message(String),
+    End,
+    Error(io::Error),
+}
+
+fn spawn_lsp_input_reader() -> mpsc::Receiver<LspInputEvent> {
+    let (sender, receiver) = mpsc::sync_channel(MAX_QUEUED_LSP_MESSAGES);
+    thread::spawn(move || {
+        let mut input = io::stdin().lock();
+        loop {
+            let event = match read_lsp_message(&mut input) {
+                Ok(Some(message)) => LspInputEvent::Message(message),
+                Ok(None) => LspInputEvent::End,
+                Err(error) => LspInputEvent::Error(error),
+            };
+            let terminal = !matches!(&event, LspInputEvent::Message(_));
+            if sender.send(event).is_err() || terminal {
+                break;
+            }
+        }
+    });
+    receiver
+}
+
 const MAX_SEMANTIC_TOKEN_RESULTS_PER_DOCUMENT: usize = 4;
 
 #[derive(Clone, Debug)]
@@ -1120,14 +1213,52 @@ impl SemanticTokenCache {
     }
 }
 
+fn persistent_diagnostics_debounce(request: &Value) -> Duration {
+    let milliseconds = request
+        .pointer("/params/initializationOptions/diagnosticsDebounceMs")
+        .or_else(|| request.pointer("/params/initializationOptions/englang/liveDiagnosticsDelayMs"))
+        .and_then(Value::as_u64)
+        .unwrap_or(DEFAULT_PERSISTENT_DIAGNOSTICS_DEBOUNCE_MS)
+        .min(MAX_PERSISTENT_DIAGNOSTICS_DEBOUNCE_MS);
+    Duration::from_millis(milliseconds)
+}
+
 fn run_lsp() -> io::Result<()> {
-    let mut input = io::stdin().lock();
+    let input = spawn_lsp_input_reader();
     let mut output = io::stdout().lock();
     let mut documents = Documents::new();
+    let mut pending_diagnostics = PendingDiagnostics::default();
     let mut semantic_token_cache = SemanticTokenCache::default();
     let mut workspace_roots = Vec::<PathBuf>::new();
 
-    while let Some(message) = read_lsp_message(&mut input)? {
+    loop {
+        let queued_event = match input.try_recv() {
+            Ok(event) => Some(event),
+            Err(TryRecvError::Empty) => None,
+            Err(TryRecvError::Disconnected) => break,
+        };
+        let event = match queued_event {
+            Some(event) => event,
+            None => {
+                publish_due_diagnostics(&mut output, &mut pending_diagnostics, &documents)?;
+                match pending_diagnostics.timeout(Instant::now()) {
+                    Some(timeout) => match input.recv_timeout(timeout) {
+                        Ok(event) => event,
+                        Err(RecvTimeoutError::Timeout) => continue,
+                        Err(RecvTimeoutError::Disconnected) => break,
+                    },
+                    None => match input.recv() {
+                        Ok(event) => event,
+                        Err(_) => break,
+                    },
+                }
+            }
+        };
+        let message = match event {
+            LspInputEvent::Message(message) => message,
+            LspInputEvent::End => break,
+            LspInputEvent::Error(error) => return Err(error),
+        };
         let request = match serde_json::from_str::<Value>(&message) {
             Ok(value) => value,
             Err(error) => {
@@ -1148,6 +1279,8 @@ fn run_lsp() -> io::Result<()> {
         match method {
             "initialize" => {
                 workspace_roots = workspace_roots_from_initialize(&request);
+                pending_diagnostics
+                    .set_delay(persistent_diagnostics_debounce(&request), Instant::now());
                 let legend = semantic_legend();
                 write_response(
                     &mut output,
@@ -1206,10 +1339,17 @@ fn run_lsp() -> io::Result<()> {
             "textDocument/didOpen" | "textDocument/didChange" | "textDocument/didSave" => {
                 if let Some((uri, state)) = document_state_from_notification(&request, &documents) {
                     documents.insert(uri.clone(), state.clone());
-                    for (open_uri, open_state) in
-                        diagnostic_documents_after_change(&uri, &documents)
-                    {
-                        publish_diagnostics(&mut output, &open_uri, &open_state, &documents)?;
+                    let affected = diagnostic_documents_after_change(&uri, &documents);
+                    if method == "textDocument/didChange" {
+                        pending_diagnostics.schedule(
+                            affected.into_iter().map(|(open_uri, _)| open_uri),
+                            Instant::now(),
+                        );
+                    } else {
+                        for (open_uri, open_state) in affected {
+                            pending_diagnostics.cancel(&open_uri);
+                            publish_diagnostics(&mut output, &open_uri, &open_state, &documents)?;
+                        }
                     }
                 }
             }
@@ -1219,10 +1359,12 @@ fn run_lsp() -> io::Result<()> {
                         .into_iter()
                         .filter(|(open_uri, _)| open_uri != &uri)
                         .collect::<Vec<_>>();
+                    pending_diagnostics.cancel(&uri);
                     documents.remove(&uri);
                     semantic_token_cache.remove_document(&uri);
                     clear_diagnostics(&mut output, &uri)?;
                     for (open_uri, open_state) in dependents {
+                        pending_diagnostics.cancel(&open_uri);
                         publish_diagnostics(&mut output, &open_uri, &open_state, &documents)?;
                     }
                 }
@@ -1383,6 +1525,20 @@ fn run_lsp() -> io::Result<()> {
         }
     }
 
+    Ok(())
+}
+
+fn publish_due_diagnostics<W: Write>(
+    output: &mut W,
+    pending: &mut PendingDiagnostics,
+    documents: &Documents,
+) -> io::Result<()> {
+    for uri in pending.take_due(Instant::now()) {
+        let Some(state) = documents.get(&uri) else {
+            continue;
+        };
+        publish_diagnostics(output, &uri, state, documents)?;
+    }
     Ok(())
 }
 
@@ -8544,6 +8700,62 @@ fn write_response<W: Write>(output: &mut W, value: Value) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pending_diagnostics_coalesce_reset_and_cancel_documents() {
+        let start = Instant::now();
+        let mut pending = PendingDiagnostics::new(Duration::from_millis(100));
+        pending.schedule(["b.eng".to_owned(), "a.eng".to_owned()], start);
+        pending.schedule(
+            ["c.eng".to_owned(), "a.eng".to_owned()],
+            start + Duration::from_millis(75),
+        );
+
+        assert!(pending
+            .take_due(start + Duration::from_millis(174))
+            .is_empty());
+        assert_eq!(
+            pending.take_due(start + Duration::from_millis(175)),
+            vec!["a.eng".to_owned(), "b.eng".to_owned(), "c.eng".to_owned()]
+        );
+        assert!(pending.timeout(start).is_none());
+
+        pending.schedule(
+            ["a.eng".to_owned(), "b.eng".to_owned()],
+            start + Duration::from_millis(200),
+        );
+        pending.cancel("a.eng");
+        assert_eq!(
+            pending.take_due(start + Duration::from_millis(300)),
+            vec!["b.eng".to_owned()]
+        );
+    }
+
+    #[test]
+    fn persistent_diagnostics_debounce_reads_and_clamps_initialization_options() {
+        assert_eq!(
+            persistent_diagnostics_debounce(&json!({ "params": {} })),
+            Duration::from_millis(DEFAULT_PERSISTENT_DIAGNOSTICS_DEBOUNCE_MS)
+        );
+        assert_eq!(
+            persistent_diagnostics_debounce(&json!({
+                "params": {
+                    "initializationOptions": { "diagnosticsDebounceMs": 275 }
+                }
+            })),
+            Duration::from_millis(275)
+        );
+        assert_eq!(
+            persistent_diagnostics_debounce(&json!({
+                "params": {
+                    "initializationOptions": {
+                        "englang": { "liveDiagnosticsDelayMs": 10_000 }
+                    }
+                }
+            })),
+            Duration::from_millis(MAX_PERSISTENT_DIAGNOSTICS_DEBOUNCE_MS)
+        );
+    }
 
     #[test]
     fn semantic_token_delta_edits_reconstruct_current_data() {
