@@ -3690,19 +3690,50 @@ fn lsp_option_value_replacement_code_action(
     let option_names = option_quick_fix_option_names(code)?;
     let line_number = diagnostic_line(diagnostic)?;
     let line = text.lines().nth(line_number)?;
-    let assignment = option_assignment_range(line, &option_names)?;
-    let fix = option_quick_fix_for_option(code, &assignment.option_name)?;
-    Some(json!({
-        "title": format!("{}: {} = {}", fix.label, assignment.option_name, fix.value),
-        "kind": "quickfix",
-        "isPreferred": true,
-        "diagnostics": [diagnostic.clone()],
-        "edit": single_change_workspace_edit(
-            uri,
-            line_byte_range(line_number, line, assignment.value_start, assignment.value_end),
-            fix.value
-        )
-    }))
+    if let Some(assignment) = option_assignment_range(line, &option_names) {
+        let fix = option_quick_fix_for_option(code, &assignment.option_name)?;
+        let current_value = line.get(assignment.value_start..assignment.value_end)?;
+        let range = diagnostic_range_for_exact_text(text, diagnostic, current_value)
+            .unwrap_or_else(|| {
+                line_byte_range(
+                    line_number,
+                    line,
+                    assignment.value_start,
+                    assignment.value_end,
+                )
+            });
+        return Some(json!({
+            "title": format!("{}: {} = {}", fix.label, assignment.option_name, fix.value),
+            "kind": "quickfix",
+            "isPreferred": true,
+            "diagnostics": [diagnostic.clone()],
+            "edit": single_change_workspace_edit(uri, range, fix.value)
+        }));
+    }
+
+    let [option_name] = option_names.as_slice() else {
+        return None;
+    };
+    if !is_simulate_or_solve_owner_line(line) {
+        return None;
+    }
+    let fix = option_quick_fix_for_option(code, option_name)?;
+    let title = format!("{}: {} = {}", fix.label, option_name, fix.value);
+    let mut action =
+        lsp_with_option_value_code_action(uri, text, diagnostic, option_name, fix.value, &title)?;
+    action["isPreferred"] = json!(true);
+    Some(action)
+}
+
+fn is_simulate_or_solve_owner_line(line: &str) -> bool {
+    let code = strip_line_comment(line).trim();
+    let Some((_binding, expression)) = code.split_once('=') else {
+        return false;
+    };
+    matches!(
+        expression.split_whitespace().next(),
+        Some("simulate" | "solve")
+    )
 }
 
 fn lsp_absolute_http_url_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
@@ -9323,6 +9354,79 @@ mod tests {
         assert_eq!(edits.len(), 1);
         assert_eq!(edits[0]["range"], diagnostic["range"]);
         assert_eq!(edits[0]["newText"], "mean(Q)");
+    }
+
+    #[test]
+    fn simulation_and_solver_option_quick_fixes_use_precise_ranges_and_insert_missing_options() {
+        let uri = "file:///C:/workspace/simulation.eng";
+        let option_line = "    timestep = \"\u{1f600}\" // repeated \"\u{1f600}\"";
+        let invalid_source =
+            format!("sim = simulate Decay\nwith {{\n{option_line}\n    solver = fixed_step\n}}\n");
+        let current_value = "\"\u{1f600}\"";
+        let value_start_byte = option_line
+            .find(current_value)
+            .expect("timestep option value");
+        let value_start = utf16_len(&option_line[..value_start_byte]);
+        let invalid_diagnostic = json!({
+            "range": {
+                "start": { "line": 2, "character": value_start },
+                "end": {
+                    "line": 2,
+                    "character": value_start + utf16_len(current_value)
+                }
+            },
+            "code": "E-SIM-TIMESTEP-INVALID",
+            "message": "`timestep` expects a positive duration."
+        });
+
+        let replacement_actions =
+            code_actions_for_diagnostic(uri, &invalid_source, &invalid_diagnostic);
+        assert_eq!(replacement_actions.len(), 1);
+        let replacement_edit = &replacement_actions[0]["edit"]["changes"][uri][0];
+        assert_eq!(replacement_edit["range"], invalid_diagnostic["range"]);
+        assert_eq!(replacement_edit["newText"], "10 min");
+        assert_eq!(replacement_actions[0]["isPreferred"], true);
+
+        let attached_source = concat!(
+            "sim = simulate Decay\r\n",
+            "with {\r\n",
+            "    solver = fixed_step\r\n",
+            "}\r\n",
+        );
+        let missing_timestep = json!({
+            "range": {
+                "start": { "line": 0, "character": 6 },
+                "end": { "line": 0, "character": 20 }
+            },
+            "code": "E-SIM-TIMESTEP-INVALID",
+            "message": "`simulate` requires `with { timestep = <duration> }`."
+        });
+        let attached_actions = code_actions_for_diagnostic(uri, attached_source, &missing_timestep);
+        assert_eq!(attached_actions.len(), 1);
+        let attached_edit = &attached_actions[0]["edit"]["changes"][uri][0];
+        assert_eq!(attached_edit["range"]["start"]["line"], 3);
+        assert_eq!(attached_edit["range"]["start"]["character"], 0);
+        assert_eq!(attached_edit["newText"], "    timestep = 10 min\r\n");
+
+        let new_block_source = "result = solve component_graph\r\n";
+        let missing_solver = json!({
+            "range": {
+                "start": { "line": 0, "character": 9 },
+                "end": { "line": 0, "character": 30 }
+            },
+            "code": "E-SOLVE-SOLVER-UNSUPPORTED",
+            "message": "`solve` requires a supported solver in the attached `with` block."
+        });
+        let new_block_actions = code_actions_for_diagnostic(uri, new_block_source, &missing_solver);
+        assert_eq!(new_block_actions.len(), 1);
+        let new_block_edit = &new_block_actions[0]["edit"]["changes"][uri][0];
+        assert_eq!(new_block_edit["range"]["start"]["line"], 0);
+        assert_eq!(new_block_edit["range"]["start"]["character"], 30);
+        assert_eq!(
+            new_block_edit["newText"],
+            "\r\nwith {\r\n    solver = fixed_point\r\n}"
+        );
+        assert_eq!(new_block_actions[0]["isPreferred"], true);
     }
 
     #[test]

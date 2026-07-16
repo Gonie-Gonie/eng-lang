@@ -11999,6 +11999,53 @@ mod tests {
     }
 
     #[test]
+    fn simulation_and_solver_fixture_diagnostics_keep_compiler_owned_ranges() {
+        let repo_root = repo_root_for_tests();
+        let mut files = BTreeSet::new();
+        for relative in [
+            "examples",
+            "tests/diagnostics",
+            "tools/vscode-englang/test/grammar-fixtures",
+        ] {
+            files.extend(eng_files_under(&repo_root.join(relative)));
+        }
+
+        let mut observed = 0usize;
+        let mut missing = Vec::new();
+        for path in files {
+            let source = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            let report = check_source(&path, &source, &CheckOptions::default());
+            let lines = source_lines(&source);
+            for diagnostic in report.diagnostics.iter().filter(|diagnostic| {
+                diagnostic.code.starts_with("E-SIM-") || diagnostic.code.starts_with("E-SOLVE-")
+            }) {
+                observed += 1;
+                let line_index = line_index_from_one_based(&lines, diagnostic.line);
+                let line = lines.get(line_index).copied().unwrap_or_default();
+                if compiler_diagnostic_byte_range(line, diagnostic).is_none() {
+                    missing.push(format!(
+                        "{}:{} {}",
+                        path.strip_prefix(&repo_root).unwrap_or(&path).display(),
+                        diagnostic.line,
+                        diagnostic.code
+                    ));
+                }
+            }
+        }
+
+        assert!(
+            observed >= 15,
+            "simulation/solver diagnostic corpus unexpectedly shrank to {observed} item(s)"
+        );
+        assert!(
+            missing.is_empty(),
+            "simulation/solver diagnostics missing valid compiler ranges: {}",
+            missing.join(", ")
+        );
+    }
+
+    #[test]
     fn diagnostic_corpus_compiler_range_coverage_does_not_regress() {
         let repo_root = repo_root_for_tests();
         let mut files = BTreeSet::new();
@@ -12035,7 +12082,7 @@ mod tests {
             fallback.len()
         );
         assert!(
-            fallback.len() <= 125,
+            fallback.len() <= 106,
             "compiler-owned diagnostic range coverage regressed to {} fallback item(s): {}",
             fallback.len(),
             fallback.join(", ")
@@ -14530,6 +14577,45 @@ print "done"
             &line[dynamic_std.start_character..dynamic_std.end_character],
             "args.cooling_std"
         );
+    }
+
+    #[test]
+    fn simulation_diagnostics_convert_compiler_spans_to_exact_utf16_ranges() {
+        let source = concat!(
+            "system SimDecay {\r\n",
+            "    state T: AbsoluteTemperature = 24 degC\r\n",
+            "    equation {\r\n",
+            "        der(T) eq 0 K/s\r\n",
+            "    }\r\n",
+            "}\r\n",
+            "sim = simulate SimDecay\r\n",
+            "with { duration = \"\u{1f600}\"; timestep = never; solver = adaptive; tolerance = zero } // never adaptive zero\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("simulation_utf16_ranges.eng"), source);
+
+        for (code, marker, expected) in [
+            ("E-SIM-DURATION-INVALID", "duration = ", "\"\u{1f600}\""),
+            ("E-SIM-TIMESTEP-INVALID", "timestep = ", "never"),
+            ("E-SIM-SOLVER-UNSUPPORTED", "solver = ", "adaptive"),
+            ("E-SIM-TOLERANCE-INVALID", "tolerance = ", "zero"),
+        ] {
+            let diagnostic = snapshot
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code)
+                .unwrap_or_else(|| panic!("missing {code}: {:?}", snapshot.diagnostics));
+            let line = source
+                .lines()
+                .nth(diagnostic.line - 1)
+                .expect("diagnostic source line");
+            let marker_start = line.find(marker).expect("diagnostic option marker");
+            let value_start = marker_start + marker.len();
+            assert_eq!(diagnostic.start_character, utf16_len(&line[..value_start]));
+            assert_eq!(
+                diagnostic.end_character,
+                utf16_len(&line[..value_start + expected.len()])
+            );
+        }
     }
 
     #[test]

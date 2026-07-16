@@ -2096,6 +2096,22 @@ fn source_span_for_child_range(parent: SourceSpan, start: usize, end: usize) -> 
     )
 }
 
+fn source_span_for_subslice(
+    parent: SourceSpan,
+    parent_text: &str,
+    subslice: &str,
+) -> Option<SourceSpan> {
+    let start = (subslice.as_ptr() as usize).checked_sub(parent_text.as_ptr() as usize)?;
+    let end = start.checked_add(subslice.len())?;
+    if end > parent_text.len()
+        || !parent_text.is_char_boundary(start)
+        || !parent_text.is_char_boundary(end)
+    {
+        return None;
+    }
+    Some(source_span_for_child_range(parent, start, end))
+}
+
 fn split_validation_expression(
     expression: &str,
     expression_span: SourceSpan,
@@ -5170,17 +5186,26 @@ pub fn validate_simulation_contracts(
         else {
             continue;
         };
+        let target_span = source_span_for_subslice(
+            declaration.expression_span,
+            &declaration.expression,
+            system_name,
+        )
+        .unwrap_or(declaration.expression_span);
         let Some(system) = program
             .systems
             .iter()
             .find(|system| system.name == system_name)
         else {
-            diagnostics.push(Diagnostic::error(
-                "E-SIM-SYSTEM-001",
-                declaration.line,
-                &format!("Simulation references unknown system `{system_name}`."),
-                Some("Define the system before the `simulate` binding."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SIM-SYSTEM-001",
+                    target_span.line,
+                    &format!("Simulation references unknown system `{system_name}`."),
+                    Some("Define the system before the `simulate` binding."),
+                )
+                .with_source_span(target_span),
+            );
             continue;
         };
         let options = program
@@ -5190,10 +5215,16 @@ pub fn validate_simulation_contracts(
             .map(|block| block.options.as_slice())
             .unwrap_or(&[]);
 
-        validate_simulation_timestep(declaration.line, options, &mut diagnostics);
+        validate_simulation_timestep(declaration.expression_span, options, &mut diagnostics);
         validate_simulation_duration(options, &mut diagnostics);
         validate_simulation_tolerance(options, &mut diagnostics);
-        validate_simulation_solver(declaration.line, program, system, options, &mut diagnostics);
+        validate_simulation_solver(
+            declaration.expression_span,
+            program,
+            system,
+            options,
+            &mut diagnostics,
+        );
         validate_simulation_parameter_options(system, options, &mut diagnostics);
         validate_simulation_scalar_input_options(system, options, &mut diagnostics);
 
@@ -5202,69 +5233,86 @@ pub fn validate_simulation_contracts(
                 continue;
             };
             let Some(option) = accepted_option(options, &variable.name) else {
-                diagnostics.push(Diagnostic::error(
-                    "E-SIM-MISSING-INPUT",
-                    declaration.line,
-                    &format!(
-                        "Simulation of `{system_name}` requires TimeSeries input `{}`.",
-                        variable.name
-                    ),
-                    Some(&format!(
-                        "Add `{} = <TimeSeries[{}] of {}>` in the attached `with` block.",
-                        variable.name, expected.axis, expected.quantity_kind
-                    )),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SIM-MISSING-INPUT",
+                        declaration.expression_span.line,
+                        &format!(
+                            "Simulation of `{system_name}` requires TimeSeries input `{}`.",
+                            variable.name
+                        ),
+                        Some(&format!(
+                            "Add `{} = <TimeSeries[{}] of {}>` in the attached `with` block.",
+                            variable.name, expected.axis, expected.quantity_kind
+                        )),
+                    )
+                    .with_source_span(declaration.expression_span),
+                );
                 continue;
             };
             let Some(actual) = resolve_simulation_option_type(program, &option.value) else {
-                diagnostics.push(Diagnostic::error(
-                    "E-SIM-MISSING-INPUT",
-                    option.line,
-                    &format!(
-                        "Simulation input `{}` cannot resolve `{}` as a typed value.",
-                        variable.name, option.value
-                    ),
-                    Some("Bind the option to a prior TimeSeries value or a promoted CSV column."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SIM-MISSING-INPUT",
+                        option.value_span.line,
+                        &format!(
+                            "Simulation input `{}` cannot resolve `{}` as a typed value.",
+                            variable.name, option.value
+                        ),
+                        Some(
+                            "Bind the option to a prior TimeSeries value or a promoted CSV column.",
+                        ),
+                    )
+                    .with_source_span(option.value_span),
+                );
                 continue;
             };
             let Some(actual_axis) = actual.axis.as_deref() else {
-                diagnostics.push(Diagnostic::error(
-                    "E-SIM-INPUT-AXIS-MISMATCH",
-                    option.line,
-                    &format!(
-                        "Simulation input `{}` expects TimeSeries[{}] of {}, but `{}` is {}.",
-                        variable.name,
-                        expected.axis,
-                        expected.quantity_kind,
-                        option.value,
-                        actual.quantity_kind
-                    ),
-                    Some("Use a promoted CSV column such as `weather_data.T_out`."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SIM-INPUT-AXIS-MISMATCH",
+                        option.value_span.line,
+                        &format!(
+                            "Simulation input `{}` expects TimeSeries[{}] of {}, but `{}` is {}.",
+                            variable.name,
+                            expected.axis,
+                            expected.quantity_kind,
+                            option.value,
+                            actual.quantity_kind
+                        ),
+                        Some("Use a promoted CSV column such as `weather_data.T_out`."),
+                    )
+                    .with_source_span(option.value_span),
+                );
                 continue;
             };
             if actual_axis != expected.axis {
-                diagnostics.push(Diagnostic::error(
-                    "E-SIM-INPUT-AXIS-MISMATCH",
-                    option.line,
-                    &format!(
-                        "Simulation input `{}` expects axis `{}`, but `{}` has axis `{actual_axis}`.",
-                        variable.name, expected.axis, option.value
-                    ),
-                    Some("Use a DateTime-indexed TimeSeries for dynamic system inputs."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SIM-INPUT-AXIS-MISMATCH",
+                        option.value_span.line,
+                        &format!(
+                            "Simulation input `{}` expects axis `{}`, but `{}` has axis `{actual_axis}`.",
+                            variable.name, expected.axis, option.value
+                        ),
+                        Some("Use a DateTime-indexed TimeSeries for dynamic system inputs."),
+                    )
+                    .with_source_span(option.value_span),
+                );
             }
             if actual.quantity_kind != expected.quantity_kind {
-                diagnostics.push(Diagnostic::error(
-                    "E-SIM-INPUT-QTY-MISMATCH",
-                    option.line,
-                    &format!(
-                        "Simulation input `{}` expects {}, but `{}` is {}.",
-                        variable.name, expected.quantity_kind, option.value, actual.quantity_kind
-                    ),
-                    Some("Bind the option to a TimeSeries with the same quantity kind as the system input."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SIM-INPUT-QTY-MISMATCH",
+                        option.value_span.line,
+                        &format!(
+                            "Simulation input `{}` expects {}, but `{}` is {}.",
+                            variable.name, expected.quantity_kind, option.value, actual.quantity_kind
+                        ),
+                        Some("Bind the option to a TimeSeries with the same quantity kind as the system input."),
+                    )
+                    .with_source_span(option.value_span),
+                );
             }
         }
     }
@@ -5287,17 +5335,26 @@ fn validate_algebraic_solve_contracts(
         else {
             continue;
         };
+        let target_span = source_span_for_subslice(
+            declaration.expression_span,
+            &declaration.expression,
+            target_name,
+        )
+        .unwrap_or(declaration.expression_span);
         let target_is_component = assemblies
             .iter()
             .any(|assembly| assembly.name == target_name);
         let target_system = systems.iter().find(|system| system.name == target_name);
         if !target_is_component && target_system.is_none() {
-            diagnostics.push(Diagnostic::error(
-                "E-SOLVE-ASSEMBLY-001",
-                declaration.line,
-                &format!("Algebraic solve references unknown assembly or source system `{target_name}`."),
-                Some("Use `solve component_graph` for the current component assembly artifact, or `solve <SystemName>` for a supported source system."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SOLVE-ASSEMBLY-001",
+                    target_span.line,
+                    &format!("Algebraic solve references unknown assembly or source system `{target_name}`."),
+                    Some("Use `solve component_graph` for the current component assembly artifact, or `solve <SystemName>` for a supported source system."),
+                )
+                .with_source_span(target_span),
+            );
             continue;
         }
         let options = with_blocks
@@ -5306,28 +5363,34 @@ fn validate_algebraic_solve_contracts(
             .map(|block| block.options.as_slice())
             .unwrap_or(&[]);
         let Some(solver_option) = accepted_option(options, "solver") else {
-            diagnostics.push(Diagnostic::error(
-                "E-SOLVE-SOLVER-UNSUPPORTED",
-                declaration.line,
-                "`solve` requires a supported solver in the attached `with` block.",
-                Some(
-                    "Use `solver = dense_linear`/`linear` for linear source systems, `fixed_point` for direct fixed-point source systems, `newton` for nonlinear source systems, or one of the supported component solve solvers for `solve component_graph`.",
-                ),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SOLVE-SOLVER-UNSUPPORTED",
+                    declaration.expression_span.line,
+                    "`solve` requires a supported solver in the attached `with` block.",
+                    Some(
+                        "Use `solver = dense_linear`/`linear` for linear source systems, `fixed_point` for direct fixed-point source systems, `newton` for nonlinear source systems, or one of the supported component solve solvers for `solve component_graph`.",
+                    ),
+                )
+                .with_source_span(declaration.expression_span),
+            );
             continue;
         };
         let solver = solver_option.value.trim();
         if let Some(system) = target_system {
             if !is_supported_system_solve_solver(solver) {
-                diagnostics.push(Diagnostic::error(
-                    "E-SOLVE-SOLVER-UNSUPPORTED",
-                    solver_option.line,
-                    &format!(
-                        "Unsupported source system solve solver `{}`.",
-                        solver_option.value
-                    ),
-                    Some("Use `dense_linear`/`linear` for linear source system solves, `fixed_point` for direct fixed-point source system solves, or `newton`/`nonlinear_newton` for nonlinear source system solves."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SOLVE-SOLVER-UNSUPPORTED",
+                        solver_option.value_span.line,
+                        &format!(
+                            "Unsupported source system solve solver `{}`.",
+                            solver_option.value
+                        ),
+                        Some("Use `dense_linear`/`linear` for linear source system solves, `fixed_point` for direct fixed-point source system solves, or `newton`/`nonlinear_newton` for nonlinear source system solves."),
+                    )
+                    .with_source_span(solver_option.value_span),
+                );
                 continue;
             }
             if system
@@ -5335,30 +5398,40 @@ fn validate_algebraic_solve_contracts(
                 .iter()
                 .any(|equation| !equation.derivative_states.is_empty())
             {
-                diagnostics.push(Diagnostic::error(
-                    "E-SOLVE-SYSTEM-SHAPE-UNSUPPORTED",
-                    declaration.line,
-                    &format!("Source system `{}` has derivative equations, so it is not a static algebraic solve target.", system.name),
-                    Some("Use `simulate <SystemName>` for supported ODE shapes, or remove derivative equations before using `solve <SystemName>`."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SOLVE-SYSTEM-SHAPE-UNSUPPORTED",
+                        target_span.line,
+                        &format!("Source system `{}` has derivative equations, so it is not a static algebraic solve target.", system.name),
+                        Some("Use `simulate <SystemName>` for supported ODE shapes, or remove derivative equations before using `solve <SystemName>`."),
+                    )
+                    .with_source_span(target_span),
+                );
                 continue;
             }
         } else if !is_supported_component_solve_solver(solver) {
-            diagnostics.push(Diagnostic::error(
-                "E-SOLVE-SOLVER-UNSUPPORTED",
-                solver_option.line,
-                &format!("Unsupported component solve solver `{}`.", solver_option.value),
-                Some(
-                    "Use `dense_linear`/`linear`, `fixed_point`, `newton`, `implicit_euler_dae`, `dynamic_component_explicit_euler`, `dynamic_component_semi_implicit_euler`, or `dynamic_component_adaptive_heun`.",
-                ),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SOLVE-SOLVER-UNSUPPORTED",
+                    solver_option.value_span.line,
+                    &format!("Unsupported component solve solver `{}`.", solver_option.value),
+                    Some(
+                        "Use `dense_linear`/`linear`, `fixed_point`, `newton`, `implicit_euler_dae`, `dynamic_component_explicit_euler`, `dynamic_component_semi_implicit_euler`, or `dynamic_component_adaptive_heun`.",
+                    ),
+                )
+                .with_source_span(solver_option.value_span),
+            );
             continue;
         }
         let dynamic_component_solver =
             target_is_component && is_dynamic_component_solve_solver(solver);
         let dae_solver = target_is_component && is_dae_component_solve_solver(solver);
         if dynamic_component_solver || dae_solver {
-            validate_component_solve_duration_options(declaration.line, options, diagnostics);
+            validate_component_solve_duration_options(
+                declaration.expression_span,
+                options,
+                diagnostics,
+            );
             validate_component_solve_initial_option(options, diagnostics);
         }
         validate_algebraic_solve_numeric_option(
@@ -5423,15 +5496,18 @@ fn validate_algebraic_solve_contracts(
                 .parse::<usize>()
                 .is_ok_and(|value| value > 0);
             if !valid {
-                diagnostics.push(Diagnostic::error(
-                    "E-SOLVE-MAX-ITER-INVALID",
-                    option.line,
-                    &format!(
-                        "`max_iter` expects a positive integer, got `{}`.",
-                        option.value
-                    ),
-                    Some("Use a positive integer such as `max_iter = 50`."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SOLVE-MAX-ITER-INVALID",
+                        option.value_span.line,
+                        &format!(
+                            "`max_iter` expects a positive integer, got `{}`.",
+                            option.value
+                        ),
+                        Some("Use a positive integer such as `max_iter = 50`."),
+                    )
+                    .with_source_span(option.value_span),
+                );
             }
         }
         if let Some(option) = accepted_option(options, "line_search_steps") {
@@ -5441,15 +5517,18 @@ fn validate_algebraic_solve_contracts(
                 .parse::<usize>()
                 .is_ok_and(|value| value > 0);
             if !valid {
-                diagnostics.push(Diagnostic::error(
-                    "E-SOLVE-LINE-SEARCH-STEPS-INVALID",
-                    option.line,
-                    &format!(
-                        "`line_search_steps` expects a positive integer, got `{}`.",
-                        option.value
-                    ),
-                    Some("Use a positive integer such as `line_search_steps = 8`."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SOLVE-LINE-SEARCH-STEPS-INVALID",
+                        option.value_span.line,
+                        &format!(
+                            "`line_search_steps` expects a positive integer, got `{}`.",
+                            option.value
+                        ),
+                        Some("Use a positive integer such as `line_search_steps = 8`."),
+                    )
+                    .with_source_span(option.value_span),
+                );
             }
         }
         validate_component_solve_positive_numeric_list_option(
@@ -5470,15 +5549,18 @@ fn validate_algebraic_solve_contracts(
                 "finite_difference" | "source_linear_terms"
             );
             if !valid {
-                diagnostics.push(Diagnostic::error(
-                    "E-SOLVE-JACOBIAN-UNSUPPORTED",
-                    option.line,
-                    &format!(
-                        "Unsupported source solve Jacobian policy `{}`.",
-                        option.value
-                    ),
-                    Some("Use `jacobian = finite_difference` or `jacobian = source_linear_terms`."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SOLVE-JACOBIAN-UNSUPPORTED",
+                        option.value_span.line,
+                        &format!(
+                            "Unsupported source solve Jacobian policy `{}`.",
+                            option.value
+                        ),
+                        Some("Use `jacobian = finite_difference` or `jacobian = source_linear_terms`."),
+                    )
+                    .with_source_span(option.value_span),
+                );
             }
         }
         if dae_solver {
@@ -5487,15 +5569,18 @@ fn validate_algebraic_solve_contracts(
         if let Some(option) = accepted_option(options, "algebraic_initialization") {
             let valid = matches!(option.value.trim(), "newton" | "none");
             if !valid {
-                diagnostics.push(Diagnostic::error(
-                    "E-SOLVE-ALGEBRAIC-INITIALIZATION-UNSUPPORTED",
-                    option.line,
-                    &format!(
-                        "Unsupported algebraic initialization policy `{}`.",
-                        option.value
-                    ),
-                    Some("Use `algebraic_initialization = newton` or `algebraic_initialization = none`."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SOLVE-ALGEBRAIC-INITIALIZATION-UNSUPPORTED",
+                        option.value_span.line,
+                        &format!(
+                            "Unsupported algebraic initialization policy `{}`.",
+                            option.value
+                        ),
+                        Some("Use `algebraic_initialization = newton` or `algebraic_initialization = none`."),
+                    )
+                    .with_source_span(option.value_span),
+                );
             }
         }
     }
@@ -5538,49 +5623,61 @@ fn is_dae_component_solve_solver(solver: &str) -> bool {
 }
 
 fn validate_component_solve_duration_options(
-    owner_line: usize,
+    owner_span: SourceSpan,
     options: &[WithOptionInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let Some(timestep) = accepted_option(options, "timestep") else {
-        diagnostics.push(Diagnostic::error(
-            "E-SOLVE-TIMESTEP-INVALID",
-            owner_line,
-            "Dynamic component `solve` requires `with { timestep = <duration> }`.",
-            Some("Use a positive duration such as `timestep = 1 s`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SOLVE-TIMESTEP-INVALID",
+                owner_span.line,
+                "Dynamic component `solve` requires `with { timestep = <duration> }`.",
+                Some("Use a positive duration such as `timestep = 1 s`."),
+            )
+            .with_source_span(owner_span),
+        );
         return;
     };
     if parse_duration_option_seconds(&timestep.value).is_none() {
-        diagnostics.push(Diagnostic::error(
-            "E-SOLVE-TIMESTEP-INVALID",
-            timestep.line,
-            &format!(
-                "`timestep` expects a positive duration, got `{}`.",
-                timestep.value
-            ),
-            Some("Use units such as `s`, `min`, or `h`, for example `1 s`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SOLVE-TIMESTEP-INVALID",
+                timestep.value_span.line,
+                &format!(
+                    "`timestep` expects a positive duration, got `{}`.",
+                    timestep.value
+                ),
+                Some("Use units such as `s`, `min`, or `h`, for example `1 s`."),
+            )
+            .with_source_span(timestep.value_span),
+        );
     }
     let Some(duration) = accepted_option(options, "duration") else {
-        diagnostics.push(Diagnostic::error(
-            "E-SOLVE-DURATION-INVALID",
-            owner_line,
-            "Dynamic component `solve` requires `with { duration = <duration> }`.",
-            Some("Use a positive duration such as `duration = 10 s`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SOLVE-DURATION-INVALID",
+                owner_span.line,
+                "Dynamic component `solve` requires `with { duration = <duration> }`.",
+                Some("Use a positive duration such as `duration = 10 s`."),
+            )
+            .with_source_span(owner_span),
+        );
         return;
     };
     if parse_duration_option_seconds(&duration.value).is_none() {
-        diagnostics.push(Diagnostic::error(
-            "E-SOLVE-DURATION-INVALID",
-            duration.line,
-            &format!(
-                "`duration` expects a positive duration, got `{}`.",
-                duration.value
-            ),
-            Some("Use units such as `s`, `min`, or `h`, for example `10 s`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SOLVE-DURATION-INVALID",
+                duration.value_span.line,
+                &format!(
+                    "`duration` expects a positive duration, got `{}`.",
+                    duration.value
+                ),
+                Some("Use units such as `s`, `min`, or `h`, for example `10 s`."),
+            )
+            .with_source_span(duration.value_span),
+        );
     }
 }
 
@@ -5592,15 +5689,18 @@ fn validate_component_solve_initial_option(
         return;
     };
     if initial_literal_values(&option.value).is_none() {
-        diagnostics.push(Diagnostic::error(
-            "E-SOLVE-INITIAL-INVALID",
-            option.line,
-            &format!(
-                "`initial` expects a finite numeric literal or bracketed list with optional units, got `{}`.",
-                option.value
-            ),
-            Some("Use a literal such as `initial = 20 degC`, `initial = 1`, or `initial = [1, 3]`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SOLVE-INITIAL-INVALID",
+                option.value_span.line,
+                &format!(
+                    "`initial` expects a finite numeric literal or bracketed list with optional units, got `{}`.",
+                    option.value
+                ),
+                Some("Use a literal such as `initial = 20 degC`, `initial = 1`, or `initial = [1, 3]`."),
+            )
+            .with_source_span(option.value_span),
+        );
     }
 }
 
@@ -5614,12 +5714,15 @@ fn validate_component_solve_initial_list_option(
         return;
     };
     if initial_literal_values(&option.value).is_none() {
-        diagnostics.push(Diagnostic::error(
-            "E-SOLVE-INITIAL-INVALID",
-            option.line,
-            &format!("{message} Got `{}`.", option.value),
-            Some("Use a literal such as `1`, `20 degC`, or a bracketed list such as `[1, 3]`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SOLVE-INITIAL-INVALID",
+                option.value_span.line,
+                &format!("{message} Got `{}`.", option.value),
+                Some("Use a literal such as `1`, `20 degC`, or a bracketed list such as `[1, 3]`."),
+            )
+            .with_source_span(option.value_span),
+        );
     }
 }
 fn validate_component_solve_positive_numeric_list_option(
@@ -5637,12 +5740,15 @@ fn validate_component_solve_positive_numeric_list_option(
             .all(|(value, _unit)| value.is_finite() && *value > 0.0)
     });
     if !valid {
-        diagnostics.push(Diagnostic::error(
-            "E-SOLVE-VARIABLE-SCALE-INVALID",
-            option.line,
-            &format!("{message} Got `{}`.", option.value),
-            Some("Use a positive literal such as `1`, `20 degC`, or a bracketed list such as `[1, 3]`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SOLVE-VARIABLE-SCALE-INVALID",
+                option.value_span.line,
+                &format!("{message} Got `{}`.", option.value),
+                Some("Use a positive literal such as `1`, `20 degC`, or a bracketed list such as `[1, 3]`."),
+            )
+            .with_source_span(option.value_span),
+        );
     }
 }
 fn validate_component_solve_mass_matrix_option(
@@ -5653,15 +5759,18 @@ fn validate_component_solve_mass_matrix_option(
         return;
     };
     if !mass_matrix_literal_values(&option.value) {
-        diagnostics.push(Diagnostic::error(
-            "E-SOLVE-MASS-MATRIX-INVALID",
-            option.line,
-            &format!(
-                "`mass_matrix` expects `identity`, a finite scalar, a finite vector of diagonal coefficients, or a finite square matrix with no units. Got `{}`.",
-                option.value
-            ),
-            Some("Use `mass_matrix = identity`, `mass_matrix = 1`, `mass_matrix = [1, 1]`, or `mass_matrix = [[1, 0], [0, 1]]`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SOLVE-MASS-MATRIX-INVALID",
+                option.value_span.line,
+                &format!(
+                    "`mass_matrix` expects `identity`, a finite scalar, a finite vector of diagonal coefficients, or a finite square matrix with no units. Got `{}`.",
+                    option.value
+                ),
+                Some("Use `mass_matrix = identity`, `mass_matrix = 1`, `mass_matrix = [1, 1]`, or `mass_matrix = [[1, 0], [0, 1]]`."),
+            )
+            .with_source_span(option.value_span),
+        );
     }
 }
 
@@ -5767,12 +5876,15 @@ fn validate_algebraic_solve_numeric_option(
     };
     let valid = option.value.trim().parse::<f64>().is_ok_and(predicate);
     if !valid {
-        diagnostics.push(Diagnostic::error(
-            code,
-            option.line,
-            &format!("{message} Got `{}`.", option.value),
-            Some("Use a plain dimensionless numeric option value."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                code,
+                option.value_span.line,
+                &format!("{message} Got `{}`.", option.value),
+                Some("Use a plain dimensionless numeric option value."),
+            )
+            .with_source_span(option.value_span),
+        );
     }
 }
 
@@ -5826,27 +5938,33 @@ fn validate_simulation_scalar_input_options(
             continue;
         };
         let Some((value, unit)) = numeric_literal_with_optional_unit(&option.value) else {
-            diagnostics.push(Diagnostic::error(
-                "E-SIM-INPUT-VALUE",
-                option.line,
-                &format!(
-                    "Simulation input `{}` expects a numeric literal, got `{}`.",
-                    input.name, option.value
-                ),
-                Some("Use a finite numeric literal with an optional compatible unit."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SIM-INPUT-VALUE",
+                    option.value_span.line,
+                    &format!(
+                        "Simulation input `{}` expects a numeric literal, got `{}`.",
+                        input.name, option.value
+                    ),
+                    Some("Use a finite numeric literal with an optional compatible unit."),
+                )
+                .with_source_span(option.value_span),
+            );
             continue;
         };
         if !value.is_finite() {
-            diagnostics.push(Diagnostic::error(
-                "E-SIM-INPUT-VALUE",
-                option.line,
-                &format!(
-                    "Simulation input `{}` expects a finite numeric literal, got `{}`.",
-                    input.name, option.value
-                ),
-                Some("Use a finite numeric literal with an optional compatible unit."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SIM-INPUT-VALUE",
+                    option.value_span.line,
+                    &format!(
+                        "Simulation input `{}` expects a finite numeric literal, got `{}`.",
+                        input.name, option.value
+                    ),
+                    Some("Use a finite numeric literal with an optional compatible unit."),
+                )
+                .with_source_span(option.value_span),
+            );
             continue;
         }
         let Some(unit) = unit else {
@@ -5856,30 +5974,36 @@ fn validate_simulation_scalar_input_options(
             .first()
             .map(|completion| completion.quantity_kind.to_owned())
         else {
-            diagnostics.push(Diagnostic::error(
-                "E-SIM-INPUT-QTY-MISMATCH",
-                option.line,
-                &format!(
-                    "Simulation input `{}` uses unsupported unit `{unit}`.",
-                    input.name
-                ),
-                Some("Use a unit from the built-in unit registry."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SIM-INPUT-QTY-MISMATCH",
+                    option.value_span.line,
+                    &format!(
+                        "Simulation input `{}` uses unsupported unit `{unit}`.",
+                        input.name
+                    ),
+                    Some("Use a unit from the built-in unit registry."),
+                )
+                .with_source_span(option.value_span),
+            );
             continue;
         };
         let expected_quantity = scalar_quantity_kind(&input.quantity_kind);
         let expected_dimension = dimension_for_quantity(&expected_quantity);
         let actual_dimension = dimension_for_quantity(&actual_quantity);
         if !dimensions_compatible(&expected_dimension, &actual_dimension) {
-            diagnostics.push(Diagnostic::error(
-                "E-SIM-INPUT-QTY-MISMATCH",
-                option.line,
-                &format!(
-                    "Simulation input `{}` expects {}, but `{}` is {}.",
-                    input.name, expected_quantity, option.value, actual_quantity
-                ),
-                Some("Use a numeric literal with a unit compatible with the declared input."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SIM-INPUT-QTY-MISMATCH",
+                    option.value_span.line,
+                    &format!(
+                        "Simulation input `{}` expects {}, but `{}` is {}.",
+                        input.name, expected_quantity, option.value, actual_quantity
+                    ),
+                    Some("Use a numeric literal with a unit compatible with the declared input."),
+                )
+                .with_source_span(option.value_span),
+            );
         }
     }
 }
@@ -5897,27 +6021,33 @@ fn validate_simulation_parameter_options(
             continue;
         };
         let Some((value, unit)) = numeric_literal_with_optional_unit(&option.value) else {
-            diagnostics.push(Diagnostic::error(
-                "E-SIM-PARAMETER-INVALID",
-                option.line,
-                &format!(
-                    "Simulation parameter `{}` expects a numeric literal, got `{}`.",
-                    parameter.name, option.value
-                ),
-                Some("Use a finite numeric literal with an optional compatible unit."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SIM-PARAMETER-INVALID",
+                    option.value_span.line,
+                    &format!(
+                        "Simulation parameter `{}` expects a numeric literal, got `{}`.",
+                        parameter.name, option.value
+                    ),
+                    Some("Use a finite numeric literal with an optional compatible unit."),
+                )
+                .with_source_span(option.value_span),
+            );
             continue;
         };
         if !value.is_finite() {
-            diagnostics.push(Diagnostic::error(
-                "E-SIM-PARAMETER-INVALID",
-                option.line,
-                &format!(
-                    "Simulation parameter `{}` expects a finite numeric literal, got `{}`.",
-                    parameter.name, option.value
-                ),
-                Some("Use a finite numeric literal with an optional compatible unit."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SIM-PARAMETER-INVALID",
+                    option.value_span.line,
+                    &format!(
+                        "Simulation parameter `{}` expects a finite numeric literal, got `{}`.",
+                        parameter.name, option.value
+                    ),
+                    Some("Use a finite numeric literal with an optional compatible unit."),
+                )
+                .with_source_span(option.value_span),
+            );
             continue;
         }
         let Some(unit) = unit else {
@@ -5927,56 +6057,70 @@ fn validate_simulation_parameter_options(
             .first()
             .map(|completion| completion.quantity_kind.to_owned())
         else {
-            diagnostics.push(Diagnostic::error(
-                "E-SIM-PARAMETER-UNIT",
-                option.line,
-                &format!(
-                    "Simulation parameter `{}` uses unsupported unit `{unit}`.",
-                    parameter.name
-                ),
-                Some("Use a unit from the built-in unit registry."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SIM-PARAMETER-UNIT",
+                    option.value_span.line,
+                    &format!(
+                        "Simulation parameter `{}` uses unsupported unit `{unit}`.",
+                        parameter.name
+                    ),
+                    Some("Use a unit from the built-in unit registry."),
+                )
+                .with_source_span(option.value_span),
+            );
             continue;
         };
         let expected_dimension = dimension_for_quantity(&parameter.quantity_kind);
         let actual_dimension = dimension_for_quantity(&actual_quantity);
         if !dimensions_compatible(&expected_dimension, &actual_dimension) {
-            diagnostics.push(Diagnostic::error(
-                "E-SIM-PARAMETER-QTY-MISMATCH",
-                option.line,
-                &format!(
-                    "Simulation parameter `{}` expects {}, but `{}` is {}.",
-                    parameter.name, parameter.quantity_kind, option.value, actual_quantity
-                ),
-                Some("Use a numeric literal with a unit compatible with the declared parameter."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SIM-PARAMETER-QTY-MISMATCH",
+                    option.value_span.line,
+                    &format!(
+                        "Simulation parameter `{}` expects {}, but `{}` is {}.",
+                        parameter.name, parameter.quantity_kind, option.value, actual_quantity
+                    ),
+                    Some(
+                        "Use a numeric literal with a unit compatible with the declared parameter.",
+                    ),
+                )
+                .with_source_span(option.value_span),
+            );
         }
     }
 }
 fn validate_simulation_timestep(
-    owner_line: usize,
+    owner_span: SourceSpan,
     options: &[WithOptionInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let Some(option) = accepted_option(options, "timestep") else {
-        diagnostics.push(Diagnostic::error(
-            "E-SIM-TIMESTEP-INVALID",
-            owner_line,
-            "`simulate` requires `with { timestep = <duration> }`.",
-            Some("Use a duration such as `timestep = 10 min`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SIM-TIMESTEP-INVALID",
+                owner_span.line,
+                "`simulate` requires `with { timestep = <duration> }`.",
+                Some("Use a duration such as `timestep = 10 min`."),
+            )
+            .with_source_span(owner_span),
+        );
         return;
     };
     if parse_duration_option_seconds(&option.value).is_none() {
-        diagnostics.push(Diagnostic::error(
-            "E-SIM-TIMESTEP-INVALID",
-            option.line,
-            &format!(
-                "`timestep` expects a positive duration, got `{}`.",
-                option.value
-            ),
-            Some("Use units such as `s`, `min`, or `h`, for example `10 min`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SIM-TIMESTEP-INVALID",
+                option.value_span.line,
+                &format!(
+                    "`timestep` expects a positive duration, got `{}`.",
+                    option.value
+                ),
+                Some("Use units such as `s`, `min`, or `h`, for example `10 min`."),
+            )
+            .with_source_span(option.value_span),
+        );
     }
 }
 
@@ -5985,15 +6129,18 @@ fn validate_simulation_duration(options: &[WithOptionInfo], diagnostics: &mut Ve
         return;
     };
     if parse_duration_option_seconds(&option.value).is_none() {
-        diagnostics.push(Diagnostic::error(
-            "E-SIM-DURATION-INVALID",
-            option.line,
-            &format!(
-                "`duration` expects a positive duration, got `{}`.",
-                option.value
-            ),
-            Some("Use units such as `s`, `min`, or `h`, for example `30 min`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SIM-DURATION-INVALID",
+                option.value_span.line,
+                &format!(
+                    "`duration` expects a positive duration, got `{}`.",
+                    option.value
+                ),
+                Some("Use units such as `s`, `min`, or `h`, for example `30 min`."),
+            )
+            .with_source_span(option.value_span),
+        );
     }
 }
 
@@ -6006,32 +6153,38 @@ fn validate_simulation_tolerance(options: &[WithOptionInfo], diagnostics: &mut V
         Err(_) => false,
     };
     if !valid_tolerance {
-        diagnostics.push(Diagnostic::error(
-            "E-SIM-TOLERANCE-INVALID",
-            option.line,
-            &format!(
-                "`tolerance` expects a positive finite number, got `{}`.",
-                option.value
-            ),
-            Some("Use a dimensionless numeric tolerance such as `0.0001`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SIM-TOLERANCE-INVALID",
+                option.value_span.line,
+                &format!(
+                    "`tolerance` expects a positive finite number, got `{}`.",
+                    option.value
+                ),
+                Some("Use a dimensionless numeric tolerance such as `0.0001`."),
+            )
+            .with_source_span(option.value_span),
+        );
     }
 }
 
 fn validate_simulation_solver(
-    owner_line: usize,
+    owner_span: SourceSpan,
     program: &SemanticProgram,
     system: &SystemInfo,
     options: &[WithOptionInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let Some(option) = accepted_option(options, "solver") else {
-        diagnostics.push(Diagnostic::error(
-            "E-SIM-SOLVER-UNSUPPORTED",
-            owner_line,
-            "`simulate` requires a supported solver in the attached `with` block.",
-            Some("Use `solver = fixed_step`, `solver = explicit_euler`, `solver = rk4`, or `solver = adaptive_heun`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SIM-SOLVER-UNSUPPORTED",
+                owner_span.line,
+                "`simulate` requires a supported solver in the attached `with` block.",
+                Some("Use `solver = fixed_step`, `solver = explicit_euler`, `solver = rk4`, or `solver = adaptive_heun`."),
+            )
+            .with_source_span(owner_span),
+        );
         return;
     };
     let solver_name = option.value.trim();
@@ -6039,20 +6192,26 @@ fn validate_simulation_solver(
         solver_name,
         "fixed_step" | "explicit_euler" | "rk4" | "adaptive_heun"
     ) {
-        diagnostics.push(Diagnostic::error(
-            "E-SIM-SOLVER-UNSUPPORTED",
-            option.line,
-            &format!("Unsupported simulation solver `{}`.", option.value),
-            Some("Use fixed-step Euler/RK4 or `adaptive_heun` for the one-state thermal workflow; general adaptive and nonlinear solvers are deferred."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SIM-SOLVER-UNSUPPORTED",
+                option.value_span.line,
+                &format!("Unsupported simulation solver `{}`.", option.value),
+                Some("Use fixed-step Euler/RK4 or `adaptive_heun` for the one-state thermal workflow; general adaptive and nonlinear solvers are deferred."),
+            )
+            .with_source_span(option.value_span),
+        );
     } else if solver_name == "adaptive_heun" && !supports_adaptive_heun_simulation(program, system)
     {
-        diagnostics.push(Diagnostic::error(
-            "E-SIM-SYSTEM-SHAPE-UNSUPPORTED",
-            option.line,
-            "`adaptive_heun` requires source derivative equations or a continuous state-space workflow.",
-            Some("Use one `der(state)` equation per state, or use a continuous state-space system with shape-checked A/B operators."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SIM-SYSTEM-SHAPE-UNSUPPORTED",
+                option.value_span.line,
+                "`adaptive_heun` requires source derivative equations or a continuous state-space workflow.",
+                Some("Use one `der(state)` equation per state, or use a continuous state-space system with shape-checked A/B operators."),
+            )
+            .with_source_span(option.value_span),
+        );
     }
 }
 

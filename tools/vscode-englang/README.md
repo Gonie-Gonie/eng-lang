@@ -67,7 +67,8 @@ embedding compiler logic in JavaScript.
   block/header, import/use/connect/return, and workflow-option diagnostics,
   process binding conflicts and command/env/cwd values, pinned
   response SHA-256 mismatches, sampling count/seed/range-unit values, missing repro-profile
-  sampling seeds, simulation/solver option repairs, model source-chain
+  sampling seeds, simulation/solver option value repairs and missing-option
+  insertion into attached or new `with` blocks, model source-chain
   starter-code repairs, model option value repairs for invalid test splits, seeds, hidden layers, and epochs,
   unsupported regression algorithm repairs, unsupported command-style call conversions,
   legacy `select_first_row` migration edits,
@@ -284,6 +285,10 @@ seed values, sample range units, deterministic cache keys, cache directories, ca
 model test splits, model seeds, hidden-layer lists, model epochs, and common
 simulation/solver option values such as timestep, duration, tolerance, solver,
 max-iteration, and initial values.
+Supplied invalid simulation/solver options are replaced at the exact Problems
+range. When a required timestep, duration, or solver option is absent, the quick
+fix adds it to the attached `with` block or creates a block on the owning
+`simulate`/`solve` declaration.
 Simple same-block `where` local ordering diagnostics can move the later
 definition before its first use.
 Uncertainty diagnostics can also repair common constructor mistakes such as
@@ -346,6 +351,10 @@ semantic colors and Outline selection. When a sample declaration omits `count`
 or every `uniform(lower, upper)` parameter, Problems underline its complete
 `sample <method>` RHS; malformed supplied options continue to underline their
 own values.
+Simulation and algebraic/component-solver Problems follow the same source-owned
+policy. Unknown targets underline the target name, missing required options
+underline the owning `simulate`/`solve` RHS, and malformed supplied options
+underline only their exact value, including CRLF and non-BMP source positions.
 Command-style targets and clause names/values now use exact compiler-owned
 ranges for semantic colors, and command Outline entries select the target.
 Assertion Outline children select the comparison operator. Direct uncertainty

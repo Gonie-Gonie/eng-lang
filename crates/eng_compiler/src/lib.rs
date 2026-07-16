@@ -11228,6 +11228,111 @@ system Envelope {
     }
 
     #[test]
+    fn solve_contract_diagnostics_preserve_exact_source_spans() {
+        let source = concat!(
+            "domain Scalar {\r\n",
+            "    across x: DimensionlessNumber [1]\r\n",
+            "    through balance: DimensionlessNumber [1]\r\n",
+            "    conservation sum(balance) = 0\r\n",
+            "}\r\n",
+            "component LoopNode {\r\n",
+            "    port source: Scalar\r\n",
+            "    port target: Scalar\r\n",
+            "    source.x eq 0.5 * target.x\r\n",
+            "    source.balance eq 0\r\n",
+            "}\r\n",
+            "system FixedPointLoop {\r\n",
+            "    loop_node = LoopNode()\r\n",
+            "    connect loop_node.source to loop_node.target\r\n",
+            "}\r\n",
+            "result = solve component_graph\r\n",
+            "with { initial = \"\u{1f600}\"; tolerance = -1; max_iter = 0; relaxation = 2; solver = fixed_point }\r\n",
+        );
+        let report = check_source("solve_spans.eng", source, &CheckOptions::default());
+        assert!(report.has_errors());
+
+        for (code, option_key, expected_text) in [
+            ("E-SOLVE-INITIAL-INVALID", "initial", "\"\u{1f600}\""),
+            ("E-SOLVE-TOLERANCE-INVALID", "tolerance", "-1"),
+            ("E-SOLVE-MAX-ITER-INVALID", "max_iter", "0"),
+            ("E-SOLVE-RELAXATION-INVALID", "relaxation", "2"),
+        ] {
+            let option = report
+                .semantic_program
+                .with_blocks
+                .iter()
+                .flat_map(|block| block.options.iter())
+                .find(|option| option.key == option_key)
+                .unwrap_or_else(|| panic!("missing `{option_key}` option"));
+            let diagnostic = report
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code)
+                .unwrap_or_else(|| panic!("missing {code}: {:?}", report.diagnostics));
+            assert_eq!(diagnostic.source_span, Some(option.value_span));
+            assert_eq!(
+                &source[option.value_span.start..option.value_span.end],
+                expected_text
+            );
+        }
+
+        let missing_solver_source = concat!(
+            "domain Scalar {\r\n",
+            "    across x: DimensionlessNumber [1]\r\n",
+            "    through balance: DimensionlessNumber [1]\r\n",
+            "    conservation sum(balance) = 0\r\n",
+            "}\r\n",
+            "component LoopNode {\r\n",
+            "    port source: Scalar\r\n",
+            "    port target: Scalar\r\n",
+            "    source.x eq target.x\r\n",
+            "    source.balance eq 0\r\n",
+            "}\r\n",
+            "system FixedPointLoop {\r\n",
+            "    loop_node = LoopNode()\r\n",
+            "    connect loop_node.source to loop_node.target\r\n",
+            "}\r\n",
+            "result = solve component_graph\r\n",
+        );
+        let missing_solver_report = check_source(
+            "solve_missing_solver_span.eng",
+            missing_solver_source,
+            &CheckOptions::default(),
+        );
+        let missing_solver = missing_solver_report
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-SOLVE-SOLVER-UNSUPPORTED")
+            .expect("missing solver diagnostic");
+        let missing_solver_span = missing_solver
+            .source_span
+            .expect("missing solver source span");
+        assert_eq!(
+            &missing_solver_source[missing_solver_span.start..missing_solver_span.end],
+            "solve component_graph"
+        );
+
+        let missing_target_source = "result = solve missing_graph\r\n";
+        let missing_target_report = check_source(
+            "solve_missing_target_span.eng",
+            missing_target_source,
+            &CheckOptions::default(),
+        );
+        let missing_target = missing_target_report
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-SOLVE-ASSEMBLY-001")
+            .expect("missing solve target diagnostic");
+        let missing_target_span = missing_target
+            .source_span
+            .expect("missing solve target source span");
+        assert_eq!(
+            &missing_target_source[missing_target_span.start..missing_target_span.end],
+            "missing_graph"
+        );
+    }
+
+    #[test]
     fn accepts_dynamic_component_solve_request() {
         let report = check_source(
             "ok.eng",
@@ -14890,6 +14995,106 @@ write csv "outputs/q.csv", Q
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "E-SIM-MISSING-INPUT"));
+    }
+
+    #[test]
+    fn simulation_contract_diagnostics_preserve_exact_source_spans() {
+        let source = concat!(
+            "system DrivenScalar {\r\n",
+            "    parameter gain: Ratio [1] = 1\r\n",
+            "    input drive: DimensionlessNumber [1] = 1\r\n",
+            "    state x: DimensionlessNumber = 0\r\n",
+            "    equation {\r\n",
+            "        der(x) eq gain * drive / 1 s\r\n",
+            "    }\r\n",
+            "}\r\n",
+            "sim = simulate DrivenScalar\r\n",
+            "with { duration = \"\u{1f600}\"; timestep = never; solver = adaptive; tolerance = zero; drive = bad; gain = bad } // repeated never adaptive bad\r\n",
+        );
+        let report = check_source("simulation_spans.eng", source, &CheckOptions::default());
+        assert!(report.has_errors());
+
+        for (code, option_key, expected_text) in [
+            ("E-SIM-DURATION-INVALID", "duration", "\"\u{1f600}\""),
+            ("E-SIM-TIMESTEP-INVALID", "timestep", "never"),
+            ("E-SIM-SOLVER-UNSUPPORTED", "solver", "adaptive"),
+            ("E-SIM-TOLERANCE-INVALID", "tolerance", "zero"),
+            ("E-SIM-INPUT-VALUE", "drive", "bad"),
+            ("E-SIM-PARAMETER-INVALID", "gain", "bad"),
+        ] {
+            let option = report
+                .semantic_program
+                .with_blocks
+                .iter()
+                .flat_map(|block| block.options.iter())
+                .find(|option| option.key == option_key)
+                .unwrap_or_else(|| panic!("missing `{option_key}` option"));
+            let diagnostic = report
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code)
+                .unwrap_or_else(|| panic!("missing {code}: {:?}", report.diagnostics));
+            assert_eq!(diagnostic.source_span, Some(option.value_span));
+            assert_eq!(
+                &source[option.value_span.start..option.value_span.end],
+                expected_text
+            );
+        }
+
+        let missing_options_source = concat!(
+            "system DynamicInput {\r\n",
+            "    input weather: TimeSeries[Time] of AbsoluteTemperature [degC]\r\n",
+            "    state temperature: AbsoluteTemperature = 20 degC\r\n",
+            "    equation {\r\n",
+            "        der(temperature) eq 0 K/s\r\n",
+            "    }\r\n",
+            "}\r\n",
+            "sim = simulate DynamicInput\r\n",
+        );
+        let missing_options_report = check_source(
+            "simulation_missing_options_spans.eng",
+            missing_options_source,
+            &CheckOptions::default(),
+        );
+        for code in [
+            "E-SIM-TIMESTEP-INVALID",
+            "E-SIM-SOLVER-UNSUPPORTED",
+            "E-SIM-MISSING-INPUT",
+        ] {
+            let diagnostic = missing_options_report
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code)
+                .unwrap_or_else(|| {
+                    panic!("missing {code}: {:?}", missing_options_report.diagnostics)
+                });
+            let span = diagnostic
+                .source_span
+                .expect("simulation owner source span");
+            assert_eq!(
+                &missing_options_source[span.start..span.end],
+                "simulate DynamicInput"
+            );
+        }
+
+        let missing_target_source = "sim = simulate MissingSystem\r\n";
+        let missing_target_report = check_source(
+            "simulation_missing_target_span.eng",
+            missing_target_source,
+            &CheckOptions::default(),
+        );
+        let missing_target = missing_target_report
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-SIM-SYSTEM-001")
+            .expect("missing simulation target diagnostic");
+        let missing_target_span = missing_target
+            .source_span
+            .expect("missing simulation target source span");
+        assert_eq!(
+            &missing_target_source[missing_target_span.start..missing_target_span.end],
+            "MissingSystem"
+        );
     }
 
     #[test]

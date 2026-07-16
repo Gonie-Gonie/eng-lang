@@ -144,8 +144,14 @@ constructor values and trailing comments keep their source boundaries. Every
 operand, `E-UNC-PERCENTILE-UNIT-MISMATCH` selects the incompatible threshold,
 `E-UNC-PROBABILITY-EXPR-INVALID` selects the complete probability call, and
 `E-VALIDATE-UNIT-001` selects the right comparison operand. A global
-non-regression ceiling now permits at most 125 diagnostics that still need the
-older range inference path.
+simulation/solver corpus guard also requires every observed `E-SIM-*` and
+`E-SOLVE-*` diagnostic to retain a compiler-owned range: unknown targets select
+the target name, missing required options select the owning `simulate`/`solve`
+RHS, and malformed supplied options select their exact value. Their value quick
+fixes prefer that Problems range, while a missing single option is inserted into
+the attached `with` block or a newly created block. The global non-regression
+ceiling now permits at most 106 diagnostics that still need the older range
+inference path.
 Older diagnostics retain source-aware inference: dimensionless arithmetic
 diagnostics highlight the offending `+` or `-`, schema fast-assignment
 diagnostics highlight `=`, and file mutation diagnostics target `move` or

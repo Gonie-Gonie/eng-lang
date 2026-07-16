@@ -73,6 +73,14 @@ value spans. Missing sampling options can therefore select the owning RHS, and
 sampling semantic tokens plus Outline selections do not reconstruct names from
 line text.
 
+Simulation and algebraic/component-solve validation reuses the same inferred
+declaration RHS plus `WithOptionInfo.value_span`. An unknown `simulate` or
+`solve` target selects the target-name subslice, a missing required option
+selects the owning RHS because no value exists, and a malformed supplied input,
+parameter, timestep, duration, tolerance, solver, or solver-control option
+selects its exact value. The compiler therefore owns these Problems ranges
+before the LSP converts them to UTF-16.
+
 `CommandStyleInfo` exposes the complete command expression, its target, and
 each clause name/value span. `AssertInfo` likewise retains the left operand,
 operator, right operand, and optional tolerance spans. Validation diagnostics,

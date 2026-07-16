@@ -452,6 +452,15 @@ diagnostics select the exact `sample <method>` expression rather than whichever
 same-spelled word appears first on the line. The sampling corpus guard requires
 every `E-SAMPLING-*` diagnostic to retain a valid compiler range.
 
+Simulation and algebraic/component-solver diagnostics also consume source-owned
+ranges. Unknown targets select only the target name, missing required options
+select the owning `simulate`/`solve` RHS, and malformed supplied options select
+their exact `WithOptionInfo.value_span`. The fixture-corpus guard requires every
+observed `E-SIM-*` and `E-SOLVE-*` diagnostic to retain that compiler range.
+Value quick fixes prefer the exact Problems range; when a single required
+option is absent, the LSP inserts it into the attached `with` block or creates a
+new block on the owner declaration.
+
 Command-style targets and clause names/values use `CommandStyleInfo` spans for
 semantic tokens. Command Outline entries select the target, while assertion
 children select `AssertInfo.operator_span` with operand fallback. Direct
