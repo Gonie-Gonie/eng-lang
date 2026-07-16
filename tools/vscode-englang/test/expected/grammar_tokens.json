@@ -362,6 +362,12 @@
   },
   {
     "fixture": "02_units_quantities.eng",
+    "scope": "support.type.englang",
+    "text": "Ratio",
+    "fullMatch": true
+  },
+  {
+    "fixture": "02_units_quantities.eng",
     "scope": "constant.other.unit.englang",
     "text": "J/kg/K",
     "fullMatch": true
@@ -1367,6 +1373,30 @@
     "fixture": "02_units_quantities.eng",
     "scope": "constant.other.unit.englang",
     "text": "m^3",
+    "fullMatch": true
+  },
+  {
+    "fixture": "02_units_quantities.eng",
+    "scope": "meta.quantity.literal.englang",
+    "text": "25%",
+    "fullMatch": true
+  },
+  {
+    "fixture": "02_units_quantities.eng",
+    "scope": "constant.numeric.englang",
+    "text": "25",
+    "fullMatch": true
+  },
+  {
+    "fixture": "02_units_quantities.eng",
+    "scope": "constant.other.unit.englang",
+    "text": "%",
+    "fullMatch": true
+  },
+  {
+    "fixture": "02_units_quantities.eng",
+    "scope": "constant.other.unit.englang",
+    "text": "1",
     "fullMatch": true
   },
   {

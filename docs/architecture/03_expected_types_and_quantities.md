@@ -76,6 +76,10 @@ DimensionlessNumber [1]
 ReynoldsNumber [1]
 ```
 
+The compiler-owned unit registry records both `1` and `%`. Percentage literals
+such as `25%` and `25 %` infer `Ratio`, retain `%` as their source unit, and use
+`1` as the canonical unit with a `0.01` scale.
+
 The catalog is used to:
 
 ```text

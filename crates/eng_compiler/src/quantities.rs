@@ -154,50 +154,97 @@ pub fn candidates_for_unit(unit: &str) -> Vec<QuantityCompletion> {
         "person/m2" | "people/m2" => completions_for(&["PeopleDensity"]),
         "pa" | "kpa" => completions_for(&["Pressure"]),
         "kg/s" => completions_for(&["MassFlowRate"]),
-        "1" => completions_for(&["Ratio", "ReynoldsNumber"]),
+        "%" => completions_for(&["Ratio"]),
+        "1" => completions_for(&["Ratio", "DimensionlessNumber", "ReynoldsNumber"]),
         _ => Vec::new(),
     }
 }
 
 pub fn infer_quantity_from_name_and_unit(name: &str, unit: &str) -> Option<QuantityCompletion> {
     let lowered_name = name.to_ascii_lowercase();
+    let normalized_unit = normalize_unit(unit);
     let candidates = candidates_for_unit(unit);
+    let candidate = |quantity_kind: &str| {
+        candidates
+            .iter()
+            .find(|completion| completion.quantity_kind == quantity_kind)
+            .copied()
+    };
 
     if candidates.len() <= 1 {
         return candidates.first().copied();
     }
 
-    if normalize_unit(unit) == "k"
+    if normalized_unit == "k"
         && (lowered_name.starts_with("dt")
             || lowered_name.starts_with("d_t")
             || lowered_name.contains("delta")
             || lowered_name.contains("difference"))
     {
-        return find_completion("TemperatureDelta");
+        return candidate("TemperatureDelta");
     }
 
-    if normalize_unit(unit) == "k"
-        && (lowered_name.starts_with('t') || lowered_name.contains("temp"))
-    {
-        return find_completion("AbsoluteTemperature");
+    if normalized_unit == "k" && (lowered_name.starts_with('t') || lowered_name.contains("temp")) {
+        return candidate("AbsoluteTemperature");
     }
 
     if lowered_name.starts_with('q')
         || lowered_name.contains("heat")
         || lowered_name.contains("cool")
     {
-        return find_completion("HeatRate");
+        if let Some(completion) = candidate("HeatRate") {
+            return Some(completion);
+        }
     }
 
     if lowered_name.starts_with("p_") || lowered_name.contains("fan") {
-        return find_completion("ElectricPower");
+        if let Some(completion) = candidate("ElectricPower") {
+            return Some(completion);
+        }
     }
 
     if lowered_name.contains("shaft") || lowered_name.contains("mech") {
-        return find_completion("MechanicalPower");
+        if let Some(completion) = candidate("MechanicalPower") {
+            return Some(completion);
+        }
+    }
+
+    if normalized_unit == "1" {
+        if lowered_name == "re" || lowered_name.contains("reynolds") {
+            return candidate("ReynoldsNumber");
+        }
+        if lowered_name == "eta"
+            || lowered_name == "cop"
+            || lowered_name.ends_with("_cop")
+            || lowered_name.contains("ratio")
+            || lowered_name.contains("efficiency")
+            || lowered_name.contains("fraction")
+        {
+            return candidate("Ratio");
+        }
+        return candidate("DimensionlessNumber");
     }
 
     None
+}
+
+pub fn parse_numeric_literal(expression: &str) -> Option<(f64, Option<String>)> {
+    let mut parts = expression.split_whitespace();
+    let value_or_attached_unit = parts.next()?;
+    let spaced_unit = parts.next();
+    if parts.next().is_some() {
+        return None;
+    }
+
+    if let Some(value) = parse_numeric_value(value_or_attached_unit) {
+        return Some((value, spaced_unit.map(str::to_owned)));
+    }
+    if spaced_unit.is_some() {
+        return None;
+    }
+
+    let value = parse_numeric_value(value_or_attached_unit.strip_suffix('%')?)?;
+    Some((value, Some("%".to_owned())))
 }
 
 pub fn first_unit_in_expression(expression: &str) -> Option<String> {
@@ -213,11 +260,21 @@ pub fn first_unit_in_expression(expression: &str) -> Option<String> {
         .map(|word| trim_expression_punctuation(word).to_owned())
         .collect();
 
+    for word in &words {
+        if let Some((_value, Some(unit))) = parse_numeric_literal(word) {
+            if !candidates_for_unit(&unit).is_empty() {
+                return Some(unit);
+            }
+        }
+    }
+
     for pair in words.windows(2) {
         let [number, unit] = pair else {
             continue;
         };
-        if is_number_literal(number) && !candidates_for_unit(unit).is_empty() {
+        if parse_numeric_literal(number).is_some_and(|(_value, unit)| unit.is_none())
+            && !candidates_for_unit(unit).is_empty()
+        {
             return Some(unit.to_owned());
         }
     }
@@ -304,6 +361,13 @@ fn find_completion(name: &str) -> Option<QuantityCompletion> {
         .iter()
         .find(|completion| completion.quantity_kind == name)
         .copied()
+}
+
+fn parse_numeric_value(value: &str) -> Option<f64> {
+    if !value.bytes().any(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    value.parse::<f64>().ok()
 }
 
 fn trim_expression_punctuation(value: &str) -> &str {

@@ -2317,6 +2317,9 @@ fn first_unit_on_line(line: &str) -> Option<String> {
 }
 
 fn is_unit_hint(value: &str) -> bool {
+    if value == "1" {
+        return true;
+    }
     let mut chars = value.chars();
     let Some(first) = chars.next() else {
         return false;

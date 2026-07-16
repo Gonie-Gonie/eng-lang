@@ -1082,6 +1082,8 @@ $PublicTypes = @($PublicTypeLabels | ForEach-Object {
     ($_ -replace "\[.*$", "")
 } | Select-Object -Unique)
 $CompilerUnitSymbols = @($SyntaxCatalog.units | ForEach-Object { [string]$_.label } | Select-Object -Unique)
+$ContextualCompilerUnitSymbols = @($CompilerUnitSymbols | Where-Object { $_ -eq "1" })
+$StandaloneCompilerUnitSymbols = @($CompilerUnitSymbols | Where-Object { $ContextualCompilerUnitSymbols -notcontains $_ })
 $LegacyUnitAliases = @($SyntaxCatalog.legacy_unit_aliases | ForEach-Object { [string]$_ } | Select-Object -Unique)
 $CompilerQuantityKinds = @($SyntaxCatalog.quantities | ForEach-Object { [string]$_.label } | Select-Object -Unique)
 $PublicWorkflowMemberFields = @(
@@ -1376,8 +1378,14 @@ Assert-ScopeMatchesLabels -Scope "meta.type.generic.englang" -Labels $PublicGene
 Assert-ScopeMatchesLabels -Scope "meta.type.generic.englang" -Labels @("Array[String]", "List[Int]") -Description "schema collection generic type"
 Assert-ScopeMatchesLabels -Scope "meta.type.array-suffix.englang" -Labels @("Bool[]", "String[]") -Description "schema array suffix type"
 Assert-ScopeMatchesLabels -Scope "support.type.englang" -Labels $CompilerQuantityKinds -Description "compiler quantity"
-Assert-ScopeMatchesLabels -Scope "constant.other.unit.englang" -Labels $CompilerUnitSymbols -Description "compiler unit"
-Assert-ScopeMatchesLabels -Scope "constant.other.unit.format.englang" -Labels $CompilerUnitSymbols -Description "compiler unit"
+Assert-ScopeMatchesLabels -Scope "constant.other.unit.englang" -Labels $StandaloneCompilerUnitSymbols -Description "standalone compiler unit"
+Assert-ScopeMatchesLabels -Scope "constant.other.unit.format.englang" -Labels $StandaloneCompilerUnitSymbols -Description "standalone compiler unit"
+if ($ContextualCompilerUnitSymbols.Count -gt 0) {
+    $ContextualUnitFixture = "ratio: Ratio [1] = 0.25 1"
+    Assert-AnyScopeMatchesLabels -Scopes @("constant.other.unit.englang") -Labels $ContextualCompilerUnitSymbols -Description "contextual compiler unit" -FixtureText $ContextualUnitFixture
+    Assert-ScopeDoesNotMatchLabelInFixture -Scope "constant.other.unit.englang" -Label "1" -FixtureText "ratio = 1" -Description "bare numeric literal"
+    Assert-ScopeDoesNotMatchLabels -Scope "constant.other.unit.format.englang" -Labels $ContextualCompilerUnitSymbols -Description "contextual compiler unit outside a unit context"
+}
 Assert-ScopeMatchesLabels -Scope "constant.other.unit.englang" -Labels $LegacyUnitAliases -Description "legacy unit alias"
 Assert-ScopeMatchesLabels -Scope "constant.other.unit.format.englang" -Labels $LegacyUnitAliases -Description "legacy unit alias"
 $PublicWorkflowMemberFixture = ($PublicWorkflowMemberFields | ForEach-Object { "api.$_" }) -join "`n"

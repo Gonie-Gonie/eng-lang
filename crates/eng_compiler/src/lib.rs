@@ -60,7 +60,9 @@ pub use net::{
     request_body_sha256, NetDownloadInfo, NetHeaderParam, NetQueryParam, NetRequestInfo,
 };
 pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSummary};
-pub use quantities::{all_quantity_completions, normalize_unit, QuantityCompletion};
+pub use quantities::{
+    all_quantity_completions, normalize_unit, parse_numeric_literal, QuantityCompletion,
+};
 pub use schema::{
     ConfigPromotion, ConfigTypeMismatch, CsvPromotion, MissingPolicy, SchemaColumn,
     SchemaConstraint, SchemaInfo,
@@ -13704,6 +13706,58 @@ write csv "outputs/q.csv", Q
             assert_eq!(derivation.source_unit.as_deref(), Some(source_unit));
             assert_eq!(derivation.canonical_unit, canonical_unit);
         }
+    }
+
+    #[test]
+    fn records_native_percent_and_dimensionless_ratio_units() {
+        let source = concat!(
+            "const target: Ratio [%] = 75%\n",
+            "efficiency = 25%\n",
+            "spaced_ratio = 40 %\n",
+            "quality_factor = 0.8 1\n",
+            "reynolds_number = 1200 1\n",
+        );
+        let report = check_source("ok.eng", source, &CheckOptions::default());
+
+        assert!(!report.has_errors(), "{:#?}", report.diagnostics);
+        assert!(report.diagnostics.is_empty(), "{:#?}", report.diagnostics);
+        for (name, quantity_kind, display_unit) in [
+            ("efficiency", "Ratio", "1"),
+            ("spaced_ratio", "Ratio", "1"),
+            ("quality_factor", "DimensionlessNumber", "1"),
+            ("reynolds_number", "ReynoldsNumber", "1"),
+        ] {
+            let declaration = report
+                .inferred_declarations
+                .iter()
+                .find(|declaration| declaration.name == name)
+                .unwrap_or_else(|| panic!("missing inferred declaration {name}"));
+            assert_eq!(declaration.quantity_kind, quantity_kind);
+            assert_eq!(declaration.display_unit, display_unit);
+        }
+
+        let target = report
+            .semantic_program
+            .consts
+            .iter()
+            .find(|constant| constant.name == "target")
+            .expect("percent target const");
+        assert_eq!(target.display_unit, "%");
+        assert_eq!(target.canonical_unit, "1");
+        let target_derivation = report
+            .semantic_program
+            .unit_derivations
+            .iter()
+            .find(|derivation| derivation.name == "target")
+            .expect("percent target derivation");
+        assert_eq!(target_derivation.source_unit.as_deref(), Some("%"));
+        assert_eq!(target_derivation.canonical_unit, "1");
+
+        let parsed = parse_source("efficiency = 25%");
+        assert!(matches!(
+            parsed.lines[0].tokens.last().map(|token| &token.kind),
+            Some(TokenKind::Symbol(Symbol::Percent))
+        ));
     }
 
     #[test]

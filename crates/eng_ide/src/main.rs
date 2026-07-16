@@ -5012,6 +5012,7 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "predictionTableFields: catalogFieldItems(source.predictionTableFields ?? source.prediction_table_fields)",
         "const unitLabels = uniqueStrings([",
         "...normalized.legacyUnitAliases",
+        "function isLexicalDimensionlessUnit(line, start, end)",
         "lexical.workflowStatusLiterals?.has(word)",
         "function isWorkflowStatusLiteralContext(line, index)",
         "function lexicalKeywordGroupClass(word, lexical)",

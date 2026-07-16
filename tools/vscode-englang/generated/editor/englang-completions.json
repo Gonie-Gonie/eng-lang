@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v2",
-    "completion_items_count":  433,
+    "completion_items_count":  435,
     "completion_items":  [
                              {
                                  "detail":  "Schema array value",
@@ -2561,6 +2561,18 @@
                                  "detail":  "Volume unit",
                                  "kind":  "unit",
                                  "label":  "m^3",
+                                 "lsp_kind":  11
+                             },
+                             {
+                                 "detail":  "DimensionlessNumber unit",
+                                 "kind":  "unit",
+                                 "label":  "1",
+                                 "lsp_kind":  11
+                             },
+                             {
+                                 "detail":  "Ratio unit",
+                                 "kind":  "unit",
+                                 "label":  "%",
                                  "lsp_kind":  11
                              },
                              {

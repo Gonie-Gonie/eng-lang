@@ -573,10 +573,7 @@ const EDITOR_LEGACY_UNIT_ALIASES: &[&str] = &[
     "GiB",
     "gibibyte",
     "gibibytes",
-    "m2",
-    "m3",
     "kJ",
-    "%",
 ];
 
 const EDITOR_IMPORT_KEYWORDS: &[&str] = &["use", "import", "from", "as"];
@@ -5509,7 +5506,10 @@ impl<'a> SemanticTokenBuilder<'a> {
                 if !is_unit_boundary(line, unit_start, unit_end) {
                     continue;
                 }
-                if *unit == "1" && !is_dimensionless_unit_annotation(line, unit_start, unit_end) {
+                if *unit == "1"
+                    && !is_dimensionless_unit_annotation(line, unit_start, unit_end)
+                    && !is_dimensionless_literal_unit(line, unit_start)
+                {
                     continue;
                 }
                 let after_unit = skip_ascii_whitespace(line.as_bytes(), unit_end, end);
@@ -7583,7 +7583,10 @@ fn is_unit_boundary(line: &str, start: usize, end: usize) -> bool {
         .checked_sub(1)
         .and_then(|index| bytes.get(index).copied());
     let after = bytes.get(end).copied();
-    before.is_none_or(|byte| !is_unit_byte(byte)) && after.is_none_or(|byte| !is_unit_byte(byte))
+    let attached_percent =
+        line.get(start..end) == Some("%") && before.is_some_and(|byte| byte.is_ascii_digit());
+    (attached_percent || before.is_none_or(|byte| !is_unit_byte(byte)))
+        && after.is_none_or(|byte| !is_unit_byte(byte))
 }
 
 fn is_dimensionless_unit_annotation(line: &str, start: usize, end: usize) -> bool {
@@ -7592,8 +7595,18 @@ fn is_dimensionless_unit_annotation(line: &str, start: usize, end: usize) -> boo
     before.ends_with('[') && after.starts_with(']')
 }
 
+fn is_dimensionless_literal_unit(line: &str, start: usize) -> bool {
+    let before = line.get(..start).unwrap_or_default();
+    if !before.chars().last().is_some_and(char::is_whitespace) {
+        return false;
+    }
+    before.split_whitespace().next_back().is_some_and(|value| {
+        eng_compiler::parse_numeric_literal(value).is_some_and(|(_value, unit)| unit.is_none())
+    })
+}
+
 fn is_unit_byte(byte: u8) -> bool {
-    byte == b'_' || byte == b'/' || byte == b'^' || byte.is_ascii_alphanumeric()
+    matches!(byte, b'_' | b'/' | b'^' | b'%') || byte.is_ascii_alphanumeric()
 }
 
 fn is_ident_start(byte: u8) -> bool {
@@ -11230,11 +11243,22 @@ mod tests {
                 .is_some_and(|units| units.iter().any(|unit| unit["label"] == "kW")),
             "syntax catalog should expose compiler unit labels"
         );
+        let compiler_units = syntax_catalog["units"]
+            .as_array()
+            .expect("compiler unit catalog")
+            .iter()
+            .filter_map(|unit| unit["label"].as_str())
+            .collect::<BTreeSet<_>>();
+        let legacy_unit_aliases = syntax_catalog["legacy_unit_aliases"]
+            .as_array()
+            .expect("legacy unit aliases")
+            .iter()
+            .filter_map(Value::as_str)
+            .collect::<BTreeSet<_>>();
+        assert!(legacy_unit_aliases.contains("kJ"));
         assert!(
-            syntax_catalog["legacy_unit_aliases"]
-                .as_array()
-                .is_some_and(|units| units.iter().any(|unit| unit.as_str() == Some("%"))),
-            "syntax catalog should expose editor legacy unit aliases"
+            compiler_units.is_disjoint(&legacy_unit_aliases),
+            "editor legacy unit aliases must not duplicate compiler-owned units"
         );
 
         let completions = metadata["completion_items"]
@@ -14112,6 +14136,8 @@ connect Coil.heat -> AmbientBoundary.heat
     fn snapshot_keeps_dimensionless_unit_annotations_from_repainting_numbers() {
         let source = r#"x: DimensionlessNumber [1]
 ratio = 1
+normalized_ratio = 0.25 1
+efficiency = 25%
 "#;
         let snapshot = snapshot_for_source(Path::new("dimensionless_unit_annotations.eng"), source);
 
@@ -14131,6 +14157,23 @@ ratio = 1
         );
         assert_semantic_token_on_line_type(&snapshot, source, "ratio = 1", "1", "number");
         assert_no_semantic_token_on_line_type(&snapshot, source, "ratio = 1", "1", "type");
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "normalized_ratio =",
+            "1",
+            "type",
+            "unit",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "efficiency =",
+            "%",
+            "type",
+            "unit",
+        );
+        assert_semantic_token_on_line_type(&snapshot, source, "efficiency =", "25", "number");
 
         assert_no_conflicting_semantic_token_types(
             &snapshot,

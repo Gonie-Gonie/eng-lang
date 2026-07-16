@@ -2562,6 +2562,18 @@
                                  "lsp_kind":  11
                              },
                              {
+                                 "detail":  "DimensionlessNumber unit",
+                                 "kind":  "unit",
+                                 "label":  "1",
+                                 "lsp_kind":  11
+                             },
+                             {
+                                 "detail":  "Ratio unit",
+                                 "kind":  "unit",
+                                 "label":  "%",
+                                 "lsp_kind":  11
+                             },
+                             {
                                  "detail":  "TemperatureDelta unit",
                                  "kind":  "unit",
                                  "label":  "K",
@@ -2694,7 +2706,7 @@
                                  "lsp_kind":  11
                              }
                          ],
-    "completion_items_count":  433,
+    "completion_items_count":  435,
     "format":  "eng-lsp-editor-metadata-v2",
     "semantic_token_legend":  {
                                   "token_modifiers":  [
@@ -3466,10 +3478,7 @@
                                                        "GiB",
                                                        "gibibyte",
                                                        "gibibytes",
-                                                       "m2",
-                                                       "m3",
-                                                       "kJ",
-                                                       "%"
+                                                       "kJ"
                                                    ],
                            "legacy_workflow_builtin_aliases":  [
                                                                    "regression_table",
@@ -4109,6 +4118,18 @@
                                              "dimension":  "Volume",
                                              "label":  "m^3",
                                              "quantity_hint":  "Volume"
+                                         },
+                                         {
+                                             "canonical_unit":  "1",
+                                             "dimension":  "Dimensionless",
+                                             "label":  "1",
+                                             "quantity_hint":  "DimensionlessNumber"
+                                         },
+                                         {
+                                             "canonical_unit":  "1",
+                                             "dimension":  "Dimensionless",
+                                             "label":  "%",
+                                             "quantity_hint":  "Ratio"
                                          },
                                          {
                                              "canonical_unit":  "K",

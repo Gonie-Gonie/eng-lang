@@ -80,6 +80,22 @@ pub const UNIT_INFOS: &[UnitInfo] = &[
         affine_offset: None,
     },
     UnitInfo {
+        symbol: "1",
+        canonical_unit: "1",
+        quantity_hint: "DimensionlessNumber",
+        dimension: "Dimensionless",
+        scale_to_canonical: "1",
+        affine_offset: None,
+    },
+    UnitInfo {
+        symbol: "%",
+        canonical_unit: "1",
+        quantity_hint: "Ratio",
+        dimension: "Dimensionless",
+        scale_to_canonical: "0.01",
+        affine_offset: None,
+    },
+    UnitInfo {
         symbol: "K",
         canonical_unit: "K",
         quantity_hint: "TemperatureDelta",

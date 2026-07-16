@@ -266,7 +266,7 @@
                                                              },
                                                              {
                                                                  "name":  "meta.declaration.return-type-unit.englang",
-                                                                 "match":  "(-\u003e)\\s*([A-Za-z_][A-Za-z0-9_]*)(?:\\s*(\\[)\\s*(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|m\\^2|m\\^3|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)\\s*(\\]))",
+                                                                 "match":  "(-\u003e)\\s*([A-Za-z_][A-Za-z0-9_]*)(?:\\s*(\\[)\\s*(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|m\\^2|m\\^3|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|1|B|h|J|K|m|s|W)\\s*(\\]))",
                                                                  "captures":  {
                                                                                   "1":  {
                                                                                             "name":  "keyword.operator.englang"
@@ -287,7 +287,7 @@
                                                              },
                                                              {
                                                                  "name":  "meta.declaration.parameter.englang",
-                                                                 "match":  "([,(])\\s*([A-Za-z_][A-Za-z0-9_]*)(\\s*:)\\s*([A-Za-z_][A-Za-z0-9_]*)(?:\\s*(\\[)\\s*(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|m\\^2|m\\^3|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)\\s*(\\]))",
+                                                                 "match":  "([,(])\\s*([A-Za-z_][A-Za-z0-9_]*)(\\s*:)\\s*([A-Za-z_][A-Za-z0-9_]*)(?:\\s*(\\[)\\s*(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|m\\^2|m\\^3|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|1|B|h|J|K|m|s|W)\\s*(\\]))",
                                                                  "captures":  {
                                                                                   "1":  {
                                                                                             "name":  "punctuation.separator.parameter.englang"
@@ -3637,7 +3637,19 @@
                                      "patterns":  [
                                                       {
                                                           "name":  "meta.quantity.literal.englang",
-                                                          "match":  "\\b[0-9]+(?:\\.[0-9]+)?\\s+((?:1|gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|m\\^2|m\\^3|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?:/(?:gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|m\\^2|m\\^3|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?:\\^[0-9]+)?)+)(?![A-Za-z0-9_/])(?!\\s*\\()",
+                                                          "match":  "(\\b[0-9]+(?:\\.[0-9]+)?)(%)(?![A-Za-z0-9_/%])",
+                                                          "captures":  {
+                                                                           "1":  {
+                                                                                     "name":  "constant.numeric.englang"
+                                                                                 },
+                                                                           "2":  {
+                                                                                     "name":  "constant.other.unit.englang"
+                                                                                 }
+                                                                       }
+                                                      },
+                                                      {
+                                                          "name":  "meta.quantity.literal.englang",
+                                                          "match":  "\\b[0-9]+(?:\\.[0-9]+)?\\s+((?:gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|m\\^2|m\\^3|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|1|B|h|J|K|m|s|W)(?:/(?:gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|m\\^2|m\\^3|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|1|B|h|J|K|m|s|W)(?:\\^[0-9]+)?)+)(?![A-Za-z0-9_/])(?!\\s*\\()",
                                                           "captures":  {
                                                                            "1":  {
                                                                                      "name":  "constant.other.unit.englang"
@@ -3646,7 +3658,7 @@
                                                       },
                                                       {
                                                           "name":  "meta.quantity.literal.englang",
-                                                          "match":  "\\b[0-9]+(?:\\.[0-9]+)?\\s+(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|m\\^2|m\\^3|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?![A-Za-z0-9_/])(?!\\s*\\()",
+                                                          "match":  "\\b[0-9]+(?:\\.[0-9]+)?\\s+(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|m\\^2|m\\^3|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|1|B|h|J|K|m|s|W)(?![A-Za-z0-9_/])(?!\\s*\\()",
                                                           "captures":  {
                                                                            "1":  {
                                                                                      "name":  "constant.other.unit.englang"
@@ -3655,11 +3667,11 @@
                                                       },
                                                       {
                                                           "name":  "constant.other.unit.englang",
-                                                          "match":  "(?\u003c=\\[)(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|m\\^2|m\\^3|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?=\\])"
+                                                          "match":  "(?\u003c=\\[)(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|m\\^2|m\\^3|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|1|B|h|J|K|m|s|W)(?=\\])"
                                                       },
                                                       {
                                                           "name":  "constant.other.unit.englang",
-                                                          "match":  "(?\u003c![A-Za-z0-9_])((?:1|gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|m\\^2|m\\^3|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?:/(?:gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|m\\^2|m\\^3|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?:\\^[0-9]+)?)+)(?![A-Za-z0-9_/])(?!\\s*\\()"
+                                                          "match":  "(?\u003c![A-Za-z0-9_])((?:gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|m\\^2|m\\^3|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|1|B|h|J|K|m|s|W)(?:/(?:gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|m\\^2|m\\^3|MiB|min|W/K|°C|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|1|B|h|J|K|m|s|W)(?:\\^[0-9]+)?)+)(?![A-Za-z0-9_/])(?!\\s*\\()"
                                                       },
                                                       {
                                                           "name":  "constant.other.unit.englang",

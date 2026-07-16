@@ -717,10 +717,7 @@
                                                        "GiB",
                                                        "gibibyte",
                                                        "gibibytes",
-                                                       "m2",
-                                                       "m3",
-                                                       "kJ",
-                                                       "%"
+                                                       "kJ"
                                                    ],
                            "legacy_workflow_builtin_aliases":  [
                                                                    "regression_table",
@@ -1360,6 +1357,18 @@
                                              "dimension":  "Volume",
                                              "label":  "m^3",
                                              "quantity_hint":  "Volume"
+                                         },
+                                         {
+                                             "canonical_unit":  "1",
+                                             "dimension":  "Dimensionless",
+                                             "label":  "1",
+                                             "quantity_hint":  "DimensionlessNumber"
+                                         },
+                                         {
+                                             "canonical_unit":  "1",
+                                             "dimension":  "Dimensionless",
+                                             "label":  "%",
+                                             "quantity_hint":  "Ratio"
                                          },
                                          {
                                              "canonical_unit":  "K",

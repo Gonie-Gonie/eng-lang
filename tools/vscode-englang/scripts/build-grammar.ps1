@@ -239,10 +239,22 @@ if ($PromotedGrammarOnlyTypeAliases.Count -gt 0) {
     throw "GrammarOnlyTypeAliases duplicates compiler-owned type labels: $($PromotedGrammarOnlyTypeAliases -join ', ')"
 }
 $PublicTypeBases = $CompilerPublicTypeBases + $GrammarOnlyTypeAliases
-$UnitLabels = @($UnitItems | ForEach-Object { [string]$_.label }) + $LegacyUnitAliases
+$CompilerUnitLabels = @($UnitItems | ForEach-Object { [string]$_.label })
+$PromotedLegacyUnitAliases = @($LegacyUnitAliases | Where-Object { $CompilerUnitLabels -contains $_ })
+if ($PromotedLegacyUnitAliases.Count -gt 0) {
+    throw "legacy_unit_aliases duplicates compiler-owned units: $($PromotedLegacyUnitAliases -join ', ')"
+}
+$UnitLabels = $CompilerUnitLabels + $LegacyUnitAliases
+$StandaloneUnitLabels = @($UnitLabels | Where-Object { $_ -ne "1" })
+$AttachedUnitLabels = @($CompilerUnitLabels | Where-Object { $_ -eq "%" })
+if ($AttachedUnitLabels.Count -ne 1) {
+    throw "compiler-owned unit catalog must expose `%` exactly once for attached percentage literals"
+}
 $TimeseriesStatWorkflowBuiltins = @($WorkflowBuiltinGroupItems["timeseries"] | Where-Object { [string]$_ -ne "integrate" })
 $TemplateValues = @{
     "{{UNIT_LABELS}}" = ConvertTo-RegexAlternation $UnitLabels
+    "{{STANDALONE_UNIT_LABELS}}" = ConvertTo-RegexAlternation $StandaloneUnitLabels
+    "{{ATTACHED_UNIT_LABELS}}" = ConvertTo-RegexAlternation $AttachedUnitLabels
     "{{LANGUAGE_CONSTANTS}}" = ConvertTo-RegexAlternation $LanguageConstants
     "{{WORKFLOW_STATUS_LITERALS}}" = ConvertTo-RegexAlternation $WorkflowStatusLiterals
     "{{OPERATOR_WORDS}}" = ConvertTo-RegexAlternation ($OperatorWords + $GrammarOnlyOperatorWordAliases)

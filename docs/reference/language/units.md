@@ -10,6 +10,8 @@ quantity kind carried by each value.
   declarations, for example `HeatRate [kW]`.
 - Write numeric literals with explicit units when dimensional meaning matters,
   for example `12 kW`, `30 s`, or `2 MB`.
+- Write ratios as an attached or spaced percentage such as `25%` or `25 %`;
+  `%` converts to the canonical dimensionless unit `1` with scale `0.01`.
 - Use compatible display units in plot/report options such as `unit y = kW`.
 - Use `1` for dimensionless schema units and dimensionless plot axes.
 

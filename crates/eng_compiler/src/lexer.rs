@@ -72,6 +72,7 @@ pub enum Symbol {
     LessEqual,
     Minus,
     NotEqual,
+    Percent,
     Plus,
     RBrace,
     RBracket,
@@ -240,6 +241,7 @@ pub fn lex_line(line_number: usize, line_start: usize, text: &str) -> Vec<Token>
             ('.', _) => advance_symbol(&mut cursor, Symbol::Dot),
             ('+', _) => advance_symbol(&mut cursor, Symbol::Plus),
             ('-', _) => advance_symbol(&mut cursor, Symbol::Minus),
+            ('%', _) => advance_symbol(&mut cursor, Symbol::Percent),
             ('*', _) => advance_symbol(&mut cursor, Symbol::Star),
             ('/', _) => advance_symbol(&mut cursor, Symbol::Slash),
             _ => {

@@ -51,6 +51,23 @@ L3 = L / 2
 eta = P_out / P_in
 ```
 
+## Ratios And Percentages
+
+`Ratio` uses canonical unit `1`. Percentage literals may be attached or spaced;
+both forms preserve `%` as the source unit. An explicit `Ratio [%]` target keeps
+`%` for display, while an inferred ratio uses canonical display unit `1`.
+
+```eng partial
+efficiency = 25%
+reserve_margin = 15 %
+normalized_efficiency = 0.25 1
+target: Ratio [%] = 75%
+```
+
+`25%` converts to `0.25 1`, and `0.25 1` converts to `25 %` when `%` is the
+requested display unit. A bare `1` remains an ordinary dimensionless number;
+`[1]` and the suffix in `0.25 1` are unit contexts.
+
 ## Ambiguous Quantity
 
 Some units map to multiple quantity kinds.
@@ -66,4 +83,3 @@ W-QTY-AMBIG-001
 ```
 
 The diagnostic lists candidate quantity kinds such as `HeatRate`, `ElectricPower`, and `MechanicalPower`.
-

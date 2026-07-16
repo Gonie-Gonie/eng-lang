@@ -16,7 +16,8 @@ use crate::net::{NetDownloadInfo, NetRequestInfo};
 use crate::parser::{ParseContext, ParsedProgram};
 use crate::quantities::{
     candidates_for_unit, completion_labels, first_unit_in_expression,
-    infer_quantity_from_name_and_unit, is_number_literal, normalize_unit, QuantityCompletion,
+    infer_quantity_from_name_and_unit, is_number_literal, normalize_unit, parse_numeric_literal,
+    QuantityCompletion,
 };
 use crate::schema::{ConfigPromotion, CsvPromotion, SchemaInfo};
 use crate::stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -5951,17 +5952,7 @@ fn assert_expression_semantic_type(
 }
 
 fn numeric_literal_with_optional_unit(expression: &str) -> Option<(f64, Option<String>)> {
-    let mut parts = expression.split_whitespace();
-    let value_text = parts.next()?;
-    if !is_number_literal(value_text) {
-        return None;
-    }
-    let value = value_text.parse::<f64>().ok()?;
-    let unit = parts.next().map(str::to_owned);
-    if parts.next().is_some() {
-        return None;
-    }
-    Some((value, unit))
+    parse_numeric_literal(expression)
 }
 
 fn analyze_format_fields(

@@ -8,6 +8,8 @@ floor_area: Area [m2] = 24 m2
 symbolic_area: Area [m^2] = 25 m^2
 room_volume: Volume [m3] = 72 m3
 symbolic_volume: Volume [m^3] = 73 m^3
+efficiency: Ratio [%] = 25%
+normalized_efficiency: Ratio [1] = 0.25 1
 T_out: AbsoluteTemperature [°C] = 24 °C
 irradiance_label = "irradiance={irradiance: .1 W/m^2}"
 density_label = "density={density: .2 people/m2}"

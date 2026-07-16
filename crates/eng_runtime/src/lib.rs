@@ -11021,13 +11021,15 @@ fn runtime_unit_seed_matches_quantity(seed_quantity: &str, quantity_kind: &str) 
                 "HeatRate" | "ElectricPower" | "MechanicalPower"
             )
         || seed_quantity == "TemperatureDelta" && quantity_kind == "AbsoluteTemperature"
+        || matches!(seed_quantity, "Ratio" | "DimensionlessNumber")
+            && matches!(
+                quantity_kind,
+                "Ratio" | "DimensionlessNumber" | "ReynoldsNumber"
+            )
 }
 
 fn number_with_optional_unit(text: &str) -> Option<(f64, Option<String>)> {
-    let mut words = text.split_whitespace();
-    let value = words.next()?.parse::<f64>().ok()?;
-    let unit = words.next().map(str::to_owned);
-    Some((value, unit))
+    eng_compiler::parse_numeric_literal(text)
 }
 
 fn strip_runtime_string_value(text: &str) -> String {
@@ -18299,13 +18301,51 @@ mod tests {
     }
 
     #[test]
-    fn converts_native_area_and_volume_unit_aliases() {
+    fn converts_native_area_volume_and_dimensionless_unit_aliases() {
         assert_eq!(convert_between_units(25.0, "m^2", "m2", "Area"), Some(25.0));
         assert_eq!(
             convert_between_units(73.0, "m^3", "m3", "Volume"),
             Some(73.0)
         );
         assert_eq!(convert_between_units(25.0, "m^2", "m3", "Area"), None);
+        assert_eq!(convert_between_units(25.0, "%", "1", "Ratio"), Some(0.25));
+        assert_eq!(convert_between_units(0.25, "1", "%", "Ratio"), Some(25.0));
+        assert_eq!(convert_between_units(25.0, "%", "1", "HeatRate"), None);
+        assert_eq!(
+            number_with_optional_unit("25%"),
+            Some((25.0, Some("%".to_owned())))
+        );
+        assert_eq!(
+            number_with_optional_unit("-5 %"),
+            Some((-5.0, Some("%".to_owned())))
+        );
+        assert_eq!(number_with_optional_unit("25 % trailing"), None);
+        assert_eq!(
+            format_runtime_value(
+                RuntimeFormatValue::Number {
+                    value: 25.0,
+                    quantity_kind: "Ratio".to_owned(),
+                    unit: "%".to_owned(),
+                },
+                Some("1"),
+                Some(2),
+                true,
+            ),
+            "0.25 1"
+        );
+        assert_eq!(
+            format_runtime_value(
+                RuntimeFormatValue::Number {
+                    value: 0.25,
+                    quantity_kind: "Ratio".to_owned(),
+                    unit: "1".to_owned(),
+                },
+                Some("%"),
+                Some(0),
+                true,
+            ),
+            "25 %"
+        );
     }
 
     #[test]

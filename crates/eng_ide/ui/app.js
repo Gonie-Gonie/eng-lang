@@ -8934,7 +8934,11 @@ function renderLexicalHighlightedLine(line) {
     }
     const numberMatch = /^[0-9]+(?:\.[0-9]+)?/.exec(rest);
     if (numberMatch) {
-      html += lexicalSpan("hl-number", numberMatch[0]);
+      const numberEnd = index + numberMatch[0].length;
+      const numberClass = isLexicalDimensionlessUnit(line, index, numberEnd)
+        ? "hl-mod-unit"
+        : "hl-number";
+      html += lexicalSpan(numberClass, numberMatch[0]);
       index += numberMatch[0].length;
       const unitRest = line.slice(index);
       const unitMatch = /^(\s+)(.+)$/.exec(unitRest);
@@ -8978,6 +8982,12 @@ function renderLexicalHighlightedLine(line) {
     index += 1;
   }
   return html;
+}
+
+function isLexicalDimensionlessUnit(line, start, end) {
+  if (line.slice(start, end) !== "1") return false;
+  return line.slice(0, start).trimEnd().endsWith("[")
+    && line.slice(end).trimStart().startsWith("]");
 }
 
 function scanStringEnd(line, start) {
