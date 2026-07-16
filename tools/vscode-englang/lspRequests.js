@@ -14,6 +14,9 @@ function createLspRequests(options = {}) {
 
   function clearSnapshotCache(document) {
     void document;
+    for (const request of snapshotPromiseCache.values()) {
+      request.cancel();
+    }
     snapshotPromiseCache.clear();
     snapshotResultCache.clear();
   }
@@ -34,10 +37,10 @@ function createLspRequests(options = {}) {
     }
     const cached = snapshotPromiseCache.get(key);
     if (cached) {
-      return snapshotResultForCaller(cached, cancellationToken);
+      return snapshotResultForCaller(cached.promise, cancellationToken);
     }
 
-    const promise = workspaceNavigationJsonRequest(document, context, undefined, {
+    const request = workspaceNavigationJsonRequestHandle(document, context, undefined, {
       args: ["--workspace-snapshot-stdin", root, document.uri.fsPath],
       errorMessage: "Live editor check failed",
       parseMessage: "Unable to parse EngLang live editor data",
@@ -48,7 +51,8 @@ function createLspRequests(options = {}) {
         }
         return payload;
       }
-    }).then((value) => {
+    });
+    const promise = request.promise.then((value) => {
       const currentDocuments = workspaceNavigationDocuments(document, root);
       if (value && snapshotCacheKey(document, root, currentDocuments) === key) {
         snapshotResultCache.set(key, {
@@ -58,9 +62,10 @@ function createLspRequests(options = {}) {
       }
       return value;
     });
-    snapshotPromiseCache.set(key, promise);
+    const pending = { cancel: request.cancel, promise };
+    snapshotPromiseCache.set(key, pending);
     promise.finally(() => {
-      if (snapshotPromiseCache.get(key) === promise) {
+      if (snapshotPromiseCache.get(key) === pending) {
         snapshotPromiseCache.delete(key);
       }
     });
@@ -343,7 +348,17 @@ function createLspRequests(options = {}) {
   }
 
   function workspaceNavigationJsonRequest(document, context, cancellationToken, request) {
-    return new Promise((resolve) => {
+    return workspaceNavigationJsonRequestHandle(
+      document,
+      context,
+      cancellationToken,
+      request
+    ).promise;
+  }
+
+  function workspaceNavigationJsonRequestHandle(document, context, cancellationToken, request) {
+    let cancelRequest = () => undefined;
+    const promise = new Promise((resolve) => {
       if (!isEngDocument(document) || cancellationToken?.isCancellationRequested) {
         resolve(undefined);
         return;
@@ -396,10 +411,11 @@ function createLspRequests(options = {}) {
           }
         }
       );
-      cancellationSubscription = cancellationToken?.onCancellationRequested(() => {
-        child.kill();
+      cancelRequest = () => {
         finish(undefined);
-      });
+        child.kill();
+      };
+      cancellationSubscription = cancellationToken?.onCancellationRequested(cancelRequest);
       if (settled) {
         cancellationSubscription?.dispose?.();
         cancellationSubscription = undefined;
@@ -412,6 +428,12 @@ function createLspRequests(options = {}) {
       });
       if (!settled) child.stdin?.end(payload);
     });
+    return {
+      cancel() {
+        cancelRequest();
+      },
+      promise
+    };
   }
 
   function workspaceNavigationDocuments(document, root) {

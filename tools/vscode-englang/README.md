@@ -124,7 +124,8 @@ Problems while typing. In `settings.json`, set:
 
 ```json
 {
-  "englang.diagnosticsMode": "live"
+  "englang.diagnosticsMode": "live",
+  "englang.liveDiagnosticsDelayMs": 350
 }
 ```
 
@@ -215,8 +216,9 @@ changes to diagnostics mode or lint toggles also refresh or clear the active
 EngLang editor so Problems match the selected settings. Editing an EngLang
 buffer clears cached review/highlight data immediately, so hover,
 completion, and decorations cannot reuse an older buffer snapshot while
-live editor data is unavailable. If an older workspace
-already has `englang.problemsSource` or
+live editor data is unavailable. The extension also stops the stale editor
+subprocess when a newer buffer revision invalidates its shared snapshot. If an
+older workspace already has `englang.problemsSource` or
 `englang.diagnosticsBackend`, the extension still accepts it as a compatibility
 alias. New workspaces should use `englang.diagnosticsMode`.
 `EngLang: Run Current File`
@@ -244,13 +246,16 @@ last run, including generated CSV/text outputs and review artifacts that are not
 listed as fixed commands.
 
 When the diagnostics mode is `live`, dirty buffers are checked after a short
-typing pause, so Problems can update before the file is saved. The EngLang output
+typing pause, so Problems can update before the file is saved. Configure that
+pause with `englang.liveDiagnosticsDelayMs` (100-5000 ms, default 350 ms).
+The EngLang output
 panel records whether Problems came from file diagnostics or live-buffer
 diagnostics and which tool path was selected. The VS Code Problems source column
 uses `eng/file` for saved-file checks and `eng/live` for live-buffer checks.
 Checks are ordered per document, so a slower earlier request cannot replace
-newer Problems. A cancelled color refresh does not interrupt a linter check
-that uses the same analysis.
+newer Problems. Starting a newer file check stops the older subprocess, while a
+cancelled color-refresh caller does not interrupt another caller sharing the
+same current-revision analysis.
 The status bar shows the active `.eng` file's EngLang Problems mode and current
 error/warning/info/hint counts; click it to open `EngLang: Show Tooling Status`.
 Use `EngLang: Refresh Problems` from the Command Palette or `.eng` editor

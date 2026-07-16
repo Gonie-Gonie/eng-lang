@@ -282,6 +282,75 @@ async function clearingProblemsInvalidatesInFlightCheck() {
   );
 }
 
+async function newerFileCheckStopsOlderProcess() {
+  const originalExecFile = childProcess.execFile;
+  const callbacks = [];
+  const children = [];
+  childProcess.execFile = (_runtime, _args, _options, complete) => {
+    const child = {
+      killCount: 0,
+      kill() {
+        this.killCount += 1;
+      }
+    };
+    callbacks.push(complete);
+    children.push(child);
+    return child;
+  };
+
+  try {
+    const document = documentFixture();
+    document.isDirty = false;
+    const diagnostics = diagnosticsFixture();
+    let snapshotClearCount = 0;
+    const controller = new EngDiagnosticsController({}, diagnostics, {
+      clearSnapshotCache() {
+        snapshotClearCount += 1;
+      },
+      diagnosticsRuntime() {
+        return "eng-cli";
+      },
+      diagnosticsRuntimeLabel() {
+        return "saved file";
+      },
+      findRuntime() {
+        return "eng.exe";
+      },
+      output: {
+        appendLine() {}
+      },
+      workspaceRoot() {
+        return "C:\\workspace";
+      }
+    });
+
+    controller.checkDocument(document);
+    controller.checkDocument(document);
+    assert.strictEqual(children[0].killCount, 1, "a newer file check must stop older work");
+
+    callbacks[0](null, JSON.stringify(reviewFixture("stale file result")), "");
+    callbacks[1](null, JSON.stringify(reviewFixture("current file result")), "");
+    await flushPromises();
+    assert.deepStrictEqual(
+      diagnostics.calls.filter((call) => call.kind === "set").map((call) => call.messages),
+      [["current file result"]]
+    );
+
+    controller.checkDocument(document);
+    controller.dispose();
+    assert.strictEqual(snapshotClearCount, 1, "disposing diagnostics must cancel shared snapshots");
+    assert.strictEqual(children[2].killCount, 1, "disposing diagnostics must stop active checks");
+    callbacks[2](null, JSON.stringify(reviewFixture("result after dispose")), "");
+    assert.deepStrictEqual(
+      diagnostics.calls.filter((call) => call.kind === "set").map((call) => call.messages),
+      [["current file result"]],
+      "a disposed controller must ignore child-process callbacks"
+    );
+  } finally {
+    childProcess.execFile = originalExecFile;
+  }
+}
+
 async function callerCancellationDoesNotKillSharedSnapshot() {
   const originalExecFile = childProcess.execFile;
   let callback;
@@ -388,6 +457,22 @@ async function callerCancellationDoesNotKillSharedSnapshot() {
     );
     callback(null, JSON.stringify(reviewFixture("refreshed")), "");
     assert.strictEqual((await refreshed).diagnostics[0].message, "refreshed");
+
+    importedSource = "const STALE_GAIN: Ratio = 0.5\n";
+    importedDocument.version += 1;
+    const staleSnapshot = requests.snapshotDocumentSource(document, {});
+    assert.strictEqual(execCount, 3);
+    requests.clearSnapshotCache(document);
+    assert.strictEqual(killCount, 1, "cache invalidation must stop stale snapshot work");
+    assert.strictEqual(await staleSnapshot, undefined);
+
+    const currentSnapshot = requests.snapshotDocumentSource(document, {});
+    assert.strictEqual(execCount, 4, "a new revision must start after stale work is cancelled");
+    callback(null, JSON.stringify(reviewFixture("current after cancel")), "");
+    assert.strictEqual(
+      (await currentSnapshot).diagnostics[0].message,
+      "current after cancel"
+    );
   } finally {
     vscodeMock.workspace.textDocuments = [];
     childProcess.execFile = originalExecFile;
@@ -466,6 +551,13 @@ async function diskImportChangeUsesSelectedDiagnosticsMode() {
     workspaceRoot: (document) => document.root,
     workspaceRootKey
   });
+  liveSaved.uri.configuration.liveDiagnosticsDelayMs = 175;
+  assert.strictEqual(controller.liveDiagnosticsDelayMs(liveSaved), 175);
+  liveSaved.uri.configuration.liveDiagnosticsDelayMs = 1;
+  assert.strictEqual(controller.liveDiagnosticsDelayMs(liveSaved), 100);
+  liveSaved.uri.configuration.liveDiagnosticsDelayMs = 9000;
+  assert.strictEqual(controller.liveDiagnosticsDelayMs(liveSaved), 5000);
+  delete liveSaved.uri.configuration.liveDiagnosticsDelayMs;
   controller.checkDocumentSource = (document) => checks.push(`source:${path.basename(document.fileName)}`);
   controller.checkDocument = (document) => checks.push(`file:${path.basename(document.fileName)}`);
 
@@ -534,6 +626,7 @@ async function main() {
   await staleFailureDoesNotReplaceProblems();
   await currentFailureClearsCachedReview();
   await clearingProblemsInvalidatesInFlightCheck();
+  await newerFileCheckStopsOlderProcess();
   await callerCancellationDoesNotKillSharedSnapshot();
   changedImportSchedulesOpenWorkspaceDiagnostics();
   await diskImportChangeUsesSelectedDiagnosticsMode();

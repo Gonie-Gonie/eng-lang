@@ -37,6 +37,8 @@ class EngDiagnosticsController {
     this.checkDebounceMs = options.checkDebounceMs ?? CHECK_DEBOUNCE_MS;
     this.checkSequence = 0;
     this.activeDocumentChecks = new WeakMap();
+    this.activeDocumentProcesses = new Map();
+    this.disposed = false;
   }
 
   maybeCheck(document) {
@@ -64,7 +66,11 @@ class EngDiagnosticsController {
     if (!config.get("lintOnChange", true)) {
       return;
     }
-    this.scheduleDebouncedCheck(document, () => this.checkDocumentSource(document));
+    this.scheduleDebouncedCheck(
+      document,
+      () => this.checkDocumentSource(document),
+      this.liveDiagnosticsDelayMs(document)
+    );
   }
 
   scheduleWorkspaceChangedChecks(document, includeChangedDocument = true) {
@@ -118,14 +124,18 @@ class EngDiagnosticsController {
       this.clearPendingCheck(document);
       return;
     }
-    this.scheduleDebouncedCheck(document, () => {
-      const kind = this.dependencyFileCheckKind(document);
-      if (kind === "source") {
-        this.checkDocumentSource(document);
-      } else if (kind === "file") {
-        this.checkDocument(document);
-      }
-    });
+    this.scheduleDebouncedCheck(
+      document,
+      () => {
+        const kind = this.dependencyFileCheckKind(document);
+        if (kind === "source") {
+          this.checkDocumentSource(document);
+        } else if (kind === "file") {
+          this.checkDocument(document);
+        }
+      },
+      this.liveDiagnosticsDelayMs(document)
+    );
   }
 
   dependencyFileCheckKind(document) {
@@ -141,13 +151,22 @@ class EngDiagnosticsController {
     return undefined;
   }
 
-  scheduleDebouncedCheck(document, check) {
+  liveDiagnosticsDelayMs(document) {
+    const config = vscode.workspace.getConfiguration("englang", document.uri);
+    const configured = Number(config.get("liveDiagnosticsDelayMs"));
+    if (!Number.isFinite(configured)) {
+      return this.checkDebounceMs;
+    }
+    return Math.max(100, Math.min(5000, Math.trunc(configured)));
+  }
+
+  scheduleDebouncedCheck(document, check, delayMs = this.checkDebounceMs) {
     this.clearPendingCheck(document);
     const key = document.uri.toString();
     const timer = setTimeout(() => {
       this.changeTimers.delete(key);
       check();
-    }, this.checkDebounceMs);
+    }, delayMs);
     this.changeTimers.set(key, timer);
   }
 
@@ -161,15 +180,23 @@ class EngDiagnosticsController {
   }
 
   dispose() {
+    this.disposed = true;
+    this.clearSnapshotCache();
     for (const timer of this.changeTimers.values()) {
       clearTimeout(timer);
     }
     this.changeTimers.clear();
+    for (const process of this.activeDocumentProcesses.values()) {
+      process.cancelled = true;
+      process.child?.kill?.();
+    }
+    this.activeDocumentProcesses.clear();
   }
 
   beginDocumentCheck(document) {
     const revision = ++this.checkSequence;
     this.activeDocumentChecks.set(document, revision);
+    this.cancelDocumentProcess(document);
     return revision;
   }
 
@@ -178,10 +205,50 @@ class EngDiagnosticsController {
       return;
     }
     this.activeDocumentChecks.set(document, ++this.checkSequence);
+    this.cancelDocumentProcess(document);
+  }
+
+  beginDocumentProcess(document) {
+    const key = document.uri.toString();
+    const process = {
+      cancelled: false,
+      child: undefined
+    };
+    this.activeDocumentProcesses.set(key, process);
+    return process;
+  }
+
+  attachDocumentProcess(process, child) {
+    process.child = child;
+    if (process.cancelled) {
+      child?.kill?.();
+    }
+  }
+
+  finishDocumentProcess(document, process) {
+    const key = document.uri.toString();
+    if (this.activeDocumentProcesses.get(key) === process) {
+      this.activeDocumentProcesses.delete(key);
+    }
+  }
+
+  cancelDocumentProcess(document) {
+    const key = document?.uri?.toString?.();
+    if (!key) {
+      return;
+    }
+    const process = this.activeDocumentProcesses.get(key);
+    if (!process) {
+      return;
+    }
+    this.activeDocumentProcesses.delete(key);
+    process.cancelled = true;
+    process.child?.kill?.();
   }
 
   isCurrentDocumentCheck(document, documentVersion, checkRevision) {
-    return document.version === documentVersion
+    return !this.disposed
+      && document.version === documentVersion
       && this.activeDocumentChecks.get(document) === checkRevision;
   }
 
@@ -190,6 +257,7 @@ class EngDiagnosticsController {
       return;
     }
     this.clearPendingCheck(document);
+    this.clearSnapshotCache(document);
     this.invalidateDocumentCheck(document);
     this.clearCachedReview(document);
     this.diagnostics.delete(document.uri);
@@ -238,11 +306,13 @@ class EngDiagnosticsController {
     this.appendLine(`${runtimeLabel} check ${document.uri.fsPath}`);
     this.appendLine(`Problems source: ${diagnosticSource(runtimeLabel)}; diagnostics: ${runtimeLabel}; tool: ${runtime}`);
 
-    cp.execFile(
+    const process = this.beginDocumentProcess(document);
+    const child = cp.execFile(
       runtime,
       args,
       { cwd, maxBuffer: 10 * 1024 * 1024 },
       (error, stdout, stderr) => {
+        this.finishDocumentProcess(document, process);
         this.finishDocumentCheck(
           document,
           runtimeLabel,
@@ -254,6 +324,7 @@ class EngDiagnosticsController {
         );
       }
     );
+    this.attachDocumentProcess(process, child);
   }
 
   checkDocumentSource(document) {
@@ -304,11 +375,13 @@ class EngDiagnosticsController {
     this.appendLine(`live buffer check ${document.uri.fsPath}`);
     this.appendLine(`Problems source: ${diagnosticSource("live buffer")}; diagnostics: live buffer; tool: ${runtime}`);
 
+    const process = this.beginDocumentProcess(document);
     const child = cp.execFile(
       runtime,
       ["--snapshot-stdin", document.uri.fsPath],
       { cwd, maxBuffer: 10 * 1024 * 1024 },
       (error, stdout, stderr) => {
+        this.finishDocumentProcess(document, process);
         this.finishDocumentCheck(
           document,
           "live buffer",
@@ -320,6 +393,7 @@ class EngDiagnosticsController {
         );
       }
     );
+    this.attachDocumentProcess(process, child);
     if (child.stdin) {
       child.stdin.end(document.getText());
     }

@@ -4308,7 +4308,7 @@ function Assert-VscodeExtensionContract {
         }
     }
     $Properties = $Package.contributes.configuration.properties
-    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsMode", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange", "englang.semanticHighlighting.enabled", "englang.reviewRiskDecorations.enabled", "englang.validationDecorations.enabled", "englang.timeAlignmentDecorations.enabled", "englang.fallbackDecorations.enabled")) {
+    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsMode", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange", "englang.liveDiagnosticsDelayMs", "englang.semanticHighlighting.enabled", "englang.reviewRiskDecorations.enabled", "englang.validationDecorations.enabled", "englang.timeAlignmentDecorations.enabled", "englang.fallbackDecorations.enabled")) {
         if ($null -eq $Properties.$RequiredProperty) {
             throw "VS Code extension missing configuration property $RequiredProperty"
         }
@@ -4347,6 +4347,14 @@ function Assert-VscodeExtensionContract {
     }
     if (-not $LintOnChangeDescription.Contains("diagnostics mode is live") -or -not $LintOnChangeDescription.Contains("VS Code Problems diagnostics")) {
         throw "VS Code lintOnChange description must say it applies to live VS Code Problems diagnostics"
+    }
+    $LiveDiagnosticsDelay = $Properties."englang.liveDiagnosticsDelayMs"
+    if ([string]$LiveDiagnosticsDelay.type -ne "number" -or [int]$LiveDiagnosticsDelay.default -ne 350 -or [int]$LiveDiagnosticsDelay.minimum -ne 100 -or [int]$LiveDiagnosticsDelay.maximum -ne 5000) {
+        throw "VS Code liveDiagnosticsDelayMs must be a 100-5000 ms numeric setting with default 350"
+    }
+    $LiveDiagnosticsDelayDescription = [string]$LiveDiagnosticsDelay.description
+    if (-not $LiveDiagnosticsDelayDescription.Contains("typing stops") -or -not $LiveDiagnosticsDelayDescription.Contains("CPU")) {
+        throw "VS Code liveDiagnosticsDelayMs description must explain response-time and CPU tradeoffs"
     }
     $LspPathDescription = [string]$Properties."englang.lspPath".description
     if ($LspPathDescription -match "editor service") {
@@ -4884,8 +4892,9 @@ function Assert-VscodeExtensionContract {
         "Checks are ordered per document",
         "slower earlier request cannot replace",
         "newer Problems",
-        "A cancelled color refresh does not interrupt a linter check",
-        "that uses the same analysis"
+        "Starting a newer file check stops the older subprocess",
+        "cancelled color-refresh caller does not interrupt another caller",
+        "same current-revision analysis"
     )) {
         if (-not $VscodeReadmeSource.Contains($RequiredVscodeRaceSafetyWording)) {
             throw "VS Code README missing live-analysis race safety wording $RequiredVscodeRaceSafetyWording"
@@ -5103,6 +5112,7 @@ function Assert-VscodeExtensionContract {
         "toolStatusSummary(liveEditorTool, `"live editor checks`")",
         "const problemsSource = mode",
         "updates_while_typing",
+        "typing_pause_ms",
         "source_label",
         "diagnosticsProblemsSource",
         "source_label: diagnosticsProblemsSource(mode)",
@@ -5126,6 +5136,7 @@ function Assert-VscodeExtensionContract {
         "diagnostics_mode",
         "saved_file_diagnostics_on_open_save",
         "live_typing_diagnostics_enabled",
+        "live_diagnostics_delay_ms",
         "semantic_highlighting",
         "review_risk_decorations",
         "validation_decorations",
@@ -5433,7 +5444,7 @@ function Assert-VscodeExtensionContract {
     foreach ($RequiredSnapshotReuseToken in @(
         "const snapshotPromiseCache = new Map();",
         "const cached = snapshotPromiseCache.get(key);",
-        "snapshotPromiseCache.set(key, promise);",
+        "snapshotPromiseCache.set(key, pending);",
         "promise.finally(() =>",
         "function snapshotCacheKey(document, root, openDocuments)",
         "workspaceNavigationDocuments(document, root)",
@@ -5446,9 +5457,13 @@ function Assert-VscodeExtensionContract {
     }
     foreach ($RequiredSnapshotCancellationToken in @(
         "function snapshotResultForCaller",
-        "return snapshotResultForCaller(cached, cancellationToken)",
+        "return snapshotResultForCaller(cached.promise, cancellationToken)",
         "return snapshotResultForCaller(promise, cancellationToken)",
-        "cancellationSubscription?.dispose?.()"
+        "cancellationSubscription?.dispose?.()",
+        "for (const request of snapshotPromiseCache.values())",
+        "request.cancel();",
+        "function workspaceNavigationJsonRequestHandle",
+        "const pending = { cancel: request.cancel, promise };"
     )) {
         if (-not $LspRequestsSource.Contains($RequiredSnapshotCancellationToken)) {
             throw "VS Code shared snapshot requests must isolate caller cancellation: $RequiredSnapshotCancellationToken"
@@ -5467,7 +5482,7 @@ function Assert-VscodeExtensionContract {
     }
     foreach ($RequiredSnapshotFreshnessToken in @(
         '"--workspace-snapshot-stdin"',
-        "workspaceNavigationJsonRequest(document, context, undefined",
+        "workspaceNavigationJsonRequestHandle(document, context, undefined",
         "workspaceNavigationDocuments(document, root)",
         "snapshotCacheKey(document, root, currentDocuments) === key",
         'payload?.format !== "eng-lsp-snapshot-v1"'
@@ -5964,6 +5979,12 @@ function Assert-VscodeExtensionContract {
         "firstLineRange",
         "lintOnSave",
         "lintOnChange",
+        "liveDiagnosticsDelayMs",
+        "activeDocumentProcesses",
+        "beginDocumentProcess",
+        "cancelDocumentProcess",
+        "process.child?.kill?.()",
+        "!this.disposed",
         "diagnosticsRuntime",
         "diagnosticsRuntimeLabel",
         "live buffer check",
@@ -5998,6 +6019,7 @@ function Assert-VscodeExtensionContract {
         "staleFailureDoesNotReplaceProblems",
         "currentFailureClearsCachedReview",
         "clearingProblemsInvalidatesInFlightCheck",
+        "newerFileCheckStopsOlderProcess",
         "callerCancellationDoesNotKillSharedSnapshot",
         "diskImportChangeUsesSelectedDiagnosticsMode",
         "workspaceSourceWatcherIgnoresGeneratedTrees",
@@ -6005,7 +6027,11 @@ function Assert-VscodeExtensionContract {
         "source:live-dirty.eng",
         "disposing diagnostics must cancel pending dependency checks",
         "same-version callers must share one snapshot process",
-        "one caller must not kill a shared snapshot process"
+        "one caller must not kill a shared snapshot process",
+        "cache invalidation must stop stale snapshot work",
+        "a newer file check must stop older work",
+        "disposing diagnostics must stop active checks",
+        "disposing diagnostics must cancel shared snapshots"
     )) {
         if (-not $EditorRequestRaceTestSource.Contains($RequiredEditorRequestRaceTestToken)) {
             throw "VS Code editor request race smoke missing contract token $RequiredEditorRequestRaceTestToken"
@@ -6385,7 +6411,7 @@ function Assert-VscodeExtensionContract {
     if ($ExtensionSource.Contains("function vscodeRangeFromLsp") -or $LspCodeActionsSource.Contains("function vscodeRangeFromLsp")) {
         throw "VS Code extension must keep LSP range conversion in lspRanges.js"
     }
-    foreach ($RequiredDiagnosticsModeToken in @("function diagnosticsMode(document)", "function diagnosticsRuntime(document)", 'explicitlyConfiguredEngValue(config, "diagnosticsMode")', 'explicitlyConfiguredEngValue(config, "problemsSource")', 'return mode === "live" ? "lsp-snapshot" : "eng-cli"', "diagnosticsRuntimeLabel(runtimeMode)", "function refreshActiveDiagnosticsForSettings", "async function refreshAfterDiagnosticsModeCommand", "diagnosticController.checkActiveFile()", "diagnosticController.checkDocument(document)", "diagnosticController.clearDocumentDiagnostics", "file mode uses saved-file checks", "live typing diagnostics are disabled", "Diagnostics settings refresh", 'event.affectsConfiguration("englang.diagnosticsMode")', 'event.affectsConfiguration("englang.lintOnSave")', 'event.affectsConfiguration("englang.lintOnChange")')) {
+    foreach ($RequiredDiagnosticsModeToken in @("function diagnosticsMode(document)", "function diagnosticsRuntime(document)", 'explicitlyConfiguredEngValue(config, "diagnosticsMode")', 'explicitlyConfiguredEngValue(config, "problemsSource")', 'return mode === "live" ? "lsp-snapshot" : "eng-cli"', "diagnosticsRuntimeLabel(runtimeMode)", "function refreshActiveDiagnosticsForSettings", "async function refreshAfterDiagnosticsModeCommand", "diagnosticController.checkActiveFile()", "diagnosticController.checkDocument(document)", "diagnosticController.clearDocumentDiagnostics", "file mode uses saved-file checks", "live typing diagnostics are disabled", "Diagnostics settings refresh", 'event.affectsConfiguration("englang.diagnosticsMode")', 'event.affectsConfiguration("englang.lintOnSave")', 'event.affectsConfiguration("englang.lintOnChange")', 'event.affectsConfiguration("englang.liveDiagnosticsDelayMs")')) {
         if (-not $ExtensionSource.Contains($RequiredDiagnosticsModeToken)) {
             throw "VS Code extension missing diagnostics mode compatibility token $RequiredDiagnosticsModeToken"
         }

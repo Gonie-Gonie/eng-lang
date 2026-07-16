@@ -1321,8 +1321,16 @@ function createCommandHandlers(options = {}) {
     const mode = diagnosticsMode(document);
     const problemsSource = mode;
     const lintOnChange = config.get("lintOnChange", true);
+    const configuredLiveDiagnosticsDelayMs = Number(config.get("liveDiagnosticsDelayMs", 350));
+    const liveDiagnosticsDelayMs = Number.isFinite(configuredLiveDiagnosticsDelayMs)
+      ? Math.max(100, Math.min(5000, Math.trunc(configuredLiveDiagnosticsDelayMs)))
+      : 350;
     const semanticHighlighting = config.get("semanticHighlighting.enabled", true);
-    const diagnosticsSummary = diagnosticsStatusSummary(problemsSource, lintOnChange);
+    const diagnosticsSummary = diagnosticsStatusSummary(
+      problemsSource,
+      lintOnChange,
+      liveDiagnosticsDelayMs
+    );
     const roleAwareColorSummary = semanticHighlighting
       ? "Checked-code role-aware colors are enabled for the current editor."
       : "Checked-code role-aware colors are disabled; VS Code will use first-pass syntax colors only.";
@@ -1382,6 +1390,7 @@ function createCommandHandlers(options = {}) {
           mode: problemsSource === "live" ? "live buffer" : "saved file",
           summary: diagnosticsSummary,
           updates_while_typing: problemsSource === "live" && lintOnChange,
+          typing_pause_ms: liveDiagnosticsDelayMs,
           tool: problemsSource === "live" ? "live_editor" : "check_and_run",
           current_file_count: currentFileProblemsProbe?.diagnostic_count ?? 0,
           current_file_range_status: currentFileProblemsProbe?.diagnostic_range_status ?? "unknown",
@@ -1442,6 +1451,7 @@ function createCommandHandlers(options = {}) {
         diagnostics_mode: mode,
         saved_file_diagnostics_on_open_save: config.get("lintOnSave", true),
         live_typing_diagnostics_enabled: problemsSource === "live" && lintOnChange,
+        live_diagnostics_delay_ms: liveDiagnosticsDelayMs,
         lint_on_save: config.get("lintOnSave", true),
         lint_on_change: lintOnChange,
         role_aware_highlighting: semanticHighlighting,
@@ -2478,7 +2488,7 @@ function createCommandHandlers(options = {}) {
     return `VS Code Problems will update from the current unsaved buffer while typing with source ${sourceLabel}.`;
   }
 
-  function diagnosticsStatusSummary(mode, lintOnChange) {
+  function diagnosticsStatusSummary(mode, lintOnChange, liveDiagnosticsDelayMs = 350) {
     const sourceLabel = diagnosticsProblemsSource(mode);
     if (mode !== "live") {
       return `VS Code Problems use source ${sourceLabel} for saved-file diagnostics when a file opens, saves, or is checked manually.`;
@@ -2486,7 +2496,7 @@ function createCommandHandlers(options = {}) {
     if (!lintOnChange) {
       return `Live diagnostics mode is selected with source ${sourceLabel}, but typing updates are off because englang.lintOnChange is false.`;
     }
-    return `VS Code Problems use source ${sourceLabel} and update from the current unsaved editor buffer after a short typing pause.`;
+    return `VS Code Problems use source ${sourceLabel} and update from the current unsaved editor buffer ${liveDiagnosticsDelayMs} ms after typing stops.`;
   }
 
   function toolStatusSummary(status, purpose) {

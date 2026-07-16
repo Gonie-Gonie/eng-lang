@@ -355,7 +355,8 @@ function activate(context) {
       if (
         event.affectsConfiguration("englang.diagnosticsMode") ||
         event.affectsConfiguration("englang.lintOnSave") ||
-        event.affectsConfiguration("englang.lintOnChange")
+        event.affectsConfiguration("englang.lintOnChange") ||
+        event.affectsConfiguration("englang.liveDiagnosticsDelayMs")
       ) {
         refreshActiveDiagnosticsForSettings("diagnostics configuration changed");
       }

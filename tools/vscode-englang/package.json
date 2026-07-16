@@ -787,6 +787,13 @@
           "default": true,
           "description": "When diagnostics mode is live, update VS Code Problems diagnostics for unsaved .eng buffers after a short typing pause."
         },
+        "englang.liveDiagnosticsDelayMs": {
+          "type": "number",
+          "default": 350,
+          "minimum": 100,
+          "maximum": 5000,
+          "description": "Milliseconds to wait after typing stops before live diagnostics run. Lower values respond faster but use more CPU."
+        },
         "englang.semanticHighlighting.enabled": {
           "type": "boolean",
           "default": true,
