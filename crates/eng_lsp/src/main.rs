@@ -2,7 +2,9 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError, TryRecvError};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -1120,23 +1122,127 @@ impl PendingDiagnostics {
     }
 }
 
+#[derive(Clone, Debug, Default)]
+struct RequestCancellationRegistry {
+    requests: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>,
+}
+
+impl RequestCancellationRegistry {
+    fn register(&self, id: &Value) -> Option<RequestCancellation> {
+        let key = request_id_key(id)?;
+        let cancelled = Arc::new(AtomicBool::new(false));
+        self.requests
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(key.clone(), Arc::clone(&cancelled));
+        Some(RequestCancellation {
+            key,
+            cancelled,
+            requests: Arc::clone(&self.requests),
+        })
+    }
+
+    fn cancel(&self, id: &Value) -> bool {
+        let Some(key) = request_id_key(id) else {
+            return false;
+        };
+        let requests = self
+            .requests
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let Some(cancelled) = requests.get(&key) else {
+            return false;
+        };
+        cancelled.store(true, Ordering::Release);
+        true
+    }
+}
+
+#[derive(Debug)]
+struct RequestCancellation {
+    key: String,
+    cancelled: Arc<AtomicBool>,
+    requests: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>,
+}
+
+impl RequestCancellation {
+    fn is_cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::Acquire)
+    }
+}
+
+fn request_is_cancelled(cancellation: Option<&RequestCancellation>) -> bool {
+    cancellation.is_some_and(RequestCancellation::is_cancelled)
+}
+
+impl Drop for RequestCancellation {
+    fn drop(&mut self) {
+        let mut requests = self
+            .requests
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if requests
+            .get(&self.key)
+            .is_some_and(|cancelled| Arc::ptr_eq(cancelled, &self.cancelled))
+        {
+            requests.remove(&self.key);
+        }
+    }
+}
+
+fn request_id_key(id: &Value) -> Option<String> {
+    match id {
+        Value::Number(number) => Some(format!("number:{number}")),
+        Value::String(value) => Some(format!("string:{value}")),
+        _ => None,
+    }
+}
+
 enum LspInputEvent {
-    Message(String),
+    Message {
+        request: Value,
+        cancellation: Option<RequestCancellation>,
+    },
+    ParseError(String),
     End,
     Error(io::Error),
 }
 
+fn lsp_input_event(body: String, cancellations: &RequestCancellationRegistry) -> LspInputEvent {
+    let request = match serde_json::from_str::<Value>(&body) {
+        Ok(request) => request,
+        Err(error) => return LspInputEvent::ParseError(error.to_string()),
+    };
+    let method = request.get("method").and_then(Value::as_str);
+    let cancellation = if method == Some("$/cancelRequest") {
+        if let Some(id) = request.pointer("/params/id") {
+            cancellations.cancel(id);
+        }
+        None
+    } else {
+        method
+            .is_some()
+            .then(|| request.get("id").and_then(|id| cancellations.register(id)))
+            .flatten()
+    };
+    LspInputEvent::Message {
+        request,
+        cancellation,
+    }
+}
+
 fn spawn_lsp_input_reader() -> mpsc::Receiver<LspInputEvent> {
     let (sender, receiver) = mpsc::sync_channel(MAX_QUEUED_LSP_MESSAGES);
+    let cancellations = RequestCancellationRegistry::default();
     thread::spawn(move || {
         let mut input = io::stdin().lock();
         loop {
             let event = match read_lsp_message(&mut input) {
-                Ok(Some(message)) => LspInputEvent::Message(message),
+                Ok(Some(message)) => lsp_input_event(message, &cancellations),
                 Ok(None) => LspInputEvent::End,
                 Err(error) => LspInputEvent::Error(error),
             };
-            let terminal = !matches!(&event, LspInputEvent::Message(_));
+            let terminal = matches!(&event, LspInputEvent::End | LspInputEvent::Error(_));
             if sender.send(event).is_err() || terminal {
                 break;
             }
@@ -1254,27 +1360,34 @@ fn run_lsp() -> io::Result<()> {
                 }
             }
         };
-        let message = match event {
-            LspInputEvent::Message(message) => message,
-            LspInputEvent::End => break,
-            LspInputEvent::Error(error) => return Err(error),
-        };
-        let request = match serde_json::from_str::<Value>(&message) {
-            Ok(value) => value,
-            Err(error) => {
+        let (request, cancellation) = match event {
+            LspInputEvent::Message {
+                request,
+                cancellation,
+            } => (request, cancellation),
+            LspInputEvent::ParseError(error) => {
                 write_response(
                     &mut output,
                     json!({
                         "jsonrpc": "2.0",
                         "id": Value::Null,
-                        "error": { "code": -32700, "message": error.to_string() }
+                        "error": { "code": -32700, "message": error }
                     }),
                 )?;
                 continue;
             }
+            LspInputEvent::End => break,
+            LspInputEvent::Error(error) => return Err(error),
         };
         let method = request.get("method").and_then(Value::as_str).unwrap_or("");
         let id = request.get("id").cloned();
+        if cancellation
+            .as_ref()
+            .is_some_and(RequestCancellation::is_cancelled)
+        {
+            write_request_cancelled(&mut output, id)?;
+            continue;
+        }
 
         match method {
             "initialize" => {
@@ -1282,7 +1395,7 @@ fn run_lsp() -> io::Result<()> {
                 pending_diagnostics
                     .set_delay(persistent_diagnostics_debounce(&request), Instant::now());
                 let legend = semantic_legend();
-                write_response(
+                write_request_response(
                     &mut output,
                     json!({
                         "jsonrpc": "2.0",
@@ -1326,16 +1439,19 @@ fn run_lsp() -> io::Result<()> {
                             }
                         }
                     }),
+                    cancellation.as_ref(),
                 )?;
             }
             "shutdown" => {
-                write_response(
+                write_request_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": Value::Null }),
+                    cancellation.as_ref(),
                 )?;
             }
             "exit" => break,
             "initialized" => {}
+            "$/cancelRequest" => {}
             "textDocument/didOpen" | "textDocument/didChange" | "textDocument/didSave" => {
                 if let Some((uri, state)) = document_state_from_notification(&request, &documents) {
                     documents.insert(uri.clone(), state.clone());
@@ -1374,85 +1490,106 @@ fn run_lsp() -> io::Result<()> {
                     .iter()
                     .map(completion_json)
                     .collect::<Vec<_>>();
-                write_response(
+                write_request_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": items }),
+                    cancellation.as_ref(),
                 )?;
             }
             "textDocument/hover" => {
                 let hover = hover_for_request(&request, &documents)
                     .map(|hover| hover_json(&hover))
                     .unwrap_or(Value::Null);
-                write_response(
+                write_request_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": hover }),
+                    cancellation.as_ref(),
                 )?;
             }
             "textDocument/definition" => {
                 let definition =
                     definition_for_request(&request, &documents).unwrap_or(Value::Null);
-                write_response(
+                write_request_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": definition }),
+                    cancellation.as_ref(),
                 )?;
             }
             "textDocument/documentHighlight" => {
                 let highlights = document_highlights_for_request(&request, &documents);
-                write_response(
+                write_request_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": highlights }),
+                    cancellation.as_ref(),
                 )?;
             }
             "textDocument/references" => {
-                let references = references_for_request(&request, &documents, &workspace_roots);
-                write_response(
+                let references = references_for_request_with_cancellation(
+                    &request,
+                    &documents,
+                    &workspace_roots,
+                    cancellation.as_ref(),
+                );
+                write_request_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": references }),
+                    cancellation.as_ref(),
                 )?;
             }
             "textDocument/prepareRename" => {
                 let prepared =
                     prepare_rename_for_request(&request, &documents).unwrap_or(Value::Null);
-                write_response(
+                write_request_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": prepared }),
+                    cancellation.as_ref(),
                 )?;
             }
             "textDocument/rename" => {
-                match rename_for_request(&request, &documents, &workspace_roots) {
-                    Ok(edit) => write_response(
+                match rename_for_request_with_cancellation(
+                    &request,
+                    &documents,
+                    &workspace_roots,
+                    cancellation.as_ref(),
+                ) {
+                    Ok(edit) => write_request_response(
                         &mut output,
                         json!({ "jsonrpc": "2.0", "id": id, "result": edit }),
+                        cancellation.as_ref(),
                     )?,
-                    Err(message) => write_response(
+                    Err(message) => write_request_response(
                         &mut output,
                         json!({
                             "jsonrpc": "2.0",
                             "id": id,
                             "error": { "code": -32602, "message": message }
                         }),
+                        cancellation.as_ref(),
                     )?,
                 }
             }
             "textDocument/codeAction" => {
                 let actions = code_actions_for_request(&request, &documents);
-                write_response(
+                write_request_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": actions }),
+                    cancellation.as_ref(),
                 )?;
             }
             "textDocument/formatting" => {
                 let edits = formatting_edits_for_request(&request, &documents);
-                write_response(
+                write_request_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": edits }),
+                    cancellation.as_ref(),
                 )?;
             }
             "textDocument/rangeFormatting" => {
                 let edits = range_formatting_edits_for_request(&request, &documents);
-                write_response(
+                write_request_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": edits }),
+                    cancellation.as_ref(),
                 )?;
             }
             "textDocument/semanticTokens/full" => {
@@ -1461,9 +1598,10 @@ fn run_lsp() -> io::Result<()> {
                     &documents,
                     &mut semantic_token_cache,
                 );
-                write_response(
+                write_request_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": tokens }),
+                    cancellation.as_ref(),
                 )?;
             }
             "textDocument/semanticTokens/full/delta" => {
@@ -1472,53 +1610,64 @@ fn run_lsp() -> io::Result<()> {
                     &documents,
                     &mut semantic_token_cache,
                 );
-                write_response(
+                write_request_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": tokens }),
+                    cancellation.as_ref(),
                 )?;
             }
             "textDocument/semanticTokens/range" => {
                 let tokens = semantic_tokens_range_for_request(&request, &documents)
                     .map(|tokens| semantic_tokens_lsp_json(&tokens))
                     .unwrap_or_else(|| json!({ "data": [] }));
-                write_response(
+                write_request_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": tokens }),
+                    cancellation.as_ref(),
                 )?;
             }
             "textDocument/documentSymbol" => {
                 let symbols = snapshot_for_request(&request, &documents)
                     .map(|snapshot| document_symbols_lsp_json(&snapshot.document_symbols))
                     .unwrap_or_else(|| json!([]));
-                write_response(
+                write_request_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": symbols }),
+                    cancellation.as_ref(),
                 )?;
             }
             "workspace/symbol" => {
-                let symbols = workspace_symbols_for_request(&request, &documents, &workspace_roots);
-                write_response(
+                let symbols = workspace_symbols_for_request_with_cancellation(
+                    &request,
+                    &documents,
+                    &workspace_roots,
+                    cancellation.as_ref(),
+                );
+                write_request_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": symbols }),
+                    cancellation.as_ref(),
                 )?;
             }
             "textDocument/foldingRange" => {
                 let ranges = snapshot_for_request(&request, &documents)
                     .map(|snapshot| folding_ranges_lsp_json(&snapshot.folding_ranges))
                     .unwrap_or_else(|| json!([]));
-                write_response(
+                write_request_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": ranges }),
+                    cancellation.as_ref(),
                 )?;
             }
             _ if id.is_some() => {
-                write_response(
+                write_request_response(
                     &mut output,
                     json!({
                         "jsonrpc": "2.0",
                         "id": id,
                         "error": { "code": -32601, "message": format!("unsupported method {method}") }
                     }),
+                    cancellation.as_ref(),
                 )?;
             }
             _ => {}
@@ -6291,12 +6440,14 @@ const MAX_WORKSPACE_OPEN_DOCUMENT_PAYLOAD_BYTES: usize = 100 * 1024 * 1024;
 struct WorkspaceWalkStatus {
     truncated: bool,
     unreadable: bool,
+    cancelled: bool,
 }
 
 impl WorkspaceWalkStatus {
     fn merge(&mut self, other: Self) {
         self.truncated |= other.truncated;
         self.unreadable |= other.unreadable;
+        self.cancelled |= other.cancelled;
     }
 }
 
@@ -6331,6 +6482,15 @@ fn workspace_symbols_for_request(
     documents: &Documents,
     workspace_roots: &[PathBuf],
 ) -> Vec<Value> {
+    workspace_symbols_for_request_with_cancellation(request, documents, workspace_roots, None)
+}
+
+fn workspace_symbols_for_request_with_cancellation(
+    request: &Value,
+    documents: &Documents,
+    workspace_roots: &[PathBuf],
+    cancellation: Option<&RequestCancellation>,
+) -> Vec<Value> {
     let query = request
         .pointer("/params/query")
         .and_then(Value::as_str)
@@ -6341,7 +6501,7 @@ fn workspace_symbols_for_request(
     let mut open_document_paths = HashSet::<PathBuf>::new();
 
     for (uri, state) in documents {
-        if results.len() >= MAX_WORKSPACE_SYMBOL_RESULTS {
+        if request_is_cancelled(cancellation) || results.len() >= MAX_WORKSPACE_SYMBOL_RESULTS {
             break;
         }
         let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
@@ -6364,13 +6524,18 @@ fn workspace_symbols_for_request(
 
     let mut files = Vec::new();
     for root in workspace_roots {
-        let _ = collect_workspace_eng_files(root, &mut files, MAX_WORKSPACE_INDEX_FILES);
-        if files.len() >= MAX_WORKSPACE_INDEX_FILES {
+        let status = collect_workspace_eng_files_with_cancellation(
+            root,
+            &mut files,
+            MAX_WORKSPACE_INDEX_FILES,
+            cancellation,
+        );
+        if status.cancelled || files.len() >= MAX_WORKSPACE_INDEX_FILES {
             break;
         }
     }
     for path in files {
-        if results.len() >= MAX_WORKSPACE_SYMBOL_RESULTS {
+        if request_is_cancelled(cancellation) || results.len() >= MAX_WORKSPACE_SYMBOL_RESULTS {
             break;
         }
         let canonical = path.canonicalize().unwrap_or(path);
@@ -6464,12 +6629,17 @@ fn workspace_symbol_json(uri: &str, symbol: &eng_lsp::LspDocumentSymbol) -> Valu
     })
 }
 
-fn collect_workspace_eng_files(
+fn collect_workspace_eng_files_with_cancellation(
     root: &Path,
     files: &mut Vec<PathBuf>,
     limit: usize,
+    cancellation: Option<&RequestCancellation>,
 ) -> WorkspaceWalkStatus {
     let mut status = WorkspaceWalkStatus::default();
+    if request_is_cancelled(cancellation) {
+        status.cancelled = true;
+        return status;
+    }
     if files.len() >= limit {
         status.truncated = true;
         return status;
@@ -6492,6 +6662,10 @@ fn collect_workspace_eng_files(
         return status;
     };
     for entry in entries {
+        if request_is_cancelled(cancellation) {
+            status.cancelled = true;
+            break;
+        }
         let Ok(entry) = entry else {
             status.unreadable = true;
             continue;
@@ -6500,7 +6674,15 @@ fn collect_workspace_eng_files(
             status.truncated = true;
             break;
         }
-        status.merge(collect_workspace_eng_files(&entry.path(), files, limit));
+        status.merge(collect_workspace_eng_files_with_cancellation(
+            &entry.path(),
+            files,
+            limit,
+            cancellation,
+        ));
+        if status.cancelled {
+            break;
+        }
     }
     status
 }
@@ -6759,6 +6941,7 @@ struct WorkspaceSourceCollection {
     sources: Vec<WorkspaceSource>,
     truncated: bool,
     unreadable: bool,
+    cancelled: bool,
 }
 
 fn references_for_request(
@@ -6766,6 +6949,18 @@ fn references_for_request(
     documents: &Documents,
     workspace_roots: &[PathBuf],
 ) -> Value {
+    references_for_request_with_cancellation(request, documents, workspace_roots, None)
+}
+
+fn references_for_request_with_cancellation(
+    request: &Value,
+    documents: &Documents,
+    workspace_roots: &[PathBuf],
+    cancellation: Option<&RequestCancellation>,
+) -> Value {
+    if request_is_cancelled(cancellation) {
+        return json!([]);
+    }
     let Some(uri) = request_uri(request) else {
         return json!([]);
     };
@@ -6781,6 +6976,9 @@ fn references_for_request(
         .and_then(Value::as_bool)
         .unwrap_or(true);
     let snapshot = snapshot_for_open_documents(&path, &text, documents);
+    if request_is_cancelled(cancellation) {
+        return json!([]);
+    }
     let Some(symbol) = workspace_semantic_symbol_occurrences(
         &path,
         &text,
@@ -6801,8 +6999,14 @@ fn references_for_request(
     if let Some(identity) =
         workspace_reference_identity(uri, &path, &text, documents, &snapshot.hovers, &symbol)
     {
-        let mut workspace_locations =
-            workspace_reference_locations(uri, &path, documents, workspace_roots, &identity);
+        let mut workspace_locations = workspace_reference_locations(
+            uri,
+            &path,
+            documents,
+            workspace_roots,
+            &identity,
+            cancellation,
+        );
         workspace_locations
             .truncate(MAX_WORKSPACE_REFERENCE_RESULTS.saturating_sub(locations.len()));
         locations.extend(workspace_locations);
@@ -6931,12 +7135,19 @@ fn workspace_reference_locations(
     documents: &Documents,
     workspace_roots: &[PathBuf],
     identity: &WorkspaceReferenceIdentity,
+    cancellation: Option<&RequestCancellation>,
 ) -> Vec<SemanticReferenceLocation> {
-    let collection =
-        workspace_sources_for_reference(selected_path, documents, workspace_roots, identity);
+    let collection = workspace_sources_for_reference(
+        selected_path,
+        documents,
+        workspace_roots,
+        identity,
+        cancellation,
+    );
     let mut locations = Vec::new();
     for source in collection.sources {
-        if locations.len() >= MAX_WORKSPACE_REFERENCE_RESULTS {
+        if request_is_cancelled(cancellation) || locations.len() >= MAX_WORKSPACE_REFERENCE_RESULTS
+        {
             break;
         }
         if source.uri == selected_uri
@@ -6968,6 +7179,7 @@ fn workspace_sources_for_reference(
     documents: &Documents,
     workspace_roots: &[PathBuf],
     identity: &WorkspaceReferenceIdentity,
+    cancellation: Option<&RequestCancellation>,
 ) -> WorkspaceSourceCollection {
     let workspace_roots = canonical_workspace_roots(workspace_roots);
     let selected_path = selected_path
@@ -6976,6 +7188,11 @@ fn workspace_sources_for_reference(
     let mut seen_paths = HashSet::from([selected_path]);
     let mut collection = WorkspaceSourceCollection::default();
 
+    if request_is_cancelled(cancellation) {
+        collection.cancelled = true;
+        return collection;
+    }
+
     collection.unreadable |= !push_workspace_source_for_path(
         &identity.definition_path,
         documents,
@@ -6983,6 +7200,10 @@ fn workspace_sources_for_reference(
         &mut collection.sources,
     );
     for (uri, state) in documents {
+        if request_is_cancelled(cancellation) {
+            collection.cancelled = true;
+            break;
+        }
         if collection.sources.len() >= MAX_WORKSPACE_INDEX_FILES {
             collection.truncated = true;
             break;
@@ -7006,14 +7227,24 @@ fn workspace_sources_for_reference(
 
     let mut files = Vec::new();
     for root in &workspace_roots {
-        let status = collect_workspace_eng_files(root, &mut files, MAX_WORKSPACE_INDEX_FILES);
+        let status = collect_workspace_eng_files_with_cancellation(
+            root,
+            &mut files,
+            MAX_WORKSPACE_INDEX_FILES,
+            cancellation,
+        );
         collection.truncated |= status.truncated;
         collection.unreadable |= status.unreadable;
-        if status.truncated {
+        collection.cancelled |= status.cancelled;
+        if status.truncated || status.cancelled {
             break;
         }
     }
     for path in files {
+        if request_is_cancelled(cancellation) {
+            collection.cancelled = true;
+            break;
+        }
         if collection.sources.len() >= MAX_WORKSPACE_INDEX_FILES {
             collection.truncated = true;
             break;
@@ -7233,6 +7464,18 @@ fn rename_for_request(
     documents: &Documents,
     workspace_roots: &[PathBuf],
 ) -> Result<Value, String> {
+    rename_for_request_with_cancellation(request, documents, workspace_roots, None)
+}
+
+fn rename_for_request_with_cancellation(
+    request: &Value,
+    documents: &Documents,
+    workspace_roots: &[PathBuf],
+    cancellation: Option<&RequestCancellation>,
+) -> Result<Value, String> {
+    if request_is_cancelled(cancellation) {
+        return Err("Request cancelled.".to_owned());
+    }
     let uri = request_uri(request)
         .ok_or_else(|| "Rename request is missing a document URI.".to_owned())?;
     let text = document_text_for_uri(uri, documents)
@@ -7246,6 +7489,9 @@ fn rename_for_request(
         .map(str::trim)
         .ok_or_else(|| "Rename request is missing the new symbol name.".to_owned())?;
     let snapshot = snapshot_for_open_documents(&path, &text, documents);
+    if request_is_cancelled(cancellation) {
+        return Err("Request cancelled.".to_owned());
+    }
     let symbol = workspace_semantic_symbol_occurrences(
         &path,
         &text,
@@ -7271,14 +7517,18 @@ fn rename_for_request(
 
     if let Some(identity) = workspace_identity {
         if !workspace_roots.is_empty() {
+            let selected = WorkspaceSource {
+                uri: uri.to_owned(),
+                path: path.clone(),
+                text: text.clone(),
+            };
             return workspace_rename_for_symbol(
-                uri,
-                &path,
-                &text,
+                &selected,
                 documents,
                 workspace_roots,
                 &identity,
                 new_name,
+                cancellation,
             );
         }
         if !current_file_renameable {
@@ -7316,18 +7566,18 @@ fn rename_for_request(
 }
 
 fn workspace_rename_for_symbol(
-    selected_uri: &str,
-    selected_path: &Path,
-    selected_text: &str,
+    selected: &WorkspaceSource,
     documents: &Documents,
     workspace_roots: &[PathBuf],
     identity: &WorkspaceReferenceIdentity,
     new_name: &str,
+    cancellation: Option<&RequestCancellation>,
 ) -> Result<Value, String> {
     let workspace_roots = canonical_workspace_roots(workspace_roots);
-    let selected_path = selected_path
+    let selected_path = selected
+        .path
         .canonicalize()
-        .unwrap_or_else(|_| selected_path.to_path_buf());
+        .unwrap_or_else(|_| selected.path.clone());
     if !path_is_in_workspace(&selected_path, &workspace_roots) {
         return Err(
             "Workspace rename requires the selected EngLang file to be inside an initialized workspace root."
@@ -7341,8 +7591,16 @@ fn workspace_rename_for_symbol(
         );
     }
 
-    let collection =
-        workspace_sources_for_reference(&selected_path, documents, &workspace_roots, identity);
+    let collection = workspace_sources_for_reference(
+        &selected_path,
+        documents,
+        &workspace_roots,
+        identity,
+        cancellation,
+    );
+    if collection.cancelled {
+        return Err("Request cancelled.".to_owned());
+    }
     if collection.truncated {
         return Err(format!(
             "Workspace rename stopped because the EngLang index reached its {MAX_WORKSPACE_INDEX_FILES}-file safety limit. Narrow the workspace and retry."
@@ -7357,9 +7615,9 @@ fn workspace_rename_for_symbol(
 
     let mut sources = Vec::with_capacity(collection.sources.len() + 1);
     sources.push(WorkspaceSource {
-        uri: selected_uri.to_owned(),
+        uri: selected.uri.clone(),
         path: selected_path,
-        text: selected_text.to_owned(),
+        text: selected.text.clone(),
     });
     sources.extend(collection.sources);
 
@@ -7367,9 +7625,12 @@ fn workspace_rename_for_symbol(
     let mut edit_count = 0usize;
     let mut declaration_edited = false;
     for source in sources {
+        if request_is_cancelled(cancellation) {
+            return Err("Request cancelled.".to_owned());
+        }
         if !path_is_in_workspace(&source.path, &workspace_roots)
             || !source.text.contains(&identity.label)
-            || (source.uri != selected_uri
+            || (source.uri != selected.uri
                 && !source_resolves_workspace_reference(&source, documents, identity))
         {
             continue;
@@ -8691,6 +8952,28 @@ fn read_lsp_message<R: Read>(input: &mut R) -> io::Result<Option<String>> {
     Ok(Some(String::from_utf8_lossy(&body).into_owned()))
 }
 
+fn write_request_response<W: Write>(
+    output: &mut W,
+    response: Value,
+    cancellation: Option<&RequestCancellation>,
+) -> io::Result<()> {
+    if cancellation.is_some_and(RequestCancellation::is_cancelled) {
+        return write_request_cancelled(output, response.get("id").cloned());
+    }
+    write_response(output, response)
+}
+
+fn write_request_cancelled<W: Write>(output: &mut W, id: Option<Value>) -> io::Result<()> {
+    write_response(
+        output,
+        json!({
+            "jsonrpc": "2.0",
+            "id": id.unwrap_or(Value::Null),
+            "error": { "code": -32800, "message": "Request cancelled." }
+        }),
+    )
+}
+
 fn write_response<W: Write>(output: &mut W, value: Value) -> io::Result<()> {
     let body = value.to_string();
     write!(output, "Content-Length: {}\r\n\r\n{}", body.len(), body)?;
@@ -8755,6 +9038,72 @@ mod tests {
             })),
             Duration::from_millis(MAX_PERSISTENT_DIAGNOSTICS_DEBOUNCE_MS)
         );
+    }
+
+    #[test]
+    fn input_reader_cancels_matching_request_ids_and_cleans_completed_entries() {
+        let registry = RequestCancellationRegistry::default();
+        let request_event = lsp_input_event(
+            json!({
+                "jsonrpc": "2.0",
+                "id": 7,
+                "method": "workspace/symbol",
+                "params": { "query": "heat" }
+            })
+            .to_string(),
+            &registry,
+        );
+        let request_cancellation = match &request_event {
+            LspInputEvent::Message {
+                cancellation: Some(cancellation),
+                ..
+            } => cancellation,
+            _ => panic!("request should carry a cancellation registration"),
+        };
+        assert!(!request_cancellation.is_cancelled());
+
+        let _wrong_id = lsp_input_event(
+            json!({
+                "jsonrpc": "2.0",
+                "method": "$/cancelRequest",
+                "params": { "id": "7" }
+            })
+            .to_string(),
+            &registry,
+        );
+        assert!(!request_cancellation.is_cancelled());
+
+        let _cancel = lsp_input_event(
+            json!({
+                "jsonrpc": "2.0",
+                "method": "$/cancelRequest",
+                "params": { "id": 7 }
+            })
+            .to_string(),
+            &registry,
+        );
+        assert!(request_cancellation.is_cancelled());
+
+        drop(request_event);
+        assert!(!registry.cancel(&json!(7)));
+    }
+
+    #[test]
+    fn cancelled_workspace_walk_stops_before_reading_the_root() {
+        let registry = RequestCancellationRegistry::default();
+        let cancellation = registry.register(&json!(8)).unwrap();
+        assert!(registry.cancel(&json!(8)));
+
+        let mut files = Vec::new();
+        let status = collect_workspace_eng_files_with_cancellation(
+            Path::new("missing-cancelled-workspace"),
+            &mut files,
+            10,
+            Some(&cancellation),
+        );
+        assert!(status.cancelled);
+        assert!(!status.unreadable);
+        assert!(files.is_empty());
     }
 
     #[test]
@@ -9436,14 +9785,15 @@ fn combine(x: Real) -> Real {
             .expect("second workspace source should be written");
 
         let mut files = Vec::new();
-        let status = collect_workspace_eng_files(&root, &mut files, 1);
+        let status = collect_workspace_eng_files_with_cancellation(&root, &mut files, 1, None);
         assert_eq!(files.len(), 1);
         assert!(status.truncated);
         assert!(!status.unreadable);
 
         let missing = root.join("missing");
         let mut missing_files = Vec::new();
-        let missing_status = collect_workspace_eng_files(&missing, &mut missing_files, 1);
+        let missing_status =
+            collect_workspace_eng_files_with_cancellation(&missing, &mut missing_files, 1, None);
         assert!(missing_status.unreadable);
         std::fs::remove_dir_all(&root).expect("workspace walk fixture should be removed");
     }

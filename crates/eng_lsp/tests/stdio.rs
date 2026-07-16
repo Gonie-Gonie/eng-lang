@@ -59,6 +59,11 @@ fn stdio_server_round_trips_core_lsp_requests() {
     let mut stdin = child.stdin.take().expect("stdin should be piped");
     let mut stdout = child.stdout.take().expect("stdout should be piped");
 
+    write_raw_message(&mut stdin, "{");
+    let parse_error = read_message(&mut stdout);
+    assert!(parse_error["id"].is_null());
+    assert_eq!(parse_error["error"]["code"], -32700);
+
     write_message(
         &mut stdin,
         json!({
@@ -996,6 +1001,91 @@ fn stdio_document_cache_tracks_versions_for_diagnostics() {
     let status = child.wait().expect("eng-lsp should exit");
     assert!(status.success());
 }
+
+#[test]
+fn stdio_cancel_request_interrupts_workspace_scan_and_does_not_poison_reused_id() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let root = std::env::temp_dir().join(format!("eng_lsp_cancel_request_{}", std::process::id()));
+    if root.exists() {
+        std::fs::remove_dir_all(&root).expect("stale cancellation fixture should be removable");
+    }
+    std::fs::create_dir_all(&root).expect("cancellation fixture should be created");
+    for file_index in 0..500 {
+        let source = (0..64)
+            .map(|line_index| format!("value_{file_index}_{line_index} = {line_index}\n"))
+            .collect::<String>();
+        std::fs::write(root.join(format!("source_{file_index:03}.eng")), source)
+            .expect("cancellation fixture source should be writable");
+    }
+
+    let mut child = Command::new(server)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("eng-lsp should start");
+    let mut stdin = child.stdin.take().expect("stdin should be piped");
+    let mut stdout = child.stdout.take().expect("stdout should be piped");
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": { "rootUri": file_uri(&root) }
+        }),
+    );
+    let initialize = read_message(&mut stdout);
+    assert_eq!(initialize["id"], 1);
+
+    write_messages(
+        &mut stdin,
+        &[
+            json!({
+                "jsonrpc": "2.0",
+                "id": "cancel-me",
+                "method": "workspace/symbol",
+                "params": { "query": "definitely-no-symbol" }
+            }),
+            json!({
+                "jsonrpc": "2.0",
+                "method": "$/cancelRequest",
+                "params": { "id": "cancel-me" }
+            }),
+        ],
+    );
+    let cancelled = read_message(&mut stdout);
+    assert_eq!(cancelled["id"], "cancel-me");
+    assert_eq!(cancelled["error"]["code"], -32800);
+    assert_eq!(cancelled["error"]["message"], "Request cancelled.");
+    assert!(cancelled.get("result").is_none());
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": "cancel-me",
+            "method": "shutdown"
+        }),
+    );
+    let shutdown = read_message(&mut stdout);
+    assert_eq!(shutdown["id"], "cancel-me");
+    assert!(shutdown["result"].is_null());
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "exit"
+        }),
+    );
+    drop(stdin);
+    let status = child.wait().expect("eng-lsp should exit");
+    assert!(status.success());
+    std::fs::remove_dir_all(&root).expect("cancellation fixture should be removed");
+}
+
 #[test]
 fn stdio_code_actions_offer_syntax_migrations() {
     let server = env!("CARGO_BIN_EXE_eng-lsp");
@@ -4490,9 +4580,21 @@ fn apply_semantic_token_edits(data: &mut Vec<usize>, edits: &[Value]) {
 }
 
 fn write_message<W: Write>(writer: &mut W, value: Value) {
-    let body = value.to_string();
+    write_messages(writer, &[value]);
+}
+
+fn write_raw_message<W: Write>(writer: &mut W, body: &str) {
     write!(writer, "Content-Length: {}\r\n\r\n{}", body.len(), body)
-        .expect("LSP message should be writable");
+        .expect("raw LSP message should be writable");
+    writer.flush().expect("raw LSP message should flush");
+}
+
+fn write_messages<W: Write>(writer: &mut W, values: &[Value]) {
+    for value in values {
+        let body = value.to_string();
+        write!(writer, "Content-Length: {}\r\n\r\n{}", body.len(), body)
+            .expect("LSP message should be writable");
+    }
     writer.flush().expect("LSP message should flush");
 }
 
