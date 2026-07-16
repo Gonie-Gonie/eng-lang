@@ -407,6 +407,13 @@ trailing `#` or `//` comment cannot extend either the domain value or its
 Problems range. The fixture-corpus guard validates these compiler-owned ranges
 before UTF-16 conversion.
 
+HTTP request and download metadata preserve the exact URL operand span. URL
+validation follows declared const/local aliases to a literal when possible and
+uses the operand occurrence for `E-NET-INVALID-URL`; an unsupplied runtime
+`args.*` reference remains unresolved rather than producing a false malformed-URL
+diagnostic. Fast-binding and download operands end at the final lexer token, so
+trailing comments do not extend their Problems or review ranges.
+
 `where`/`with` opener tokens and `where` local declarations use their
 parser-owned semantic spans. `with` option properties stay inside `key_span`;
 model list values, enum-like values, and `file`/`dir`/`join` helpers stay inside

@@ -129,6 +129,10 @@ anchor. Unconnected-port diagnostics use the port name, and invalid port-domain
 diagnostics use the complete domain reference. A corpus gate scans all 153
 example, diagnostic, and grammar-fixture `.eng` files and requires every
 diagnostic in these assembly/port classes to retain a valid compiler range.
+Invalid network URL diagnostics use the complete request or download URL operand.
+Declared URL aliases are resolved before validation, while an `args.*` URL that
+has not been supplied yet is not presented as malformed. URL ranges end before
+trailing `#` or `//` comments.
 Older diagnostics retain source-aware inference: dimensionless arithmetic
 diagnostics highlight the offending `+` or `-`, schema fast-assignment
 diagnostics highlight `=`, and file mutation diagnostics target `move` or

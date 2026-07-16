@@ -573,6 +573,9 @@ appear under `external_boundaries`; declared writes, CSV exports, and
 filesystem mutations appear under `side_effects`; allowed external failures
 and solver-preview limitations appear under `fallbacks`; warnings and
 review-sensitive boundaries appear under `risks` with a review `level`.
+Network request/download boundary `source_span` values select the exact URL
+operand rather than the statement's first token; declared URL aliases keep the
+operand occurrence used by that boundary.
 Native workflow module registry entries appear under `workflow_modules`, so
 every native module has a Review IR node with status, backing, purpose,
 artifact contract, and symbol count. `workflow_modules` is included in

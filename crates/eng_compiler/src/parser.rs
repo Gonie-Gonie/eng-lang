@@ -2059,8 +2059,23 @@ fn parse_fast_binding(
     if !matches!(second.kind, TokenKind::Symbol(Symbol::Equal)) {
         return None;
     }
-    let expression_source = line_text.split_once('=')?.1.trim();
-    let expression_span = source_span_for_subslice(first.span, line_text, expression_source)?;
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let expression_start = second.span.end.checked_sub(line_start)?;
+    let expression_end = tokens.last()?.span.end.checked_sub(line_start)?;
+    let raw_expression = line_text.get(expression_start..expression_end)?;
+    let leading = raw_expression
+        .len()
+        .checked_sub(raw_expression.trim_start().len())?;
+    let trailing = raw_expression
+        .len()
+        .checked_sub(raw_expression.trim_end().len())?;
+    let expression_start = expression_start.checked_add(leading)?;
+    let expression_end = expression_end.checked_sub(trailing)?;
+    let expression_source = line_text.get(expression_start..expression_end)?;
+    let expression_span = source_span_for_line_range(first.span, expression_start, expression_end);
     let expression = expression_source.to_owned();
     if is_process_run_rhs(&expression) {
         return None;
@@ -3216,16 +3231,39 @@ fn parse_net_download_decl(
     if contains_symbol(tokens, Symbol::Equal) {
         return None;
     }
-    let rest = line_text.trim().strip_prefix("download")?.trim();
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let rest_start = first.span.end.checked_sub(line_start)?;
+    let code_end = tokens.last()?.span.end.checked_sub(line_start)?;
+    let raw_rest = line_text.get(rest_start..code_end)?;
+    let leading = raw_rest.len().checked_sub(raw_rest.trim_start().len())?;
+    let trailing = raw_rest.len().checked_sub(raw_rest.trim_end().len())?;
+    let rest_start = rest_start.checked_add(leading)?;
+    let rest_end = code_end.checked_sub(trailing)?;
+    let rest = line_text.get(rest_start..rest_end)?;
     let (url, target) = split_file_operation_to(rest)?;
     let url = url.trim();
     let target = target.trim();
     if url.is_empty() || target.is_empty() {
         return None;
     }
+    let url_start = rest.find(url)?;
+    let target_search_start = url_start.checked_add(url.len())?;
+    let target_start =
+        target_search_start.checked_add(rest.get(target_search_start..)?.find(target)?)?;
+    let url_start = rest_start.checked_add(url_start)?;
+    let target_start = rest_start.checked_add(target_start)?;
     Some(NetDownloadDecl {
         url: url.to_owned(),
+        url_span: source_span_for_line_range(first.span, url_start, url_start + url.len()),
         target: target.to_owned(),
+        target_span: source_span_for_line_range(
+            first.span,
+            target_start,
+            target_start + target.len(),
+        ),
         line: first.span.line,
         span: first.span,
         context,

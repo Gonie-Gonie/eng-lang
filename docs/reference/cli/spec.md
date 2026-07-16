@@ -82,7 +82,7 @@ E-TABLE-UNKNOWN-COLUMN table filter predicate references a column outside the pr
 E-TABLE-PREDICATE-TYPE table filter predicate compares a schema column with an incompatible literal
 E-TABLE-JOIN-KEY-MISMATCH join key does not compare columns from the joined tables
 E-TABLE-SCHEMA-MISMATCH table join key columns have incompatible schema types
-E-NET-INVALID-URL     network boundary URL is not absolute HTTP(S)
+E-NET-INVALID-URL     supplied or resolved network URL is not absolute HTTP(S)
 E-NET-RETRY-POLICY    network retry value is not an integer from 0 to 5
 E-NET-TIMEOUT         network timeout value is not a positive finite duration
 E-NET-BODY-METHOD    request body is used with a method that cannot send a body

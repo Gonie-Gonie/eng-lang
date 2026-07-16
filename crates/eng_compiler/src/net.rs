@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -5,8 +6,9 @@ use sha2::{Digest, Sha256};
 
 use crate::ast::AstItem;
 use crate::lexer::{Symbol, TokenKind};
-use crate::parser::ParsedProgram;
+use crate::parser::{ParseContext, ParsedProgram};
 use crate::semantic::{ArgValueInfo, SemanticProgram, WithOptionInfo};
+use crate::source::SourceSpan;
 use crate::Diagnostic;
 
 const MAX_RETRY_ATTEMPTS: usize = 5;
@@ -40,6 +42,7 @@ pub struct NetRequestInfo {
     pub method: String,
     pub url_literal: String,
     pub url_value: String,
+    pub url_span: SourceSpan,
     pub body: Option<String>,
     pub query: Vec<NetQueryParam>,
     pub headers: Vec<NetHeaderParam>,
@@ -60,6 +63,7 @@ pub struct NetRequestInfo {
 pub struct NetDownloadInfo {
     pub url_literal: String,
     pub url_value: String,
+    pub url_span: SourceSpan,
     pub target_literal: String,
     pub target_value: String,
     pub query: Vec<NetQueryParam>,
@@ -85,6 +89,8 @@ pub struct NetAnalysis {
 
 struct NetBuildContext<'a> {
     line: usize,
+    url_span: SourceSpan,
+    scope: ParseContext,
     options: &'a [WithOptionInfo],
     parsed: &'a ParsedProgram,
     source_base: Option<&'a Path>,
@@ -100,18 +106,24 @@ pub fn analyze_net_boundaries(
     for item in &parsed.items {
         match item {
             AstItem::FastBinding(binding) => {
-                let Some((method, url_literal)) =
-                    parse_http_request_expression(&binding.expression)
-                else {
+                let Some(request) = parse_http_request_expression(&binding.expression) else {
                     continue;
                 };
+                let url_span = source_span_for_parent_range(
+                    binding.expression_span,
+                    request.url_start,
+                    request.url_end,
+                )
+                .unwrap_or(binding.expression_span);
                 let options = net_options_for_owner(program, binding.line);
                 let boundary = build_request(
                     &binding.name,
-                    &method,
-                    &url_literal,
+                    &request.method,
+                    &request.url_literal,
                     NetBuildContext {
                         line: binding.line,
+                        url_span,
+                        scope: binding.context,
                         options: &options,
                         parsed,
                         source_base,
@@ -128,6 +140,8 @@ pub fn analyze_net_boundaries(
                     &download.target,
                     NetBuildContext {
                         line: download.line,
+                        url_span: download.url_span,
+                        scope: download.context,
                         options: &options,
                         parsed,
                         source_base,
@@ -147,18 +161,87 @@ pub fn is_http_request_expression(expression: &str) -> bool {
     parse_http_request_expression(expression).is_some()
 }
 
-fn parse_http_request_expression(expression: &str) -> Option<(String, String)> {
-    let trimmed = expression.trim();
+struct ParsedHttpRequestExpression {
+    method: String,
+    url_literal: String,
+    url_start: usize,
+    url_end: usize,
+}
+
+fn parse_http_request_expression(expression: &str) -> Option<ParsedHttpRequestExpression> {
+    let expression_start = expression
+        .len()
+        .checked_sub(expression.trim_start().len())?;
+    let trimmed = expression.get(expression_start..)?;
     let rest = trimmed.strip_prefix("http ")?;
+    let rest_start = expression_start.checked_add("http ".len())?;
     let method_label = rest.split_whitespace().next()?;
     let method = http_method_label(method_label)?;
-    let rest = rest[method_label.len()..].trim();
-    let source = rest
-        .split_once(" with ")
-        .map(|(left, _)| left)
-        .unwrap_or(rest)
-        .trim();
-    (!source.is_empty()).then(|| (method.to_owned(), source.to_owned()))
+    let after_method_start = rest_start.checked_add(method_label.len())?;
+    let after_method = expression.get(after_method_start..)?;
+    let source_start = after_method
+        .len()
+        .checked_sub(after_method.trim_start().len())?;
+    let source_with_options = after_method.get(source_start..)?;
+    let source = source_before_inline_with(source_with_options).trim_end();
+    if source.is_empty() {
+        return None;
+    }
+    let url_start = after_method_start.checked_add(source_start)?;
+    let url_end = url_start.checked_add(source.len())?;
+    Some(ParsedHttpRequestExpression {
+        method: method.to_owned(),
+        url_literal: source.to_owned(),
+        url_start,
+        url_end,
+    })
+}
+
+fn source_before_inline_with(value: &str) -> &str {
+    let mut depth = 0i32;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, character) in value.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            match character {
+                '\\' => escaped = true,
+                '"' => in_string = false,
+                _ => {}
+            }
+            continue;
+        }
+        match character {
+            '"' => in_string = true,
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth -= 1,
+            ' ' if depth == 0 && value[index..].starts_with(" with ") => {
+                return &value[..index];
+            }
+            _ => {}
+        }
+    }
+    value
+}
+
+fn source_span_for_parent_range(
+    parent: SourceSpan,
+    start: usize,
+    end: usize,
+) -> Option<SourceSpan> {
+    let parent_len = parent.end.checked_sub(parent.start)?;
+    if start >= end || end > parent_len {
+        return None;
+    }
+    Some(SourceSpan::new(
+        parent.start.checked_add(start)?,
+        parent.start.checked_add(end)?,
+        parent.line,
+        parent.column.checked_add(start)?,
+    ))
 }
 
 fn http_method_label(label: &str) -> Option<&'static str> {
@@ -176,14 +259,18 @@ fn build_request(
 ) -> NetRequestInfo {
     let NetBuildContext {
         line,
+        url_span,
+        scope,
         options,
         parsed,
         source_base,
         arg_values,
     } = context;
-    let url_value =
-        resolve_value(url_literal, arg_values).unwrap_or_else(|| url_literal.to_owned());
-    validate_url(&url_value, line, diagnostics);
+    let resolved_url = resolve_boundary_value(url_literal, scope, parsed, arg_values);
+    if let Some(url_value) = resolved_url.as_deref() {
+        validate_url(url_value, url_span, diagnostics);
+    }
+    let url_value = resolved_url.unwrap_or_else(|| url_literal.to_owned());
     let offline_response = offline_response_value(options)
         .map(|value| resolve_value(value, arg_values).unwrap_or_else(|| value.to_owned()));
     let offline_response_read = offline_response
@@ -209,6 +296,7 @@ fn build_request(
         method: method.to_owned(),
         url_literal: url_literal.to_owned(),
         url_value,
+        url_span,
         body: request_body_option(method, options, arg_values, diagnostics),
         query: query_params(parsed, options, arg_values),
         headers: header_params(parsed, options, arg_values),
@@ -234,14 +322,18 @@ fn build_download(
 ) -> NetDownloadInfo {
     let NetBuildContext {
         line,
+        url_span,
+        scope,
         options,
         parsed,
         source_base,
         arg_values,
     } = context;
-    let url_value =
-        resolve_value(url_literal, arg_values).unwrap_or_else(|| url_literal.to_owned());
-    validate_url(&url_value, line, diagnostics);
+    let resolved_url = resolve_boundary_value(url_literal, scope, parsed, arg_values);
+    if let Some(url_value) = resolved_url.as_deref() {
+        validate_url(url_value, url_span, diagnostics);
+    }
+    let url_value = resolved_url.unwrap_or_else(|| url_literal.to_owned());
     let target_value =
         resolve_value(target_literal, arg_values).unwrap_or_else(|| target_literal.to_owned());
     let offline_response = offline_response_value(options)
@@ -267,6 +359,7 @@ fn build_download(
     NetDownloadInfo {
         url_literal: url_literal.to_owned(),
         url_value,
+        url_span,
         target_literal: target_literal.to_owned(),
         target_value,
         query: query_params(parsed, options, arg_values),
@@ -636,6 +729,59 @@ fn resolve_value(value: &str, arg_values: &[ArgValueInfo]) -> Option<String> {
     resolve_literal_value(trimmed)
 }
 
+fn resolve_boundary_value(
+    value: &str,
+    scope: ParseContext,
+    parsed: &ParsedProgram,
+    arg_values: &[ArgValueInfo],
+) -> Option<String> {
+    resolve_boundary_value_inner(value, scope, parsed, arg_values, &mut HashSet::new())
+}
+
+fn resolve_boundary_value_inner(
+    value: &str,
+    scope: ParseContext,
+    parsed: &ParsedProgram,
+    arg_values: &[ArgValueInfo],
+    visiting: &mut HashSet<String>,
+) -> Option<String> {
+    if let Some(value) = resolve_value(value, arg_values) {
+        return Some(value);
+    }
+    let name = value.trim();
+    if !is_binding_reference(name) || !visiting.insert(name.to_owned()) {
+        return None;
+    }
+    let expression = parsed.items.iter().find_map(|item| match item {
+        AstItem::ExplicitDecl(declaration)
+            if declaration.name == name && declaration.context == scope =>
+        {
+            declaration.expression.as_deref()
+        }
+        AstItem::Const(declaration) if declaration.name == name => {
+            Some(declaration.expression.as_str())
+        }
+        AstItem::FastBinding(binding) if binding.name == name && binding.context == scope => {
+            Some(binding.expression.as_str())
+        }
+        _ => None,
+    });
+    let resolved = expression.and_then(|expression| {
+        resolve_boundary_value_inner(expression, scope, parsed, arg_values, visiting)
+    });
+    visiting.remove(name);
+    resolved
+}
+
+fn is_binding_reference(value: &str) -> bool {
+    let mut bytes = value.bytes();
+    let Some(first) = bytes.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || first == b'_')
+        && bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+}
+
 fn resolve_literal_value(trimmed: &str) -> Option<String> {
     if let Some(value) = strip_call_string_arg(trimmed, "url") {
         return Some(value);
@@ -671,16 +817,19 @@ fn is_secret_expression(value: &str) -> bool {
     value.trim().starts_with("secret ")
 }
 
-fn validate_url(value: &str, line: usize, diagnostics: &mut Vec<Diagnostic>) {
+fn validate_url(value: &str, source_span: SourceSpan, diagnostics: &mut Vec<Diagnostic>) {
     if value.starts_with("http://") || value.starts_with("https://") {
         return;
     }
-    diagnostics.push(Diagnostic::error(
-        "E-NET-INVALID-URL",
-        line,
-        &format!("Network boundary URL `{value}` is not an absolute HTTP(S) URL."),
-        Some("Use `url(\"https://...\")` or an Args value containing an absolute HTTP(S) URL."),
-    ));
+    diagnostics.push(
+        Diagnostic::error(
+            "E-NET-INVALID-URL",
+            source_span.line,
+            &format!("Network boundary URL `{value}` is not an absolute HTTP(S) URL."),
+            Some("Use `url(\"https://...\")` or an Args value containing an absolute HTTP(S) URL."),
+        )
+        .with_source_span(source_span),
+    );
 }
 
 fn validate_expected_sha256(

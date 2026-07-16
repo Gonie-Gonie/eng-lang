@@ -11758,6 +11758,47 @@ mod tests {
         );
     }
 
+    #[test]
+    fn network_fixture_url_references_do_not_emit_invalid_url_false_positives() {
+        let repo_root = repo_root_for_tests();
+        for relative in [
+            "tools/vscode-englang/test/grammar-fixtures/03_side_effects.eng",
+            "tools/vscode-englang/test/grammar-fixtures/06_declarations_native_workflow.eng",
+        ] {
+            let path = repo_root.join(relative);
+            let source = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            let report = check_source(&path, &source, &CheckOptions::default());
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .all(|diagnostic| diagnostic.code != "E-NET-INVALID-URL"),
+                "{relative}: {:?}",
+                report.diagnostics
+            );
+            if relative.ends_with("06_declarations_native_workflow.eng") {
+                let aliased = report
+                    .semantic_program
+                    .net_requests
+                    .iter()
+                    .filter(|request| request.url_literal == "api_url")
+                    .collect::<Vec<_>>();
+                assert_eq!(aliased.len(), 7);
+                assert!(
+                    aliased
+                        .iter()
+                        .all(|request| request.url_value == "https://example.org/weather"),
+                    "{:?}",
+                    aliased
+                        .iter()
+                        .map(|request| (&request.url_literal, &request.url_value))
+                        .collect::<Vec<_>>()
+                );
+            }
+        }
+    }
+
     fn read_json_file(path: &Path) -> serde_json::Value {
         let content = std::fs::read_to_string(path)
             .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
@@ -13875,6 +13916,36 @@ print "done"
     }
 
     #[test]
+    fn network_url_diagnostics_use_compiler_owned_operand_ranges() {
+        let aliased = concat!(
+            "note = \"😀 bad_url bad_url\"\r\n",
+            "bad_url: Url = url(\"ftp://alias.example/data\")\r\n",
+            "response = http get bad_url # bad_url\r\n",
+        );
+        assert_first_diagnostic_underlines(aliased, "E-NET-INVALID-URL", "bad_url");
+
+        let inline = concat!(
+            "note = \"😀 url(\\\"file://inline.example/data\\\")\"\r\n",
+            "response = http get url(\"file://inline.example/data\") // repeated URL\r\n",
+        );
+        assert_first_diagnostic_underlines(
+            inline,
+            "E-NET-INVALID-URL",
+            "url(\"file://inline.example/data\")",
+        );
+
+        let download = concat!(
+            "note = \"😀 ftp://download.example/data\"\r\n",
+            "download url(\"ftp://download.example/data\") to file(\"out/data.csv\") # ignored\r\n",
+        );
+        assert_first_diagnostic_underlines(
+            download,
+            "E-NET-INVALID-URL",
+            "url(\"ftp://download.example/data\")",
+        );
+    }
+
+    #[test]
     fn diagnostic_json_pins_editor_underline_targets() {
         let component_unknown_signal = r#"domain Thermal {
     across T: AbsoluteTemperature [degC]
@@ -14130,7 +14201,7 @@ with {
             (
                 "E-NET-INVALID-URL",
                 "response = http get url(\"ftp://example.org/data.json\")\n",
-                "\"ftp://example.org/data.json\"",
+                "url(\"ftp://example.org/data.json\")",
             ),
             (
                 "E-IO-JSON-FIELD-ACCESS-001",

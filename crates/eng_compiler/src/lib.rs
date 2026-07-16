@@ -7632,7 +7632,7 @@ fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport)
         ));
         json.push_str(&format!("        \"source_line\": {},\n", request.line));
         json.push_str(&format!("        \"line\": {},\n", request.line));
-        write_source_span_json(json, "        ", request.line, &report.source_lines, false);
+        write_exact_source_span_json(json, "        ", request.url_span, false);
         json.push('\n');
         json.push_str("      }");
     }
@@ -7676,7 +7676,7 @@ fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport)
         ));
         json.push_str(&format!("        \"source_line\": {},\n", download.line));
         json.push_str(&format!("        \"line\": {},\n", download.line));
-        write_source_span_json(json, "        ", download.line, &report.source_lines, false);
+        write_exact_source_span_json(json, "        ", download.url_span, false);
         json.push('\n');
         json.push_str("      }");
     }
@@ -8609,6 +8609,21 @@ fn write_source_span_json(
         indent,
         line,
         source_span_column(source_lines, line),
+        if trailing_comma { "," } else { "" }
+    ));
+}
+
+fn write_exact_source_span_json(
+    json: &mut String,
+    indent: &str,
+    source_span: SourceSpan,
+    trailing_comma: bool,
+) {
+    json.push_str(&format!(
+        "{}\"source_span\": {{ \"line\": {}, \"column\": {} }}{}",
+        indent,
+        source_span.line,
+        source_span.column,
         if trailing_comma { "," } else { "" }
     ));
 }
@@ -17541,18 +17556,24 @@ schema SensorData {
             .expect("response network boundary row");
         assert_eq!(
             request_boundary["source_span"]["line"].as_u64(),
-            Some(request.line as u64)
+            Some(request.url_span.line as u64)
         );
-        assert_eq!(request_boundary["source_span"]["column"].as_u64(), Some(1));
+        assert_eq!(
+            request_boundary["source_span"]["column"].as_u64(),
+            Some(request.url_span.column as u64)
+        );
         let download_boundary = boundaries
             .iter()
             .find(|boundary| boundary["kind"] == "network_download")
             .expect("download network boundary row");
         assert_eq!(
             download_boundary["source_span"]["line"].as_u64(),
-            Some(download.line as u64)
+            Some(download.url_span.line as u64)
         );
-        assert_eq!(download_boundary["source_span"]["column"].as_u64(), Some(1));
+        assert_eq!(
+            download_boundary["source_span"]["column"].as_u64(),
+            Some(download.url_span.column as u64)
+        );
         let side_effects = value["review_document"]["side_effects"]
             .as_array()
             .expect("side effect review rows");
@@ -17966,18 +17987,90 @@ schema SensorData {
     }
 
     #[test]
-    fn rejects_invalid_net_url() {
-        let report = check_source(
-            "bad.eng",
-            "response = http get url(\"ftp://example.org/file.csv\")\n",
-            &CheckOptions::default(),
+    fn resolves_net_url_aliases_and_anchors_invalid_operands() {
+        let source = concat!(
+            "note = \"😀 bad_url url(\\\"file://inline.example/data\\\")\"\r\n",
+            "valid_url: Url = url(\"https://example.org/data\")\r\n",
+            "valid = http get valid_url\r\n",
+            "runtime = http get args.runtime_url\r\n",
+            "bad_url: Url = url(\"ftp://alias.example/data\")\r\n",
+            "aliased = http get bad_url # bad_url\r\n",
+            "inline = http get url(\"file://inline.example/data\") // repeated URL\r\n",
+            "download url(\"ftp://download.example/data\") to file(\"out/data.csv\") # ignored\r\n",
         );
-
-        assert!(report.has_errors());
-        assert!(report
+        let report = check_source("bad.eng", source, &CheckOptions::default());
+        let span_text = |span: SourceSpan| &source[span.start..span.end];
+        let invalid = report
             .diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.code == "E-NET-INVALID-URL"));
+            .filter(|diagnostic| diagnostic.code == "E-NET-INVALID-URL")
+            .collect::<Vec<_>>();
+
+        assert_eq!(invalid.len(), 3, "{:?}", report.diagnostics);
+        assert_eq!(
+            invalid
+                .iter()
+                .map(|diagnostic| span_text(diagnostic.source_span.expect("URL source span")))
+                .collect::<Vec<_>>(),
+            vec![
+                "bad_url",
+                "url(\"file://inline.example/data\")",
+                "url(\"ftp://download.example/data\")",
+            ]
+        );
+        let requests = &report.semantic_program.net_requests;
+        assert_eq!(requests[0].url_value, "https://example.org/data");
+        assert_eq!(span_text(requests[0].url_span), "valid_url");
+        assert_eq!(requests[1].url_value, "args.runtime_url");
+        assert_eq!(span_text(requests[1].url_span), "args.runtime_url");
+        assert_eq!(requests[2].url_value, "ftp://alias.example/data");
+        assert_eq!(span_text(requests[2].url_span), "bad_url");
+        assert_eq!(
+            span_text(requests[3].url_span),
+            "url(\"file://inline.example/data\")"
+        );
+        let download = &report.semantic_program.net_downloads[0];
+        assert_eq!(
+            span_text(download.url_span),
+            "url(\"ftp://download.example/data\")"
+        );
+        let parsed = parse_source(source);
+        let download_decl = parsed
+            .items
+            .iter()
+            .find_map(|item| match item {
+                AstItem::NetDownload(download) => Some(download),
+                _ => None,
+            })
+            .expect("download declaration");
+        assert_eq!(download_decl.target, "file(\"out/data.csv\")");
+        assert_eq!(
+            span_text(download_decl.target_span),
+            "file(\"out/data.csv\")"
+        );
+
+        let review: serde_json::Value =
+            serde_json::from_str(&review_json(&report)).expect("review json");
+        let boundaries = review["review_document"]["external_boundaries"]
+            .as_array()
+            .expect("review boundaries");
+        for (kind, name, source_span) in [
+            ("network_request", "aliased", requests[2].url_span),
+            ("network_download", "download", download.url_span),
+        ] {
+            let boundary = boundaries
+                .iter()
+                .find(|boundary| boundary["kind"] == kind && boundary["name"] == name)
+                .unwrap_or_else(|| panic!("missing {kind} boundary {name}"));
+            assert_eq!(
+                boundary["source_span"]["line"].as_u64(),
+                Some(source_span.line as u64)
+            );
+            assert_eq!(
+                boundary["source_span"]["column"].as_u64(),
+                Some(source_span.column as u64)
+            );
+        }
     }
 
     #[test]

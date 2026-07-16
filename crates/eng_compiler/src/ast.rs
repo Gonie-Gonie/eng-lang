@@ -370,7 +370,9 @@ pub struct FileOperationDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NetDownloadDecl {
     pub url: String,
+    pub url_span: SourceSpan,
     pub target: String,
+    pub target_span: SourceSpan,
     pub line: usize,
     pub span: SourceSpan,
     pub context: ParseContext,

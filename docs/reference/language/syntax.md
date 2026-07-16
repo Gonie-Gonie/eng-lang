@@ -1107,7 +1107,7 @@ type/unit metadata for each exported source column.
 Use `http ...` and `download ...` when a workflow needs an explicit HTTP(S)
 boundary. Network boundaries are reviewable side effects: URLs, query/header
 keys, response source (`live`, `cached`, or `offline_response`), status code,
-response hashes, cache records, and source lines are recorded. Raw request
+response hashes, cache records, and exact URL operand source spans are recorded. Raw request
 bodies are not written to review artifacts; `body_sha256` is recorded instead.
 
 ```eng partial
@@ -1143,6 +1143,12 @@ with {
 }
 ```
 
+The `<url>` operand may be an inline `url("https://...")`, an `args.<name>`
+value, or a declared const/local alias that resolves to either form. Validation
+follows declared aliases to their value. An `args.*` value that will be supplied
+when the workflow runs is not rejected before that value exists. Trailing `#`
+and `//` comments are outside both the URL operand and a download target.
+
 Current request forms:
 
 | Form | Meaning |
@@ -1174,7 +1180,7 @@ Rules:
 
 | Rule | Meaning |
 |---|---|
-| Absolute HTTP(S) URLs | Network URLs must resolve to `http://` or `https://` |
+| Absolute HTTP(S) URLs | Supplied or statically resolved network URLs must start with `http://` or `https://`; `E-NET-INVALID-URL` selects the URL operand |
 | Body method policy | `body` is accepted only for POST, PUT, and PATCH |
 | Body secrecy policy | Request bodies may not be `secret ...`; raw bodies stay out of artifacts |
 | Secret query/header policy | Secret query/header values are redacted; live execution rejects redacted values with `E-NET-SECRET-LIVE` until secret injection is supported |

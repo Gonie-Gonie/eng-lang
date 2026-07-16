@@ -316,6 +316,10 @@ source component name. Unconnected-port Problems underline the port name, and
 unknown or invalid generic port domains underline the complete domain reference.
 Trailing `#` and `//` comments are excluded from both the parsed domain and its
 underline, including CRLF and non-BMP source files.
+Invalid network URL Problems underline the complete request/download URL operand.
+Declared URL aliases are resolved before validation; unsupplied runtime
+`args.*` URLs do not create malformed-URL false positives, and trailing comments
+are excluded from URL and download-target ranges.
 `where`/`with` openers, `where` locals, and `with` option keys now use exact
 compiler-owned ranges for semantic colors and outline selection. Inline option
 list/enum values and `file`/`dir`/`join` helpers are limited to their own value
