@@ -339,6 +339,11 @@ spans, and every feature path has its own range. Problems therefore underline
 the malformed ML value or feature itself, while option semantic colors do not
 repaint a binding declaration named `target` or `algorithm`. Trailing option
 comments are outside both Problems and highlight ranges.
+Sampling bindings and distribution keys also use exact compiler-owned ranges for
+semantic colors and Outline selection. When a sample declaration omits `count`
+or every `uniform(lower, upper)` parameter, Problems underline its complete
+`sample <method>` RHS; malformed supplied options continue to underline their
+own values.
 Uncertainty constructors now preserve exact positional, source, and named
 key/value ranges too. `E-UNC-SOURCE-*` and `E-UNC-ARGS-*` Problems underline the
 owning source or malformed value, including a nested call, while source paths,

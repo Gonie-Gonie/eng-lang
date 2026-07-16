@@ -837,7 +837,10 @@ pub struct TimeSeriesKernelInfo {
 #[derive(Clone, Debug, PartialEq)]
 pub struct SampleGenerationInfo {
     pub binding: String,
+    pub binding_span: SourceSpan,
     pub method: String,
+    pub expression: String,
+    pub expression_span: SourceSpan,
     pub count: usize,
     pub seed: Option<u64>,
     pub distributions: Vec<SampleDistributionInfo>,
@@ -848,6 +851,9 @@ pub struct SampleGenerationInfo {
 #[derive(Clone, Debug, PartialEq)]
 pub struct SampleDistributionInfo {
     pub name: String,
+    pub key_span: SourceSpan,
+    pub value: String,
+    pub value_span: SourceSpan,
     pub kind: String,
     pub lower: f64,
     pub upper: f64,
@@ -4728,7 +4734,7 @@ fn sample_generation_info(
         .find(|block| block.owner_line == Some(binding.line))
         .map(|block| block.options.as_slice())
         .unwrap_or(&[]);
-    let count = sample_count_option(options, binding.line, diagnostics).unwrap_or(0);
+    let count = sample_count_option(options, binding.expression_span, diagnostics).unwrap_or(0);
     let seed = sample_seed_option(options, diagnostics);
     let mut distributions = Vec::new();
     for option in options
@@ -4741,16 +4747,22 @@ fn sample_generation_info(
         }
     }
     if distributions.is_empty() {
-        diagnostics.push(Diagnostic::error(
-            "E-SAMPLING-RANGE-UNIT",
-            binding.line,
-            "Sample generation requires at least one `uniform(lower, upper)` parameter.",
-            Some("Add a parameter option such as `cooling_cop = uniform(2.5, 5.0)`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SAMPLING-RANGE-UNIT",
+                binding.expression_span.line,
+                "Sample generation requires at least one `uniform(lower, upper)` parameter.",
+                Some("Add a parameter option such as `cooling_cop = uniform(2.5, 5.0)`."),
+            )
+            .with_source_span(binding.expression_span),
+        );
     }
     SampleGenerationInfo {
         binding: binding.name.clone(),
+        binding_span: binding.span,
         method: method.to_owned(),
+        expression: binding.expression.clone(),
+        expression_span: binding.expression_span,
         count,
         seed,
         distributions,
@@ -4765,16 +4777,19 @@ fn sample_generation_info(
 
 fn sample_count_option(
     options: &[WithOptionInfo],
-    line: usize,
+    fallback_span: SourceSpan,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<usize> {
     let Some(option) = accepted_option(options, "count") else {
-        diagnostics.push(Diagnostic::error(
-            "E-SAMPLING-COUNT-INVALID",
-            line,
-            "Sample generation requires a positive `count`.",
-            Some("Use `count = 100` or another positive integer."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-SAMPLING-COUNT-INVALID",
+                fallback_span.line,
+                "Sample generation requires a positive `count`.",
+                Some("Use `count = 100` or another positive integer."),
+            )
+            .with_source_span(fallback_span),
+        );
         return None;
     };
     let raw = option.value.trim();
@@ -4901,6 +4916,9 @@ fn sample_distribution_option(
     }
     Some(SampleDistributionInfo {
         name: option.key.clone(),
+        key_span: option.key_span,
+        value: option.value.clone(),
+        value_span: option.value_span,
         kind: "uniform".to_owned(),
         lower: lower.value,
         upper: upper.value,

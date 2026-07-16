@@ -444,6 +444,14 @@ variable, and following segments are properties. Dotted command-style `apply`
 targets use the same segmentation with the terminal segment classified as a
 workflow-step function.
 
+Sampling declarations use `SampleGenerationInfo.binding_span` for their variable
+token and Outline selection. Distribution option names use
+`SampleDistributionInfo.key_span`; their value spans remain available for
+diagnostics and later editor projections. Missing `count` and missing parameter
+diagnostics select the exact `sample <method>` expression rather than whichever
+same-spelled word appears first on the line. The sampling corpus guard requires
+every `E-SAMPLING-*` diagnostic to retain a valid compiler range.
+
 Uncertainty constructors use the same source-owned policy. The declaration uses
 `UncertaintyInfo.binding_span`; `ensemble` and `propagate` sources use the exact
 positional source span; named keys are `property.uncertain`; and `kind`,

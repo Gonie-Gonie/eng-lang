@@ -2494,8 +2494,8 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for sample in &program.sample_generations {
-        builder.push_on_line(
-            sample.line,
+        builder.push_named_span(
+            sample.binding_span,
             &sample.binding,
             "variable",
             &["declaration", "workflowStep"],
@@ -2507,8 +2507,8 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         );
         for distribution in &sample.distributions {
             let modifiers = semantic_modifiers_for_quantity(&distribution.quantity_kind);
-            builder.push_on_line(
-                distribution.line,
+            builder.push_named_span(
+                distribution.key_span,
                 &distribution.name,
                 "property",
                 &modifiers,
@@ -4300,7 +4300,7 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
             .distributions
             .iter()
             .map(|distribution| {
-                make_document_symbol(
+                make_document_symbol_at_span(
                     &lines,
                     distribution.name.clone(),
                     format!(
@@ -4308,19 +4308,19 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
                         distribution.kind, distribution.quantity_kind, distribution.display_unit
                     ),
                     SYMBOL_KIND_PROPERTY,
-                    distribution.line,
+                    distribution.key_span,
                     Vec::new(),
                 )
             })
             .collect::<Vec<_>>();
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
             sample.binding.clone(),
             format!("sample {}", sample.method),
             SYMBOL_KIND_VARIABLE,
-            sample.line,
+            sample.binding_span,
             children,
         );
     }
@@ -11805,6 +11805,55 @@ mod tests {
     }
 
     #[test]
+    fn sampling_fixture_diagnostics_keep_compiler_owned_ranges() {
+        let repo_root = repo_root_for_tests();
+        let mut files = BTreeSet::new();
+        for relative in [
+            "examples",
+            "tests/diagnostics",
+            "tools/vscode-englang/test/grammar-fixtures",
+        ] {
+            files.extend(eng_files_under(&repo_root.join(relative)));
+        }
+
+        let mut observed = 0usize;
+        let mut missing = Vec::new();
+        for path in files {
+            let source = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            let report = check_source(&path, &source, &CheckOptions::default());
+            let lines = source_lines(&source);
+            for diagnostic in report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code.starts_with("E-SAMPLING-"))
+            {
+                observed += 1;
+                let line_index = line_index_from_one_based(&lines, diagnostic.line);
+                let line = lines.get(line_index).copied().unwrap_or_default();
+                if compiler_diagnostic_byte_range(line, diagnostic).is_none() {
+                    missing.push(format!(
+                        "{}:{} {}",
+                        path.strip_prefix(&repo_root).unwrap_or(&path).display(),
+                        diagnostic.line,
+                        diagnostic.code
+                    ));
+                }
+            }
+        }
+
+        assert!(
+            observed >= 10,
+            "sampling diagnostic corpus unexpectedly shrank to {observed} item(s)"
+        );
+        assert!(
+            missing.is_empty(),
+            "sampling diagnostics missing valid compiler ranges: {}",
+            missing.join(", ")
+        );
+    }
+
+    #[test]
     fn diagnostic_corpus_compiler_range_coverage_does_not_regress() {
         let repo_root = repo_root_for_tests();
         let mut files = BTreeSet::new();
@@ -11841,7 +11890,7 @@ mod tests {
             fallback.len()
         );
         assert!(
-            fallback.len() <= 139,
+            fallback.len() <= 129,
             "compiler-owned diagnostic range coverage regressed to {} fallback item(s): {}",
             fallback.len(),
             fallback.join(", ")
@@ -13968,6 +14017,82 @@ print "done"
             diagnostic["range"]["end"]["character"].as_u64(),
             Some((value_start_utf16 + 1) as u64)
         );
+    }
+
+    #[test]
+    fn missing_sampling_options_use_compiler_expression_ranges() {
+        let source = concat!(
+            "note = \"😀 sample lhs designs\"\r\n",
+            "designs = sample lhs # sample lhs\r\n",
+        );
+
+        assert_first_diagnostic_underlines(source, "E-SAMPLING-COUNT-INVALID", "sample lhs");
+        assert_first_diagnostic_underlines(source, "E-SAMPLING-RANGE-UNIT", "sample lhs");
+    }
+
+    #[test]
+    fn sampling_symbols_use_compiler_owned_spans() {
+        let source = concat!(
+            "note = \"😀 valid_designs cooling_cop\"\r\n",
+            "valid_designs = sample latin-hypercube\r\n",
+            "with {\r\n",
+            "    count = 4\r\n",
+            "    seed = 7\r\n",
+            "    cooling_cop = uniform(2.5, 5.0) # cooling_cop\r\n",
+            "}\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("sampling_symbol_spans.eng"), source);
+
+        let binding_tokens = snapshot
+            .semantic_tokens
+            .tokens
+            .iter()
+            .filter(|token| {
+                token.line == 1 && token.start == 0 && token.length == utf16_len("valid_designs")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(binding_tokens.len(), 1, "{binding_tokens:#?}");
+        assert_eq!(binding_tokens[0].token_type, "variable");
+        assert!(binding_tokens[0]
+            .modifiers
+            .iter()
+            .any(|modifier| modifier == "declaration"));
+
+        let distribution_line = source.lines().nth(5).expect("distribution line");
+        let distribution_start = distribution_line
+            .find("cooling_cop")
+            .expect("distribution key");
+        let distribution_tokens = snapshot
+            .semantic_tokens
+            .tokens
+            .iter()
+            .filter(|token| {
+                token.line == 5
+                    && token.start == utf16_len(&distribution_line[..distribution_start])
+                    && token.length == utf16_len("cooling_cop")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(distribution_tokens.len(), 1, "{distribution_tokens:#?}");
+        assert_eq!(distribution_tokens[0].token_type, "property");
+
+        let symbol = snapshot
+            .document_symbols
+            .iter()
+            .find(|symbol| symbol.name == "valid_designs")
+            .expect("sample document symbol");
+        assert_eq!(symbol.selection_line, 1);
+        assert_eq!(symbol.selection_character, 0);
+        let child = symbol
+            .children
+            .iter()
+            .find(|child| child.name == "cooling_cop")
+            .expect("distribution document symbol");
+        assert_eq!(child.selection_line, 5);
+        assert_eq!(
+            child.selection_character,
+            utf16_len(&distribution_line[..distribution_start])
+        );
+        assert_no_semantic_token_overlaps(&snapshot, "sampling_symbol_spans.eng");
     }
 
     #[test]

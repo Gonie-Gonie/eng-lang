@@ -138,8 +138,10 @@ or individual feature spans. Inline named arguments and attached `with` blocks
 share this range model, and trailing option comments are excluded. The corpus
 also requires every `E-UNC-SOURCE-*` and `E-UNC-ARGS-*` diagnostic to retain its
 uncertainty expression, source, positional value, or named value range. Nested
-constructor values and trailing comments keep their source boundaries. A global
-non-regression ceiling now permits at most 139 diagnostics that still need the
+constructor values and trailing comments keep their source boundaries. Every
+`E-SAMPLING-*` diagnostic also retains either its option value or owning
+`sample <method>` expression range. A global non-regression ceiling now permits
+at most 129 diagnostics that still need the
 older range inference path; separate uncertainty validation-expression codes
 remain in that migration set.
 Older diagnostics retain source-aware inference: dimensionless arithmetic
@@ -414,6 +416,10 @@ token per identifier, with `args` as a parameter, other receivers as variables,
 and member segments as properties. Command-style `apply` targets follow the same
 rule and classify the final segment as a workflow-step function.
 
+Sampling declarations and distribution option names use compiler-owned binding
+and key spans. Their semantic token and Outline selection ranges therefore point
+to the exact declaration occurrence instead of searching the source line.
+
 Uncertainty declarations, source operands, and named constructor arguments also
 use compiler-owned spans. Named keys are uncertain properties; distribution
 kind and propagation method values are uncertain keywords; and dotted named
@@ -453,6 +459,9 @@ type expression.
 or key spans instead of the first matching word on the source line. This remains
 correct for CRLF input and for inline blocks containing non-BMP text before the
 selected option.
+
+Sampling bindings and distribution children use their exact compiler-owned name
+and option-key spans for Outline selection.
 
 Each state-space vector type is a top-level struct-like symbol whose member
 fields are nested children with role, quantity type, and unit detail.

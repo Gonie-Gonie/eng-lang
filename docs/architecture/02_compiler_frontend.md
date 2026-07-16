@@ -66,8 +66,14 @@ simple write-source identifier from its compiler role even when its spelling is
 also a workflow keyword, without changing a real keyword occurrence elsewhere.
 
 `FastBinding.expression_span` identifies the complete source RHS before later
-semantic normalization. Successful inferred declarations retain that range,
-while `MlInfo` separately retains exact binding, source-model/table, and
+semantic normalization. Successful inferred declarations retain that range.
+`SampleGenerationInfo` exposes exact binding and `sample <method>` expression
+spans, while each `SampleDistributionInfo` exposes its attached option key and
+value spans. Missing sampling options can therefore select the owning RHS, and
+sampling semantic tokens plus Outline selections do not reconstruct names from
+line text.
+
+`MlInfo` separately retains exact binding, source-model/table, and
 prediction-input spans. It also exposes the complete ML expression, unified
 inline/attached `with` arguments through `MlArgumentInfo.key_span` and
 `value_span`, and each feature path through `MlFeatureInfo.span`. Trailing line
@@ -99,7 +105,7 @@ semantic_program.schemas
 semantic_program.state_space_type_blocks / state_space_vectors / linear_operators
 semantic_program.table_transforms
 semantic_program.net_requests / net_downloads / cache_records
-semantic_program.case_generations / render templates / uncertainty / model / db records
+semantic_program.sample/case generations / render templates / uncertainty / model / db records
 semantic_program.reports / plots / writes / side-effect records
 ```
 

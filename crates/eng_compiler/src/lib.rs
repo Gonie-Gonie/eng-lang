@@ -16600,6 +16600,64 @@ schema SensorData {
     }
 
     #[test]
+    fn sampling_metadata_and_missing_options_preserve_exact_spans() {
+        let source = concat!(
+            "note = \"😀 sample lhs designs cooling_cop\"\r\n",
+            "designs = sample lhs # sample lhs\r\n",
+            "valid_designs = sample latin-hypercube\r\n",
+            "with {\r\n",
+            "    count = 4\r\n",
+            "    seed = 7\r\n",
+            "    cooling_cop = uniform(2.5, 5.0) # ignored\r\n",
+            "}\r\n",
+        );
+        let report = check_source(
+            "sampling_source_spans.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        let span_text = |span: SourceSpan| &source[span.start..span.end];
+
+        let valid = report
+            .semantic_program
+            .sample_generations
+            .iter()
+            .find(|generation| generation.binding == "valid_designs")
+            .expect("valid sample generation");
+        assert_eq!(span_text(valid.binding_span), "valid_designs");
+        assert_eq!(valid.expression, "sample latin-hypercube");
+        assert_eq!(span_text(valid.expression_span), valid.expression);
+        let distribution = valid.distributions.first().expect("sample distribution");
+        assert_eq!(span_text(distribution.key_span), "cooling_cop");
+        assert_eq!(distribution.value, "uniform(2.5, 5.0)");
+        assert_eq!(span_text(distribution.value_span), distribution.value);
+
+        let missing = report
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.line == 2)
+            .filter(|diagnostic| diagnostic.code.starts_with("E-SAMPLING-"))
+            .collect::<Vec<_>>();
+        assert_eq!(missing.len(), 2, "{missing:#?}");
+        assert!(missing.iter().any(|diagnostic| {
+            diagnostic.code == "E-SAMPLING-COUNT-INVALID"
+                && diagnostic.message.contains("positive `count`")
+        }));
+        assert!(missing.iter().any(|diagnostic| {
+            diagnostic.code == "E-SAMPLING-RANGE-UNIT"
+                && diagnostic.message.contains("at least one")
+        }));
+        assert!(missing
+            .iter()
+            .all(|diagnostic| { diagnostic.source_span.map(span_text) == Some("sample lhs") }));
+        assert!(report
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code.starts_with("E-SAMPLING-"))
+            .all(|diagnostic| diagnostic.source_span.is_some()));
+    }
+
+    #[test]
     fn sample_table_metadata_fields_are_typed() {
         let report = check_source(
             "sample_metadata.eng",
