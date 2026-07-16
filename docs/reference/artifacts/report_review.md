@@ -485,15 +485,18 @@ typed_payload.solver_boundaries
 typed_payload.system_ir
 ```
 
-State-space internal metadata appears in compiler-owned review artifacts:
+State-space metadata appears in compiler-owned review artifacts:
 
 ```text
 review.json
+  state_space_type_blocks
   state_space_vectors
   linear_operators
 ```
 
-These sections record `states`/`inputs`/`outputs` vector declarations and
+`state_space_type_blocks` records each top-level vector type role, name, source
+line, and ordered member name/type/unit contract. The remaining sections record
+`states`/`inputs`/`outputs` vector declarations and
 `LinearOperator[From -> To]` declarations for inspection. Operator artifacts
 include row/column members, quantity kinds, canonical units, and compatibility
 status after vector-member resolution and shape checks. Review JSON, report

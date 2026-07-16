@@ -357,6 +357,8 @@ Core semantic role expectations:
 | System input declaration | `variable` with `declaration` and `input`. |
 | System parameter declaration | `parameter` with `declaration` and `readonly`. |
 | System output declaration | `variable` with `declaration` and `output`. |
+| State-space vector type block | `class` with `declaration`, `solver`, and role-specific `state`, `input`, or `output`. |
+| State-space type member | `property` with `declaration`, `solver`, and the block's role modifier. |
 | Function-local binding | `variable` with `local`. |
 | Deprecated `script`/`struct` keyword | `keyword` with `deprecated`. |
 | Deprecated `script`/`struct` declaration name | `class` with `declaration` and `deprecated`. |
@@ -384,7 +386,7 @@ from generic fallback colors. Important pairings:
 | Semantic selector | Fallback scope intent |
 | --- | --- |
 | `type` | Type names, generic type expressions, array suffix type expressions, and bracketed type arguments. |
-| `class`, `interface`, `class.declaration`, `interface.declaration` | Declared schema, system, component, domain, and interface-like names. |
+| `class`, `interface`, `class.declaration`, `interface.declaration` | Declared schema, system, state-space vector type, component, domain, and interface-like names. |
 | `class.defaultLibrary`, `interface.defaultLibrary` | Bundled type/domain names surfaced by the compiler. |
 | `comment` | Ordinary (`#`, `//`) and documentation (`///`) line comments. |
 | `comment.documentation` | Documentation comments (`///`) when semantic highlighting is available. |
@@ -411,11 +413,11 @@ from generic fallback colors. Important pairings:
 | `function.temporal` | Supported calendar date construction helpers. |
 | `keyword.validation`, `variable.validation`, `function.validation` | Validation and coverage operations. |
 | `keyword.report`, `variable.report`, `property.report` | Report and plot operations. |
-| `function.solver`, `keyword.solver`, `variable.solver` | Solver and equation operations. |
+| `class.solver`, `function.solver`, `keyword.solver`, `variable.solver`, `property.solver` | Solver declarations, fields, and equation operations. |
 | `class.deprecated`, `property.deprecated` | Deprecated legacy declaration names and deprecated property roles. |
-| `variable.state`, `property.state` | System state tokens. |
-| `variable.input`, `parameter.input` | System inputs and input parameters. |
-| `variable.output` | System outputs and output-like workflow values. |
+| `class.state`, `variable.state`, `property.state` | State-space type, system state, and state-member tokens. |
+| `class.input`, `variable.input`, `parameter.input`, `property.input` | State-space input type, system inputs, input parameters, and input members. |
+| `class.output`, `variable.output`, `property.output` | State-space output type, system outputs, output members, and output-like workflow values. |
 | `variable.model`, `function.model`, `keyword.model`, `property.model` | Model and prediction artifacts. |
 | `variable.db`, `keyword.db`, `function.db`, `method.db`, `property.db`, `parameter.db` | SQLite and DB-write boundaries, including `args.*` DB table targets. |
 | `variable.cache`, `keyword.cache`, `function.cache`, `method.cache`, `property.cache` | Cache keys, cache helpers, cache option values, and records. |

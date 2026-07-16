@@ -162,6 +162,7 @@ pub struct SystemDecl {
 pub struct StateSpaceTypeBlockDecl {
     pub role: String,
     pub name: String,
+    pub name_span: SourceSpan,
     pub line: usize,
     pub span: SourceSpan,
 }
@@ -170,7 +171,9 @@ pub struct StateSpaceTypeBlockDecl {
 pub struct StateSpaceTypeMemberDecl {
     pub name: String,
     pub type_name: String,
+    pub type_span: SourceSpan,
     pub unit: Option<String>,
+    pub unit_span: Option<SourceSpan>,
     pub line: usize,
     pub span: SourceSpan,
 }

@@ -65,6 +65,7 @@ semantic_program.type_infos
 semantic_program.unit_derivations
 semantic_program.hover_hints
 semantic_program.schemas
+semantic_program.state_space_type_blocks / state_space_vectors / linear_operators
 semantic_program.table_transforms
 semantic_program.net_requests / net_downloads / cache_records
 semantic_program.case_generations / render templates / model records / db records
@@ -75,6 +76,12 @@ Supported deprecated or invalid syntax, such as `:=`, `struct Args`, and
 `script` execution roots, is reported through source-ranged diagnostics instead
 of being silently accepted. Quantity and unit checks also produce source-ranged
 diagnostics and review metadata.
+
+Top-level state-space type blocks preserve separate keyword and declaration-name
+spans. Each member preserves its name, normalized type, exact source type span,
+optional unit, and exact unit span. The public semantic model retains those
+ranges so solver lowering, review JSON, semantic highlighting, hover,
+completion, outline, and navigation consume one declaration identity.
 
 ## Editor Payload
 

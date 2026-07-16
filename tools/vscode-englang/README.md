@@ -297,6 +297,8 @@ stay scoped to their own providers.
 
 Hover is computed from the current unsaved buffer, so quantity, unit, and
 role/status labels stay aligned with live diagnostics and role-aware highlighting.
+Top-level state-space vector types and their members expose role-specific hover,
+completion, outline, reference, and rename metadata from the same compiler spans.
 
 Role-aware highlighting also works on unsaved edits, so token colors do
 not have to wait for a file save. Sample-table member completions include
@@ -304,7 +306,8 @@ runtime metadata such as `sample_count`, `row_hash_count`, and `row_preview`.
 The extension declares EngLang-specific
 role categories and theme fallback hints for units, quantities, axes, time
 series, validation/report roles, side effects, external boundaries, inputs,
-state, built-in workflow helper functions, solver and uncertainty policy
+state, outputs, state-space vector types and members, built-in workflow helper functions, solver and
+uncertainty policy
 literals, module namespaces, model artifacts, DB/cache records, workflow steps,
 string interpolation variables/properties, format precision, format units,
 and review risks, so themes without EngLang-specific rules still receive stable

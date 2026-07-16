@@ -2729,6 +2729,14 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     for system in &program.systems {
         builder.push_named_span(system.span, &system.name, "class", &["declaration"]);
         for variable in &system.variables {
+            if program.state_space_type_blocks.iter().any(|block| {
+                block
+                    .members
+                    .iter()
+                    .any(|member| member.line == variable.line && member.name == variable.name)
+            }) {
+                continue;
+            }
             match variable.role.as_str() {
                 "state" => builder.push_named_span(
                     variable.span,
@@ -2760,6 +2768,31 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                     "variable",
                     &["declaration"],
                 ),
+            }
+        }
+    }
+
+    for block in &program.state_space_type_blocks {
+        builder.push_named_span(
+            block.span,
+            &block.name,
+            "class",
+            state_space_declaration_modifiers(&block.role),
+        );
+        for member in &block.members {
+            builder.push_named_span(
+                member.span,
+                &member.name,
+                "property",
+                state_space_declaration_modifiers(&block.role),
+            );
+            builder.push_type_identifiers_within_span(
+                member.type_span,
+                &member.type_name,
+                &["quantity"],
+            );
+            if let (Some(unit), Some(unit_span)) = (&member.unit, member.unit_span) {
+                builder.push_named_span(unit_span, unit, "type", &["unit"]);
             }
         }
     }
@@ -3689,6 +3722,9 @@ fn add_compiler_resolved_symbol_reference_tokens(
     for system in &program.systems {
         symbols.insert(system.name.clone(), KnownSemanticSymbol::user_type("class"));
     }
+    for block in &program.state_space_type_blocks {
+        symbols.insert(block.name.clone(), KnownSemanticSymbol::user_type("class"));
+    }
     for component in program.component_symbols() {
         symbols.insert(
             component.name.clone(),
@@ -3988,6 +4024,37 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
             "schema".to_owned(),
             SYMBOL_KIND_STRUCT,
             schema.line,
+            children,
+        );
+    }
+
+    for block in &program.state_space_type_blocks {
+        let role = state_space_role_label(&block.role);
+        let children = block
+            .members
+            .iter()
+            .map(|member| {
+                make_document_symbol(
+                    &lines,
+                    member.name.clone(),
+                    match &member.unit {
+                        Some(unit) => format!("{role} {} [{unit}]", member.type_name),
+                        None => format!("{role} {}", member.type_name),
+                    },
+                    SYMBOL_KIND_PROPERTY,
+                    member.line,
+                    Vec::new(),
+                )
+            })
+            .collect::<Vec<_>>();
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            block.name.clone(),
+            format!("{role} vector type"),
+            SYMBOL_KIND_STRUCT,
+            block.line,
             children,
         );
     }
@@ -4792,6 +4859,33 @@ fn semantic_modifiers_for_quantity(quantity_kind: &str) -> Vec<&'static str> {
     modifiers
 }
 
+fn state_space_declaration_modifiers(role: &str) -> &'static [&'static str] {
+    match role {
+        "states" => &["declaration", "state", "solver"],
+        "inputs" => &["declaration", "input", "solver"],
+        "outputs" => &["declaration", "output", "solver"],
+        _ => &["declaration", "solver"],
+    }
+}
+
+fn state_space_role_label(role: &str) -> &'static str {
+    match role {
+        "states" => "state",
+        "inputs" => "input",
+        "outputs" => "output",
+        _ => "state-space",
+    }
+}
+
+fn state_space_vector_type_name(role: &str) -> &'static str {
+    match role {
+        "states" => "StateVector",
+        "inputs" => "InputVector",
+        "outputs" => "OutputVector",
+        _ => "Vector",
+    }
+}
+
 fn comment_semantic_modifiers(line: &str, comment_start: usize) -> &'static [&'static str] {
     if line[comment_start..].starts_with("///") {
         &["documentation"]
@@ -4837,6 +4931,11 @@ fn is_structural_non_variable_declaration(
             .columns
             .iter()
             .any(|column| column.line == line && column.name == name)
+    }) || program.state_space_type_blocks.iter().any(|block| {
+        block
+            .members
+            .iter()
+            .any(|member| member.line == line && member.name == name)
     }) || program.systems.iter().any(|system| {
         system.variables.iter().any(|variable| {
             variable.line == line && variable.name == name && variable.role == "parameter"
@@ -4889,52 +4988,61 @@ fn line_has_structural_declaration(program: &SemanticProgram, line: usize) -> bo
                 .missing_policies
                 .iter()
                 .any(|policy| policy.line == line)
-    }) || program.systems.iter().any(|system| {
-        system.line == line
-            || system
-                .variables
-                .iter()
-                .any(|variable| variable.line == line)
-    }) || program.domains.iter().any(|domain| {
-        domain.line == line
-            || domain
-                .variables
-                .iter()
-                .any(|variable| variable.line == line)
-            || domain
-                .conservations
-                .iter()
-                .any(|conservation| conservation.line == line)
-    }) || program.component_symbols().any(|component| {
-        component.line == line
-            || component.ports.iter().any(|port| port.line == line)
-            || component
-                .parameters
-                .iter()
-                .any(|parameter| parameter.line == line)
-            || component.inputs.iter().any(|input| input.line == line)
-            || component
-                .local_expressions
-                .iter()
-                .any(|local| local.line == line)
-    }) || program.classes.iter().any(|class_info| {
-        class_info.line == line
-            || class_info.fields.iter().any(|field| field.line == line)
-            || class_info
-                .validations
-                .iter()
-                .any(|validation| validation.line == line)
-            || class_info.methods.iter().any(|method| method.line == line)
-    }) || program.class_objects.iter().any(|object| {
-        object.line == line
-            || object.fields.iter().any(|field| field.line == line)
-            || object
-                .validations
-                .iter()
-                .any(|validation| validation.line == line)
-    }) || program.args_blocks.iter().any(|args_block| {
-        args_block.line == line || args_block.fields.iter().any(|field| field.line == line)
-    })
+    }) || program
+        .state_space_type_blocks
+        .iter()
+        .any(|block| block.line == line || block.members.iter().any(|member| member.line == line))
+        || program.systems.iter().any(|system| {
+            system.line == line
+                || system
+                    .variables
+                    .iter()
+                    .any(|variable| variable.line == line)
+        })
+        || program.domains.iter().any(|domain| {
+            domain.line == line
+                || domain
+                    .variables
+                    .iter()
+                    .any(|variable| variable.line == line)
+                || domain
+                    .conservations
+                    .iter()
+                    .any(|conservation| conservation.line == line)
+        })
+        || program.component_symbols().any(|component| {
+            component.line == line
+                || component.ports.iter().any(|port| port.line == line)
+                || component
+                    .parameters
+                    .iter()
+                    .any(|parameter| parameter.line == line)
+                || component.inputs.iter().any(|input| input.line == line)
+                || component
+                    .local_expressions
+                    .iter()
+                    .any(|local| local.line == line)
+        })
+        || program.classes.iter().any(|class_info| {
+            class_info.line == line
+                || class_info.fields.iter().any(|field| field.line == line)
+                || class_info
+                    .validations
+                    .iter()
+                    .any(|validation| validation.line == line)
+                || class_info.methods.iter().any(|method| method.line == line)
+        })
+        || program.class_objects.iter().any(|object| {
+            object.line == line
+                || object.fields.iter().any(|field| field.line == line)
+                || object
+                    .validations
+                    .iter()
+                    .any(|validation| validation.line == line)
+        })
+        || program.args_blocks.iter().any(|args_block| {
+            args_block.line == line || args_block.fields.iter().any(|field| field.line == line)
+        })
 }
 
 fn promotion_source_format_keywords(source_format: &str) -> &'static [&'static str] {
@@ -7970,6 +8078,8 @@ pub fn hover_json(hover: &LspHover) -> Value {
 fn hover_kind_label(kind: &str) -> String {
     match kind.trim() {
         "variable" => "Variable".to_owned(),
+        "state_space_type" => "State-space vector type".to_owned(),
+        "state_space_member" => "State-space member".to_owned(),
         "domain" => "Domain".to_owned(),
         "domain_variable" => "Domain variable".to_owned(),
         "domain_conservation" => "Domain conservation".to_owned(),
@@ -8235,6 +8345,38 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             status: None,
         })
         .collect::<Vec<_>>();
+
+    for block in &report.semantic_program.state_space_type_blocks {
+        let role = state_space_role_label(&block.role);
+        hovers.push(LspHover {
+            name: block.name.clone(),
+            kind: "state_space_type".to_owned(),
+            line: block.line,
+            detail: format!("{role} vector type with {} member(s)", block.members.len()),
+            quantity_kind: format!(
+                "{}[{}]",
+                state_space_vector_type_name(&block.role),
+                block.name
+            ),
+            display_unit: "vector".to_owned(),
+            status: Some("declared".to_owned()),
+        });
+        for member in &block.members {
+            let display_unit = member.unit.as_deref().unwrap_or("-");
+            hovers.push(LspHover {
+                name: format!("{}.{}", block.name, member.name),
+                kind: "state_space_member".to_owned(),
+                line: member.line,
+                detail: format!(
+                    "{role} member {}: {} [{}] in {}",
+                    member.name, member.type_name, display_unit, block.name
+                ),
+                quantity_kind: member.type_name.clone(),
+                display_unit: display_unit.to_owned(),
+                status: Some("declared".to_owned()),
+            });
+        }
+    }
 
     for domain in &report.semantic_program.domains {
         hovers.push(LspHover {
@@ -9061,6 +9203,33 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
                     column.type_name,
                     column.unit.as_deref().unwrap_or("schema-defined")
                 ),
+            );
+        }
+    }
+
+    for block in &report.semantic_program.state_space_type_blocks {
+        let role = state_space_role_label(&block.role);
+        push_completion(
+            &mut items,
+            &mut seen,
+            &block.name,
+            "class",
+            &format!("{role} vector type with {} member(s)", block.members.len()),
+        );
+        for member in &block.members {
+            let detail = format!(
+                "{role} member {} [{}] in {}",
+                member.type_name,
+                member.unit.as_deref().unwrap_or("-"),
+                block.name
+            );
+            push_completion(&mut items, &mut seen, &member.name, "property", &detail);
+            push_completion(
+                &mut items,
+                &mut seen,
+                &format!("{}.{}", block.name, member.name),
+                "property",
+                &detail,
             );
         }
     }
@@ -16115,6 +16284,144 @@ with {
             "keyword",
             "workflowStep",
         );
+    }
+
+    #[test]
+    fn snapshot_exposes_state_space_type_declarations_as_ide_symbols() {
+        let source = concat!(
+            "states RoomState {\r\n",
+            "    AbsoluteTemperature: AbsoluteTemperature [degC]\r\n",
+            "}\r\n",
+            "inputs RoomInput {\r\n",
+            "    HeatRate: HeatRate [kW]\r\n",
+            "}\r\n",
+            "outputs RoomOutput {\r\n",
+            "    Ratio: Ratio [1]\r\n",
+            "}\r\n",
+            "system StateSpaceFixture {\r\n",
+            "    state x: StateVector[RoomState] = [22 degC]\r\n",
+            "    input u: InputVector[RoomInput] = [1 kW]\r\n",
+            "    output y: OutputVector[RoomOutput]\r\n",
+            "}\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("state_space_type_symbols.eng"), source);
+        assert_no_conflicting_semantic_token_types(
+            &snapshot,
+            source,
+            "state_space_type_symbols.eng",
+        );
+        for (left_index, left) in snapshot.semantic_tokens.tokens.iter().enumerate() {
+            for right in snapshot.semantic_tokens.tokens.iter().skip(left_index + 1) {
+                if left.line != right.line {
+                    continue;
+                }
+                assert!(
+                    left.start + left.length <= right.start
+                        || right.start + right.length <= left.start,
+                    "semantic token ranges overlap on line {}: {left:?} and {right:?}",
+                    left.line + 1
+                );
+            }
+        }
+
+        let assert_occurrence = |line_needle: &str,
+                                 label: &str,
+                                 occurrence: usize,
+                                 token_type: &str,
+                                 modifier: Option<&str>| {
+            let (line_index, line) = source
+                .lines()
+                .enumerate()
+                .find(|(_, line)| line.contains(line_needle))
+                .expect("fixture line");
+            let start = line
+                .match_indices(label)
+                .nth(occurrence)
+                .map(|(start, _)| start)
+                .expect("fixture occurrence");
+            assert!(
+                snapshot.semantic_tokens.tokens.iter().any(|token| {
+                    token.line == line_index
+                        && token.start == start
+                        && token.length == label.len()
+                        && token.token_type == token_type
+                        && modifier.is_none_or(|expected| {
+                            token.modifiers.iter().any(|actual| actual == expected)
+                        })
+                }),
+                "occurrence {occurrence} of `{label}` on `{line}` should be `{token_type}` with modifier {modifier:?}"
+            );
+        };
+
+        for (line, name, role) in [
+            ("states RoomState", "RoomState", "state"),
+            ("inputs RoomInput", "RoomInput", "input"),
+            ("outputs RoomOutput", "RoomOutput", "output"),
+        ] {
+            assert_occurrence(line, name, 0, "class", Some("declaration"));
+            assert_occurrence(line, name, 0, "class", Some(role));
+            assert_occurrence(line, name, 0, "class", Some("solver"));
+        }
+        for (line, label, role, unit) in [
+            (
+                "AbsoluteTemperature: AbsoluteTemperature",
+                "AbsoluteTemperature",
+                "state",
+                "degC",
+            ),
+            ("HeatRate: HeatRate", "HeatRate", "input", "kW"),
+            ("Ratio: Ratio", "Ratio", "output", "1"),
+        ] {
+            assert_occurrence(line, label, 0, "property", Some("declaration"));
+            assert_occurrence(line, label, 0, "property", Some(role));
+            assert_occurrence(line, label, 1, "type", Some("quantity"));
+            assert_occurrence(line, unit, 0, "type", Some("unit"));
+        }
+        for (line, name) in [
+            ("StateVector[RoomState]", "RoomState"),
+            ("InputVector[RoomInput]", "RoomInput"),
+            ("OutputVector[RoomOutput]", "RoomOutput"),
+        ] {
+            assert_occurrence(line, name, 0, "type", None);
+        }
+
+        for (name, detail) in [
+            ("RoomState", "state vector type with 1 member(s)"),
+            (
+                "RoomState.AbsoluteTemperature",
+                "state member AbsoluteTemperature: AbsoluteTemperature [degC]",
+            ),
+            ("RoomInput", "input vector type with 1 member(s)"),
+            ("RoomOutput", "output vector type with 1 member(s)"),
+        ] {
+            assert!(snapshot
+                .hovers
+                .iter()
+                .any(|hover| hover.name == name && hover.detail.contains(detail)));
+        }
+        for (label, detail) in [
+            ("RoomState", "state vector type"),
+            ("RoomState.AbsoluteTemperature", "state member"),
+            ("RoomInput.HeatRate", "input member"),
+            ("RoomOutput.Ratio", "output member"),
+        ] {
+            assert!(snapshot
+                .completions
+                .iter()
+                .any(|completion| completion.label == label && completion.detail.contains(detail)));
+        }
+        for (name, detail, child) in [
+            ("RoomState", "state vector type", "AbsoluteTemperature"),
+            ("RoomInput", "input vector type", "HeatRate"),
+            ("RoomOutput", "output vector type", "Ratio"),
+        ] {
+            let symbol = snapshot
+                .document_symbols
+                .iter()
+                .find(|symbol| symbol.name == name && symbol.detail == detail)
+                .expect("state-space document symbol");
+            assert!(symbol.children.iter().any(|symbol| symbol.name == child));
+        }
     }
 
     #[test]

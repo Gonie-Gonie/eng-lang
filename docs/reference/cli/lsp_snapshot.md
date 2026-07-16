@@ -151,6 +151,7 @@ Current metadata completions are global for the file and include:
 - current typed bindings
 - function names with signature details
 - schema columns
+- state-space vector types and their bare plus `Type.member` labels
 - domain names, domain variables, component names, and `Component.port` labels.
   Generic ports include canonical labels such as `Fluid[Water]` in `detail`.
 - class names, `Class.field` labels, methods, and object member labels. Class
@@ -199,6 +200,8 @@ Current hover kinds include:
 
 ```text
 variable
+state_space_type
+state_space_member
 function
 function_local
 where_local
@@ -245,7 +248,8 @@ Component hover/completion details distinguish a `component template` from a
 `component instance of Name`. Both remain present when a source declares a template
 and constructs one or more system-local instances.
 
-Declaration tokens for schema columns, system variables and state vectors,
+Declaration tokens for schema columns, state-space type blocks and members,
+system variables and state vectors,
 domain variables, component ports, parameters, inputs and locals, class fields and
 methods, args fields, and class object bindings and fields use parser-owned source
 ranges. Same-line text search remains a compatibility fallback for symbol kinds
@@ -256,6 +260,13 @@ class, and args types; schema/class units; component-port domains; object-litera
 names; and copy-with source objects. Generic type expressions are emitted as
 separate identifier tokens, so punctuation, whitespace, and nested type arguments
 do not create overlapping semantic-token ranges.
+
+State-space blocks are user-defined type declarations. Their names receive
+`class` tokens with `state`, `input`, or `output` plus `solver`; members receive
+role-matched `property` declarations; and member type/unit tokens are restricted
+to their parser-owned ranges. `StateVector[Name]`, `InputVector[Name]`, and
+`OutputVector[Name]` references participate in definition, references, and safe
+rename without treating a same-spelled member or quantity type as the block name.
 
 Compiler symbol metadata remains the preferred hover source. When a semantic
 token has no matching symbol hover, the snapshot adds a role hover for units,
@@ -355,6 +366,9 @@ and follows the latest unsaved buffer.
 kinds, source ranges, selection ranges, details, and children. It is intended
 for outlines and breadcrumbs.
 
+Each state-space vector type is a top-level struct-like symbol whose member
+fields are nested children with role, quantity type, and unit detail.
+
 `folding_ranges` contains zero-based line ranges plus an optional `kind`
 (`comment`, `imports`, or `region`) for editor folding support.
 
@@ -380,7 +394,8 @@ Use the stdio LSP server for:
 
 `textDocument/references` always analyzes the current unsaved document and
 honors `context.includeDeclaration`. For an importable `const`, function,
-schema, class, system, domain, or component, it also searches open documents and
+schema, class, system, state-space vector type, domain, or component, it also searches open
+documents and
 saved `.eng` files under the initialized workspace roots. A candidate file is
 included only when its static file-import chain resolves the name to the same
 declaration file; unrelated same-name symbols are excluded. Open document text

@@ -223,19 +223,23 @@ pub struct StateSpaceVectorInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-struct StateSpaceTypeBlockInfo {
-    role: String,
-    name: String,
-    members: Vec<StateSpaceTypeMemberInfo>,
+pub struct StateSpaceTypeBlockInfo {
+    pub role: String,
+    pub name: String,
+    pub span: SourceSpan,
+    pub members: Vec<StateSpaceTypeMemberInfo>,
+    pub line: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-struct StateSpaceTypeMemberInfo {
-    name: String,
-    type_name: String,
-    unit: Option<String>,
-    line: usize,
-    span: crate::source::SourceSpan,
+pub struct StateSpaceTypeMemberInfo {
+    pub name: String,
+    pub type_name: String,
+    pub type_span: SourceSpan,
+    pub unit: Option<String>,
+    pub unit_span: Option<SourceSpan>,
+    pub line: usize,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -848,6 +852,7 @@ pub struct SemanticProgram {
     pub uncertainty_infos: Vec<UncertaintyInfo>,
     pub ml_infos: Vec<MlInfo>,
     pub systems: Vec<SystemInfo>,
+    pub state_space_type_blocks: Vec<StateSpaceTypeBlockInfo>,
     pub state_space_vectors: Vec<StateSpaceVectorInfo>,
     pub linear_operators: Vec<LinearOperatorInfo>,
     pub domains: Vec<DomainInfo>,
@@ -1620,6 +1625,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             uncertainty_infos,
             ml_infos,
             systems,
+            state_space_type_blocks,
             state_space_vectors,
             linear_operators,
             domains,
@@ -10923,7 +10929,9 @@ fn state_space_type_block_info(block: &StateSpaceTypeBlockDecl) -> StateSpaceTyp
     StateSpaceTypeBlockInfo {
         role: block.role.clone(),
         name: block.name.clone(),
+        span: block.name_span,
         members: Vec::new(),
+        line: block.line,
     }
 }
 
@@ -10931,7 +10939,9 @@ fn state_space_type_member_info(member: &StateSpaceTypeMemberDecl) -> StateSpace
     StateSpaceTypeMemberInfo {
         name: member.name.clone(),
         type_name: member.type_name.clone(),
+        type_span: member.type_span,
         unit: member.unit.clone(),
+        unit_span: member.unit_span,
         line: member.line,
         span: member.span,
     }

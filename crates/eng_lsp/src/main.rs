@@ -8453,6 +8453,7 @@ fn ast_importable_definition_line_for_family(
             Some(class_info.span.line)
         }
         ("type", AstItem::System(system)) if system.name == label => Some(system.span.line),
+        ("type", AstItem::StateSpaceTypeBlock(block)) if block.name == label => Some(block.line),
         ("type", AstItem::Domain(domain)) if domain.name == label => Some(domain.span.line),
         ("type", AstItem::Component(component)) if component.name == label => {
             Some(component.span.line)
@@ -9554,6 +9555,46 @@ mod tests {
         assert!(without_declaration
             .iter()
             .all(|location| location["range"]["start"]["line"] != 0));
+    }
+
+    #[test]
+    fn state_space_type_references_and_rename_follow_typed_vector_arguments() {
+        let source = concat!(
+            "states RoomState {\n",
+            "    T_air: AbsoluteTemperature [degC]\n",
+            "}\n",
+            "system Fixture {\n",
+            "    state x: StateVector[RoomState] = [22 degC]\n",
+            "}\n",
+        );
+        let reference_line = source.lines().nth(4).expect("typed vector line");
+        let character = reference_line.find("RoomState").expect("type argument");
+
+        let with_declaration = references_request(source, 4, character, true);
+        let with_declaration = with_declaration
+            .as_array()
+            .expect("state-space references should be an array");
+        assert_eq!(with_declaration.len(), 2);
+        assert_eq!(with_declaration[0]["range"]["start"]["line"], 0);
+        assert_eq!(with_declaration[1]["range"]["start"]["line"], 4);
+
+        let without_declaration = references_request(source, 4, character, false);
+        let without_declaration = without_declaration
+            .as_array()
+            .expect("state-space references without declaration should be an array");
+        assert_eq!(without_declaration.len(), 1);
+        assert_eq!(without_declaration[0]["range"]["start"]["line"], 4);
+
+        let prepared = prepare_rename_request(source, 4, character)
+            .expect("state-space type rename preparation");
+        assert_eq!(prepared["placeholder"], "RoomState");
+        let edit = rename_request(source, 4, character, "ZoneState")
+            .expect("state-space type rename edit");
+        let edits = edit["changes"]["file:///C:/workspace/rename.eng"]
+            .as_array()
+            .expect("state-space rename edits");
+        assert_eq!(edits.len(), 2);
+        assert!(edits.iter().all(|edit| edit["newText"] == "ZoneState"));
     }
 
     #[test]

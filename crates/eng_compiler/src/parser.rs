@@ -957,6 +957,7 @@ fn parse_state_space_type_block_decl(
     Some(StateSpaceTypeBlockDecl {
         role: role.to_owned(),
         name: name.clone(),
+        name_span: second.span,
         line: first.span.line,
         span: first.span,
     })
@@ -985,15 +986,23 @@ fn parse_state_space_type_member_decl(
     if !matches!(second.kind, TokenKind::Symbol(Symbol::Colon)) {
         return None;
     }
-    let raw_after_colon = line_text.split_once(':')?.1.trim().trim_end_matches(',');
-    let (type_name, unit) = split_type_and_unit(raw_after_colon);
+    let type_part = line_text
+        .split_once(':')?
+        .1
+        .trim()
+        .trim_end_matches(',')
+        .trim_end();
+    let (type_name, unit) = split_type_and_unit(type_part);
     if type_name.is_empty() {
         return None;
     }
+    let (type_span, unit_span) = type_and_unit_source_spans(first.span, line_text, type_part)?;
     Some(StateSpaceTypeMemberDecl {
         name: name.clone(),
         type_name,
+        type_span,
         unit,
+        unit_span,
         line: first.span.line,
         span: first.span,
     })

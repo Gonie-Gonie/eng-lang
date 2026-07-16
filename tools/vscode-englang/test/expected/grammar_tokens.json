@@ -3302,6 +3302,47 @@
   },
   {
     "fixture": "04_system_component.eng",
+    "scope": "entity.name.type.englang",
+    "text": "RoomState",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "entity.name.type.englang",
+    "text": "RoomInput",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "entity.name.type.englang",
+    "text": "RoomOutput",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "meta.declaration.field.englang",
+    "text": "T_air:"
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "variable.other.property.englang",
+    "text": "T_air",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "variable.other.property.englang",
+    "text": "T_out",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "variable.other.property.englang",
+    "text": "T_zone",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
     "scope": "meta.declaration.system-member.englang",
     "text": "operator A"
   },

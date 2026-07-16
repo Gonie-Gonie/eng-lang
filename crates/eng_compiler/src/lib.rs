@@ -84,8 +84,9 @@ pub use semantic::{
     ImportInfo, JacobianSeedInfo, JacobianSparsityInfo, LinearOperatorEntryInfo,
     LinearOperatorInfo, OdeRunnerInfo, PortInfo, PrintInfo, ProcessRunInfo, ResidualInfo,
     SampleDistributionInfo, SampleGenerationInfo, SemanticProgram, SemanticType, SolverPlanInfo,
-    StateSpaceVectorInfo, SystemInfo, SystemVariableInfo, TestInfo, TimeSeriesKernelInfo,
-    TypedBinding, WhereBindingInfo, WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
+    StateSpaceTypeBlockInfo, StateSpaceTypeMemberInfo, StateSpaceVectorInfo, SystemInfo,
+    SystemVariableInfo, TestInfo, TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo,
+    WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -2459,6 +2460,53 @@ pub fn review_json(report: &CheckReport) -> String {
             info.source.as_str()
         ));
         json.push_str(&format!("      \"line\": {}\n", info.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"state_space_type_blocks\": [\n");
+    for (index, block) in report
+        .semantic_program
+        .state_space_type_blocks
+        .iter()
+        .enumerate()
+    {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"role\": \"{}\",\n",
+            json_escape(&block.role)
+        ));
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&block.name)
+        ));
+        json.push_str(&format!("      \"line\": {},\n", block.line));
+        json.push_str("      \"members\": [\n");
+        for (member_index, member) in block.members.iter().enumerate() {
+            if member_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"name\": \"{}\",\n",
+                json_escape(&member.name)
+            ));
+            json.push_str(&format!(
+                "          \"type\": \"{}\",\n",
+                json_escape(&member.type_name)
+            ));
+            match &member.unit {
+                Some(unit) => {
+                    json.push_str(&format!("          \"unit\": \"{}\",\n", json_escape(unit)))
+                }
+                None => json.push_str("          \"unit\": null,\n"),
+            }
+            json.push_str(&format!("          \"line\": {}\n", member.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ]\n");
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -9034,6 +9082,87 @@ mod tests {
         for (span, expected) in ast_reference_spans {
             assert_eq!(&source[span.start..span.end], expected);
         }
+    }
+
+    #[test]
+    fn state_space_type_symbols_preserve_exact_reference_spans() {
+        let source = concat!(
+            "states RoomState {\r\n",
+            "    AbsoluteTemperature: AbsoluteTemperature [degC],\r\n",
+            "}\r\n",
+            "inputs RoomInput {\r\n",
+            "    HeatRate: TimeSeries[Time] of HeatRate [kW],\r\n",
+            "}\r\n",
+            "outputs RoomOutput {\r\n",
+            "    Ratio: Ratio [1],\r\n",
+            "}\r\n",
+        );
+        let parsed = parse_source(source);
+        let ast_blocks = parsed
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                AstItem::StateSpaceTypeBlock(block) => Some(block),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let ast_members = parsed
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                AstItem::StateSpaceTypeMember(member) => Some(member),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(ast_blocks.len(), 3);
+        assert_eq!(ast_members.len(), 3);
+        for block in &ast_blocks {
+            assert_eq!(&source[block.span.start..block.span.end], block.role);
+            assert_eq!(
+                &source[block.name_span.start..block.name_span.end],
+                block.name
+            );
+        }
+        for (member, expected_type, expected_unit) in [
+            (ast_members[0], "AbsoluteTemperature", "degC"),
+            (ast_members[1], "TimeSeries[Time] of HeatRate", "kW"),
+            (ast_members[2], "Ratio", "1"),
+        ] {
+            assert_eq!(&source[member.span.start..member.span.end], member.name);
+            assert_eq!(
+                &source[member.type_span.start..member.type_span.end],
+                expected_type
+            );
+            let unit_span = member.unit_span.expect("state-space member unit span");
+            assert_eq!(&source[unit_span.start..unit_span.end], expected_unit);
+        }
+
+        let report = check_source(
+            "state_space_type_spans.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let blocks = &report.semantic_program.state_space_type_blocks;
+        assert_eq!(blocks.len(), 3);
+        for block in blocks {
+            assert_eq!(&source[block.span.start..block.span.end], block.name);
+            for member in &block.members {
+                assert_eq!(&source[member.span.start..member.span.end], member.name);
+                assert_eq!(
+                    &source[member.type_span.start..member.type_span.end],
+                    member.type_name
+                );
+                let unit = member.unit.as_deref().expect("member unit");
+                let unit_span = member.unit_span.expect("semantic member unit span");
+                assert_eq!(&source[unit_span.start..unit_span.end], unit);
+            }
+        }
+        let json = review_json(&report);
+        assert!(json.contains("\"state_space_type_blocks\""));
+        assert!(json.contains("\"name\": \"RoomState\""));
+        assert!(json.contains("\"type\": \"TimeSeries[Time] of HeatRate\""));
     }
 
     #[test]

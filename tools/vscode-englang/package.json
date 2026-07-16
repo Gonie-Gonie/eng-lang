@@ -558,6 +558,10 @@
             "variable.other.property.englang",
             "entity.name.function.solver.englang"
           ],
+          "class.solver": [
+            "entity.name.type.englang",
+            "keyword.control.solver.englang"
+          ],
           "keyword.deprecated": [
             "keyword.control.deprecated.englang"
           ],
@@ -588,6 +592,10 @@
             "variable.other.property.englang",
             "variable.other.state.englang"
           ],
+          "class.state": [
+            "entity.name.type.englang",
+            "storage.modifier.state.englang"
+          ],
           "variable.input": [
             "storage.modifier.input.englang",
             "storage.modifier.englang",
@@ -601,12 +609,30 @@
             "storage.modifier.englang",
             "variable.other.input.englang"
           ],
+          "property.input": [
+            "variable.other.property.englang",
+            "storage.modifier.input.englang",
+            "variable.other.input.englang"
+          ],
+          "class.input": [
+            "entity.name.type.englang",
+            "storage.modifier.input.englang"
+          ],
           "variable.output": [
             "storage.modifier.output.englang",
             "storage.modifier.englang",
             "variable.other.definition.englang",
             "variable.other.property.englang",
             "variable.other.output.englang"
+          ],
+          "property.output": [
+            "variable.other.property.englang",
+            "storage.modifier.output.englang",
+            "variable.other.output.englang"
+          ],
+          "class.output": [
+            "entity.name.type.englang",
+            "storage.modifier.output.englang"
           ],
           "variable.model": [
             "entity.name.function.englang",
