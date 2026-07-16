@@ -76,6 +76,14 @@ diagnostics and editor roles can therefore target the resolved operand or
 individual malformed value without repainting a same-spelled binding or grammar
 word elsewhere in the expression or file.
 
+`UncertaintyInfo` likewise preserves the exact binding and expression spans,
+optional source span, positional values, and named argument key/value spans.
+Its top-level argument splitter respects nested calls, lists, objects, strings,
+and escapes. `E-UNC-SOURCE-*` and `E-UNC-ARGS-*` diagnostics and uncertainty
+semantic roles therefore use the constructor occurrence that owns the value;
+the separate uncertainty validation-expression diagnostics remain on their
+existing migration path.
+
 ## Semantic Analysis
 
 `semantic.rs` builds the `CheckReport`. The report carries diagnostics plus a
@@ -91,7 +99,7 @@ semantic_program.schemas
 semantic_program.state_space_type_blocks / state_space_vectors / linear_operators
 semantic_program.table_transforms
 semantic_program.net_requests / net_downloads / cache_records
-semantic_program.case_generations / render templates / model records / db records
+semantic_program.case_generations / render templates / uncertainty / model / db records
 semantic_program.reports / plots / writes / side-effect records
 ```
 

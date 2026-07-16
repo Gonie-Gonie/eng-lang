@@ -136,8 +136,12 @@ trailing `#` or `//` comments. All `E-ML-SOURCE-*` and `E-ML-ARGS-*`
 diagnostics use compiler-owned ML expression, source operand, option key/value,
 or individual feature spans. Inline named arguments and attached `with` blocks
 share this range model, and trailing option comments are excluded. The corpus
-also enforces a global non-regression ceiling of 152 diagnostics that still need
-the older range inference path.
+also requires every `E-UNC-SOURCE-*` and `E-UNC-ARGS-*` diagnostic to retain its
+uncertainty expression, source, positional value, or named value range. Nested
+constructor values and trailing comments keep their source boundaries. A global
+non-regression ceiling now permits at most 139 diagnostics that still need the
+older range inference path; separate uncertainty validation-expression codes
+remain in that migration set.
 Older diagnostics retain source-aware inference: dimensionless arithmetic
 diagnostics highlight the offending `+` or `-`, schema fast-assignment
 diagnostics highlight `=`, and file mutation diagnostics target `move` or
@@ -409,6 +413,13 @@ positions independently classified. Dotted ML operands and features emit one
 token per identifier, with `args` as a parameter, other receivers as variables,
 and member segments as properties. Command-style `apply` targets follow the same
 rule and classify the final segment as a workflow-step function.
+
+Uncertainty declarations, source operands, and named constructor arguments also
+use compiler-owned spans. Named keys are uncertain properties; distribution
+kind and propagation method values are uncertain keywords; and dotted named
+values retain parameter/receiver/property segmentation. Tokens are constrained
+to the owning argument range, so a binding named `method` or `kind` remains one
+declaration token even when the same word appears as an option key.
 
 Lexical number tokens require identifier boundaries and include valid decimal
 exponents. Operator tokens are excluded from those numbers, generated

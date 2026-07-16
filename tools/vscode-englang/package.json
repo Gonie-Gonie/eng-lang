@@ -453,6 +453,10 @@
             "constant.language.englang",
             "variable.other.definition.englang"
           ],
+          "parameter.uncertain": [
+            "constant.language.englang",
+            "variable.parameter.property.englang"
+          ],
           "function.uncertain": [
             "support.function.uncertain.englang",
             "support.function.builtin.englang",

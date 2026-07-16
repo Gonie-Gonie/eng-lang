@@ -95,7 +95,9 @@ pub use table::{
     TableSortKeyInfo, TableTransformInfo,
 };
 pub use type_info::{TypeInfo, TypeInfoSource};
-pub use uncertainty::{UncertaintyInfo, UncertaintyPropagationTerm};
+pub use uncertainty::{
+    UncertaintyInfo, UncertaintyNamedArgumentInfo, UncertaintyPropagationTerm, UncertaintyValueInfo,
+};
 pub use units::{all_unit_infos, UnitDerivation, UnitInfo};
 pub use workflow::Workflow;
 
@@ -13770,6 +13772,124 @@ write csv "outputs/q.csv", Q
         assert!(codes.contains(&"E-UNC-ARGS-001"));
         assert!(codes.contains(&"E-UNC-ARGS-002"));
         assert!(codes.contains(&"E-UNC-ARGS-003"));
+    }
+
+    #[test]
+    fn uncertainty_arguments_and_diagnostics_preserve_exact_spans() {
+        let source = concat!(
+            "note = \"😀 Q_missing sensor_value abc quadratic triangular\"\r\n",
+            "Q_total_unc = propagate(Q_missing, method=linear, samples=16) # ignored\r\n",
+            "T_bad = measured(sensor_value, std=abc) // ignored\r\n",
+            "Q_bad_dist = normal(mean=5 kW, std=-0.8 kW, samples=0)\r\n",
+            "Q_bad_uniform = uniform(0.7 kW, 0.3 kW, samples=abc)\r\n",
+            "Q_source = normal(mean=4 kW, std=0.4 kW, samples=9)\r\n",
+            "Q_bad_prop = propagate(Q_source, method=quadratic, scale=abc)\r\n",
+            "Q_bad_distribution = distribution(kind=triangular, mean=5 kW, std=0.2 kW)\r\n",
+            "arg_distribution = normal(args.cooling_mean, std=args.cooling_std)\r\n",
+            "nested_distribution = normal(mean=coalesce(5 kW, 6 kW), std=0.2 kW, samples=9) # ignored\r\n",
+        );
+        let report = check_source(
+            "uncertainty_argument_spans.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        let span_text = |span: SourceSpan| &source[span.start..span.end];
+
+        let propagated = report
+            .semantic_program
+            .uncertainty_infos
+            .iter()
+            .find(|info| info.binding == "Q_bad_prop")
+            .expect("propagated uncertainty info");
+        assert_eq!(span_text(propagated.binding_span), "Q_bad_prop");
+        assert_eq!(
+            span_text(propagated.expression_span),
+            "propagate(Q_source, method=quadratic, scale=abc)"
+        );
+        assert_eq!(
+            propagated
+                .positional_arguments
+                .iter()
+                .map(|argument| span_text(argument.span))
+                .collect::<Vec<_>>(),
+            vec!["Q_source"]
+        );
+        assert_eq!(
+            propagated
+                .named_arguments
+                .iter()
+                .map(|argument| (span_text(argument.key_span), span_text(argument.value_span)))
+                .collect::<Vec<_>>(),
+            vec![("method", "quadratic"), ("scale", "abc")]
+        );
+        assert_eq!(propagated.source_span.map(span_text), Some("Q_source"));
+
+        let nested = report
+            .semantic_program
+            .uncertainty_infos
+            .iter()
+            .find(|info| info.binding == "nested_distribution")
+            .expect("nested uncertainty info");
+        assert_eq!(
+            nested
+                .named_arguments
+                .iter()
+                .map(|argument| (span_text(argument.key_span), span_text(argument.value_span)))
+                .collect::<Vec<_>>(),
+            vec![
+                ("mean", "coalesce(5 kW, 6 kW)"),
+                ("std", "0.2 kW"),
+                ("samples", "9"),
+            ]
+        );
+
+        let diagnostic_span = |code: &str, message_fragment: &str, line: usize| {
+            report
+                .diagnostics
+                .iter()
+                .find(|diagnostic| {
+                    diagnostic.code == code
+                        && diagnostic.line == line
+                        && diagnostic.message.contains(message_fragment)
+                })
+                .unwrap_or_else(|| {
+                    panic!("missing {code} diagnostic containing {message_fragment}")
+                })
+                .source_span
+                .expect("compiler-owned uncertainty diagnostic span")
+        };
+        for (code, message, line, expected) in [
+            ("E-UNC-SOURCE-001", "Q_missing", 2, "Q_missing"),
+            ("E-UNC-ARGS-001", "numeric measured", 3, "sensor_value"),
+            ("E-UNC-ARGS-001", "standard deviation", 3, "abc"),
+            ("E-UNC-ARGS-002", "non-negative", 4, "-0.8 kW"),
+            ("E-UNC-ARGS-002", "sample count", 4, "0"),
+            ("E-UNC-ARGS-002", "lower bound", 5, "0.7 kW"),
+            ("E-UNC-ARGS-002", "sample count", 5, "abc"),
+            ("E-UNC-ARGS-003", "propagation method", 7, "quadratic"),
+            ("E-UNC-ARGS-002", "scale/gain", 7, "abc"),
+            ("E-UNC-ARGS-003", "distribution", 8, "triangular"),
+            ("E-UNC-ARGS-001", "numeric `mean`", 9, "args.cooling_mean"),
+            (
+                "E-UNC-ARGS-001",
+                "standard deviation",
+                9,
+                "args.cooling_std",
+            ),
+            (
+                "E-UNC-ARGS-001",
+                "numeric `mean`",
+                10,
+                "coalesce(5 kW, 6 kW)",
+            ),
+        ] {
+            assert_eq!(span_text(diagnostic_span(code, message, line)), expected);
+        }
+        assert!(report
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code.starts_with("E-UNC-"))
+            .all(|diagnostic| diagnostic.source_span.is_some()));
     }
 
     #[test]

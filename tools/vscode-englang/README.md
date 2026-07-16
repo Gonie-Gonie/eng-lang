@@ -339,6 +339,12 @@ spans, and every feature path has its own range. Problems therefore underline
 the malformed ML value or feature itself, while option semantic colors do not
 repaint a binding declaration named `target` or `algorithm`. Trailing option
 comments are outside both Problems and highlight ranges.
+Uncertainty constructors now preserve exact positional, source, and named
+key/value ranges too. `E-UNC-SOURCE-*` and `E-UNC-ARGS-*` Problems underline the
+owning source or malformed value, including a nested call, while source paths,
+option keys, distribution/method literals, and dotted option values receive
+role-aware uncertainty colors only inside that argument. A declaration named
+`method` or `kind` is therefore not repainted by its same-spelled option key.
 Unquoted dotted imports remain one namespace token, so `eng.stats` does not
 compete with shorter variable/property overlays.
 Numeric fallback also respects identifier boundaries: percentile helpers,

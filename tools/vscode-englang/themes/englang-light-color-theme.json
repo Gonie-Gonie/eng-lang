@@ -285,6 +285,7 @@
     "function.timeseries": "#3A8F3F",
     "keyword.timeseries": "#207245",
     "variable.uncertain": "#5E35B1",
+    "parameter.uncertain": "#7F3FBF",
     "function.uncertain": "#9C1FA8",
     "keyword.uncertain": "#6F42C1",
     "property.uncertain": "#8E24AA",

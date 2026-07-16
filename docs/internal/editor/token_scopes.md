@@ -444,6 +444,16 @@ variable, and following segments are properties. Dotted command-style `apply`
 targets use the same segmentation with the terminal segment classified as a
 workflow-step function.
 
+Uncertainty constructors use the same source-owned policy. The declaration uses
+`UncertaintyInfo.binding_span`; `ensemble` and `propagate` sources use the exact
+positional source span; named keys are `property.uncertain`; and `kind`,
+`distribution`, and `method` values are `keyword.uncertain`. Dotted named values
+are segmented into parameter/receiver/property roles only within their value
+span. Repeating `method`, `kind`, or a source name elsewhere on the line cannot
+repaint the declaration or another argument. `E-UNC-SOURCE-*` and
+`E-UNC-ARGS-*` Problems ranges consume these compiler spans, including a whole
+nested value such as `coalesce(5 kW, 6 kW)`.
+
 Lexical numbers require identifier boundaries and consume a valid decimal
 exponent as part of the same token. Names and literals such as `p95`, `rk4`,
 `expected_sha256`, and `case_001` therefore do not acquire nested number colors.
@@ -488,7 +498,7 @@ from generic fallback colors. Important pairings:
 | `parameter.declaration` | Function and args parameter declarations. |
 | `variable.axis`, `property.axis` | Axis/workflow-step emphasis. |
 | `type.timeseries`, `variable.timeseries`, `property.timeseries`, `function.timeseries` | TimeSeries type, value, and statistic helper emphasis. |
-| `variable.uncertain`, `function.uncertain`, `property.uncertain`, `keyword.uncertain` | Uncertainty values, functions, properties, and block introducers. |
+| `variable.uncertain`, `parameter.uncertain`, `function.uncertain`, `property.uncertain`, `keyword.uncertain` | Uncertainty values, dotted argument roots, functions, properties, and block introducers. |
 | `keyword.defaultLibrary`, `function.defaultLibrary`, `namespace.defaultLibrary` | Built-in command-style keywords, helper functions, and modules. |
 | `keyword.imported`, `namespace.imported`, `namespace.riskMedium` | Import statement keywords, user-imported module namespaces, and review-risk module dependencies. |
 | `function.sideEffect`, `keyword.sideEffect`, `variable.sideEffect` | Side-effect operations and bindings. |

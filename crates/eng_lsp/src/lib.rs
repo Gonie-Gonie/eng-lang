@@ -2684,12 +2684,54 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for uncertainty in &program.uncertainty_infos {
-        builder.push_on_line(
-            uncertainty.line,
+        builder.push_named_span(
+            uncertainty.binding_span,
             &uncertainty.binding,
             "variable",
             &["declaration", "uncertain"],
         );
+        if matches!(
+            uncertainty.distribution.as_deref(),
+            Some("ensemble" | "propagated")
+        ) {
+            if let (Some(source), Some(source_span)) =
+                (&uncertainty.source, uncertainty.source_span)
+            {
+                builder.push_preferred_identifier_path_span(
+                    source_span,
+                    source,
+                    None,
+                    &["uncertain"],
+                );
+            }
+        }
+        for argument in &uncertainty.named_arguments {
+            builder.push_named_span(
+                argument.key_span,
+                &argument.name,
+                "property",
+                &["uncertain"],
+            );
+            let name = argument.name.to_ascii_lowercase();
+            let unquoted_value = argument.value.trim().trim_matches('"');
+            if matches!(name.as_str(), "kind" | "distribution" | "method")
+                && is_simple_identifier_segment(unquoted_value)
+            {
+                builder.push_within_span(
+                    argument.value_span,
+                    unquoted_value,
+                    "keyword",
+                    &["uncertain"],
+                );
+            } else if is_simple_identifier_path(&argument.value) {
+                builder.push_preferred_identifier_path_span(
+                    argument.value_span,
+                    &argument.value,
+                    None,
+                    &["uncertain"],
+                );
+            }
+        }
     }
 
     for ml in &program.ml_infos {
@@ -4025,8 +4067,8 @@ fn add_review_risk_semantic_tokens(report: &CheckReport, builder: &mut SemanticT
         if let Some(modifier) =
             review_risk_modifier(classify_review_risk("uncertainty", "info").level)
         {
-            builder.push_on_line(
-                uncertainty.line,
+            builder.push_named_span(
+                uncertainty.binding_span,
                 &uncertainty.binding,
                 "variable",
                 &[modifier],
@@ -11715,6 +11757,54 @@ mod tests {
     }
 
     #[test]
+    fn uncertainty_argument_fixture_diagnostics_keep_compiler_owned_ranges() {
+        let repo_root = repo_root_for_tests();
+        let mut files = BTreeSet::new();
+        for relative in [
+            "examples",
+            "tests/diagnostics",
+            "tools/vscode-englang/test/grammar-fixtures",
+        ] {
+            files.extend(eng_files_under(&repo_root.join(relative)));
+        }
+
+        let mut observed = 0usize;
+        let mut missing = Vec::new();
+        for path in files {
+            let source = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            let report = check_source(&path, &source, &CheckOptions::default());
+            let lines = source_lines(&source);
+            for diagnostic in report.diagnostics.iter().filter(|diagnostic| {
+                diagnostic.code.starts_with("E-UNC-ARGS-")
+                    || diagnostic.code.starts_with("E-UNC-SOURCE-")
+            }) {
+                observed += 1;
+                let line_index = line_index_from_one_based(&lines, diagnostic.line);
+                let line = lines.get(line_index).copied().unwrap_or_default();
+                if compiler_diagnostic_byte_range(line, diagnostic).is_none() {
+                    missing.push(format!(
+                        "{}:{} {}",
+                        path.strip_prefix(&repo_root).unwrap_or(&path).display(),
+                        diagnostic.line,
+                        diagnostic.code
+                    ));
+                }
+            }
+        }
+
+        assert!(
+            observed >= 13,
+            "uncertainty argument diagnostic corpus unexpectedly shrank to {observed} item(s)"
+        );
+        assert!(
+            missing.is_empty(),
+            "uncertainty argument diagnostics missing valid compiler ranges: {}",
+            missing.join(", ")
+        );
+    }
+
+    #[test]
     fn diagnostic_corpus_compiler_range_coverage_does_not_regress() {
         let repo_root = repo_root_for_tests();
         let mut files = BTreeSet::new();
@@ -11751,7 +11841,7 @@ mod tests {
             fallback.len()
         );
         assert!(
-            fallback.len() <= 152,
+            fallback.len() <= 139,
             "compiler-owned diagnostic range coverage regressed to {} fallback item(s): {}",
             fallback.len(),
             fallback.join(", ")
@@ -14009,6 +14099,63 @@ print "done"
         assert_eq!(
             underline("E-ML-SOURCE-001", "Q_attached_target").0,
             "Q_attached_target"
+        );
+    }
+
+    #[test]
+    fn uncertainty_diagnostics_use_compiler_owned_argument_ranges() {
+        let source = concat!(
+            "note = \"😀 Q_missing sensor_value abc quadratic triangular\"\r\n",
+            "Q_total_unc = propagate(Q_missing, method=linear, samples=16) # ignored\r\n",
+            "T_bad = measured(sensor_value, std=abc) // ignored\r\n",
+            "Q_bad_dist = normal(mean=5 kW, std=-0.8 kW, samples=0)\r\n",
+            "Q_bad_uniform = uniform(0.7 kW, 0.3 kW, samples=abc)\r\n",
+            "Q_source = normal(mean=4 kW, std=0.4 kW, samples=9)\r\n",
+            "Q_bad_prop = propagate(Q_source, method=quadratic, scale=abc)\r\n",
+            "Q_bad_distribution = distribution(kind=triangular, mean=5 kW, std=0.2 kW)\r\n",
+            "arg_distribution = normal(args.cooling_mean, std=args.cooling_std)\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("uncertainty_diagnostic_ranges.eng"), source);
+        let underline = |code: &str, message: &str| {
+            let diagnostic = snapshot
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code && diagnostic.message.contains(message))
+                .unwrap_or_else(|| panic!("missing {code} diagnostic containing {message}"));
+            let line = source
+                .lines()
+                .nth(diagnostic.line - 1)
+                .expect("diagnostic source line");
+            line[diagnostic.start_character..diagnostic.end_character].to_owned()
+        };
+
+        for (code, message, expected) in [
+            ("E-UNC-SOURCE-001", "Q_missing", "Q_missing"),
+            ("E-UNC-ARGS-001", "numeric measured", "sensor_value"),
+            ("E-UNC-ARGS-002", "non-negative", "-0.8 kW"),
+            ("E-UNC-ARGS-002", "sample count `0`", "0"),
+            ("E-UNC-ARGS-002", "lower bound", "0.7 kW"),
+            ("E-UNC-ARGS-002", "sample count `abc`", "abc"),
+            ("E-UNC-ARGS-003", "propagation method", "quadratic"),
+            ("E-UNC-ARGS-002", "scale/gain", "abc"),
+            ("E-UNC-ARGS-003", "distribution", "triangular"),
+            ("E-UNC-ARGS-001", "numeric `mean`", "args.cooling_mean"),
+        ] {
+            assert_eq!(underline(code, message), expected);
+        }
+        let dynamic_std = snapshot
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                diagnostic.code == "E-UNC-ARGS-001"
+                    && diagnostic.message.contains("standard deviation")
+            })
+            .find(|diagnostic| diagnostic.line == 9)
+            .expect("dynamic uncertainty std diagnostic");
+        let line = source.lines().nth(8).expect("dynamic source line");
+        assert_eq!(
+            &line[dynamic_std.start_character..dynamic_std.end_character],
+            "args.cooling_std"
         );
     }
 
@@ -17681,6 +17828,112 @@ with {
             );
         }
         assert_no_semantic_token_overlaps(&snapshot, "ml_argument_token_spans.eng");
+    }
+
+    #[test]
+    fn uncertainty_argument_tokens_do_not_repaint_repeated_binding_names() {
+        let source = concat!(
+            "note = \"😀 method kind Q_source quadratic triangular\"\r\n",
+            "Q_source = normal(mean=4 kW, std=0.4 kW, samples=9)\r\n",
+            "method = propagate(Q_source, method=quadratic, scale=args.scale)\r\n",
+            "kind = distribution(kind=triangular, mean=args.cooling_mean, std=args.cooling_std)\r\n",
+        );
+        let snapshot =
+            snapshot_for_source(Path::new("uncertainty_argument_token_spans.eng"), source);
+
+        for (line_text, binding) in [
+            (
+                "method = propagate(Q_source, method=quadratic, scale=args.scale)",
+                "method",
+            ),
+            (
+                "kind = distribution(kind=triangular, mean=args.cooling_mean, std=args.cooling_std)",
+                "kind",
+            ),
+        ] {
+            let line = source
+                .lines()
+                .position(|line| line == line_text)
+                .expect("uncertainty binding line");
+            let tokens = snapshot
+                .semantic_tokens
+                .tokens
+                .iter()
+                .filter(|token| {
+                    token.line == line && token.start == 0 && token.length == utf16_len(binding)
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(
+                tokens.len(),
+                1,
+                "binding token should be atomic: {tokens:#?}"
+            );
+            assert_eq!(tokens[0].token_type, "variable");
+            assert!(tokens[0]
+                .modifiers
+                .iter()
+                .any(|modifier| modifier == "declaration"));
+            assert!(tokens[0]
+                .modifiers
+                .iter()
+                .any(|modifier| modifier == "uncertain"));
+        }
+
+        for (line_text, label) in [
+            (
+                "method = propagate(Q_source, method=quadratic, scale=args.scale)",
+                "method",
+            ),
+            (
+                "kind = distribution(kind=triangular, mean=args.cooling_mean, std=args.cooling_std)",
+                "kind",
+            ),
+        ] {
+            let line_index = source
+                .lines()
+                .position(|line| line == line_text)
+                .expect("uncertainty argument line");
+            let byte_start = line_text.rfind(label).expect("repeated argument key");
+            let start = utf16_len(&line_text[..byte_start]);
+            let token = snapshot
+                .semantic_tokens
+                .tokens
+                .iter()
+                .find(|token| {
+                    token.line == line_index
+                        && token.start == start
+                        && token.length == utf16_len(label)
+                })
+                .expect("exact uncertainty argument key token");
+            assert_eq!(token.token_type, "property");
+            assert!(token
+                .modifiers
+                .iter()
+                .any(|modifier| modifier == "uncertain"));
+        }
+
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "method = propagate",
+            "Q_source",
+            "variable",
+            "uncertain",
+        );
+        for (line, value) in [
+            ("method = propagate", "quadratic"),
+            ("kind = distribution", "triangular"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                value,
+                "keyword",
+                "uncertain",
+            );
+        }
+        assert_no_semantic_token_overlaps(&snapshot, "uncertainty_argument_token_spans.eng");
     }
 
     #[test]
