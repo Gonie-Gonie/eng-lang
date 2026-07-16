@@ -1,6 +1,9 @@
 const vscode = require("vscode");
 
+const MAX_SEMANTIC_TOKEN_MODIFIERS = 31;
+
 function createSemanticLegend(tokenTypes, tokenModifiers) {
+  assertSemanticModifierCapacity(tokenModifiers);
   return new vscode.SemanticTokensLegend(tokenTypes, tokenModifiers);
 }
 
@@ -24,6 +27,7 @@ function semanticTokensFromSnapshot(snapshot, semanticLegend, tokenTypes, tokenM
 }
 
 function semanticModifierBits(modifiers, tokenModifiers) {
+  assertSemanticModifierCapacity(tokenModifiers);
   let bits = 0;
   for (const modifier of modifiers) {
     const index = tokenModifiers.indexOf(modifier);
@@ -32,6 +36,14 @@ function semanticModifierBits(modifiers, tokenModifiers) {
     }
   }
   return bits;
+}
+
+function assertSemanticModifierCapacity(tokenModifiers) {
+  if (!Array.isArray(tokenModifiers) || tokenModifiers.length > MAX_SEMANTIC_TOKEN_MODIFIERS) {
+    throw new Error(
+      `EngLang semantic token legend supports at most ${MAX_SEMANTIC_TOKEN_MODIFIERS} modifiers`
+    );
+  }
 }
 
 function semanticTokenRange(document, token) {
@@ -135,8 +147,10 @@ function addSemanticTokenDebugSample(samplesByKey, key, sample) {
 }
 
 module.exports = {
+  MAX_SEMANTIC_TOKEN_MODIFIERS,
   addSemanticTokenDebugSample,
   createSemanticLegend,
+  semanticModifierBits,
   semanticTokenDebugSample,
   semanticTokenFallbackScopes,
   semanticTokenRange,

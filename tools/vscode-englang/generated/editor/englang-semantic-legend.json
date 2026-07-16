@@ -5,7 +5,6 @@
                                                           "declaration",
                                                           "definition",
                                                           "readonly",
-                                                          "static",
                                                           "local",
                                                           "imported",
                                                           "defaultLibrary",

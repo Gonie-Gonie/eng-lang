@@ -280,17 +280,23 @@ method, keyword, modifier, string, number, operator, comment
 The current semantic modifiers are:
 
 ```text
-declaration, definition, readonly, static, local, imported, defaultLibrary,
-deprecated, documentation, unit, quantity, axis, timeseries, uncertain, sideEffect, external,
+declaration, definition, readonly, local, imported, defaultLibrary, deprecated, documentation,
+unit, quantity, axis, timeseries, uncertain, sideEffect, external,
 validation, report, solver, planned, internal, riskHigh, riskMedium, state,
 input, output, model, db, cache, workflowStep, path, temporal
 ```
+
+The LSP modifier stream is limited to 31 entries so every modifier fits the
+protocol's non-negative integer bitset. Function definitions may carry both
+`declaration` and `definition`; the language does not emit a separate
+static/class-level semantic role. Keep this list at or below 31 entries and use
+token types or an existing role when a new distinction does not need its own
+independently themeable bit.
 
 Modifier meanings:
 
 | Modifier | Meaning |
 | --- | --- |
-| `static` | Static-like or class-level roles when the compiler emits the standard VS Code modifier. |
 | `unit` | Unit symbols or unit-typed values. |
 | `quantity` | Quantity types and quantity-bearing values. |
 | `axis` | Time axes and aligned axis metadata. |
@@ -364,12 +370,12 @@ from generic fallback colors. Important pairings:
 | `function`, `function.declaration`, `function.definition`, `method`, `method.declaration` | User-defined function and method calls plus declaration names. |
 | `function.report` | Report helper functions when emitted as semantic function tokens. |
 | `keyword`, `keyword.declaration`, `keyword.local` | General workflow keywords, declaration keywords, schema-index modifier fallbacks, local keyword-like roles, and block-opener semantic fallbacks. |
-| `modifier`, `modifier.static` | Modifier-like role tokens, schema indexes, and static modifier fallbacks. |
+| `modifier` | Modifier-like role tokens and schema indexes. |
 | `namespace`, `namespace.declaration` | Imported or declared module namespaces. |
 | `number` | Numeric literals. |
 | `parameter`, `parameter.readonly` | Function parameters, args-like parameters, and read-only parameter roles. |
 | `property`, `property.declaration`, `property.readonly` | Property paths, declared schema/class/system fields, and read-only property roles. |
-| `variable`, `variable.local`, `variable.declaration`, `variable.defaultLibrary`, `variable.readonly`, `variable.deprecated`, `variable.static` | Plain variables, local references, declared bindings, bundled value symbols, read-only constants, deprecated variables, and static-like values. |
+| `variable`, `variable.local`, `variable.declaration`, `variable.defaultLibrary`, `variable.readonly`, `variable.deprecated` | Plain variables, local references, declared bindings, bundled value symbols, read-only constants, and deprecated variables. |
 | `type.unit`, `property.unit` | Unit literal and type coloring. |
 | `variable.quantity`, `property.quantity`, `parameter.quantity` | Quantity-bearing values and properties. |
 | `parameter.declaration` | Function and args parameter declarations. |
@@ -396,7 +402,7 @@ from generic fallback colors. Important pairings:
 | `variable.riskHigh`, `variable.riskMedium` | Review-risk fallbacks. |
 | `variable.planned`, `variable.internal`, `namespace.planned`, `namespace.internal` | Planned/internal symbol visibility. |
 
-Base semantic selectors observed in LSP snapshots must keep fallback scopes even when a more specific modifier selector also exists. The package fallback map must also cover every token type and at least one selector for every modifier in the generated LSP legend, including standard modifiers such as `static` before they become common in emitted tokens. Keyword semantic selectors that represent command-style builtins, clause words, or option values must keep conventional keyword, operator, and constant fallbacks. In particular, `keyword.defaultLibrary` covers compiler-owned command words such as `sample`, `filter`, and `train`, `keyword.solver` covers solver command words plus clause words such as `over` and solver method literals such as `fixed_step`, `keyword.db` and `keyword.cache` keep DB/cache command words, clause words, and status literals on conventional keyword/operator/constant fallbacks, while `keyword.workflowStep` covers workflow words such as `read`, clause words such as `by`/`with`/`to`, validation-adjacent words such as `missing`, constants such as `asc`/`desc` and `true`/`false`, and builtin sampling methods such as `lhs`.
+Base semantic selectors observed in LSP snapshots must keep fallback scopes even when a more specific modifier selector also exists. The package fallback map must also cover every token type and at least one selector for every modifier in the generated LSP legend; selectors for modifiers outside that legend are stale and must be removed. Keyword semantic selectors that represent command-style builtins, clause words, or option values must keep conventional keyword, operator, and constant fallbacks. In particular, `keyword.defaultLibrary` covers compiler-owned command words such as `sample`, `filter`, and `train`, `keyword.solver` covers solver command words plus clause words such as `over` and solver method literals such as `fixed_step`, `keyword.db` and `keyword.cache` keep DB/cache command words, clause words, and status literals on conventional keyword/operator/constant fallbacks, while `keyword.workflowStep` covers workflow words such as `read`, clause words such as `by`/`with`/`to`, validation-adjacent words such as `missing`, constants such as `asc`/`desc` and `true`/`false`, and builtin sampling methods such as `lhs`.
 
 VS Code also applies a token-range dotted underline decoration for semantic
 tokens carrying `planned` or `internal`. Current namespace coverage includes

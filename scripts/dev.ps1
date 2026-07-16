@@ -3761,6 +3761,7 @@ function Assert-VscodeExtensionContract {
     $EditorRequestRaceTestPath = Join-Path $ExtensionRoot "test\editorRequestRace.test.js"
     $RenameTestPath = Join-Path $ExtensionRoot "test\rename.test.js"
     $WorkspaceSymbolsTestPath = Join-Path $ExtensionRoot "test\workspaceSymbols.test.js"
+    $SemanticModifierBitsetTestPath = Join-Path $ExtensionRoot "test\semanticModifierBitset.test.js"
     $TextMateExampleCoverageTestPath = Join-Path $ExtensionRoot "test\textmateExampleCoverage.test.js"
     $SnippetsPath = Join-Path $ExtensionRoot "snippets\eng.json"
     $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
@@ -3889,6 +3890,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $WorkspaceSymbolsTestPath)) {
         throw "missing VS Code unsaved workspace symbol smoke at $WorkspaceSymbolsTestPath"
+    }
+    if (-not (Test-Path $SemanticModifierBitsetTestPath)) {
+        throw "missing VS Code semantic modifier bitset smoke at $SemanticModifierBitsetTestPath"
     }
     if (-not (Test-Path $TextMateExampleCoverageTestPath)) {
         throw "missing VS Code TextMate example coverage smoke at $TextMateExampleCoverageTestPath"
@@ -4497,12 +4501,12 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension missing englang semantic token scope mappings"
     }
     foreach ($RequiredTokenScope in @(
-        "type", "type.static", "class.declaration", "class.defaultLibrary", "class.static", "comment", "comment.documentation",
-        "function", "function.static", "interface", "interface.static", "method", "method.declaration", "method.static", "namespace", "namespace.static", "variable.local", "function.declaration",
+        "type", "class.declaration", "class.defaultLibrary", "comment", "comment.documentation",
+        "function", "interface", "method", "method.declaration", "namespace", "variable.local", "function.declaration",
         "function.definition", "function.report", "interface.declaration", "interface.defaultLibrary",
-        "keyword", "keyword.declaration", "keyword.state", "keyword.input", "keyword.output", "keyword.local", "keyword.static", "modifier", "modifier.static", "namespace.declaration", "number",
-        "parameter", "parameter.readonly", "parameter.static", "property", "property.declaration", "property.readonly", "property.static", "variable",
-        "variable.declaration", "variable.defaultLibrary", "variable.readonly", "variable.deprecated", "variable.static",
+        "keyword", "keyword.declaration", "keyword.state", "keyword.input", "keyword.output", "keyword.local", "modifier", "namespace.declaration", "number",
+        "parameter", "parameter.readonly", "property", "property.declaration", "property.readonly", "variable",
+        "variable.declaration", "variable.defaultLibrary", "variable.readonly", "variable.deprecated",
         "type.unit", "type.quantity", "property.unit", "variable.quantity", "function.external",
         "method.sideEffect", "property.sideEffect", "variable.validation", "variable.report",
         "keyword.sideEffect", "keyword.external", "keyword.validation",
@@ -4521,6 +4525,10 @@ function Assert-VscodeExtensionContract {
         if ($null -eq $ScopeProperty -or @($ScopeProperty.Value).Count -eq 0) {
             throw "VS Code extension missing semantic token scope mapping $RequiredTokenScope"
         }
+    }
+    $StaticSemanticSelectors = @($SemanticScopeRule.scopes.PSObject.Properties.Name | Where-Object { $_ -like "*.static" })
+    if ($StaticSemanticSelectors.Count -gt 0) {
+        throw "VS Code extension must not keep static semantic selectors when the LSP legend does not emit static: $($StaticSemanticSelectors -join ', ')"
     }
     $SemanticFallbackScopes = $SemanticScopeRule.scopes.PSObject.Properties |
         ForEach-Object { @($_.Value) } |
@@ -4674,15 +4682,6 @@ function Assert-VscodeExtensionContract {
             "variable.other.output.englang"
         )
         "modifier" = @(
-            "storage.modifier.englang",
-            "storage.modifier.state.englang",
-            "storage.modifier.input.englang",
-            "storage.modifier.parameter.englang",
-            "storage.modifier.output.englang",
-            "storage.modifier.operator.englang",
-            "storage.modifier.schema.englang"
-        )
-        "modifier.static" = @(
             "storage.modifier.englang",
             "storage.modifier.state.englang",
             "storage.modifier.input.englang",
@@ -6999,6 +6998,13 @@ function Assert-VscodeExtensionContract {
     $LspSemanticModifiers = Read-RustStringSliceConst -Source $LspSource -Name "SEMANTIC_TOKEN_MODIFIERS"
     Assert-SameStringSequence -Left $GeneratedSemanticTypes -Right $LspSemanticTypes -Description "VS Code generated/LSP semantic token types"
     Assert-SameStringSequence -Left $GeneratedSemanticModifiers -Right $LspSemanticModifiers -Description "VS Code generated/LSP semantic token modifiers"
+    $MaxSemanticTokenModifiers = 31
+    if ($LspSemanticModifiers.Count -gt $MaxSemanticTokenModifiers) {
+        throw "LSP semantic token legend has $($LspSemanticModifiers.Count) modifiers; the protocol bitset supports at most $MaxSemanticTokenModifiers"
+    }
+    if (@($LspSemanticModifiers | Select-Object -Unique).Count -ne $LspSemanticModifiers.Count) {
+        throw "LSP semantic token legend must not contain duplicate modifiers"
+    }
     $StandardSemanticModifiers = @("declaration", "definition", "readonly", "static", "local", "imported", "defaultLibrary", "deprecated", "documentation")
     foreach ($Modifier in $LspSemanticModifiers) {
         if ($StandardSemanticModifiers -notcontains $Modifier -and $SemanticModifiers -notcontains $Modifier) {
@@ -7041,6 +7047,7 @@ function Assert-VscodeExtensionContract {
         $EditorRequestRaceTestPath,
         $RenameTestPath,
         $WorkspaceSymbolsTestPath,
+        $SemanticModifierBitsetTestPath,
         $TextMateExampleCoverageTestPath
     )
     Invoke-JavaScriptSyntaxCheck -Paths $VscodeJavaScriptPaths -Label "VS Code extension"
@@ -7054,6 +7061,7 @@ function Assert-VscodeExtensionContract {
     Invoke-JavaScriptProgram -Path $EditorRequestRaceTestPath -Label "VS Code editor request race smoke"
     Invoke-JavaScriptProgram -Path $RenameTestPath -Label "VS Code semantic rename smoke"
     Invoke-JavaScriptProgram -Path $WorkspaceSymbolsTestPath -Label "VS Code unsaved workspace symbol smoke"
+    Invoke-JavaScriptProgram -Path $SemanticModifierBitsetTestPath -Label "VS Code semantic modifier bitset smoke"
     Invoke-JavaScriptProgram -Path $TextMateExampleCoverageTestPath -Label "VS Code TextMate example coverage smoke"
 
     Write-Host "VS Code extension contract check passed."
@@ -7931,6 +7939,9 @@ function Invoke-IdeCheck {
         if (-not $IdeUiStyles.Contains($ModifierStyle)) {
             throw "Native IDE CSS missing semantic modifier style $ModifierStyle"
         }
+    }
+    if ($IdeUiStyles.Contains(".hl-mod-static")) {
+        throw "Native IDE CSS must not keep a static modifier style when the LSP legend does not emit static"
     }
     foreach ($DocumentHighlightStyle in @(".hl-reference", ".hl-reference-read", ".hl-reference-write")) {
         if (-not $IdeUiStyles.Contains($DocumentHighlightStyle)) {

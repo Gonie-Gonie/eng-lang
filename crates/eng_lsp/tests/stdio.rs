@@ -116,6 +116,18 @@ fn stdio_server_round_trips_core_lsp_requests() {
         initialize["result"]["capabilities"]["semanticTokensProvider"]["range"],
         true
     );
+    let semantic_token_modifiers = initialize["result"]["capabilities"]["semanticTokensProvider"]
+        ["legend"]["tokenModifiers"]
+        .as_array()
+        .expect("semantic token modifiers should be advertised");
+    assert!(semantic_token_modifiers.len() <= 31);
+    assert!(!semantic_token_modifiers
+        .iter()
+        .any(|modifier| modifier == "static"));
+    assert!(semantic_token_modifiers
+        .iter()
+        .any(|modifier| modifier == "definition"));
+    assert_eq!(semantic_token_modifiers.last().unwrap(), "temporal");
     assert!(
         initialize["result"]["capabilities"]["semanticTokensProvider"]["legend"]["tokenTypes"]
             .as_array()
@@ -356,6 +368,11 @@ fn stdio_server_round_trips_core_lsp_requests() {
         .map(|value| value.as_u64().unwrap() as usize)
         .collect::<Vec<_>>();
     assert!(semantic_token_data.len() > 5);
+    assert!(semantic_token_data
+        .iter()
+        .skip(4)
+        .step_by(5)
+        .all(|modifier_bits| *modifier_bits <= i32::MAX as usize));
     let semantic_result_id = semantic_tokens["result"]["resultId"]
         .as_str()
         .expect("full semantic tokens should include a result ID")

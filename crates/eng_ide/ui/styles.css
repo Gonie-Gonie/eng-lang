@@ -1332,12 +1332,6 @@ button:hover {
   font-style: italic;
 }
 
-.hl-mod-static {
-  text-decoration: overline;
-  text-decoration-color: rgba(75, 85, 99, 0.55);
-  text-decoration-thickness: 1px;
-}
-
 .hl-mod-local {
   color: #374151;
 }

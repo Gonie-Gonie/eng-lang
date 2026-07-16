@@ -129,7 +129,6 @@ pub const SEMANTIC_TOKEN_MODIFIERS: &[&str] = &[
     "declaration",
     "definition",
     "readonly",
-    "static",
     "local",
     "imported",
     "defaultLibrary",
@@ -159,6 +158,9 @@ pub const SEMANTIC_TOKEN_MODIFIERS: &[&str] = &[
     "path",
     "temporal",
 ];
+
+pub const MAX_LSP_SEMANTIC_TOKEN_MODIFIERS: usize = 31;
+const _: () = assert!(SEMANTIC_TOKEN_MODIFIERS.len() <= MAX_LSP_SEMANTIC_TOKEN_MODIFIERS);
 
 const COMPLETION_KEYWORDS: &[&str] = &[
     "across",
@@ -2272,6 +2274,7 @@ fn semantic_token_type_index(token_type: &str) -> Option<usize> {
 }
 
 fn semantic_token_modifier_bits(modifiers: &[String]) -> usize {
+    debug_assert!(SEMANTIC_TOKEN_MODIFIERS.len() <= MAX_LSP_SEMANTIC_TOKEN_MODIFIERS);
     let mut bits = 0usize;
     for modifier in modifiers {
         if let Some(index) = SEMANTIC_TOKEN_MODIFIERS
@@ -10933,6 +10936,23 @@ mod tests {
             .unwrap()
             .iter()
             .any(|symbol| symbol["name"] == "Q"));
+    }
+
+    #[test]
+    fn semantic_modifier_bitset_stays_within_lsp_uinteger_capacity() {
+        assert_eq!(
+            SEMANTIC_TOKEN_MODIFIERS.len(),
+            MAX_LSP_SEMANTIC_TOKEN_MODIFIERS
+        );
+        assert_eq!(SEMANTIC_TOKEN_MODIFIERS.first(), Some(&"declaration"));
+        assert_eq!(SEMANTIC_TOKEN_MODIFIERS.last(), Some(&"temporal"));
+        assert!(SEMANTIC_TOKEN_MODIFIERS.contains(&"definition"));
+        assert!(!SEMANTIC_TOKEN_MODIFIERS.contains(&"static"));
+
+        let modifiers = vec!["declaration".to_owned(), "temporal".to_owned()];
+        let bits = semantic_token_modifier_bits(&modifiers);
+        assert_eq!(bits, 1usize | (1usize << 30));
+        assert!(bits <= i32::MAX as usize);
     }
 
     #[test]

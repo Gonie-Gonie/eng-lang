@@ -1104,7 +1104,7 @@ if ($PublicWorkflowMemberFields.Count -eq 0) {
     throw "generated editor metadata public workflow member field catalog is empty"
 }
 
-foreach ($selector in @("keyword.declaration", "modifier", "modifier.static")) {
+foreach ($selector in @("keyword.declaration", "modifier")) {
     Assert-SemanticTokenScopeIncludes -Package $PackageJson -Selector $selector -Scopes @("storage.modifier.schema.englang") -Description "schema index modifier"
 }
 
