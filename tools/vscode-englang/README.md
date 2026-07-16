@@ -330,6 +330,17 @@ and runtime-pending `validate` commands are intentionally not marked as passed.
 Set `englang.validationDecorations.enabled = false` to hide these results while
 keeping Problems diagnostics available.
 
+After `EngLang: Run Current File`, explicit `align` and `resample` commands whose
+latest source-matched native run produced `partial` or `unavailable` output get
+one compact warning at the end of the command line and an overview-ruler mark.
+Hovering the warning shows the source/target series, strategy, method, output
+count, and runtime reason. Fully materialized output and automatic pairwise
+comparison metadata are intentionally not marked. The extension verifies both
+`source_path` and `source_hash` from `build/result/report_spec.json`, and clears
+the marker as soon as any EngLang source in the workspace changes. Set
+`englang.timeAlignmentDecorations.enabled = false` to hide these run-result
+warnings without disabling Problems or role-aware highlighting.
+
 Completion uses the current unsaved buffer and compiler-owned editor metadata.
 JavaScript does not maintain a separate keyword, type, quantity, or unit table.
 If live completion is unavailable, the extension falls back to the generated

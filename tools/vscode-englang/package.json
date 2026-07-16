@@ -850,6 +850,11 @@
           "type": "boolean",
           "default": true,
           "description": "Show compact pass/fail results beside EngLang object declarations whose class validation rules were evaluated."
+        },
+        "englang.timeAlignmentDecorations.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show compact warnings beside align/resample commands whose latest matching native run produced partial or unavailable TimeSeries output."
         }
       }
     },

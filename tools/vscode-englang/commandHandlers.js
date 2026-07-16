@@ -38,6 +38,7 @@ const DIAGNOSTICS_MODES = [
 ];
 
 const DEFAULT_SEMANTIC_TOKEN_SCOPE_MAP = semanticTokenScopeMapFromPackage(packageManifest);
+const LAST_RUN_REPORT_SPEC_RELATIVE_PATH = ["build", "result", "report_spec.json"];
 
 function semanticTokenScopeMapFromPackage(manifest) {
   const rule = (manifest?.contributes?.semanticTokenScopes ?? [])
@@ -58,6 +59,16 @@ function createCommandHandlers(options = {}) {
   const isEngDocument = options.isEngDocument ?? (() => true);
   const updateSemanticSymbolDecorations =
     options.updateSemanticSymbolDecorations ?? (() => undefined);
+  const cacheTimeAlignmentReview =
+    options.cacheTimeAlignmentReview ?? (() => undefined);
+  const clearTimeAlignmentReview =
+    options.clearTimeAlignmentReview ?? (() => undefined);
+  const updateTimeAlignmentDecorations =
+    options.updateTimeAlignmentDecorations ?? (() => undefined);
+  const timeAlignmentReviewRevision =
+    options.timeAlignmentReviewRevision ?? (() => 0);
+  const timeAlignmentReviewRevisionIsCurrent =
+    options.timeAlignmentReviewRevisionIsCurrent ?? (() => true);
 
   async function runActiveFile(context) {
     const document = vscode.window.activeTextEditor?.document;
@@ -79,6 +90,9 @@ function createCommandHandlers(options = {}) {
     const args = ["run", document.uri.fsPath, "--profile", profile, "--save-artifacts"];
     output.show(true);
     output.appendLine(`run ${document.uri.fsPath} --profile ${profile}`);
+    clearTimeAlignmentReview(document);
+    updateTimeAlignmentDecorations(document, undefined);
+    const reviewRevision = timeAlignmentReviewRevision(document);
     cp.execFile(
       runtime,
       args,
@@ -93,6 +107,19 @@ function createCommandHandlers(options = {}) {
         if (error) {
           vscode.window.showErrorMessage(`EngLang run failed in ${profile} profile. See the EngLang output panel.`);
         } else {
+          const report = loadLastRunTimeAlignmentReport(document, cwd);
+          if (report && timeAlignmentReviewRevisionIsCurrent(document, reviewRevision)) {
+            cacheTimeAlignmentReview(document, report);
+            updateTimeAlignmentDecorations(document, report);
+            const alignmentCount = Array.isArray(report.time_alignments)
+              ? report.time_alignments.length
+              : 0;
+            output.appendLine(`TimeSeries alignment review: ${alignmentCount} record(s) from current source.`);
+          } else if (!timeAlignmentReviewRevisionIsCurrent(document, reviewRevision)) {
+            output.appendLine("TimeSeries alignment review discarded: an EngLang workspace source changed during the run.");
+          } else {
+            output.appendLine("TimeSeries alignment review unavailable: report source path/hash did not match the current editor.");
+          }
           vscode.window.showInformationMessage(`EngLang run completed (${profile}).`);
         }
       }
@@ -1394,6 +1421,7 @@ function createCommandHandlers(options = {}) {
         semantic_highlighting: semanticHighlighting,
         review_risk_decorations: config.get("reviewRiskDecorations.enabled", true),
         validation_decorations: config.get("validationDecorations.enabled", true),
+        time_alignment_decorations: config.get("timeAlignmentDecorations.enabled", true),
         execution_profile: executionProfile(document)
       },
       commands: {
@@ -2578,6 +2606,66 @@ function createCommandHandlers(options = {}) {
   };
 }
 
+function loadLastRunTimeAlignmentReport(document, root) {
+  if (!document?.uri?.fsPath || !root) {
+    return undefined;
+  }
+  const reportPath = path.join(root, ...LAST_RUN_REPORT_SPEC_RELATIVE_PATH);
+  try {
+    const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+    return timeAlignmentReportMatchesDocument(report, document, root) ? report : undefined;
+  } catch (_error) {
+    return undefined;
+  }
+}
+
+function timeAlignmentReportMatchesDocument(report, document, root) {
+  if (!report || typeof report !== "object" || !document?.uri?.fsPath) {
+    return false;
+  }
+  const sourcePath = report.source_path ?? report.sourcePath;
+  if (typeof sourcePath !== "string" || sourcePath.trim().length === 0) {
+    return false;
+  }
+  if (!path.isAbsolute(sourcePath) && !root) {
+    return false;
+  }
+  const resolvedSource = path.isAbsolute(sourcePath)
+    ? path.normalize(sourcePath)
+    : path.resolve(root, sourcePath);
+  if (pathComparisonKey(resolvedSource) !== pathComparisonKey(document.uri.fsPath)) {
+    return false;
+  }
+  const sourceHash = report.source_hash ?? report.sourceHash;
+  if (
+    typeof sourceHash !== "string"
+    || sourceHash.length === 0
+    || typeof document.getText !== "function"
+    || fnv1a64(document.getText()) !== sourceHash.toLowerCase()
+  ) {
+    return false;
+  }
+  return Array.isArray(report.time_alignments ?? report.timeAlignments);
+}
+
+function pathComparisonKey(value) {
+  const normalized = path.resolve(String(value));
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+function fnv1a64(value) {
+  let hash = 0xcbf29ce484222325n;
+  const prime = 0x100000001b3n;
+  for (const byte of Buffer.from(String(value), "utf8")) {
+    hash ^= BigInt(byte);
+    hash = BigInt.asUintN(64, hash * prime);
+  }
+  return hash.toString(16).padStart(16, "0");
+}
+
 module.exports = {
-  createCommandHandlers
+  createCommandHandlers,
+  fnv1a64,
+  loadLastRunTimeAlignmentReport,
+  timeAlignmentReportMatchesDocument
 };

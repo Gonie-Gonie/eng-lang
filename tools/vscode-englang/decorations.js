@@ -8,10 +8,15 @@ const {
 } = require("./reviewPanelRenderer");
 
 function createDecorationController(options = {}) {
-  const { isEngDocument = () => false, reviewCache = new Map() } = options;
+  const {
+    isEngDocument = () => false,
+    reviewCache = new Map(),
+    timeAlignmentReviewCache = new Map()
+  } = options;
   const reviewRiskDecorations = createReviewRiskDecorationTypes();
   const reviewValidationDecorations = createReviewValidationDecorationTypes();
   const semanticSymbolDecorations = createSemanticSymbolDecorationTypes();
+  const timeAlignmentDecorations = createTimeAlignmentDecorationTypes();
 
   function updateReviewRiskDecorations(document, review) {
     if (!reviewRiskDecorations || !isEngDocument(document)) {
@@ -48,6 +53,15 @@ function createDecorationController(options = {}) {
       if (isEngDocument(editor.document)) {
         const cached = reviewCache.get(editor.document.uri.fsPath);
         updateReviewValidationDecorations(editor.document, cached);
+      }
+    }
+  }
+
+  function refreshVisibleTimeAlignmentDecorations() {
+    for (const editor of vscode.window.visibleTextEditors) {
+      if (isEngDocument(editor.document)) {
+        const cached = timeAlignmentReviewCache.get(editor.document.uri.fsPath);
+        updateTimeAlignmentDecorations(editor.document, cached);
       }
     }
   }
@@ -101,6 +115,25 @@ function createDecorationController(options = {}) {
     }
   }
 
+  function updateTimeAlignmentDecorations(document, review) {
+    if (!timeAlignmentDecorations || !isEngDocument(document)) {
+      return;
+    }
+    const editors = vscode.window.visibleTextEditors.filter(
+      (editor) => editor.document.uri.toString() === document.uri.toString()
+    );
+    if (editors.length === 0) {
+      return;
+    }
+    const config = vscode.workspace.getConfiguration("englang", document.uri);
+    const decorations = config.get("timeAlignmentDecorations.enabled", true)
+      ? timeAlignmentDecorationOptions(document, review)
+      : [];
+    for (const editor of editors) {
+      editor.setDecorations(timeAlignmentDecorations.warning, decorations);
+    }
+  }
+
   return {
     disposables: [
       reviewRiskDecorations.high,
@@ -108,14 +141,17 @@ function createDecorationController(options = {}) {
       reviewValidationDecorations.pass,
       reviewValidationDecorations.fail,
       semanticSymbolDecorations.internal,
-      semanticSymbolDecorations.planned
+      semanticSymbolDecorations.planned,
+      timeAlignmentDecorations.warning
     ],
     refreshVisibleReviewRiskDecorations,
     refreshVisibleReviewValidationDecorations,
     refreshVisibleSemanticSymbolDecorations,
+    refreshVisibleTimeAlignmentDecorations,
     updateReviewRiskDecorations,
     updateReviewValidationDecorations,
-    updateSemanticSymbolDecorations
+    updateSemanticSymbolDecorations,
+    updateTimeAlignmentDecorations
   };
 }
 
@@ -171,6 +207,20 @@ function createReviewValidationDecorationTypes() {
         margin: "0 0 0 0.75rem"
       },
       overviewRulerColor: new vscode.ThemeColor("testing.iconFailed"),
+      overviewRulerLane: vscode.OverviewRulerLane.Right
+    })
+  };
+}
+
+function createTimeAlignmentDecorationTypes() {
+  return {
+    warning: vscode.window.createTextEditorDecorationType({
+      after: {
+        color: new vscode.ThemeColor("editorWarning.foreground"),
+        fontStyle: "italic",
+        margin: "0 0 0 0.75rem"
+      },
+      overviewRulerColor: new vscode.ThemeColor("editorWarning.foreground"),
       overviewRulerLane: vscode.OverviewRulerLane.Right
     })
   };
@@ -293,6 +343,98 @@ function reviewValidationDecorationOptions(document, review) {
   return { pass, fail };
 }
 
+function timeAlignmentDecorationOptions(document, review) {
+  const doc = normalizedReviewDocument(review);
+  const records = firstReviewArray(doc, review, "time_alignments", "timeAlignments");
+  const warnings = [];
+  for (const record of records) {
+    const warning = timeAlignmentWarning(record);
+    const lineNumber = Number(lineValue(record));
+    if (
+      !warning
+      || !Number.isFinite(lineNumber)
+      || lineNumber < 1
+      || lineNumber > document.lineCount
+    ) {
+      continue;
+    }
+    warnings.push({
+      range: lineEndRange(document, Math.trunc(lineNumber) - 1),
+      hoverMessage: timeAlignmentHoverMessage(record, warning),
+      renderOptions: {
+        after: { contentText: `  ${warning.label}` }
+      }
+    });
+  }
+  return warnings;
+}
+
+function timeAlignmentWarning(record) {
+  const strategy = String(reviewValue(record, "strategy", "strategy", "")).toLowerCase();
+  const materializationStatus = String(
+    reviewValue(record, "materialization_status", "materializationStatus", "")
+  ).toLowerCase();
+  if (strategy === "auto_pairwise" || materializationStatus === "not_requested") {
+    return undefined;
+  }
+  if (materializationStatus === "materialized") {
+    return undefined;
+  }
+  if (materializationStatus === "unavailable") {
+    return { kind: "unavailable", label: "alignment unavailable" };
+  }
+  if (materializationStatus === "partial") {
+    const outputCount = Number(reviewValue(record, "output_count", "outputCount", 0));
+    const targetCount = Number(reviewValue(record, "target_count", "targetCount", 0));
+    const countLabel = targetCount > 0
+      ? ` ${Math.max(0, outputCount)}/${targetCount}`
+      : "";
+    return { kind: "partial", label: `alignment partial${countLabel}` };
+  }
+  const alignmentStatus = String(
+    reviewValue(record, "alignment_status", "status", "")
+  ).toLowerCase();
+  if (alignmentStatus === "mismatch") {
+    return { kind: "mismatch", label: "alignment mismatch" };
+  }
+  const stepStatus = String(reviewValue(record, "step_status", "stepStatus", "")).toLowerCase();
+  if (stepStatus === "mismatch" || stepStatus === "irregular") {
+    return { kind: "step", label: "alignment step mismatch" };
+  }
+  return undefined;
+}
+
+function timeAlignmentHoverMessage(record, warning) {
+  const markdown = new vscode.MarkdownString();
+  markdown.isTrusted = false;
+  markdown.appendMarkdown("**EngLang TimeSeries alignment warning**");
+  const binding = reviewValue(record, "binding", "binding", "alignment output");
+  const left = reviewValue(record, "left", "left", "?");
+  const right = reviewValue(record, "right", "right", "?");
+  const strategy = reviewValue(record, "strategy", "strategy", "?");
+  const method = reviewValue(record, "method", "method", "?");
+  const materializationStatus = reviewValue(
+    record,
+    "materialization_status",
+    "materializationStatus",
+    warning.kind
+  );
+  const outputCount = reviewValue(record, "output_count", "outputCount", 0);
+  const targetCount = reviewValue(record, "target_count", "targetCount", 0);
+  const reason = reviewValue(
+    record,
+    "materialization_reason",
+    "materializationReason",
+    warning.label
+  );
+  markdown.appendText(`\n\nLatest saved run: ${binding}`);
+  markdown.appendText(`\nSource/target: ${left} -> ${right}`);
+  markdown.appendText(`\nStrategy: ${strategy}; method: ${method}`);
+  markdown.appendText(`\nMaterialization: ${materializationStatus} (${outputCount}/${targetCount} points)`);
+  markdown.appendText(`\nReason: ${reason}`);
+  return markdown;
+}
+
 function reviewValidationHoverMessage(status, records) {
   const markdown = new vscode.MarkdownString();
   markdown.isTrusted = false;
@@ -385,5 +527,7 @@ function lineEndRange(document, lineNumber) {
 
 module.exports = {
   createDecorationController,
-  reviewValidationDecorationOptions
+  reviewValidationDecorationOptions,
+  timeAlignmentDecorationOptions,
+  timeAlignmentWarning
 };

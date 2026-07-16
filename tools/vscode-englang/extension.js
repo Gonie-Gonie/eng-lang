@@ -33,6 +33,8 @@ const { createSemanticLegend } = require("./lspSemanticTokens");
 
 const LANGUAGE_ID = "englang";
 const reviewCache = new Map();
+const timeAlignmentReviewCache = new Map();
+const workspaceReviewRevisions = new Map();
 let output;
 let artifactOpeners;
 let decorationController;
@@ -73,7 +75,8 @@ function activate(context) {
   });
   decorationController = createDecorationController({
     isEngDocument,
-    reviewCache
+    reviewCache,
+    timeAlignmentReviewCache
   });
   const diagnostics = vscode.languages.createDiagnosticCollection("englang");
   const diagnosticsStatusBar = vscode.window.createStatusBarItem(
@@ -92,7 +95,18 @@ function activate(context) {
     semanticTokenTypes: SEMANTIC_TOKEN_TYPES,
     semanticTokenModifiers: SEMANTIC_TOKEN_MODIFIERS,
     syntaxCatalog: editorMetadata.syntaxCatalog,
-    updateSemanticSymbolDecorations: decorationController.updateSemanticSymbolDecorations
+    updateSemanticSymbolDecorations: decorationController.updateSemanticSymbolDecorations,
+    cacheTimeAlignmentReview: (document, review) => {
+      timeAlignmentReviewCache.set(document.uri.fsPath, review);
+    },
+    clearTimeAlignmentReview: (document) => {
+      timeAlignmentReviewCache.delete(document.uri.fsPath);
+    },
+    updateTimeAlignmentDecorations: decorationController.updateTimeAlignmentDecorations,
+    timeAlignmentReviewRevision: workspaceReviewRevision,
+    timeAlignmentReviewRevisionIsCurrent: (document, revision) => (
+      workspaceReviewRevision(document) === revision
+    )
   });
   const diagnosticController = new EngDiagnosticsController(context, diagnostics, {
     output,
@@ -178,6 +192,7 @@ function activate(context) {
       return;
     }
     const changedRoot = workspaceRootKey(workspaceRoot(document));
+    workspaceReviewRevisions.set(changedRoot, workspaceReviewRevision(document) + 1);
     const candidates = [document, ...(vscode.workspace.textDocuments ?? [])];
     const seen = new Set();
     for (const candidate of candidates) {
@@ -191,10 +206,17 @@ function activate(context) {
       }
       seen.add(candidateUri);
       reviewCache.delete(candidate.uri.fsPath);
+      timeAlignmentReviewCache.delete(candidate.uri.fsPath);
       decorationController.updateReviewRiskDecorations(candidate, undefined);
       decorationController.updateReviewValidationDecorations(candidate, undefined);
       decorationController.updateSemanticSymbolDecorations(candidate, undefined);
+      decorationController.updateTimeAlignmentDecorations(candidate, undefined);
     }
+  }
+
+  function workspaceReviewRevision(document) {
+    const root = workspaceRootKey(workspaceRoot(document));
+    return workspaceReviewRevisions.get(root) ?? 0;
   }
 
   function refreshWorkspaceAfterEngSourceSave(document) {
@@ -299,6 +321,9 @@ function activate(context) {
       if (event.affectsConfiguration("englang.validationDecorations.enabled")) {
         decorationController.refreshVisibleReviewValidationDecorations();
       }
+      if (event.affectsConfiguration("englang.timeAlignmentDecorations.enabled")) {
+        decorationController.refreshVisibleTimeAlignmentDecorations();
+      }
       if (event.affectsConfiguration("englang.semanticHighlighting.enabled")) {
         semanticTokensProvider.refresh();
         decorationController.refreshVisibleSemanticSymbolDecorations();
@@ -321,6 +346,10 @@ function activate(context) {
         decorationController.updateReviewRiskDecorations(editor.document, cached);
         decorationController.updateReviewValidationDecorations(editor.document, cached);
         decorationController.updateSemanticSymbolDecorations(editor.document, cached);
+        decorationController.updateTimeAlignmentDecorations(
+          editor.document,
+          timeAlignmentReviewCache.get(editor.document.uri.fsPath)
+        );
       }
       updateDiagnosticsStatusBar(editor?.document);
     }),

@@ -4278,7 +4278,7 @@ function Assert-VscodeExtensionContract {
         }
     }
     $Properties = $Package.contributes.configuration.properties
-    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsMode", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange", "englang.semanticHighlighting.enabled", "englang.reviewRiskDecorations.enabled", "englang.validationDecorations.enabled")) {
+    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsMode", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange", "englang.semanticHighlighting.enabled", "englang.reviewRiskDecorations.enabled", "englang.validationDecorations.enabled", "englang.timeAlignmentDecorations.enabled")) {
         if ($null -eq $Properties.$RequiredProperty) {
             throw "VS Code extension missing configuration property $RequiredProperty"
         }
@@ -4424,6 +4424,10 @@ function Assert-VscodeExtensionContract {
     $ValidationDecorationDescription = [string]$Properties."englang.validationDecorations.enabled".description
     if ($ValidationDecorationDescription -notmatch "pass/fail" -or $ValidationDecorationDescription -notmatch "object declarations") {
         throw "VS Code validationDecorations setting must describe evaluated object validation results"
+    }
+    $TimeAlignmentDecorationDescription = [string]$Properties."englang.timeAlignmentDecorations.enabled".description
+    if ($TimeAlignmentDecorationDescription -notmatch "latest matching native run" -or $TimeAlignmentDecorationDescription -notmatch "partial or unavailable TimeSeries output") {
+        throw "VS Code timeAlignmentDecorations setting must describe source-matched native run warnings"
     }
     $SemanticModifiers = @($Package.contributes.semanticTokenModifiers | ForEach-Object { $_.id })
     foreach ($RequiredSemanticModifier in @(
@@ -5096,6 +5100,7 @@ function Assert-VscodeExtensionContract {
         "semantic_highlighting",
         "review_risk_decorations",
         "validation_decorations",
+        "time_alignment_decorations",
         "source_checkout_detected",
         "expected_vsix_path",
         "Package freshness: rebuild available",
@@ -6016,6 +6021,27 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing validation decoration token $RequiredValidationDecorationToken"
         }
     }
+    $TimeAlignmentDecorationSource = $ExtensionSource + "`n" + $DecorationsSource + "`n" + $CommandHandlersSource
+    foreach ($RequiredTimeAlignmentDecorationToken in @(
+        "createTimeAlignmentDecorationTypes",
+        "updateTimeAlignmentDecorations",
+        "refreshVisibleTimeAlignmentDecorations",
+        "timeAlignmentDecorationOptions",
+        "timeAlignmentHoverMessage",
+        "englang.timeAlignmentDecorations.enabled",
+        "report_spec.json",
+        "source_path",
+        "source_hash",
+        "timeAlignmentReviewRevisionIsCurrent",
+        "workspaceReviewRevisions",
+        "alignment partial",
+        "alignment unavailable",
+        "Latest saved run"
+    )) {
+        if (-not $TimeAlignmentDecorationSource.Contains($RequiredTimeAlignmentDecorationToken)) {
+            throw "VS Code extension missing TimeSeries alignment decoration token $RequiredTimeAlignmentDecorationToken"
+        }
+    }
     $SemanticSymbolDecorationSource = $ExtensionSource + "`n" + $DecorationsSource + "`n" + $LspSemanticTokensSource
     foreach ($RequiredSemanticSymbolDecorationToken in @(
         "createSemanticSymbolDecorationTypes",
@@ -6036,13 +6062,17 @@ function Assert-VscodeExtensionContract {
         "function createReviewRiskDecorationTypes",
         "function createReviewValidationDecorationTypes",
         "function createSemanticSymbolDecorationTypes",
+        "function createTimeAlignmentDecorationTypes",
         "function refreshVisibleReviewRiskDecorations",
         "function refreshVisibleReviewValidationDecorations",
+        "function refreshVisibleTimeAlignmentDecorations",
         "function semanticSymbolDecorationOptions",
         "function semanticSymbolHoverMessage",
         "function reviewRiskDecorationOptions",
         "function reviewValidationDecorationOptions",
         "function reviewValidationHoverMessage",
+        "function timeAlignmentDecorationOptions",
+        "function timeAlignmentHoverMessage",
         "function setReviewRiskDecorationLine",
         "function fullLineRange"
     )) {
