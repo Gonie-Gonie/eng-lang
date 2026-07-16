@@ -117,6 +117,14 @@ is assembled from those instances. Older top-level component fixtures without
 instances still assemble directly from top-level component names for
 compatibility coverage.
 
+The compiler API keeps these concepts separate. `SemanticProgram.component_templates`
+contains `component Name { ... }` declarations, while
+`SemanticProgram.component_instances` contains system-local constructor bindings.
+`assembly_components()` returns instances when present and otherwise returns the
+template preview nodes described above. Editor integrations that need every source
+symbol use `component_symbols()` so a template and its instances remain visible at
+the same time.
+
 ## Connections
 
 ```text

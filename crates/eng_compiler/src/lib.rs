@@ -3421,7 +3421,12 @@ pub fn review_json(report: &CheckReport) -> String {
     }
     json.push_str("\n  ],\n");
     json.push_str("  \"component_summary\": [\n");
-    for (index, component) in report.semantic_program.components.iter().enumerate() {
+    for (index, component) in report
+        .semantic_program
+        .assembly_components()
+        .iter()
+        .enumerate()
+    {
         if index > 0 {
             json.push_str(",\n");
         }
@@ -8063,14 +8068,14 @@ fn write_component_graph_json(
     program: &semantic::SemanticProgram,
     source_lines: &[String],
 ) {
-    let port_count = program
-        .components
+    let components = program.assembly_components();
+    let port_count = components
         .iter()
         .map(|component| component.ports.len())
         .sum::<usize>();
     let behavior_nodes = component_behavior_nodes(program);
-    let node_count = program.components.len() + port_count + behavior_nodes.len();
-    let status = if program.components.is_empty() {
+    let node_count = components.len() + port_count + behavior_nodes.len();
+    let status = if components.is_empty() {
         "empty"
     } else if program
         .connections
@@ -8082,7 +8087,7 @@ fn write_component_graph_json(
         "metadata_ready"
     };
     let mut port_lookup = HashMap::new();
-    for component in &program.components {
+    for component in components {
         for port in &component.ports {
             port_lookup.insert(format!("{}.{}", component.name, port.name), port);
         }
@@ -8097,7 +8102,7 @@ fn write_component_graph_json(
         program.connections.len()
     ));
     json.push_str("    \"components\": [\n");
-    for (component_index, component) in program.components.iter().enumerate() {
+    for (component_index, component) in components.iter().enumerate() {
         if component_index > 0 {
             json.push_str(",\n");
         }
@@ -8135,7 +8140,7 @@ fn write_component_graph_json(
 
     json.push_str("    \"ports\": [\n");
     let mut first_port = true;
-    for component in &program.components {
+    for component in components {
         for port in &component.ports {
             if !first_port {
                 json.push_str(",\n");
@@ -8349,7 +8354,7 @@ struct ComponentBehaviorNode {
 
 fn component_behavior_nodes(program: &semantic::SemanticProgram) -> Vec<ComponentBehaviorNode> {
     program
-        .components
+        .assembly_components()
         .iter()
         .flat_map(|component| {
             component.local_expressions.iter().flat_map(move |local| {
@@ -8811,7 +8816,10 @@ mod tests {
             (&program.schemas[0].name, program.schemas[0].span),
             (&program.systems[0].name, program.systems[0].span),
             (&program.domains[0].name, program.domains[0].span),
-            (&program.components[0].name, program.components[0].span),
+            (
+                &program.component_templates[0].name,
+                program.component_templates[0].span,
+            ),
             (&program.classes[0].name, program.classes[0].span),
         ];
         for (name, span) in semantic_spans {
@@ -8831,13 +8839,66 @@ mod tests {
         );
         let instance = instance_report
             .semantic_program
-            .components
+            .component_instances
             .iter()
             .find(|component| component.name == "coil")
             .expect("component instance metadata");
         assert_eq!(
             &instance_source[instance.span.start..instance.span.end],
             "coil"
+        );
+    }
+
+    #[test]
+    fn semantic_program_separates_component_templates_and_instances() {
+        let report = check_source(
+            "component_metadata_contract.eng",
+            concat!(
+                "component Coil {\n}\n",
+                "system Plant {\n",
+                "    coil = Coil()\n",
+                "}\n",
+            ),
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let program = &report.semantic_program;
+
+        assert_eq!(
+            program
+                .component_templates
+                .iter()
+                .map(|component| component.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Coil"]
+        );
+        assert_eq!(
+            program
+                .component_instances
+                .iter()
+                .map(|component| component.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["coil"]
+        );
+        assert_eq!(
+            program
+                .component_symbols()
+                .map(|component| component.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Coil", "coil"]
+        );
+        assert_eq!(
+            program
+                .assembly_components()
+                .iter()
+                .map(|component| component.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["coil"]
+        );
+        assert_eq!(program.component_templates[0].template_name, None);
+        assert_eq!(
+            program.component_instances[0].template_name.as_deref(),
+            Some("Coil")
         );
     }
 
@@ -9464,19 +9525,19 @@ mod tests {
             "recorded"
         );
         assert_eq!(
-            report.semantic_program.components[0].ports[0].status,
+            report.semantic_program.component_templates[0].ports[0].status,
             "domain_resolved"
         );
         assert_eq!(
-            report.semantic_program.components[0].ports[0].domain,
+            report.semantic_program.component_templates[0].ports[0].domain,
             "Fluid[Water]"
         );
         assert_eq!(
-            report.semantic_program.components[0].ports[0].type_arguments,
+            report.semantic_program.component_templates[0].ports[0].type_arguments,
             vec!["Water".to_owned()]
         );
         assert_eq!(
-            report.semantic_program.components[0].local_expressions[0].name,
+            report.semantic_program.component_templates[0].local_expressions[0].name,
             "pressure_seed"
         );
         assert!(report
@@ -9614,7 +9675,7 @@ mod tests {
         );
 
         assert!(!report.has_errors());
-        let locals = &report.semantic_program.components[0].local_expressions;
+        let locals = &report.semantic_program.component_templates[0].local_expressions;
         assert_eq!(locals.len(), 4);
         assert_eq!(locals[0].name, "temperature_signal");
         assert_eq!(locals[0].quantity_kind, "AbsoluteTemperature");
@@ -9691,7 +9752,7 @@ mod tests {
         assert_eq!(
             report
                 .semantic_program
-                .components
+                .component_instances
                 .iter()
                 .map(|component| component.name.as_str())
                 .collect::<Vec<_>>(),
@@ -9739,7 +9800,7 @@ mod tests {
         }));
         let room = report
             .semantic_program
-            .components
+            .component_instances
             .iter()
             .find(|component| component.name == "room")
             .expect("room instance");
@@ -9764,7 +9825,7 @@ mod tests {
         assert!(!report.has_errors(), "{:?}", report.diagnostics);
         let room = report
             .semantic_program
-            .components
+            .component_instances
             .iter()
             .find(|component| component.name == "room")
             .expect("room instance");
@@ -9804,7 +9865,7 @@ mod tests {
         assert!(!report.has_errors(), "{:?}", report.diagnostics);
         let node = report
             .semantic_program
-            .components
+            .component_instances
             .iter()
             .find(|component| component.name == "node")
             .expect("node instance");
@@ -9836,7 +9897,7 @@ mod tests {
         assert!(!report.has_errors(), "{:?}", report.diagnostics);
         let room = report
             .semantic_program
-            .components
+            .component_instances
             .iter()
             .find(|component| component.name == "room")
             .expect("room instance");
@@ -9891,7 +9952,7 @@ system Envelope {
         assert!(!report.has_errors(), "{:?}", report.diagnostics);
         let room = report
             .semantic_program
-            .components
+            .component_instances
             .iter()
             .find(|component| component.name == "room")
             .expect("room instance");
@@ -9966,7 +10027,7 @@ system Loop {
         assert!(!report.has_errors(), "{:?}", report.diagnostics);
         let room = report
             .semantic_program
-            .components
+            .component_instances
             .iter()
             .find(|component| component.name == "room")
             .expect("room instance");
@@ -10717,7 +10778,7 @@ system Envelope {
             .iter()
             .any(|diagnostic| diagnostic.code == "E-PORT-DOMAIN-002"));
         assert_eq!(
-            report.semantic_program.components[0].ports[0].status,
+            report.semantic_program.component_templates[0].ports[0].status,
             "generic_arity_mismatch"
         );
     }

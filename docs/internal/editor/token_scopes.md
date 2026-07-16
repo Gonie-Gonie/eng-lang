@@ -45,6 +45,11 @@ consumes those exact spans; its same-line name search is a compatibility path
 for incomplete or migrating metadata, not the source of truth for new
 declarations. Function-scope reference scans must also skip already-classified
 declaration ranges so different token types never overlap.
+Component templates and system-local component instances are separate compiler
+collections. Editor symbol passes consume both collections: template declarations
+own their nested port/parameter/local tokens, while instance bindings own only the
+instance declaration range and constructor references resolve back to the template
+type.
 
 After LSP semantic legend or completion changes run:
 

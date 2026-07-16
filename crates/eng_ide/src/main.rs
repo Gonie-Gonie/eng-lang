@@ -3891,7 +3891,10 @@ fn smoke() -> Result<(), String> {
     let domain_report = check_source(&domain_example, &domain_source, &CheckOptions::default());
     if domain_report.has_errors()
         || domain_report.semantic_program.domains.is_empty()
-        || domain_report.semantic_program.components.is_empty()
+        || domain_report
+            .semantic_program
+            .assembly_components()
+            .is_empty()
         || domain_report.semantic_program.connections.is_empty()
         || domain_report
             .semantic_program
@@ -4807,7 +4810,7 @@ fn smoke() -> Result<(), String> {
         all_quantity_completions().len(),
         all_unit_infos().len(),
         domain_report.semantic_program.domains.len(),
-        domain_report.semantic_program.components.len(),
+        domain_report.semantic_program.assembly_components().len(),
         domain_report.semantic_program.connections.len(),
         domain_report.semantic_program.component_assemblies.len()
     );

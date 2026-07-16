@@ -2785,7 +2785,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         }
     }
 
-    for component in &program.components {
+    for component in &program.component_templates {
         builder.push_named_span(component.span, &component.name, "class", &["declaration"]);
         for port in &component.ports {
             builder.push_on_line(port.line, &port.name, "property", &["declaration"]);
@@ -2820,6 +2820,9 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                 &["declaration", "local"],
             );
         }
+    }
+    for component in &program.component_instances {
+        builder.push_named_span(component.span, &component.name, "class", &["declaration"]);
     }
 
     for class_info in &program.classes {
@@ -3674,7 +3677,7 @@ fn add_compiler_resolved_symbol_reference_tokens(
     for system in &program.systems {
         symbols.insert(system.name.clone(), KnownSemanticSymbol::user_type("class"));
     }
-    for component in &program.components {
+    for component in program.component_symbols() {
         symbols.insert(
             component.name.clone(),
             KnownSemanticSymbol::user_type("class"),
@@ -4154,7 +4157,7 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
         );
     }
 
-    for component in &program.components {
+    for component in &program.component_templates {
         let mut children = component
             .ports
             .iter()
@@ -4207,14 +4210,26 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
             &mut seen,
             &lines,
             component.name.clone(),
-            component
-                .template_name
-                .as_deref()
-                .map(|template| format!("component from {template}"))
-                .unwrap_or_else(|| "component".to_owned()),
+            "component template".to_owned(),
             SYMBOL_KIND_CLASS,
             component.line,
             children,
+        );
+    }
+    for component in &program.component_instances {
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            component.name.clone(),
+            component
+                .template_name
+                .as_deref()
+                .map(|template| format!("component instance of {template}"))
+                .unwrap_or_else(|| "component instance".to_owned()),
+            SYMBOL_KIND_OBJECT,
+            component.line,
+            Vec::new(),
         );
     }
 
@@ -4819,7 +4834,7 @@ fn is_structural_non_variable_declaration(
             .variables
             .iter()
             .any(|variable| variable.line == line && variable.name == name)
-    }) || program.components.iter().any(|component| {
+    }) || program.component_symbols().any(|component| {
         component
             .ports
             .iter()
@@ -4878,7 +4893,7 @@ fn line_has_structural_declaration(program: &SemanticProgram, line: usize) -> bo
                 .conservations
                 .iter()
                 .any(|conservation| conservation.line == line)
-    }) || program.components.iter().any(|component| {
+    }) || program.component_symbols().any(|component| {
         component.line == line
             || component.ports.iter().any(|port| port.line == line)
             || component
@@ -8133,12 +8148,23 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
         }
     }
 
-    for component in &report.semantic_program.components {
+    for component in report.semantic_program.component_symbols() {
+        let detail = component
+            .template_name
+            .as_deref()
+            .map(|template| {
+                format!(
+                    "component instance of {template}, {} port(s), {} constructor argument(s)",
+                    component.ports.len(),
+                    component.constructor_arguments.len()
+                )
+            })
+            .unwrap_or_else(|| format!("component template, {} port(s)", component.ports.len()));
         hovers.push(LspHover {
             name: component.name.clone(),
             kind: "component".to_owned(),
             line: component.line,
-            detail: format!("{} port(s)", component.ports.len()),
+            detail,
             quantity_kind: "component".to_owned(),
             display_unit: "-".to_owned(),
             status: Some("metadata".to_owned()),
@@ -8934,14 +8960,19 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         }
     }
 
-    for component in &report.semantic_program.components {
-        push_completion(
-            &mut items,
-            &mut seen,
-            &component.name,
-            "class",
-            &format!("component, {} port(s)", component.ports.len()),
-        );
+    for component in report.semantic_program.component_symbols() {
+        let detail = component
+            .template_name
+            .as_deref()
+            .map(|template| {
+                format!(
+                    "component instance of {template}, {} port(s), {} constructor argument(s)",
+                    component.ports.len(),
+                    component.constructor_arguments.len()
+                )
+            })
+            .unwrap_or_else(|| format!("component template, {} port(s)", component.ports.len()));
+        push_completion(&mut items, &mut seen, &component.name, "class", &detail);
         for port in &component.ports {
             push_completion(
                 &mut items,
@@ -11139,6 +11170,46 @@ mod tests {
             semantic_token_count(&instance_snapshot, instance_source, "coil", "class"),
             1
         );
+        assert_semantic_token_on_line_with_modifier(
+            &instance_snapshot,
+            instance_source,
+            "component Coil",
+            "Coil",
+            "class",
+            "declaration",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &instance_snapshot,
+            instance_source,
+            "coil = Coil()",
+            "coil",
+            "class",
+            "declaration",
+        );
+        assert_semantic_token_on_line_type(
+            &instance_snapshot,
+            instance_source,
+            "coil = Coil()",
+            "Coil",
+            "class",
+        );
+        for (name, detail) in [
+            ("Coil", "component template"),
+            ("coil", "component instance of Coil"),
+        ] {
+            assert!(instance_snapshot
+                .hovers
+                .iter()
+                .any(|hover| hover.name == name && hover.detail.contains(detail)));
+            assert!(instance_snapshot
+                .completions
+                .iter()
+                .any(|completion| completion.label == name && completion.detail.contains(detail)));
+            assert!(instance_snapshot
+                .document_symbols
+                .iter()
+                .any(|symbol| symbol.name == name && symbol.detail.contains(detail)));
+        }
     }
 
     #[test]

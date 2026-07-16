@@ -241,6 +241,10 @@ model_field
 prediction_table_field
 ```
 
+Component hover/completion details distinguish a `component template` from a
+`component instance of Name`. Both remain present when a source declares a template
+and constructs one or more system-local instances.
+
 Compiler symbol metadata remains the preferred hover source. When a semantic
 token has no matching symbol hover, the snapshot adds a role hover for units,
 quantities, declared fields, TimeSeries axes/operations, side effects, external

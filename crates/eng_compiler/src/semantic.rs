@@ -833,7 +833,10 @@ pub struct SemanticProgram {
     pub state_space_vectors: Vec<StateSpaceVectorInfo>,
     pub linear_operators: Vec<LinearOperatorInfo>,
     pub domains: Vec<DomainInfo>,
-    pub components: Vec<ComponentInfo>,
+    /// Component type declarations from `component Name { ... }` blocks.
+    pub component_templates: Vec<ComponentInfo>,
+    /// Component instance bindings such as `room = Room()` inside systems.
+    pub component_instances: Vec<ComponentInfo>,
     pub connections: Vec<ConnectionInfo>,
     pub component_assemblies: Vec<ComponentAssemblyInfo>,
     pub classes: Vec<ClassInfo>,
@@ -852,6 +855,27 @@ pub struct SemanticProgram {
     pub where_blocks: Vec<WhereBlockInfo>,
     pub with_blocks: Vec<WithBlockInfo>,
     pub timeseries_kernels: Vec<TimeSeriesKernelInfo>,
+}
+
+impl SemanticProgram {
+    /// Components used by assembly graphs and solver metadata.
+    ///
+    /// Declaration-only sources use templates as preview assembly nodes. Once
+    /// explicit instances exist, only those instances participate in assembly.
+    pub fn assembly_components(&self) -> &[ComponentInfo] {
+        if self.component_instances.is_empty() {
+            &self.component_templates
+        } else {
+            &self.component_instances
+        }
+    }
+
+    /// All component symbols, with templates followed by instance bindings.
+    pub fn component_symbols(&self) -> impl Iterator<Item = &ComponentInfo> {
+        self.component_templates
+            .iter()
+            .chain(self.component_instances.iter())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1518,10 +1542,11 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     warn_http_response_status_field_usage(program, &typed_bindings, &mut diagnostics);
     warn_legacy_select_first_row_usage(program, &mut diagnostics);
 
-    let mut assembly_components = if component_instances.is_empty() {
-        components.clone()
-    } else {
+    let has_component_instances = !component_instances.is_empty();
+    let mut assembly_components = if has_component_instances {
         component_instances
+    } else {
+        components.clone()
     };
     let connections = analyze_connections(
         &domains,
@@ -1543,6 +1568,12 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         &with_blocks,
         &mut diagnostics,
     );
+    let (component_templates, component_instances) = if has_component_instances {
+        resolve_component_port_domains(&domains, &mut components, None);
+        (components, assembly_components)
+    } else {
+        (assembly_components, Vec::new())
+    };
     SemanticOutput {
         diagnostics,
         inferred_declarations,
@@ -1574,7 +1605,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             state_space_vectors,
             linear_operators,
             domains,
-            components: assembly_components,
+            component_templates,
+            component_instances,
             connections,
             component_assemblies,
             classes,
@@ -8961,48 +8993,7 @@ fn analyze_connections(
     let mut connections = Vec::new();
     let mut seen_connections = HashSet::new();
     let mut connected_ports = HashSet::new();
-    for component in components.iter_mut() {
-        for port in &mut component.ports {
-            let Some(domain) = domains
-                .iter()
-                .find(|domain| domain.name == port.domain_name)
-            else {
-                port.status = "unknown_domain".to_owned();
-                diagnostics.push(Diagnostic::error(
-                    "E-PORT-DOMAIN-001",
-                    port.line,
-                    &format!(
-                        "Port `{}` on component `{}` references unknown domain `{}`.",
-                        port.name, component.name, port.domain
-                    ),
-                    Some("Declare the domain before using it in a component port."),
-                ));
-                continue;
-            };
-            if port.type_arguments.len() != domain.type_parameters.len() {
-                port.status = "generic_arity_mismatch".to_owned();
-                diagnostics.push(Diagnostic::error(
-                    "E-PORT-DOMAIN-002",
-                    port.line,
-                    &format!(
-                        "Port `{}` on component `{}` references `{}` with {} type argument(s), but domain `{}` expects {}.",
-                        port.name,
-                        component.name,
-                        port.domain,
-                        port.type_arguments.len(),
-                        domain.name,
-                        domain.type_parameters.len()
-                    ),
-                    Some(
-                        "Use `Domain[Argument]` for generic domains or remove arguments for non-generic domains.",
-                    ),
-                ));
-                continue;
-            }
-            port.status = "domain_resolved".to_owned();
-        }
-    }
-
+    resolve_component_port_domains(domains, components, Some(diagnostics));
     for connection in raw_connections {
         let Some((left_component, left_port)) = split_endpoint(&connection.left) else {
             diagnostics.push(connection_endpoint_diagnostic(
@@ -9119,6 +9110,58 @@ fn analyze_connections(
         }
     }
     connections
+}
+
+fn resolve_component_port_domains(
+    domains: &[DomainInfo],
+    components: &mut [ComponentInfo],
+    mut diagnostics: Option<&mut Vec<Diagnostic>>,
+) {
+    for component in components.iter_mut() {
+        for port in &mut component.ports {
+            let Some(domain) = domains
+                .iter()
+                .find(|domain| domain.name == port.domain_name)
+            else {
+                port.status = "unknown_domain".to_owned();
+                if let Some(diagnostics) = diagnostics.as_deref_mut() {
+                    diagnostics.push(Diagnostic::error(
+                        "E-PORT-DOMAIN-001",
+                        port.line,
+                        &format!(
+                            "Port `{}` on component `{}` references unknown domain `{}`.",
+                            port.name, component.name, port.domain
+                        ),
+                        Some("Declare the domain before using it in a component port."),
+                    ));
+                }
+                continue;
+            };
+            if port.type_arguments.len() != domain.type_parameters.len() {
+                port.status = "generic_arity_mismatch".to_owned();
+                if let Some(diagnostics) = diagnostics.as_deref_mut() {
+                    diagnostics.push(Diagnostic::error(
+                        "E-PORT-DOMAIN-002",
+                        port.line,
+                        &format!(
+                            "Port `{}` on component `{}` references `{}` with {} type argument(s), but domain `{}` expects {}.",
+                            port.name,
+                            component.name,
+                            port.domain,
+                            port.type_arguments.len(),
+                            domain.name,
+                            domain.type_parameters.len()
+                        ),
+                        Some(
+                            "Use `Domain[Argument]` for generic domains or remove arguments for non-generic domains.",
+                        ),
+                    ));
+                }
+                continue;
+            }
+            port.status = "domain_resolved".to_owned();
+        }
+    }
 }
 
 fn build_component_assembly_graphs(

@@ -13984,7 +13984,7 @@ fn source_behavior_graph_from_report(
     let mut nodes = Vec::new();
     let mut output_symbols = Vec::new();
     let mut output_indices = HashMap::new();
-    for component in &report.semantic_program.components {
+    for component in report.semantic_program.assembly_components() {
         if !assembly_components.contains(component.name.as_str()) {
             continue;
         }
@@ -17576,7 +17576,7 @@ fn solver_equation_assembly_from_component_info(
 ) -> EquationAssembly {
     let components = report
         .semantic_program
-        .components
+        .assembly_components()
         .iter()
         .map(|component| ComponentInstance {
             name: component.name.clone(),
@@ -17736,7 +17736,7 @@ fn assembly_variable_value(
     let (component_name, local_name) = variable.name.split_once('.')?;
     let value = report
         .semantic_program
-        .components
+        .assembly_components()
         .iter()
         .find(|component| component.name == component_name)
         .and_then(|component| match variable.role.as_str() {
@@ -17765,7 +17765,7 @@ fn assembly_variable_quantity_unit(
         if let Some((component_name, local_name)) = variable.name.split_once('.') {
             if let Some(parameter) = report
                 .semantic_program
-                .components
+                .assembly_components()
                 .iter()
                 .find(|component| component.name == component_name)
                 .and_then(|component| match variable.role.as_str() {
@@ -27674,7 +27674,7 @@ system FluidLoop {
         assert!(!report.has_errors(), "{:?}", report.diagnostics);
         let pump = report
             .semantic_program
-            .components
+            .assembly_components()
             .iter()
             .find(|component| component.name == "pump")
             .unwrap();

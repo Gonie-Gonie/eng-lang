@@ -1475,7 +1475,7 @@ pub fn report_spec_from_report(
         .collect::<Vec<_>>();
     let components = report
         .semantic_program
-        .components
+        .assembly_components()
         .iter()
         .map(|component| ReportComponentSummary {
             name: component.name.clone(),
@@ -2012,7 +2012,7 @@ pub fn report_spec_from_report(
             schema_count: report.semantic_program.schemas.len(),
             csv_promotion_count: report.semantic_program.csv_promotions.len(),
             domain_count: report.semantic_program.domains.len(),
-            component_count: report.semantic_program.components.len(),
+            component_count: report.semantic_program.assembly_components().len(),
             connection_count: report.semantic_program.connections.len(),
             assembly_count: report.semantic_program.component_assemblies.len(),
             class_count: report.semantic_program.classes.len(),
@@ -2069,12 +2069,12 @@ fn report_kernel_plan(report: &CheckReport) -> ReportKernelPlan {
 
 fn report_component_graph(report: &CheckReport) -> ReportComponentGraph {
     let program = &report.semantic_program;
-    let port_count = program
-        .components
+    let assembly_components = program.assembly_components();
+    let port_count = assembly_components
         .iter()
         .map(|component| component.ports.len())
         .sum::<usize>();
-    let status = if program.components.is_empty() {
+    let status = if assembly_components.is_empty() {
         "empty"
     } else if program
         .connections
@@ -2085,8 +2085,7 @@ fn report_component_graph(report: &CheckReport) -> ReportComponentGraph {
     } else {
         "metadata_ready"
     };
-    let components = program
-        .components
+    let components = assembly_components
         .iter()
         .map(|component| ReportComponentGraphComponent {
             id: component.name.clone(),
@@ -2102,8 +2101,7 @@ fn report_component_graph(report: &CheckReport) -> ReportComponentGraph {
             source_span: report_source_span(component.line),
         })
         .collect::<Vec<_>>();
-    let ports = program
-        .components
+    let ports = assembly_components
         .iter()
         .flat_map(|component| {
             component.ports.iter().map(move |port| {
@@ -2131,7 +2129,7 @@ fn report_component_graph(report: &CheckReport) -> ReportComponentGraph {
         })
         .collect::<Vec<_>>();
     let mut port_lookup = std::collections::HashMap::new();
-    for component in &program.components {
+    for component in assembly_components {
         for port in &component.ports {
             port_lookup.insert(format!("{}.{}", component.name, port.name), port);
         }
@@ -2193,7 +2191,7 @@ fn report_component_graph(report: &CheckReport) -> ReportComponentGraph {
     ReportComponentGraph {
         format: "eng-component-graph-v1".to_owned(),
         status: status.to_owned(),
-        node_count: program.components.len() + port_count + behavior_nodes.len(),
+        node_count: assembly_components.len() + port_count + behavior_nodes.len(),
         edge_count: program.connections.len(),
         components,
         ports,
@@ -2206,7 +2204,7 @@ fn report_component_graph(report: &CheckReport) -> ReportComponentGraph {
 fn report_component_behavior_nodes(report: &CheckReport) -> Vec<ReportComponentGraphBehaviorNode> {
     report
         .semantic_program
-        .components
+        .assembly_components()
         .iter()
         .flat_map(|component| {
             component.local_expressions.iter().flat_map(move |local| {
@@ -6487,7 +6485,7 @@ fn render_html_inner(
     }
 
     let mut component_summary = String::new();
-    for component in &report.semantic_program.components {
+    for component in report.semantic_program.assembly_components() {
         for port in &component.ports {
             component_summary.push_str("<tr>");
             component_summary.push_str(&format!(
@@ -6943,7 +6941,7 @@ fn render_html_inner(
     let uncertainty_count = report.semantic_program.uncertainty_infos.len();
     let ml_info_count = report.semantic_program.ml_infos.len();
     let domain_count = report.semantic_program.domains.len();
-    let component_count = report.semantic_program.components.len();
+    let component_count = report.semantic_program.assembly_components().len();
     let connection_count = report.semantic_program.connections.len();
     let assembly_count = report.semantic_program.component_assemblies.len();
     let class_count = report.semantic_program.classes.len();
