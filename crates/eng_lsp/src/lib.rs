@@ -1223,6 +1223,13 @@ pub fn snapshot_from_report(report: &CheckReport) -> LspSnapshot {
 }
 
 pub fn snapshot_from_report_with_source(report: &CheckReport, source: Option<&str>) -> LspSnapshot {
+    let semantic_tokens = source
+        .map(|source| semantic_tokens(report, source))
+        .unwrap_or_default();
+    let mut hovers = hover_items(report, source);
+    if let Some(source) = source {
+        push_semantic_role_hovers(&mut hovers, source, &semantic_tokens.tokens);
+    }
     LspSnapshot {
         diagnostics: report
             .diagnostics
@@ -1231,10 +1238,8 @@ pub fn snapshot_from_report_with_source(report: &CheckReport, source: Option<&st
             .collect(),
         validations: review_validation_records(report),
         completions: completion_items(report),
-        hovers: hover_items(report, source),
-        semantic_tokens: source
-            .map(|source| semantic_tokens(report, source))
-            .unwrap_or_default(),
+        hovers,
+        semantic_tokens,
         document_symbols: source
             .map(|source| document_symbols(report, source))
             .unwrap_or_default(),
@@ -7700,12 +7705,14 @@ fn completion_json_with_kind(completion: &LspCompletion, kind: Value) -> Value {
 
 pub fn hover_json(hover: &LspHover) -> Value {
     let mut value = format!(
-        "**{}**\n\nKind: {}\n\n{}\n\nQuantity: `{}`",
+        "**{}**\n\nKind: {}\n\n{}",
         hover.name,
         hover_kind_label(&hover.kind),
-        hover.detail,
-        hover.quantity_kind
+        hover.detail
     );
+    if let Some(quantity_kind) = hover_quantity_kind(&hover.quantity_kind) {
+        value.push_str(&format!("\n\nQuantity: `{quantity_kind}`"));
+    }
     if let Some(display_unit) = hover_display_unit(&hover.display_unit) {
         value.push_str(&format!("\n\nDisplay unit: `{display_unit}`"));
     }
@@ -7748,6 +7755,15 @@ fn hover_kind_label(kind: &str) -> String {
         "class_object" => "Class object".to_owned(),
         "object_field" => "Object field".to_owned(),
         "object_validation" => "Object validation".to_owned(),
+        "unit" => "Unit".to_owned(),
+        "quantity" => "Quantity".to_owned(),
+        "schema_field" => "Schema field".to_owned(),
+        "timeseries_axis" => "TimeSeries axis".to_owned(),
+        "timeseries" => "TimeSeries".to_owned(),
+        "side_effect" => "Side effect".to_owned(),
+        "external_boundary" => "External boundary".to_owned(),
+        "uncertainty" => "Uncertainty".to_owned(),
+        "validation" => "Validation".to_owned(),
         "http_response_field" => "HTTP response field".to_owned(),
         "coverage_result_field" => "Coverage result field".to_owned(),
         "time_alignment_result_field" => "Time alignment result field".to_owned(),
@@ -7815,6 +7831,16 @@ fn hover_display_unit(display_unit: &str) -> Option<&str> {
         Some(trimmed)
     }
 }
+
+fn hover_quantity_kind(quantity_kind: &str) -> Option<&str> {
+    let trimmed = quantity_kind.trim();
+    if trimmed.is_empty() || trimmed == "-" {
+        None
+    } else {
+        Some(trimmed)
+    }
+}
+
 fn push_public_member_field_hovers(hovers: &mut Vec<LspHover>, report: &CheckReport, source: &str) {
     for binding in &report.semantic_program.typed_bindings {
         let Some((fields, kind)) = public_member_hover_fields(&binding.semantic_type.quantity_kind)
@@ -8262,6 +8288,211 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             .then_with(|| left.name.cmp(&right.name))
     });
     hovers
+}
+
+fn push_semantic_role_hovers(
+    hovers: &mut Vec<LspHover>,
+    source: &str,
+    tokens: &[LspSemanticToken],
+) {
+    let mut candidates = BTreeMap::<(usize, String), (String, BTreeSet<String>)>::new();
+    for token in tokens {
+        if !semantic_token_needs_role_hover(token) {
+            continue;
+        }
+        let Some(text) = semantic_token_source_text(source, token) else {
+            continue;
+        };
+        let entry = candidates
+            .entry((token.line + 1, text.to_owned()))
+            .or_insert_with(|| (token.token_type.clone(), BTreeSet::new()));
+        entry.1.extend(token.modifiers.iter().cloned());
+    }
+
+    for hover in hovers.iter_mut() {
+        let suffix = hover.name.rsplit('.').next().unwrap_or(&hover.name);
+        let label = suffix.strip_suffix("()").unwrap_or(suffix);
+        if hover.kind == "variable"
+            && candidates.get(&(hover.line, label.to_owned())).is_some_and(
+                |(token_type, modifiers)| {
+                    token_type == "property" && modifiers.contains("declaration")
+                },
+            )
+        {
+            hover.kind = "schema_field".to_owned();
+        }
+    }
+
+    let mut covered = BTreeSet::<(usize, String)>::new();
+    for hover in hovers.iter() {
+        covered.insert((hover.line, hover.name.clone()));
+        let suffix = hover.name.rsplit('.').next().unwrap_or(&hover.name);
+        let label = suffix.strip_suffix("()").unwrap_or(suffix);
+        covered.insert((hover.line, label.to_owned()));
+    }
+
+    for ((line, name), (token_type, modifiers)) in candidates {
+        if covered.contains(&(line, name.clone())) {
+            continue;
+        }
+        let Some(hover) = semantic_role_hover(line, name.clone(), &token_type, &modifiers) else {
+            continue;
+        };
+        covered.insert((line, name));
+        hovers.push(hover);
+    }
+
+    hovers.sort_by(|left, right| {
+        left.line
+            .cmp(&right.line)
+            .then_with(|| left.kind.cmp(&right.kind))
+            .then_with(|| left.name.cmp(&right.name))
+    });
+}
+
+fn semantic_token_needs_role_hover(token: &LspSemanticToken) -> bool {
+    (token.token_type == "property" && semantic_token_has_modifier(token, "declaration"))
+        || [
+            "unit",
+            "quantity",
+            "axis",
+            "timeseries",
+            "sideEffect",
+            "external",
+            "uncertain",
+            "validation",
+        ]
+        .iter()
+        .any(|modifier| semantic_token_has_modifier(token, modifier))
+}
+
+fn semantic_token_has_modifier(token: &LspSemanticToken, modifier: &str) -> bool {
+    token
+        .modifiers
+        .iter()
+        .any(|candidate| candidate == modifier)
+}
+
+fn semantic_token_source_text<'a>(source: &'a str, token: &LspSemanticToken) -> Option<&'a str> {
+    let line = source.lines().nth(token.line)?;
+    let start = utf16_offset_to_byte(line, token.start)?;
+    let end = utf16_offset_to_byte(line, token.start + token.length)?;
+    (start < end).then(|| &line[start..end])
+}
+
+fn utf16_offset_to_byte(line: &str, offset: usize) -> Option<usize> {
+    if offset == 0 {
+        return Some(0);
+    }
+    let mut utf16_offset = 0;
+    for (byte_offset, character) in line.char_indices() {
+        if utf16_offset == offset {
+            return Some(byte_offset);
+        }
+        utf16_offset += character.len_utf16();
+        if utf16_offset > offset {
+            return None;
+        }
+    }
+    (utf16_offset == offset).then_some(line.len())
+}
+
+fn semantic_role_hover(
+    line: usize,
+    name: String,
+    token_type: &str,
+    modifiers: &BTreeSet<String>,
+) -> Option<LspHover> {
+    let has = |modifier: &str| modifiers.contains(modifier);
+    let (kind, description, quantity_kind, display_unit) = if has("unit") {
+        (
+            "unit",
+            "Compiler-recognized unit spelling.",
+            String::new(),
+            name.clone(),
+        )
+    } else if has("quantity") {
+        (
+            "quantity",
+            "Compiler-recognized quantity or quantity-bearing type.",
+            name.clone(),
+            "-".to_owned(),
+        )
+    } else if token_type == "property" && has("declaration") {
+        (
+            "schema_field",
+            "Declared schema, class, or object field.",
+            String::new(),
+            "-".to_owned(),
+        )
+    } else if has("axis") {
+        (
+            "timeseries_axis",
+            "TimeSeries axis used for alignment, aggregation, or integration.",
+            "TimeAxis".to_owned(),
+            "-".to_owned(),
+        )
+    } else if has("sideEffect") {
+        (
+            "side_effect",
+            "Operation that can mutate files, processes, network state, or a database.",
+            String::new(),
+            "-".to_owned(),
+        )
+    } else if has("external") {
+        (
+            "external_boundary",
+            "Operation or value that crosses an external runtime boundary.",
+            String::new(),
+            "-".to_owned(),
+        )
+    } else if has("uncertain") {
+        (
+            "uncertainty",
+            "Uncertainty-bearing value, distribution, or propagation operation.",
+            String::new(),
+            "-".to_owned(),
+        )
+    } else if has("validation") {
+        (
+            "validation",
+            "Validation, constraint, or data-quality expression.",
+            "Bool".to_owned(),
+            "-".to_owned(),
+        )
+    } else if has("timeseries") {
+        (
+            "timeseries",
+            "TimeSeries value or temporal operation.",
+            "TimeSeries".to_owned(),
+            "-".to_owned(),
+        )
+    } else {
+        return None;
+    };
+    let modifiers = modifiers
+        .iter()
+        .map(|modifier| format!("`{modifier}`"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let detail =
+        format!("{description} Semantic token type: `{token_type}`. Modifiers: {modifiers}.");
+    let status = if has("riskHigh") {
+        Some("high_review_risk")
+    } else if has("riskMedium") {
+        Some("medium_review_risk")
+    } else {
+        None
+    };
+    Some(LspHover {
+        name,
+        kind: kind.to_owned(),
+        line,
+        detail,
+        quantity_kind,
+        display_unit,
+        status: status.map(str::to_owned),
+    })
 }
 
 pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
@@ -10707,6 +10938,67 @@ mod tests {
         let line = source.lines().nth(line_index).expect("diagnostic line");
 
         (line, start, end)
+    }
+
+    #[test]
+    fn snapshot_adds_hovers_for_semantic_roles_without_symbol_metadata() {
+        let source = r#"schema SensorData {
+    time: DateTime index
+    T_zone: TimeSeries[Time] of AbsoluteTemperature [degC]
+    irradiance: Irradiance [W/m2]
+    constraints {
+        time is monotonic
+    }
+}
+
+Q_dist = distribution(kind=normal, mean=5 kW, sigma=0.8 kW, n=31)
+print "done"
+"#;
+        let snapshot = snapshot_for_source(Path::new("semantic_role_hovers.eng"), source);
+
+        for (name, kind) in [
+            ("T_zone", "schema_field"),
+            ("Time", "timeseries_axis"),
+            ("AbsoluteTemperature", "quantity"),
+            ("degC", "unit"),
+            ("W/m2", "unit"),
+            ("monotonic", "validation"),
+            ("normal", "uncertainty"),
+            ("print", "side_effect"),
+        ] {
+            assert!(
+                snapshot
+                    .hovers
+                    .iter()
+                    .any(|hover| hover.name == name && hover.kind == kind),
+                "semantic role `{name}` should expose hover kind `{kind}`"
+            );
+        }
+
+        let unit_hover = snapshot
+            .hovers
+            .iter()
+            .find(|hover| hover.name == "degC" && hover.kind == "unit")
+            .expect("unit role hover");
+        let unit_markdown = hover_json(unit_hover)["contents"]["value"]
+            .as_str()
+            .expect("unit hover markdown")
+            .to_owned();
+        assert!(unit_markdown.contains("Kind: Unit"));
+        assert!(unit_markdown.contains("Display unit: `degC`"));
+        assert!(!unit_markdown.contains("Quantity: ``"));
+
+        let side_effect_hover = snapshot
+            .hovers
+            .iter()
+            .find(|hover| hover.name == "print" && hover.kind == "side_effect")
+            .expect("side-effect role hover");
+        let side_effect_markdown = hover_json(side_effect_hover)["contents"]["value"]
+            .as_str()
+            .expect("side-effect hover markdown")
+            .to_owned();
+        assert!(side_effect_markdown.contains("Kind: Side effect"));
+        assert!(!side_effect_markdown.contains("Quantity:"));
     }
 
     #[test]

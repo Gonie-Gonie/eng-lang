@@ -25,6 +25,15 @@ const HOVER_KIND_LABELS = Object.freeze({
   class_object: "Class object",
   object_field: "Object field",
   object_validation: "Object validation",
+  unit: "Unit",
+  quantity: "Quantity",
+  schema_field: "Schema field",
+  timeseries_axis: "TimeSeries axis",
+  timeseries: "TimeSeries",
+  side_effect: "Side effect",
+  external_boundary: "External boundary",
+  uncertainty: "Uncertainty",
+  validation: "Validation",
   http_response_field: "HTTP response field",
   coverage_result_field: "Coverage result field",
   time_alignment_result_field: "Time alignment result field",
@@ -33,6 +42,7 @@ const HOVER_KIND_LABELS = Object.freeze({
   db_connection_field: "DB connection field",
   case_table_field: "Case table field",
   case_output_table_field: "Case output field",
+  case_run_result_table_field: "Case run result field",
   case_result_collection_table_field: "Case result collection field",
   model_field: "Model field",
   prediction_table_field: "Prediction table field"
@@ -69,14 +79,56 @@ function hoverFromSnapshot(document, position, snapshot) {
   const wordRange = hoverRangeAtPosition(document, position);
   const candidates = hoverCandidatesAtPosition(document, position, wordRange);
   const word = candidates[0] ?? "";
-  if (!word) {
+  const wordHover = word ? findHoverForWord(snapshot, candidates, position.line + 1) : undefined;
+  if (wordHover) {
+    return hoverFromPayload(wordHover, word, wordRange);
+  }
+  const semanticHover = semanticHoverAtPosition(document, position, snapshot);
+  if (!semanticHover) {
     return undefined;
   }
-  const hover = findHoverForWord(snapshot, candidates, position.line + 1);
-  if (!hover) {
-    return undefined;
+  return hoverFromPayload(semanticHover.hover, semanticHover.text, semanticHover.range);
+}
+
+function semanticHoverAtPosition(document, position, snapshot) {
+  const payload = snapshot?.semantic_tokens ?? snapshot?.semanticTokens;
+  const tokens = Array.isArray(payload?.tokens) ? payload.tokens : [];
+  const lineText = document.lineAt(position.line).text;
+  const matching = tokens
+    .filter((token) => {
+      const line = Number(token?.line);
+      const start = Number(token?.start);
+      const length = Number(token?.length);
+      return Number.isInteger(line)
+        && Number.isInteger(start)
+        && Number.isInteger(length)
+        && line === position.line
+        && length > 0
+        && position.character >= start
+        && position.character <= start + length;
+    })
+    .sort((left, right) => {
+      const leftEndsAtCaret = position.character === Number(left.start) + Number(left.length) ? 1 : 0;
+      const rightEndsAtCaret = position.character === Number(right.start) + Number(right.length) ? 1 : 0;
+      return leftEndsAtCaret - rightEndsAtCaret || Number(left.length) - Number(right.length);
+    });
+  for (const token of matching) {
+    const start = Number(token.start);
+    const end = start + Number(token.length);
+    if (start < 0 || end > lineText.length) {
+      continue;
+    }
+    const text = lineText.slice(start, end);
+    const hover = findHoverForWord(snapshot, [text], position.line + 1);
+    if (hover) {
+      return {
+        hover,
+        text,
+        range: new vscode.Range(position.line, start, position.line, end)
+      };
+    }
   }
-  return hoverFromPayload(hover, word, wordRange);
+  return undefined;
 }
 
 function findHoverForWord(source, candidates, line) {
@@ -86,10 +138,25 @@ function findHoverForWord(source, candidates, line) {
     ...(source.hover_hints ?? []),
     ...(source.type_info ?? [])
   ];
-  return (
-    hovers.find((hover) => hoverNameMatches(hover, names, line)) ??
-    hovers.find((hover) => hoverNameMatches(hover, names, undefined))
-  );
+  return hovers.find((hover) =>
+    !semanticRoleHoverKind(hover?.kind) && hoverNameMatches(hover, names, line)
+  ) ?? hovers.find((hover) =>
+    !semanticRoleHoverKind(hover?.kind) && hoverNameMatches(hover, names, undefined)
+  ) ?? hovers.find((hover) => hoverNameMatches(hover, names, line))
+    ?? hovers.find((hover) => hoverNameMatches(hover, names, undefined));
+}
+
+function semanticRoleHoverKind(kind) {
+  return [
+    "unit",
+    "quantity",
+    "timeseries_axis",
+    "timeseries",
+    "side_effect",
+    "external_boundary",
+    "uncertainty",
+    "validation"
+  ].includes(String(kind ?? ""));
 }
 
 function hoverNameMatches(hover, candidates, line) {
@@ -213,8 +280,10 @@ function hoverKindWordLabel(part) {
 module.exports = {
   EngHoverProvider,
   findHoverForWord,
+  semanticRoleHoverKind,
   hoverKindLabel,
   hoverStatusLabel,
   hoverFromSnapshot,
+  semanticHoverAtPosition,
   hoverMarkdown
 };

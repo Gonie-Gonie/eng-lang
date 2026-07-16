@@ -184,7 +184,9 @@ metadata:
 `line` is one-based because it mirrors compiler metadata. LSP responses convert
 request positions from zero-based LSP coordinates before matching hover lines.
 `quantity_kind` and `display_unit` are included for editor clients that want to
-render compact metadata without parsing the markdown body.
+render compact metadata without parsing the markdown body. A semantic-role
+hover that does not describe a physical quantity leaves `quantity_kind` empty;
+its Markdown body omits the Quantity row instead of displaying an empty value.
 
 `kind` and `status` are optional metadata extensions inside
 `eng-lsp-snapshot-v1`; consumers should continue to ignore unknown keys.
@@ -203,6 +205,9 @@ domain_conservation
 component
 component_port
 connection
+component_assembly
+connection_set
+assembly_equation
 class
 class_field
 class_validation
@@ -210,7 +215,39 @@ class_method
 class_object
 object_field
 object_validation
+unit
+quantity
+schema_field
+timeseries_axis
+timeseries
+side_effect
+external_boundary
+uncertainty
+validation
+http_response_field
+coverage_result_field
+time_alignment_result_field
+table_field
+sample_table_field
+db_connection_field
+case_table_field
+case_output_table_field
+case_run_result_table_field
+case_result_collection_table_field
+model_field
+prediction_table_field
 ```
+
+Compiler symbol metadata remains the preferred hover source. When a semantic
+token has no matching symbol hover, the snapshot adds a role hover for units,
+quantities, declared fields, TimeSeries axes/operations, side effects, external
+boundaries, uncertainty, and validation. These fallback entries preserve the
+exact semantic token type/modifiers in their detail text, so the VS Code and
+native IDE clients can explain role coloring without duplicating compiler
+classification logic.
+Editor clients resolve these entries from semantic-token UTF-16 ranges, not
+identifier-only word boundaries, so composite units such as `W/m2` and
+`W/(m2*K)` receive the same hover as simple names such as `degC`.
 
 For domain/component track files, hovers expose domain declarations,
 across/through variables, conservation metadata, component ports, and connection

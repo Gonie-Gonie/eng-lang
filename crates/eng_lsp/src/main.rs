@@ -6405,12 +6405,51 @@ fn hover_for_request(request: &Value, documents: &Documents) -> Option<eng_lsp::
         .as_deref()
         .and_then(|text| symbol_at_position(text, line_zero_based, character))
     {
-        if let Some(hover) = hover_for_symbol(&snapshot.hovers, &symbol).cloned() {
+        if let Some(hover) =
+            hover_for_symbol_on_line(&snapshot.hovers, &symbol, line_zero_based + 1).cloned()
+        {
             return Some(hover);
         }
     }
+    if let Some(hover) = text.as_deref().and_then(|text| {
+        hover_for_semantic_token_position(&snapshot, text, line_zero_based, character)
+    }) {
+        return Some(hover.clone());
+    }
     let line = line_zero_based + 1;
     snapshot.hovers.into_iter().find(|hover| hover.line == line)
+}
+
+fn hover_for_semantic_token_position<'a>(
+    snapshot: &'a eng_lsp::LspSnapshot,
+    source: &str,
+    line: usize,
+    character: usize,
+) -> Option<&'a eng_lsp::LspHover> {
+    let mut tokens = snapshot
+        .semantic_tokens
+        .tokens
+        .iter()
+        .filter(|token| {
+            token.line == line
+                && character >= token.start
+                && character <= token.start + token.length
+        })
+        .collect::<Vec<_>>();
+    tokens.sort_by_key(|token| (character == token.start + token.length, token.length));
+    for token in tokens {
+        let Some(text) = semantic_token_text(source, token) else {
+            continue;
+        };
+        if let Some(hover) = snapshot
+            .hovers
+            .iter()
+            .find(|hover| hover.line == line + 1 && hover.name == text)
+        {
+            return Some(hover);
+        }
+    }
+    None
 }
 
 fn definition_for_request(request: &Value, documents: &Documents) -> Option<Value> {
@@ -7742,19 +7781,61 @@ fn hover_for_symbol<'a>(
     hovers: &'a [eng_lsp::LspHover],
     symbol: &str,
 ) -> Option<&'a eng_lsp::LspHover> {
+    hover_for_symbol_role(hovers, symbol, None, false)
+        .or_else(|| hover_for_symbol_role(hovers, symbol, None, true))
+}
+
+fn hover_for_symbol_on_line<'a>(
+    hovers: &'a [eng_lsp::LspHover],
+    symbol: &str,
+    line: usize,
+) -> Option<&'a eng_lsp::LspHover> {
+    hover_for_symbol_role(hovers, symbol, Some(line), false)
+        .or_else(|| hover_for_symbol_role(hovers, symbol, None, false))
+        .or_else(|| hover_for_symbol_role(hovers, symbol, Some(line), true))
+        .or_else(|| hover_for_symbol_role(hovers, symbol, None, true))
+}
+
+fn hover_for_symbol_role<'a>(
+    hovers: &'a [eng_lsp::LspHover],
+    symbol: &str,
+    line: Option<usize>,
+    semantic_role_fallback: bool,
+) -> Option<&'a eng_lsp::LspHover> {
     let symbol_label = symbol.rsplit('.').next().unwrap_or(symbol);
     hovers
         .iter()
+        .filter(|hover| line.map_or(true, |line| hover.line == line))
+        .filter(|hover| semantic_role_hover_kind(&hover.kind) == semantic_role_fallback)
         .find(|hover| hover.name == symbol)
         .or_else(|| {
-            hovers.iter().find(|hover| {
-                hover
-                    .name
-                    .rsplit('.')
-                    .next()
-                    .is_some_and(|hover_label| hover_label == symbol_label)
-            })
+            hovers
+                .iter()
+                .filter(|hover| line.map_or(true, |line| hover.line == line))
+                .filter(|hover| semantic_role_hover_kind(&hover.kind) == semantic_role_fallback)
+                .find(|hover| {
+                    hover
+                        .name
+                        .rsplit('.')
+                        .next()
+                        .map(|label| label.strip_suffix("()").unwrap_or(label))
+                        .is_some_and(|hover_label| hover_label == symbol_label)
+                })
         })
+}
+
+fn semantic_role_hover_kind(kind: &str) -> bool {
+    matches!(
+        kind,
+        "unit"
+            | "quantity"
+            | "timeseries_axis"
+            | "timeseries"
+            | "side_effect"
+            | "external_boundary"
+            | "uncertainty"
+            | "validation"
+    )
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -8508,6 +8589,49 @@ mod tests {
         cache.remove_document(uri);
         let closed = cache.delta_response(Some(uri), Some(&first_id), vec![10]);
         assert_eq!(closed["data"], json!([10]));
+    }
+
+    #[test]
+    fn symbol_hover_prefers_structured_metadata_over_role_fallbacks() {
+        let hover = |name: &str, kind: &str, line: usize| eng_lsp::LspHover {
+            name: name.to_owned(),
+            kind: kind.to_owned(),
+            line,
+            detail: kind.to_owned(),
+            quantity_kind: String::new(),
+            display_unit: "-".to_owned(),
+            status: None,
+        };
+        let hovers = vec![
+            hover("Q_for_energy", "timeseries", 29),
+            hover("where.Q_for_energy", "where_local", 31),
+            hover("degC", "unit", 7),
+        ];
+
+        for line in [29, 31] {
+            assert_eq!(
+                hover_for_symbol_on_line(&hovers, "Q_for_energy", line)
+                    .map(|hover| hover.kind.as_str()),
+                Some("where_local")
+            );
+        }
+        assert_eq!(
+            hover_for_symbol_on_line(&hovers, "degC", 7).map(|hover| hover.kind.as_str()),
+            Some("unit")
+        );
+    }
+
+    #[test]
+    fn semantic_token_hover_resolves_composite_unit_ranges() {
+        let source = "irradiance: Irradiance [W/m2] = 300 W/m2\n";
+        let snapshot = snapshot_for_source(Path::new("composite_unit_hover.eng"), source);
+        let character = source.find("W/m2").unwrap() + 2;
+        let hover = hover_for_semantic_token_position(&snapshot, source, 0, character)
+            .expect("composite unit hover");
+
+        assert_eq!(hover.name, "W/m2");
+        assert_eq!(hover.kind, "unit");
+        assert_eq!(hover.display_unit, "W/m2");
     }
 
     #[test]

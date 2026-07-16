@@ -4842,6 +4842,7 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "const HOVER_KIND_LABELS = Object.freeze",
         "function hoverKindLabel(kind)",
         "function hoverStatusLabel(status)",
+        "function semanticRoleHoverKind(kind)",
         "hoverKindLabel(hover.kind)",
         "hoverStatusLabel(hover.status)",
         r#"coverage_result_field: "Coverage result field""#,
@@ -4849,6 +4850,13 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         r#"table_field: "Table field""#,
         r#"model_field: "Model field""#,
         r#"db_connection_field: "DB connection field""#,
+        r#"case_run_result_table_field: "Case run result field""#,
+        r#"schema_field: "Schema field""#,
+        r#"timeseries_axis: "TimeSeries axis""#,
+        r#"side_effect: "Side effect""#,
+        r#"external_boundary: "External boundary""#,
+        r#"uncertainty: "Uncertainty""#,
+        r#"validation: "Validation""#,
         "function renderInspectorTabButtons(tabs)",
         "renderInspectorTabButtons(inspectorTabsForSemanticToken(token))",
         "function semanticTokenOverlaps(tokens)",
@@ -5373,6 +5381,40 @@ with {
             "keyword",
             "sideEffect"
         ));
+        let rich_hovers = rich_check.hovers.as_array().expect("rich semantic hovers");
+        assert!(rich_hovers
+            .iter()
+            .any(|hover| hover["name"] == "normal" && hover["kind"] == "uncertainty"));
+        assert!(rich_hovers
+            .iter()
+            .any(|hover| hover["name"] == "write" && hover["kind"] == "side_effect"));
+
+        let role_source = r#"schema SensorData {
+    time: DateTime index
+    T_zone: TimeSeries[Time] of AbsoluteTemperature [degC]
+    irradiance: Irradiance [W/m2]
+    constraints {
+        time is monotonic
+    }
+}
+"#;
+        let role_check = check_view(Path::new("ide_semantic_role_hovers.eng"), role_source);
+        let role_hovers = role_check.hovers.as_array().expect("semantic role hovers");
+        for (name, kind) in [
+            ("T_zone", "schema_field"),
+            ("Time", "timeseries_axis"),
+            ("AbsoluteTemperature", "quantity"),
+            ("degC", "unit"),
+            ("W/m2", "unit"),
+            ("monotonic", "validation"),
+        ] {
+            assert!(
+                role_hovers
+                    .iter()
+                    .any(|hover| hover["name"] == name && hover["kind"] == kind),
+                "native IDE payload should expose `{name}` hover kind `{kind}`"
+            );
+        }
     }
 
     #[test]

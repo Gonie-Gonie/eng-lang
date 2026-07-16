@@ -92,6 +92,15 @@ const HOVER_KIND_LABELS = Object.freeze({
   class_object: "Class object",
   object_field: "Object field",
   object_validation: "Object validation",
+  unit: "Unit",
+  quantity: "Quantity",
+  schema_field: "Schema field",
+  timeseries_axis: "TimeSeries axis",
+  timeseries: "TimeSeries",
+  side_effect: "Side effect",
+  external_boundary: "External boundary",
+  uncertainty: "Uncertainty",
+  validation: "Validation",
   http_response_field: "HTTP response field",
   coverage_result_field: "Coverage result field",
   time_alignment_result_field: "Time alignment result field",
@@ -100,6 +109,7 @@ const HOVER_KIND_LABELS = Object.freeze({
   db_connection_field: "DB connection field",
   case_table_field: "Case table field",
   case_output_table_field: "Case output field",
+  case_run_result_table_field: "Case run result field",
   case_result_collection_table_field: "Case result collection field",
   model_field: "Model field",
   prediction_table_field: "Prediction table field"
@@ -8731,11 +8741,30 @@ function hoverForSemanticToken(token, lineIndex) {
   const line = lineIndex + 1;
   const hovers = Array.isArray(state.check?.hovers) ? state.check.hovers : [];
   const tokenText = tokenTextForSemanticToken(token, lineIndex);
-  return hovers.find((hover) => {
-    if (Number(hover.line || 0) !== line) return false;
+  const matching = hovers.filter((hover) => {
     const name = String(hover.name || "");
     return name === tokenText || name.endsWith(`.${tokenText}`) || tokenText.endsWith(`.${name}`);
-  }) || hovers.find((hover) => Number(hover.line || 0) === line) || null;
+  });
+  return matching.find((hover) =>
+    Number(hover.line || 0) === line && !semanticRoleHoverKind(hover.kind)
+  ) || matching.find((hover) => !semanticRoleHoverKind(hover.kind))
+    || matching.find((hover) => Number(hover.line || 0) === line)
+    || matching[0]
+    || hovers.find((hover) => Number(hover.line || 0) === line)
+    || null;
+}
+
+function semanticRoleHoverKind(kind) {
+  return [
+    "unit",
+    "quantity",
+    "timeseries_axis",
+    "timeseries",
+    "side_effect",
+    "external_boundary",
+    "uncertainty",
+    "validation"
+  ].includes(String(kind ?? ""));
 }
 
 function tokenTextForSemanticToken(token, lineIndex) {
