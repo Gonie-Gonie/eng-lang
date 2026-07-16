@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
@@ -11,9 +11,9 @@ use eng_lsp::{
     completion_items_for_path_position, completion_items_for_source_position,
     completion_items_for_source_position_with_import_overrides, completion_json, diagnostic_json,
     document_symbols_lsp_json, editor_metadata_json, editor_syntax_catalog_json,
-    folding_ranges_lsp_json, hover_json, semantic_legend, semantic_tokens_lsp_json,
-    snapshot_for_path, snapshot_for_source, snapshot_for_source_with_import_overrides,
-    workflow_option_label_exists, LSP_SNAPSHOT_FORMAT,
+    folding_ranges_lsp_json, hover_json, semantic_legend, semantic_tokens_lsp_data,
+    semantic_tokens_lsp_json, snapshot_for_path, snapshot_for_source,
+    snapshot_for_source_with_import_overrides, workflow_option_label_exists, LSP_SNAPSHOT_FORMAT,
 };
 use serde_json::{json, Value};
 
@@ -1051,10 +1051,80 @@ impl DocumentState {
 }
 
 type Documents = HashMap<String, DocumentState>;
+
+const MAX_SEMANTIC_TOKEN_RESULTS_PER_DOCUMENT: usize = 4;
+
+#[derive(Clone, Debug)]
+struct CachedSemanticTokens {
+    result_id: String,
+    data: Vec<usize>,
+}
+
+#[derive(Debug, Default)]
+struct SemanticTokenCache {
+    next_result_id: u64,
+    documents: HashMap<String, VecDeque<CachedSemanticTokens>>,
+}
+
+impl SemanticTokenCache {
+    fn full_response(&mut self, uri: Option<&str>, data: Vec<usize>) -> Value {
+        let Some(uri) = uri else {
+            return json!({ "data": data });
+        };
+        let result_id = self.insert(uri, data.clone());
+        json!({ "resultId": result_id, "data": data })
+    }
+
+    fn delta_response(
+        &mut self,
+        uri: Option<&str>,
+        previous_result_id: Option<&str>,
+        data: Vec<usize>,
+    ) -> Value {
+        let Some(uri) = uri else {
+            return json!({ "data": data });
+        };
+        let edits = previous_result_id
+            .and_then(|result_id| self.find(uri, result_id))
+            .map(|previous| semantic_token_delta_edits(&previous.data, &data));
+        let result_id = self.insert(uri, data.clone());
+        match edits {
+            Some(edits) => json!({ "resultId": result_id, "edits": edits }),
+            None => json!({ "resultId": result_id, "data": data }),
+        }
+    }
+
+    fn remove_document(&mut self, uri: &str) {
+        self.documents.remove(uri);
+    }
+
+    fn find(&self, uri: &str, result_id: &str) -> Option<&CachedSemanticTokens> {
+        self.documents
+            .get(uri)?
+            .iter()
+            .find(|result| result.result_id == result_id)
+    }
+
+    fn insert(&mut self, uri: &str, data: Vec<usize>) -> String {
+        self.next_result_id += 1;
+        let result_id = self.next_result_id.to_string();
+        let results = self.documents.entry(uri.to_owned()).or_default();
+        results.push_back(CachedSemanticTokens {
+            result_id: result_id.clone(),
+            data,
+        });
+        while results.len() > MAX_SEMANTIC_TOKEN_RESULTS_PER_DOCUMENT {
+            results.pop_front();
+        }
+        result_id
+    }
+}
+
 fn run_lsp() -> io::Result<()> {
     let mut input = io::stdin().lock();
     let mut output = io::stdout().lock();
     let mut documents = Documents::new();
+    let mut semantic_token_cache = SemanticTokenCache::default();
     let mut workspace_roots = Vec::<PathBuf>::new();
 
     while let Some(message) = read_lsp_message(&mut input)? {
@@ -1113,7 +1183,7 @@ fn run_lsp() -> io::Result<()> {
                                         "tokenTypes": legend.token_types,
                                         "tokenModifiers": legend.token_modifiers
                                     },
-                                    "full": true,
+                                    "full": { "delta": true },
                                     "range": true
                                 }
                             },
@@ -1150,6 +1220,7 @@ fn run_lsp() -> io::Result<()> {
                         .filter(|(open_uri, _)| open_uri != &uri)
                         .collect::<Vec<_>>();
                     documents.remove(&uri);
+                    semantic_token_cache.remove_document(&uri);
                     clear_diagnostics(&mut output, &uri)?;
                     for (open_uri, open_state) in dependents {
                         publish_diagnostics(&mut output, &open_uri, &open_state, &documents)?;
@@ -1243,9 +1314,22 @@ fn run_lsp() -> io::Result<()> {
                 )?;
             }
             "textDocument/semanticTokens/full" => {
-                let tokens = semantic_tokens_for_request(&request, &documents)
-                    .map(|tokens| semantic_tokens_lsp_json(&tokens))
-                    .unwrap_or_else(|| json!({ "data": [] }));
+                let tokens = semantic_tokens_full_response_for_request(
+                    &request,
+                    &documents,
+                    &mut semantic_token_cache,
+                );
+                write_response(
+                    &mut output,
+                    json!({ "jsonrpc": "2.0", "id": id, "result": tokens }),
+                )?;
+            }
+            "textDocument/semanticTokens/full/delta" => {
+                let tokens = semantic_tokens_delta_response_for_request(
+                    &request,
+                    &documents,
+                    &mut semantic_token_cache,
+                );
                 write_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": tokens }),
@@ -1424,6 +1508,71 @@ fn semantic_tokens_for_request(
     documents: &Documents,
 ) -> Option<eng_lsp::LspSemanticTokens> {
     Some(snapshot_for_request(request, documents)?.semantic_tokens)
+}
+
+fn semantic_token_data_for_request(request: &Value, documents: &Documents) -> Vec<usize> {
+    semantic_tokens_for_request(request, documents)
+        .map(|tokens| semantic_tokens_lsp_data(&tokens))
+        .unwrap_or_default()
+}
+
+fn semantic_tokens_full_response_for_request(
+    request: &Value,
+    documents: &Documents,
+    cache: &mut SemanticTokenCache,
+) -> Value {
+    cache.full_response(
+        request_uri(request),
+        semantic_token_data_for_request(request, documents),
+    )
+}
+
+fn semantic_tokens_delta_response_for_request(
+    request: &Value,
+    documents: &Documents,
+    cache: &mut SemanticTokenCache,
+) -> Value {
+    cache.delta_response(
+        request_uri(request),
+        request
+            .pointer("/params/previousResultId")
+            .and_then(Value::as_str),
+        semantic_token_data_for_request(request, documents),
+    )
+}
+
+fn semantic_token_delta_edits(previous: &[usize], current: &[usize]) -> Vec<Value> {
+    let prefix_len = previous
+        .iter()
+        .zip(current)
+        .take_while(|(left, right)| left == right)
+        .count();
+    if prefix_len == previous.len() && prefix_len == current.len() {
+        return Vec::new();
+    }
+
+    let max_suffix_len = previous
+        .len()
+        .saturating_sub(prefix_len)
+        .min(current.len().saturating_sub(prefix_len));
+    let suffix_len = previous[prefix_len..]
+        .iter()
+        .rev()
+        .zip(current[prefix_len..].iter().rev())
+        .take(max_suffix_len)
+        .take_while(|(left, right)| left == right)
+        .count();
+    let delete_count = previous.len() - prefix_len - suffix_len;
+    let inserted = current[prefix_len..current.len() - suffix_len].to_vec();
+    if inserted.is_empty() {
+        vec![json!({ "start": prefix_len, "deleteCount": delete_count })]
+    } else {
+        vec![json!({
+            "start": prefix_len,
+            "deleteCount": delete_count,
+            "data": inserted
+        })]
+    }
 }
 
 fn formatting_edits_for_request(request: &Value, documents: &Documents) -> Vec<Value> {
@@ -8314,6 +8463,52 @@ fn write_response<W: Write>(output: &mut W, value: Value) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn semantic_token_delta_edits_reconstruct_current_data() {
+        let previous = vec![0, 0, 4, 5, 1, 1, 2, 3, 6, 0, 0, 5, 2, 9, 4];
+        let current = vec![0, 0, 4, 5, 1, 1, 3, 7, 6, 0, 0, 5, 2, 9, 4];
+        let edits = semantic_token_delta_edits(&previous, &current);
+        assert_eq!(edits.len(), 1);
+
+        let edit = &edits[0];
+        let start = edit["start"].as_u64().unwrap() as usize;
+        let delete_count = edit["deleteCount"].as_u64().unwrap() as usize;
+        let inserted = edit["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|value| value.as_u64().unwrap() as usize);
+        let mut reconstructed = previous.clone();
+        reconstructed.splice(start..start + delete_count, inserted);
+        assert_eq!(reconstructed, current);
+        assert!(semantic_token_delta_edits(&current, &current).is_empty());
+
+        let deletion = semantic_token_delta_edits(&[1, 2, 3], &[1, 3]);
+        assert_eq!(deletion, vec![json!({ "start": 1, "deleteCount": 1 })]);
+    }
+
+    #[test]
+    fn semantic_token_cache_bounds_history_and_falls_back_to_full_data() {
+        let uri = "file:///C:/workspace/cache.eng";
+        let mut cache = SemanticTokenCache::default();
+        let first = cache.full_response(Some(uri), vec![1, 2, 3]);
+        let first_id = first["resultId"].as_str().unwrap().to_owned();
+        let delta = cache.delta_response(Some(uri), Some(&first_id), vec![1, 4, 3]);
+        assert!(delta["edits"].is_array());
+        assert!(delta.get("data").is_none());
+
+        for value in 0..MAX_SEMANTIC_TOKEN_RESULTS_PER_DOCUMENT {
+            cache.full_response(Some(uri), vec![value]);
+        }
+        let expired = cache.delta_response(Some(uri), Some(&first_id), vec![9]);
+        assert_eq!(expired["data"], json!([9]));
+        assert!(expired.get("edits").is_none());
+
+        cache.remove_document(uri);
+        let closed = cache.delta_response(Some(uri), Some(&first_id), vec![10]);
+        assert_eq!(closed["data"], json!([10]));
+    }
 
     #[test]
     fn timeseries_fill_method_quick_fixes_require_an_explicit_policy_choice() {

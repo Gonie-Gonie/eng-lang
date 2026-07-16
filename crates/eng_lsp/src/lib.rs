@@ -2195,6 +2195,10 @@ pub fn semantic_token_json(token: &LspSemanticToken) -> Value {
 }
 
 pub fn semantic_tokens_lsp_json(tokens: &LspSemanticTokens) -> Value {
+    json!({ "data": semantic_tokens_lsp_data(tokens) })
+}
+
+pub fn semantic_tokens_lsp_data(tokens: &LspSemanticTokens) -> Vec<usize> {
     let mut data = Vec::new();
     let mut previous_line = 0usize;
     let mut previous_start = 0usize;
@@ -2218,7 +2222,7 @@ pub fn semantic_tokens_lsp_json(tokens: &LspSemanticTokens) -> Value {
         previous_start = token.start;
     }
 
-    json!({ "data": data })
+    data
 }
 
 pub fn document_symbols_lsp_json(symbols: &[LspDocumentSymbol]) -> Value {

@@ -109,7 +109,7 @@ fn stdio_server_round_trips_core_lsp_requests() {
         "quickfix"
     );
     assert_eq!(
-        initialize["result"]["capabilities"]["semanticTokensProvider"]["full"],
+        initialize["result"]["capabilities"]["semanticTokensProvider"]["full"]["delta"],
         true
     );
     assert_eq!(
@@ -351,8 +351,89 @@ fn stdio_server_round_trips_core_lsp_requests() {
     assert_eq!(semantic_tokens["id"], 10);
     let semantic_token_data = semantic_tokens["result"]["data"]
         .as_array()
-        .expect("semantic tokens should be encoded as data");
+        .expect("semantic tokens should be encoded as data")
+        .iter()
+        .map(|value| value.as_u64().unwrap() as usize)
+        .collect::<Vec<_>>();
     assert!(semantic_token_data.len() > 5);
+    let semantic_result_id = semantic_tokens["result"]["resultId"]
+        .as_str()
+        .expect("full semantic tokens should include a result ID")
+        .to_owned();
+
+    let changed_source = format!("{source}delta_probe = 1\n");
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 2 },
+                "contentChanges": [{ "text": changed_source }]
+            }
+        }),
+    );
+    let changed_diagnostics = read_message(&mut stdout);
+    assert_eq!(
+        changed_diagnostics["method"],
+        "textDocument/publishDiagnostics"
+    );
+    assert_eq!(changed_diagnostics["params"]["version"], 2);
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 19,
+            "method": "textDocument/semanticTokens/full/delta",
+            "params": {
+                "textDocument": { "uri": uri },
+                "previousResultId": semantic_result_id
+            }
+        }),
+    );
+    let semantic_delta = read_message(&mut stdout);
+    assert_eq!(semantic_delta["id"], 19);
+    assert!(semantic_delta["result"]["resultId"].is_string());
+    let delta_edits = semantic_delta["result"]["edits"]
+        .as_array()
+        .expect("known semantic result IDs should produce delta edits");
+    assert_eq!(delta_edits.len(), 1);
+    let mut reconstructed_semantic_data = semantic_token_data.clone();
+    apply_semantic_token_edits(&mut reconstructed_semantic_data, delta_edits);
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 20,
+            "method": "textDocument/semanticTokens/full",
+            "params": { "textDocument": { "uri": uri } }
+        }),
+    );
+    let changed_semantic_tokens = read_message(&mut stdout);
+    assert_eq!(changed_semantic_tokens["id"], 20);
+    assert_eq!(
+        reconstructed_semantic_data,
+        semantic_token_data_from_response(&changed_semantic_tokens)
+    );
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 21,
+            "method": "textDocument/semanticTokens/full/delta",
+            "params": {
+                "textDocument": { "uri": uri },
+                "previousResultId": "expired-result"
+            }
+        }),
+    );
+    let semantic_delta_fallback = read_message(&mut stdout);
+    assert_eq!(semantic_delta_fallback["id"], 21);
+    assert!(semantic_delta_fallback["result"]["data"].is_array());
+    assert!(semantic_delta_fallback["result"].get("edits").is_none());
 
     write_message(
         &mut stdin,
@@ -4327,6 +4408,33 @@ fn assert_script_wrapper_action(actions: &[Value], uri: &str) {
     assert!(edits.iter().all(|edit| edit["newText"] == ""));
     assert_eq!(edits[0]["range"]["start"]["line"], 8);
     assert_eq!(edits[1]["range"]["start"]["line"], 6);
+}
+
+fn semantic_token_data_from_response(response: &Value) -> Vec<usize> {
+    response["result"]["data"]
+        .as_array()
+        .expect("semantic token response should contain data")
+        .iter()
+        .map(|value| {
+            value
+                .as_u64()
+                .expect("semantic token data should be numeric") as usize
+        })
+        .collect()
+}
+
+fn apply_semantic_token_edits(data: &mut Vec<usize>, edits: &[Value]) {
+    for edit in edits.iter().rev() {
+        let start = edit["start"].as_u64().unwrap() as usize;
+        let delete_count = edit["deleteCount"].as_u64().unwrap() as usize;
+        let inserted = edit
+            .get("data")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .map(|value| value.as_u64().unwrap() as usize);
+        data.splice(start..start + delete_count, inserted);
+    }
 }
 
 fn write_message<W: Write>(writer: &mut W, value: Value) {

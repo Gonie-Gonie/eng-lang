@@ -284,8 +284,14 @@ Current semantic token roles include:
   risk
 
 The metadata token list is suitable for preview/debug tooling. Editor clients
-that need efficient live highlighting should use the stdio
-`textDocument/semanticTokens/full` request.
+that need efficient live highlighting should use the stdio semantic-token
+requests. The server advertises full tokens with delta support plus range
+tokens. A `textDocument/semanticTokens/full` response includes an opaque
+`resultId`; pass it as `previousResultId` to
+`textDocument/semanticTokens/full/delta`. The server returns a minimal integer
+stream edit when that result is still cached and a complete `data` response
+when the result is unknown or expired. Delta history is bounded per document
+and follows the latest unsaved buffer.
 
 ## Document Symbols And Folding Ranges
 
