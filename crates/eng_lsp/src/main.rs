@@ -8168,6 +8168,9 @@ fn document_state_from_notification(
     documents: &Documents,
 ) -> Option<(String, DocumentState)> {
     let uri = request_uri(request)?.to_owned();
+    if stale_document_notification(request, documents.get(&uri)) {
+        return None;
+    }
     let version = document_version_from_request(request)
         .or_else(|| documents.get(&uri).and_then(|state| state.version));
     if let Some(text) = request
@@ -8195,6 +8198,18 @@ fn document_state_from_notification(
     std::fs::read_to_string(path)
         .ok()
         .map(|text| (uri, DocumentState::new(text, version)))
+}
+
+fn stale_document_notification(request: &Value, current: Option<&DocumentState>) -> bool {
+    let Some(incoming_version) = document_version_from_request(request) else {
+        return false;
+    };
+    let Some(current_version) = current.and_then(|state| state.version) else {
+        return false;
+    };
+    let method = request.get("method").and_then(Value::as_str).unwrap_or("");
+    incoming_version < current_version
+        || (incoming_version == current_version && method != "textDocument/didSave")
 }
 
 fn document_version_from_request(request: &Value) -> Option<i64> {
@@ -8380,6 +8395,46 @@ mod tests {
             PathBuf::from("/tmp/한 % #.eng")
         };
         assert_eq!(path_from_uri(&file_uri_from_path(&path)), Some(path));
+    }
+
+    #[test]
+    fn stale_document_notifications_do_not_replace_latest_buffer() {
+        let uri = "file:///C:/workspace/versioned.eng";
+        let mut documents = Documents::new();
+        documents.insert(
+            uri.to_owned(),
+            DocumentState::new("value = 2\n".to_owned(), Some(2)),
+        );
+
+        for method in ["textDocument/didOpen", "textDocument/didChange"] {
+            let stale = json!({
+                "method": method,
+                "params": {
+                    "textDocument": { "uri": uri, "version": 2, "text": "value := 1\n" },
+                    "contentChanges": [{ "text": "value := 1\n" }]
+                }
+            });
+            assert!(document_state_from_notification(&stale, &documents).is_none());
+        }
+
+        let save = json!({
+            "method": "textDocument/didSave",
+            "params": { "textDocument": { "uri": uri } }
+        });
+        let (_, saved) = document_state_from_notification(&save, &documents).unwrap();
+        assert_eq!(saved.text, "value = 2\n");
+        assert_eq!(saved.version, Some(2));
+
+        let changed = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 3 },
+                "contentChanges": [{ "text": "value = 3\n" }]
+            }
+        });
+        let (_, changed) = document_state_from_notification(&changed, &documents).unwrap();
+        assert_eq!(changed.text, "value = 3\n");
+        assert_eq!(changed.version, Some(3));
     }
 
     #[test]

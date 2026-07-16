@@ -8126,6 +8126,7 @@ function Invoke-LspCheck {
         "type Documents = HashMap<String, DocumentState>",
         "document_state_from_notification",
         "document_version_from_request",
+        "stale_document_notification",
         '"textDocumentSync": {',
         '"openClose": true',
         '"save": { "includeText": true }',

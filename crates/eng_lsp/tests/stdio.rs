@@ -767,6 +767,37 @@ fn stdio_document_cache_tracks_versions_for_diagnostics() {
         &mut stdin,
         json!({
             "jsonrpc": "2.0",
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": {
+                    "uri": uri,
+                    "version": 1
+                },
+                "contentChanges": [
+                    { "text": bad_source }
+                ]
+            }
+        }),
+    );
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 20,
+            "method": "textDocument/hover",
+            "params": {
+                "textDocument": { "uri": uri },
+                "position": { "line": 0, "character": 0 }
+            }
+        }),
+    );
+    let after_stale_change = read_message(&mut stdout);
+    assert_eq!(after_stale_change["id"], 20);
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
             "method": "textDocument/didSave",
             "params": {
                 "textDocument": { "uri": uri }
