@@ -384,6 +384,9 @@ parser-owned spans. The outline uses the same import-target and const-name
 selection ranges, and compiler diagnostics use the import target or const
 expression span. This avoids same-line text search when a const name is repeated
 in its initializer and keeps UTF-16 ranges correct for non-BMP import paths.
+An unquoted dotted import such as `eng.stats` is one atomic `namespace` range;
+review-risk metadata is merged into that existing range instead of adding a
+shorter variable token over its first segment.
 
 Function names, parameter names, parameter type/unit annotations, and return
 type/unit annotations also use parser-owned spans. Function and parameter
@@ -415,7 +418,10 @@ model/table/input operands use their dedicated `MlInfo` spans. A binding named
 `model` or `records` therefore keeps one variable role in aliases, training,
 evaluation, and prediction expressions. Grammar uses such as `promote json
 records` remain keywords, and member uses such as `payload.records` remain
-properties.
+properties. Dotted ML operands and feature paths are emitted per identifier:
+`args` is a parameter, another leading receiver is a variable, and following
+segments are properties. Dotted command-style `apply` targets use the same
+segmentation with the terminal segment classified as a workflow-step function.
 
 Lexical numbers require identifier boundaries and consume a valid decimal
 exponent as part of the same token. Names and literals such as `p95`, `rk4`,
@@ -423,8 +429,9 @@ exponent as part of the same token. Names and literals such as `p95`, `rk4`,
 Operator fallback excludes numeric exponents, generated hyphenated workflow
 literals, known units, and exact compiler-owned unit spans, so `1.25e-3`,
 `latin-hypercube`, and even a diagnosed composite unit such as `lb/s` remain
-atomic. `lsp-check` applies this number/operator non-string overlap invariant to
-all example and grammar-fixture snapshots.
+atomic. `lsp-check` rejects every overlapping non-string semantic-token pair in
+all example and grammar-fixture snapshots, including equal-type and
+whole-path/segment overlaps. String/interpolation nesting is audited separately.
 
 ## VS Code Fallback Mapping
 
@@ -459,7 +466,7 @@ from generic fallback colors. Important pairings:
 | `type.timeseries`, `variable.timeseries`, `property.timeseries`, `function.timeseries` | TimeSeries type, value, and statistic helper emphasis. |
 | `variable.uncertain`, `function.uncertain`, `property.uncertain`, `keyword.uncertain` | Uncertainty values, functions, properties, and block introducers. |
 | `keyword.defaultLibrary`, `function.defaultLibrary`, `namespace.defaultLibrary` | Built-in command-style keywords, helper functions, and modules. |
-| `keyword.imported`, `namespace.imported` | Import statement keywords and user-imported module namespaces. |
+| `keyword.imported`, `namespace.imported`, `namespace.riskMedium` | Import statement keywords, user-imported module namespaces, and review-risk module dependencies. |
 | `function.sideEffect`, `keyword.sideEffect`, `variable.sideEffect` | Side-effect operations and bindings. |
 | `function.external`, `keyword.external`, `variable.external` | External boundaries and bindings. |
 | `function.path` | Path construction and inspection helpers. |
@@ -471,11 +478,11 @@ from generic fallback colors. Important pairings:
 | `class.state`, `variable.state`, `property.state` | State-space type, system state, and state-member tokens. |
 | `class.input`, `variable.input`, `parameter.input`, `property.input` | State-space input type, system inputs, input parameters, and input members. |
 | `class.output`, `variable.output`, `property.output` | State-space output type, system outputs, output members, and output-like workflow values. |
-| `variable.model`, `function.model`, `keyword.model`, `property.model` | Model and prediction artifacts. |
+| `variable.model`, `function.model`, `keyword.model`, `property.model`, `parameter.model` | Model and prediction artifacts, including `args.*` model roots. |
 | `variable.db`, `keyword.db`, `function.db`, `method.db`, `property.db`, `parameter.db` | SQLite and DB-write boundaries, including `args.*` DB table targets. |
 | `variable.cache`, `keyword.cache`, `function.cache`, `method.cache`, `property.cache` | Cache keys, cache helpers, cache option values, and records. |
 | `keyword.workflowStep`, `function.workflowStep`, `variable.workflowStep`, `property.workflowStep` | Sampling, case, prediction, and workflow-step phrases. |
-| `variable.riskHigh`, `variable.riskMedium` | Review-risk fallbacks. |
+| `variable.riskHigh`, `variable.riskMedium`, `namespace.riskMedium`, `parameter.riskMedium`, `function.riskMedium` | Review-risk fallbacks that preserve the underlying symbol role. |
 | `variable.planned`, `variable.internal`, `namespace.planned`, `namespace.internal` | Planned/internal symbol visibility. |
 
 Base semantic selectors observed in LSP snapshots must keep fallback scopes even when a more specific modifier selector also exists. The package fallback map must also cover every token type and at least one selector for every modifier in the generated LSP legend; selectors for modifiers outside that legend are stale and must be removed. Keyword semantic selectors that represent command-style builtins, clause words, or option values must keep conventional keyword, operator, and constant fallbacks. In particular, `keyword.defaultLibrary` covers compiler-owned command words such as `sample`, `filter`, and `train`, `keyword.solver` covers solver command words plus clause words such as `over` and solver method literals such as `fixed_step`, `keyword.db` and `keyword.cache` keep DB/cache command words, clause words, and status literals on conventional keyword/operator/constant fallbacks, while `keyword.workflowStep` covers workflow words such as `read`, clause words such as `by`/`with`/`to`, validation-adjacent words such as `missing`, constants such as `asc`/`desc` and `true`/`false`, and builtin sampling methods such as `lhs`.

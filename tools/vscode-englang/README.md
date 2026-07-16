@@ -322,12 +322,18 @@ workflow keyword.
 Fast-binding aliases and model workflow operands use the same exact-range
 policy. `model_alias = model`, `train regression records`, and `predict model
 using records` keep resolved variable colors without changing grammar keywords
-or dotted member fields that use the same spelling.
+or dotted member fields that use the same spelling. Dotted ML operands and
+features color `args`, receivers, and members independently; dotted `apply`
+targets additionally color the final segment as a workflow-step function.
+Unquoted dotted imports remain one namespace token, so `eng.stats` does not
+compete with shorter variable/property overlays.
 Numeric fallback also respects identifier boundaries: percentile helpers,
 solver literals, hash option names, and numbered bindings are not split into
 identifier plus number colors. Decimal exponents, hyphenated workflow literals,
 and compiler-owned composite units remain single semantic ranges without an
-embedded operator color.
+embedded operator color. The packaged LSP coverage gate checks all examples and
+grammar fixtures and rejects every overlapping non-string semantic-token pair;
+string/interpolation nesting is tracked separately.
 
 Role-aware highlighting also works on unsaved edits, so token colors do
 not have to wait for a file save. Sample-table member completions include

@@ -376,6 +376,12 @@ Scoped `where`/`with` opener tokens, `where` local declarations, and inline
 helpers are searched only inside the corresponding option value span, so a
 matching word in an earlier option or string does not receive the later role.
 
+Unquoted import targets use their full compiler-owned span as one atomic
+`namespace` token, including dotted targets such as `eng.stats`. Review-risk
+metadata merges into the symbol that starts at the first non-keyword identifier;
+if that symbol does not exist, the compatibility variable fallback is retained
+instead of attaching the risk to a later type or unit token.
+
 Simple identifier sources in `write` statements use the compiler-owned write
 expression span. If the identifier is also spelled like a language keyword, the
 exact source range emits one variable token with its binding and write-context
@@ -385,13 +391,18 @@ Simple inferred aliases and ML source/input operands also use compiler-owned
 expression ranges. This keeps soft-keyword bindings such as `model` and
 `records` variable-colored in resolved value positions, merges their model or
 workflow modifiers into one token, and leaves actual grammar and member
-positions independently classified.
+positions independently classified. Dotted ML operands and features emit one
+token per identifier, with `args` as a parameter, other receivers as variables,
+and member segments as properties. Command-style `apply` targets follow the same
+rule and classify the final segment as a workflow-step function.
 
 Lexical number tokens require identifier boundaries and include valid decimal
 exponents. Operator tokens are excluded from those numbers, generated
 hyphenated workflow literals, catalog units, and exact compiler-owned unit
-spans. The snapshot coverage gate rejects any remaining non-string overlap
-where a `number` or `operator` token would split another semantic token.
+spans. The snapshot coverage gate rejects every overlapping non-string token
+pair across all examples and grammar fixtures, including equal-type and
+whole-path/segment overlaps. String/interpolation nesting remains a separate,
+intentional compatibility surface.
 
 ## Document Symbols And Folding Ranges
 

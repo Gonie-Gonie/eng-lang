@@ -2307,7 +2307,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
 
     for import in &program.imports {
         let modifiers = stdlib_import_semantic_modifiers(&import.target);
-        builder.push_named_span(import.span, &import.target, "namespace", &modifiers);
+        builder.push_atomic_named_span(import.span, &import.target, "namespace", &modifiers);
     }
 
     for constant in &program.consts {
@@ -2730,7 +2730,17 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             builder.push_on_line(ml.line, "features", "property", &["model"]);
         }
         for feature in &ml.features {
-            builder.push_on_line(ml.line, feature, "property", &["model"]);
+            let feature_line = ml.features_line.unwrap_or(ml.line);
+            if is_simple_identifier_path(feature) {
+                builder.push_preferred_identifier_path_on_line(
+                    feature_line,
+                    feature,
+                    Some("property"),
+                    &["model"],
+                );
+            } else {
+                builder.push_on_line(feature_line, feature, "property", &["model"]);
+            }
         }
         if let Some(algorithm) = &ml.algorithm {
             builder.push_on_line(ml.line, "algorithm", "property", &["model"]);
@@ -3151,8 +3161,13 @@ fn push_ml_operand_semantic_token(
     if !modifiers.contains(&"model") {
         modifiers.push("model");
     }
-    if let Some(span) = span.filter(|_| is_simple_identifier_segment(operand)) {
-        builder.push_preferred_named_span(span, operand, "variable", &modifiers);
+    if is_simple_identifier_path(operand) {
+        if span.is_some_and(|span| {
+            builder.push_preferred_identifier_path_span(span, operand, None, &modifiers)
+        }) {
+            return;
+        }
+        builder.push_preferred_identifier_path_on_line(line, operand, None, &modifiers);
     } else {
         builder.push_on_line(line, operand, "variable", &modifiers);
     }
@@ -3912,7 +3927,9 @@ fn add_review_risk_semantic_tokens(report: &CheckReport, builder: &mut SemanticT
         }
         let classification = classify_diagnostic_review_risk(&diagnostic.code, "warning");
         if let Some(modifier) = review_risk_modifier(classification.level) {
-            builder.push_first_identifier_on_line(diagnostic.line, "variable", &[modifier]);
+            if !builder.add_modifier_to_first_symbol_on_line(diagnostic.line, modifier) {
+                builder.push_first_identifier_on_line(diagnostic.line, "variable", &[modifier]);
+            }
         }
     }
 
@@ -3992,7 +4009,9 @@ fn add_review_risk_semantic_tokens(report: &CheckReport, builder: &mut SemanticT
         if let Some(modifier) =
             review_risk_modifier(classify_review_risk("reproducibility", "info").level)
         {
-            builder.push_first_identifier_on_line(dependency.line, "variable", &[modifier]);
+            if !builder.add_modifier_to_first_symbol_on_line(dependency.line, modifier) {
+                builder.push_first_identifier_on_line(dependency.line, "variable", &[modifier]);
+            }
         }
     }
 
@@ -6512,24 +6531,128 @@ impl<'a> SemanticTokenBuilder<'a> {
             if !is_identifier_boundary(line, path_start, path_end) {
                 continue;
             }
-            let mut segment_start = path_start;
-            for (index, segment) in path.split('.').enumerate() {
-                let token_type = if index == 0 && segment == "args" {
-                    "parameter"
-                } else if index == 0 {
-                    "variable"
-                } else {
-                    "property"
-                };
-                self.push_byte_range(
-                    line_index,
-                    segment_start,
-                    segment.len(),
-                    token_type,
-                    modifiers,
-                );
-                segment_start += segment.len() + 1;
+            self.push_identifier_path_segments(
+                line_index, path_start, path, None, false, modifiers,
+            );
+        }
+    }
+
+    fn push_preferred_identifier_path_span(
+        &mut self,
+        span: SourceSpan,
+        path: &str,
+        terminal_token_type: Option<&str>,
+        modifiers: &[&str],
+    ) -> bool {
+        let path = path.trim();
+        if !is_simple_identifier_path(path) {
+            return false;
+        }
+        let Some(line_index) = span.line.checked_sub(1) else {
+            return false;
+        };
+        let Some(byte_start) = span.column.checked_sub(1) else {
+            return false;
+        };
+        let Some(byte_length) = span.end.checked_sub(span.start) else {
+            return false;
+        };
+        let Some(byte_end) = byte_start.checked_add(byte_length) else {
+            return false;
+        };
+        if self
+            .lines
+            .get(line_index)
+            .and_then(|line| line.get(byte_start..byte_end))
+            != Some(path)
+        {
+            return false;
+        }
+        self.push_identifier_path_segments(
+            line_index,
+            byte_start,
+            path,
+            terminal_token_type,
+            true,
+            modifiers,
+        );
+        true
+    }
+
+    fn push_preferred_identifier_path_on_line(
+        &mut self,
+        line_one_based: usize,
+        path: &str,
+        terminal_token_type: Option<&str>,
+        modifiers: &[&str],
+    ) {
+        let path = path.trim();
+        if !is_simple_identifier_path(path) {
+            return;
+        }
+        let Some(line_index) = line_one_based.checked_sub(1) else {
+            return;
+        };
+        let Some(line) = self.lines.get(line_index).copied() else {
+            return;
+        };
+        let mut search_start = 0usize;
+        while search_start <= line.len() {
+            let Some(relative) = line[search_start..].find(path) else {
+                break;
+            };
+            let path_start = search_start + relative;
+            let path_end = path_start + path.len();
+            search_start = path_end;
+            if !is_identifier_boundary(line, path_start, path_end) {
+                continue;
             }
+            self.push_identifier_path_segments(
+                line_index,
+                path_start,
+                path,
+                terminal_token_type,
+                true,
+                modifiers,
+            );
+        }
+    }
+
+    fn push_identifier_path_segments(
+        &mut self,
+        line_index: usize,
+        path_start: usize,
+        path: &str,
+        terminal_token_type: Option<&str>,
+        replace_existing: bool,
+        modifiers: &[&str],
+    ) {
+        let segment_count = path.split('.').count();
+        let mut segment_start = path_start;
+        for (index, segment) in path.split('.').enumerate() {
+            let default_token_type = if index == 0 && segment == "args" {
+                "parameter"
+            } else if index == 0 {
+                "variable"
+            } else {
+                "property"
+            };
+            let token_type = if index + 1 == segment_count {
+                terminal_token_type.unwrap_or(default_token_type)
+            } else {
+                default_token_type
+            };
+            if replace_existing {
+                self.remove_tokens_at_byte_range(line_index, segment_start, segment.len());
+            }
+            self.push_byte_range(
+                line_index,
+                segment_start,
+                segment.len(),
+                token_type,
+                modifiers,
+            );
+            segment_start += segment.len() + 1;
         }
     }
 
@@ -6846,6 +6969,83 @@ impl<'a> SemanticTokenBuilder<'a> {
                 index += 1;
             }
         }
+    }
+
+    fn add_modifier_to_first_symbol_on_line(
+        &mut self,
+        line_one_based: usize,
+        modifier: &str,
+    ) -> bool {
+        let Some(line_index) = line_one_based.checked_sub(1) else {
+            return false;
+        };
+        if !SEMANTIC_TOKEN_MODIFIERS.contains(&modifier) {
+            return false;
+        }
+        let Some(line) = self.lines.get(line_index).copied() else {
+            return false;
+        };
+        let bytes = line.as_bytes();
+        let mut identifier_range = None;
+        'code: for (range_start, range_end) in code_ranges(line) {
+            let mut index = range_start;
+            while index < range_end {
+                if index < bytes.len() && is_ident_start(bytes[index]) {
+                    let token_start = index;
+                    index += 1;
+                    while index < range_end && index < bytes.len() && is_ident_byte(bytes[index]) {
+                        index += 1;
+                    }
+                    let token = &line[token_start..index];
+                    if !COMPLETION_KEYWORDS.contains(&token) {
+                        identifier_range = Some((
+                            utf16_len(&line[..token_start]),
+                            utf16_len(&line[token_start..index]),
+                        ));
+                        break 'code;
+                    }
+                    continue;
+                }
+                index += 1;
+            }
+        }
+        let Some((identifier_start, identifier_length)) = identifier_range else {
+            return false;
+        };
+        let Some(index) = self
+            .tokens
+            .iter()
+            .enumerate()
+            .filter(|(_, token)| {
+                token.line == line_index
+                    && token.start == identifier_start
+                    && token.length >= identifier_length
+                    && matches!(
+                        token.token_type.as_str(),
+                        "namespace"
+                            | "type"
+                            | "class"
+                            | "interface"
+                            | "parameter"
+                            | "variable"
+                            | "property"
+                            | "function"
+                            | "method"
+                    )
+            })
+            .min_by_key(|(_, token)| token.length)
+            .map(|(index, _)| index)
+        else {
+            return false;
+        };
+        if !self.tokens[index]
+            .modifiers
+            .iter()
+            .any(|existing| existing == modifier)
+        {
+            self.tokens[index].modifiers.push(modifier.to_owned());
+        }
+        true
     }
 
     fn push_byte_range(
@@ -7497,7 +7697,12 @@ fn add_command_style_semantic_tokens(
     match command.verb.as_str() {
         "apply" => {
             if is_simple_identifier_path(&command.target) {
-                builder.push_on_line(command.line, &command.target, "function", &["workflowStep"]);
+                builder.push_preferred_identifier_path_on_line(
+                    command.line,
+                    &command.target,
+                    Some("function"),
+                    &["workflowStep"],
+                );
             }
             push_command_clause_keywords(builder, command, &["over"], &["workflowStep"]);
         }
@@ -13243,6 +13448,56 @@ print "done"
     }
 
     #[test]
+    fn vscode_segmented_path_scope_mappings_preserve_base_roles() {
+        let root = repo_root_for_tests();
+        let package = read_json_file(
+            &root
+                .join("tools")
+                .join("vscode-englang")
+                .join("package.json"),
+        );
+        let required: &[(&str, &[&str])] = &[
+            (
+                "namespace.riskMedium",
+                &["markup.warning.englang", "support.namespace.module.englang"],
+            ),
+            (
+                "parameter.riskMedium",
+                &[
+                    "markup.warning.englang",
+                    "variable.parameter.function.englang",
+                    "variable.parameter.property.englang",
+                ],
+            ),
+            (
+                "function.riskMedium",
+                &[
+                    "markup.warning.englang",
+                    "entity.name.function.call.englang",
+                    "entity.name.function.englang",
+                ],
+            ),
+            (
+                "parameter.model",
+                &[
+                    "entity.name.function.englang",
+                    "variable.parameter.property.englang",
+                ],
+            ),
+        ];
+
+        for (selector, fallback_scopes) in required {
+            let scopes = package_semantic_scope_values(&package, selector);
+            for fallback_scope in *fallback_scopes {
+                assert!(
+                    scopes.contains(fallback_scope),
+                    "semantic token scope mapping {selector} should include fallback {fallback_scope}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn vscode_type_semantic_scope_mappings_cover_collection_fallbacks() {
         let root = repo_root_for_tests();
         let package = read_json_file(
@@ -13875,7 +14130,9 @@ with {
 
     #[test]
     fn snapshot_marks_review_risk_semantic_tokens() {
-        let source = r#"schema SensorData {
+        let source = r#"ambiguous_value = 5 kW
+
+schema SensorData {
     reading: HeatRate [kW]
 
     missing {
@@ -13908,6 +14165,22 @@ system RoomThermal {
 "#;
         let snapshot = snapshot_for_source(Path::new("risk.eng"), source);
 
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "ambiguous_value = 5 kW",
+            "ambiguous_value",
+            "variable",
+            "riskMedium",
+        );
+        assert_semantic_token_on_line_without_modifier(
+            &snapshot,
+            source,
+            "ambiguous_value = 5 kW",
+            "kW",
+            "type",
+            "riskMedium",
+        );
         assert_semantic_token_modifier(&snapshot, source, "process_result", "riskHigh");
         assert_semantic_token_modifier(&snapshot, source, "run", "riskHigh");
         assert_semantic_token_modifier(&snapshot, source, "export", "riskHigh");
@@ -15687,6 +15960,92 @@ custom = calibrate(args.input, split=args.output)
             ("custom = calibrate", "output"),
         ] {
             assert_no_semantic_token_on_line_type(&snapshot, source, line, label, "keyword");
+        }
+    }
+
+    #[test]
+    fn dotted_semantic_paths_keep_segment_roles_without_non_string_overlaps() {
+        let source = concat!(
+            "prefix = \"😀\"\r\n",
+            "use eng.stats\r\n",
+            "use eng.system\r\n",
+            "case_results = apply args.case_step over args.designs\r\n",
+            "predictions = predict args.model_ref using study.designs\r\n",
+            "split = train_test_split(study.designs, target=annual_electricity, features=[study.people_density], test=0.25, seed=7)\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("dotted_semantic_paths.eng"), source);
+        let lines = source.lines().collect::<Vec<_>>();
+
+        let assert_segment = |line_index: usize,
+                              label: &str,
+                              occurrence: usize,
+                              token_type: &str,
+                              modifier: Option<&str>| {
+            let line = lines[line_index];
+            let byte_start = line
+                .match_indices(label)
+                .nth(occurrence)
+                .map(|(start, _)| start)
+                .unwrap_or_else(|| {
+                    panic!("missing occurrence {occurrence} of `{label}` on `{line}`")
+                });
+            let start = utf16_len(&line[..byte_start]);
+            assert!(
+                snapshot.semantic_tokens.tokens.iter().any(|token| {
+                    token.line == line_index
+                        && token.start == start
+                        && token.length == utf16_len(label)
+                        && token.token_type == token_type
+                        && modifier.is_none_or(|expected| {
+                            token.modifiers.iter().any(|actual| actual == expected)
+                        })
+                }),
+                "`{label}` occurrence {occurrence} on `{line}` should be {token_type} with {modifier:?}"
+            );
+        };
+
+        assert_segment(1, "eng.stats", 0, "namespace", Some("imported"));
+        assert_segment(2, "eng.system", 0, "namespace", Some("riskMedium"));
+        assert_segment(3, "args", 0, "parameter", Some("workflowStep"));
+        assert_segment(3, "case_step", 0, "function", Some("workflowStep"));
+        assert_segment(4, "args", 0, "parameter", Some("model"));
+        assert_segment(4, "model_ref", 0, "property", Some("model"));
+        assert_segment(4, "study", 0, "variable", Some("model"));
+        assert_segment(4, "designs", 0, "property", Some("model"));
+        assert_segment(5, "study", 0, "variable", Some("model"));
+        assert_segment(5, "designs", 0, "property", Some("model"));
+        assert_segment(5, "study", 1, "variable", Some("model"));
+        assert_segment(5, "people_density", 0, "property", Some("model"));
+
+        for path in [
+            "args.case_step",
+            "args.model_ref",
+            "study.designs",
+            "study.people_density",
+        ] {
+            assert!(
+                snapshot
+                    .semantic_tokens
+                    .tokens
+                    .iter()
+                    .all(|token| semantic_token_source_text(source, token) != Some(path)),
+                "dotted path `{path}` should be emitted as identifier segments"
+            );
+        }
+        for (left_index, left) in snapshot.semantic_tokens.tokens.iter().enumerate() {
+            for right in snapshot.semantic_tokens.tokens.iter().skip(left_index + 1) {
+                if left.line != right.line
+                    || left.token_type == "string"
+                    || right.token_type == "string"
+                {
+                    continue;
+                }
+                assert!(
+                    left.start + left.length <= right.start
+                        || right.start + right.length <= left.start,
+                    "non-string semantic tokens overlap: {left:?} and {right:?}"
+                );
+            }
         }
     }
 
