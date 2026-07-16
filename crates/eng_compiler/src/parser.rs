@@ -2291,7 +2291,12 @@ fn parse_with_option_decl(
     ) {
         return None;
     }
-    let (option_start, mut option_end) = trimmed_byte_range(line_text, 0, line_text.len())?;
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let code_end = tokens.last()?.span.end.checked_sub(line_start)?;
+    let (option_start, mut option_end) = trimmed_byte_range(line_text, 0, code_end)?;
     if line_text.as_bytes().get(option_end.saturating_sub(1)) == Some(&b',') {
         option_end = option_end.saturating_sub(1);
     }
@@ -2311,10 +2316,29 @@ fn parse_inline_with_options(
     if !matches!(first.kind, TokenKind::Keyword(Keyword::With)) {
         return Vec::new();
     }
-    let Some(open_index) = line_text.find('{') else {
+    let Some(open) = tokens
+        .iter()
+        .find(|token| matches!(token.kind, TokenKind::Symbol(Symbol::LBrace)))
+    else {
         return Vec::new();
     };
-    let Some(close_index) = line_text.rfind('}') else {
+    let Some(close) = tokens
+        .iter()
+        .rfind(|token| matches!(token.kind, TokenKind::Symbol(Symbol::RBrace)))
+    else {
+        return Vec::new();
+    };
+    let Some(line_start) = first
+        .span
+        .start
+        .checked_sub(first.span.column.saturating_sub(1))
+    else {
+        return Vec::new();
+    };
+    let Some(open_index) = open.span.start.checked_sub(line_start) else {
+        return Vec::new();
+    };
+    let Some(close_index) = close.span.start.checked_sub(line_start) else {
         return Vec::new();
     };
     if close_index <= open_index {

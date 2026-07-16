@@ -420,7 +420,10 @@ model list values, enum-like values, and `file`/`dir`/`join` helpers stay inside
 `value_span`. Inline options therefore cannot repaint matching text in an
 earlier option or string, and `where` local plus `with` option outline selections
 use the same UTF-16-safe ranges. A `unit <axis>` key is split only within its key
-span so `unit` remains a keyword and the axis remains a property.
+span so `unit` remains a keyword and the axis remains a property. Multiline
+option values end at the final lexer token, excluding trailing `#` and `//`
+comments; inline block delimiters likewise come from brace tokens rather than
+brace characters inside strings or comments.
 
 Simple identifier sources in `write` statements use `WriteInfo.expression_span`
 as an authoritative semantic range. At that exact range, a lexical keyword
@@ -429,14 +432,17 @@ side-effect and DB context. The same spelling in a real grammar position, such
 as `records` in `promote json records`, remains a workflow keyword.
 
 Simple inferred aliases use the preserved fast-binding expression span, and ML
-model/table/input operands use their dedicated `MlInfo` spans. A binding named
-`model` or `records` therefore keeps one variable role in aliases, training,
-evaluation, and prediction expressions. Grammar uses such as `promote json
-records` remain keywords, and member uses such as `payload.records` remain
-properties. Dotted ML operands and feature paths are emitted per identifier:
-`args` is a parameter, another leading receiver is a variable, and following
-segments are properties. Dotted command-style `apply` targets use the same
-segmentation with the terminal segment classified as a workflow-step function.
+model/table/input operands use their dedicated `MlInfo` spans. ML call options
+also use structured key/value ranges, with each feature path retaining its own
+span for diagnostics and semantic tokens. A binding named `model`, `records`,
+`target`, or `algorithm` therefore keeps one variable role at its declaration
+while the same spelling is classified independently in an ML operand or option.
+Grammar uses such as `promote json records` remain keywords, and member uses such
+as `payload.records` remain properties. Dotted ML operands and feature paths are
+emitted per identifier: `args` is a parameter, another leading receiver is a
+variable, and following segments are properties. Dotted command-style `apply`
+targets use the same segmentation with the terminal segment classified as a
+workflow-step function.
 
 Lexical numbers require identifier boundaries and consume a valid decimal
 exponent as part of the same token. Names and literals such as `p95`, `rk4`,

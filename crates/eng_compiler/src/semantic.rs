@@ -1571,6 +1571,11 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     validate_timeseries_fill_commands(&command_styles, &mut with_blocks, &mut diagnostics);
     validate_timeseries_alignment_commands(&command_styles, &mut with_blocks, &mut diagnostics);
     crate::ml::apply_with_blocks(&mut ml_infos, &with_blocks);
+    diagnostics.extend(crate::ml::source_diagnostics_for_infos(
+        &ml_infos,
+        &typed_bindings,
+        &where_blocks,
+    ));
     diagnostics.extend(crate::ml::with_block_argument_diagnostics(&ml_infos));
     validate_file_operation_options(&file_operations, &with_blocks, &mut diagnostics);
     validate_process_options(&process_runs, &with_blocks, &mut diagnostics);
@@ -12947,9 +12952,6 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         accum.diagnostics.push(diagnostic);
     }
     for diagnostic in crate::uncertainty::argument_diagnostics(binding) {
-        accum.diagnostics.push(diagnostic);
-    }
-    for diagnostic in crate::ml::source_diagnostics(binding, &available_bindings) {
         accum.diagnostics.push(diagnostic);
     }
     let uncertainty = crate::uncertainty::uncertainty_info(binding, &available_bindings);

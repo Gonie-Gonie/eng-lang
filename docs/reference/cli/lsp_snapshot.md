@@ -132,7 +132,12 @@ diagnostic in these assembly/port classes to retain a valid compiler range.
 Invalid network URL diagnostics use the complete request or download URL operand.
 Declared URL aliases are resolved before validation, while an `args.*` URL that
 has not been supplied yet is not presented as malformed. URL ranges end before
-trailing `#` or `//` comments.
+trailing `#` or `//` comments. All `E-ML-SOURCE-*` and `E-ML-ARGS-*`
+diagnostics use compiler-owned ML expression, source operand, option key/value,
+or individual feature spans. Inline named arguments and attached `with` blocks
+share this range model, and trailing option comments are excluded. The corpus
+also enforces a global non-regression ceiling of 152 diagnostics that still need
+the older range inference path.
 Older diagnostics retain source-aware inference: dimensionless arithmetic
 diagnostics highlight the offending `+` or `-`, schema fast-assignment
 diagnostics highlight `=`, and file mutation diagnostics target `move` or

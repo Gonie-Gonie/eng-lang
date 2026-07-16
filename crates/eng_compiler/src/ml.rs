@@ -1,13 +1,28 @@
 use crate::ast::FastBinding;
-use crate::semantic::{TypedBinding, WithBlockInfo, WithOptionInfo};
+use crate::semantic::{TypedBinding, WhereBlockInfo, WithBlockInfo, WithOptionInfo};
 use crate::source::SourceSpan;
 use crate::Diagnostic;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MlArgumentInfo {
+    pub name: String,
+    pub value: String,
+    pub key_span: SourceSpan,
+    pub value_span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct MlFeatureInfo {
+    pub name: String,
+    pub span: SourceSpan,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MlInfo {
     pub binding: String,
     pub binding_span: SourceSpan,
     pub kind: String,
+    pub arguments: Vec<MlArgumentInfo>,
     pub source: Option<String>,
     pub source_span: Option<SourceSpan>,
     pub prediction_input: Option<String>,
@@ -15,6 +30,7 @@ pub struct MlInfo {
     pub target: Option<String>,
     pub target_line: Option<usize>,
     pub features: Vec<String>,
+    pub feature_items: Vec<MlFeatureInfo>,
     pub features_line: Option<usize>,
     pub algorithm: Option<String>,
     pub algorithm_line: Option<usize>,
@@ -29,6 +45,7 @@ pub struct MlInfo {
     pub epochs: Option<usize>,
     pub epochs_line: Option<usize>,
     pub expression: String,
+    pub expression_span: SourceSpan,
     pub line: usize,
 }
 
@@ -71,53 +88,74 @@ pub fn ml_info(binding: &FastBinding) -> Option<MlInfo> {
         identifier_path_occurrence_span(binding, input, occurrence)
     });
 
+    let arguments = inline_ml_arguments(binding);
     let target = (kind != "PredictionResult")
-        .then(|| named_value(expression, &["target", "y"]))
+        .then(|| argument_value(&arguments, &["target", "y"]))
         .flatten();
-    let features = if kind == "PredictionResult" {
+    let feature_items = if kind == "PredictionResult" {
         Vec::new()
     } else {
-        list_value(expression, &["features", "x"])
+        argument(&arguments, &["features", "x"])
+            .map(feature_items_for_argument)
+            .unwrap_or_default()
     };
-    let algorithm = named_value(expression, &["algorithm"]).or_else(|| default_algorithm(kind));
-    let has_explicit_algorithm = named_value(expression, &["algorithm"]).is_some();
-    let test_fraction = named_value(expression, &["test", "test_fraction"]);
-    let seed = named_value(expression, &["seed"]);
-    let hidden_value = named_value(expression, &["hidden", "layers"]);
+    let features = feature_items
+        .iter()
+        .map(|feature| feature.name.clone())
+        .collect();
+    let explicit_algorithm = argument_value(&arguments, &["algorithm"]);
+    let algorithm = explicit_algorithm
+        .clone()
+        .or_else(|| default_algorithm(kind));
+    let test_fraction = argument_value(&arguments, &["test", "test_fraction"]);
+    let seed = argument_value(&arguments, &["seed"]);
+    let hidden_value = argument_value(&arguments, &["hidden", "layers"]);
     let hidden_layers = hidden_value
         .as_deref()
         .map(parse_usize_list)
         .unwrap_or_default();
-    let epochs_value = named_value(expression, &["epochs"]);
+    let epochs_value = argument_value(&arguments, &["epochs"]);
     let epochs = epochs_value
         .as_deref()
         .and_then(|value| value.parse::<usize>().ok());
+    let target_line = argument(&arguments, &["target", "y"]).map(|value| value.value_span.line);
+    let features_line = argument(&arguments, &["features", "x"]).map(|value| value.value_span.line);
+    let algorithm_line = argument(&arguments, &["algorithm"]).map(|value| value.value_span.line);
+    let test_fraction_line =
+        argument(&arguments, &["test", "test_fraction"]).map(|value| value.value_span.line);
+    let seed_line = argument(&arguments, &["seed"]).map(|value| value.value_span.line);
+    let hidden_line =
+        argument(&arguments, &["hidden", "layers"]).map(|value| value.value_span.line);
+    let epochs_line = argument(&arguments, &["epochs"]).map(|value| value.value_span.line);
 
     Some(MlInfo {
         binding: binding.name.clone(),
         binding_span: binding.span,
         kind: kind.to_owned(),
+        arguments,
         source,
         source_span,
         prediction_input,
         prediction_input_span,
-        target_line: target.as_ref().map(|_| binding.line),
+        target_line,
         target,
-        features_line: (!features.is_empty()).then_some(binding.line),
+        feature_items,
+        features_line,
         features,
-        algorithm_line: has_explicit_algorithm.then_some(binding.line),
+        algorithm_line,
         algorithm,
-        test_fraction_line: test_fraction.as_ref().map(|_| binding.line),
+        test_fraction_line,
         test_fraction,
-        seed_line: seed.as_ref().map(|_| binding.line),
+        seed_line,
         seed,
-        hidden_line: hidden_value.as_ref().map(|_| binding.line),
+        hidden_line,
         hidden_value,
         hidden_layers,
-        epochs_line: epochs_value.as_ref().map(|_| binding.line),
+        epochs_line,
         epochs_value,
         epochs,
         expression: binding.expression.clone(),
+        expression_span: binding.expression_span,
         line: binding.line,
     })
 }
@@ -154,18 +192,24 @@ pub fn is_model_with_options_owner(expression: &str) -> bool {
         || predict_model_arguments(expression).is_some()
 }
 
-pub fn source_diagnostics(
-    binding: &FastBinding,
+pub fn source_diagnostics_for_infos(
+    ml_infos: &[MlInfo],
     typed_bindings: &[TypedBinding],
+    where_blocks: &[WhereBlockInfo],
 ) -> Vec<Diagnostic> {
-    let Some(info) = ml_info(binding) else {
-        return Vec::new();
-    };
-
-    source_requirements(&info)
-        .into_iter()
-        .filter_map(|requirement| {
-            validate_source_requirement(&requirement, binding.line, typed_bindings)
+    ml_infos
+        .iter()
+        .flat_map(|info| {
+            source_requirements(info)
+                .into_iter()
+                .filter_map(|requirement| {
+                    validate_source_requirement(
+                        &requirement,
+                        typed_bindings,
+                        where_blocks,
+                        info.line,
+                    )
+                })
         })
         .collect()
 }
@@ -216,6 +260,7 @@ struct MlSourceRequirement {
     role: &'static str,
     source: Option<String>,
     source_span: Option<SourceSpan>,
+    owner_span: SourceSpan,
     expected: ExpectedMlSource,
 }
 
@@ -227,6 +272,7 @@ fn source_requirements(info: &MlInfo) -> Vec<MlSourceRequirement> {
             role: "source",
             source: info.source.clone(),
             source_span: info.source_span,
+            owner_span: info.expression_span,
             expected: ExpectedMlSource::TimeSeries,
         }],
         "RegressionModel" if is_table_regression_expression(&info.expression) => {
@@ -235,6 +281,7 @@ fn source_requirements(info: &MlInfo) -> Vec<MlSourceRequirement> {
                 role: "table",
                 source: info.source.clone(),
                 source_span: info.source_span,
+                owner_span: info.expression_span,
                 expected: ExpectedMlSource::Table,
             }]
         }
@@ -243,6 +290,7 @@ fn source_requirements(info: &MlInfo) -> Vec<MlSourceRequirement> {
             role: "split",
             source: info.source.clone(),
             source_span: info.source_span,
+            owner_span: info.expression_span,
             expected: ExpectedMlSource::TrainTestSplit,
         }],
         "ModelMetrics" => vec![MlSourceRequirement {
@@ -250,6 +298,7 @@ fn source_requirements(info: &MlInfo) -> Vec<MlSourceRequirement> {
             role: "model",
             source: info.source.clone(),
             source_span: info.source_span,
+            owner_span: info.expression_span,
             expected: ExpectedMlSource::Model,
         }],
         "ModelCard" => vec![MlSourceRequirement {
@@ -257,6 +306,7 @@ fn source_requirements(info: &MlInfo) -> Vec<MlSourceRequirement> {
             role: "model",
             source: info.source.clone(),
             source_span: info.source_span,
+            owner_span: info.expression_span,
             expected: ExpectedMlSource::Model,
         }],
         "PredictionResult" => vec![
@@ -265,6 +315,7 @@ fn source_requirements(info: &MlInfo) -> Vec<MlSourceRequirement> {
                 role: "model",
                 source: info.source.clone(),
                 source_span: info.source_span,
+                owner_span: info.expression_span,
                 expected: ExpectedMlSource::Model,
             },
             MlSourceRequirement {
@@ -272,6 +323,7 @@ fn source_requirements(info: &MlInfo) -> Vec<MlSourceRequirement> {
                 role: "input",
                 source: info.prediction_input.clone(),
                 source_span: info.prediction_input_span,
+                owner_span: info.expression_span,
                 expected: ExpectedMlSource::Table,
             },
         ],
@@ -284,19 +336,23 @@ fn source_requirements(info: &MlInfo) -> Vec<MlSourceRequirement> {
                 call,
                 role: "target",
                 source: Some(target.clone()),
-                source_span: None,
+                source_span: argument(&info.arguments, &["target", "y"])
+                    .map(|argument| argument.value_span),
+                owner_span: info.expression_span,
                 expected: ExpectedMlSource::TimeSeries,
             });
         }
     }
 
     if info.kind == "ModelMetrics" {
-        if let Some(split) = named_value(&info.expression, &["split"]) {
+        if let Some(split) = argument_value(&info.arguments, &["split"]) {
             requirements.push(MlSourceRequirement {
                 call,
                 role: "split",
                 source: Some(split),
-                source_span: None,
+                source_span: argument(&info.arguments, &["split"])
+                    .map(|argument| argument.value_span),
+                owner_span: info.expression_span,
                 expected: ExpectedMlSource::TrainTestSplit,
             });
         }
@@ -307,9 +363,12 @@ fn source_requirements(info: &MlInfo) -> Vec<MlSourceRequirement> {
 
 fn validate_source_requirement(
     requirement: &MlSourceRequirement,
-    line: usize,
     typed_bindings: &[TypedBinding],
+    where_blocks: &[WhereBlockInfo],
+    before_line: usize,
 ) -> Option<Diagnostic> {
+    let diagnostic_span = requirement.source_span.unwrap_or(requirement.owner_span);
+    let diagnostic_line = diagnostic_span.line;
     let Some(source) = requirement
         .source
         .as_deref()
@@ -317,7 +376,7 @@ fn validate_source_requirement(
     else {
         let diagnostic = Diagnostic::error(
             "E-ML-SOURCE-001",
-            line,
+            diagnostic_line,
             &format!(
                 "`{}` requires a prior {} binding as its {} argument.",
                 requirement.call,
@@ -326,64 +385,51 @@ fn validate_source_requirement(
             ),
             Some(expected_source_help(requirement.expected)),
         );
-        return Some(with_optional_source_span(
-            diagnostic,
-            requirement.source_span,
-        ));
+        return Some(diagnostic.with_source_span(diagnostic_span));
     };
 
-    let Some(source_binding) = typed_bindings
+    let source_quantity_kind = typed_bindings
         .iter()
-        .find(|typed_binding| typed_binding.name == source)
-    else {
+        .find(|typed_binding| typed_binding.name == source && typed_binding.line < before_line)
+        .map(|typed_binding| typed_binding.semantic_type.quantity_kind.as_str())
+        .or_else(|| {
+            where_blocks
+                .iter()
+                .filter(|block| block.owner_line == Some(before_line))
+                .flat_map(|block| &block.bindings)
+                .find(|binding| binding.name == source)
+                .map(|binding| binding.quantity_kind.as_str())
+        });
+    let Some(source_quantity_kind) = source_quantity_kind else {
         let diagnostic = Diagnostic::error(
             "E-ML-SOURCE-001",
-            line,
+            diagnostic_line,
             &format!(
                 "Unknown ML {} `{source}` for `{}`.",
                 requirement.role, requirement.call
             ),
             Some("Check the source name or move the referenced ML binding before this expression."),
         );
-        return Some(with_optional_source_span(
-            diagnostic,
-            requirement.source_span,
-        ));
+        return Some(diagnostic.with_source_span(diagnostic_span));
     };
 
-    if !matches_expected_source(
-        &source_binding.semantic_type.quantity_kind,
-        requirement.expected,
-    ) {
+    if !matches_expected_source(source_quantity_kind, requirement.expected) {
         let diagnostic = Diagnostic::error(
             "E-ML-SOURCE-002",
-            line,
+            diagnostic_line,
             &format!(
                 "`{source}` is {}, but `{}` expects {} for its {} argument.",
-                source_binding.semantic_type.quantity_kind,
+                source_quantity_kind,
                 requirement.call,
                 expected_source_label(requirement.expected),
                 requirement.role
             ),
             Some(expected_source_help(requirement.expected)),
         );
-        return Some(with_optional_source_span(
-            diagnostic,
-            requirement.source_span,
-        ));
+        return Some(diagnostic.with_source_span(diagnostic_span));
     }
 
     None
-}
-
-fn with_optional_source_span(
-    diagnostic: Diagnostic,
-    source_span: Option<SourceSpan>,
-) -> Diagnostic {
-    match source_span {
-        Some(span) => diagnostic.with_source_span(span),
-        None => diagnostic,
-    }
 }
 
 fn matches_expected_source(quantity_kind: &str, expected: ExpectedMlSource) -> bool {
@@ -460,6 +506,13 @@ fn validate_train_test_split_arguments(info: &MlInfo, diagnostics: &mut Vec<Diag
     let features_line = info.features_line.unwrap_or(info.line);
     let test_fraction_line = info.test_fraction_line.unwrap_or(info.line);
     let seed_line = info.seed_line.unwrap_or(info.line);
+    let target_span =
+        argument(&info.arguments, &["target", "y"]).map(|argument| argument.value_span);
+    let features_span =
+        argument(&info.arguments, &["features", "x"]).map(|argument| argument.value_span);
+    let test_fraction_span =
+        argument(&info.arguments, &["test", "test_fraction"]).map(|argument| argument.value_span);
+    let seed_span = argument(&info.arguments, &["seed"]).map(|argument| argument.value_span);
 
     if info
         .target
@@ -467,47 +520,81 @@ fn validate_train_test_split_arguments(info: &MlInfo, diagnostics: &mut Vec<Diag
         .filter(|target| is_identifier(target))
         .is_none()
     {
-        diagnostics.push(Diagnostic::error(
-            "E-ML-ARGS-001",
-            target_line,
-            "`train_test_split` requires `target=<TimeSeriesName>`.",
-            Some("Pass the target series explicitly, for example `target=Q_coil`."),
+        diagnostics.push(anchor_ml_diagnostic(
+            Diagnostic::error(
+                "E-ML-ARGS-001",
+                target_line,
+                "`train_test_split` requires `target=<TimeSeriesName>`.",
+                Some("Pass the target series explicitly, for example `target=Q_coil`."),
+            ),
+            target_span,
+            info.expression_span,
         ));
     }
 
     if info.features.is_empty() {
-        diagnostics.push(Diagnostic::error(
-            "E-ML-ARGS-001",
-            features_line,
-            "`train_test_split` requires at least one feature column in `features=[...]`.",
-            Some("List feature columns such as `features=[T_supply, T_return, m_dot]`."),
+        diagnostics.push(anchor_ml_diagnostic(
+            Diagnostic::error(
+                "E-ML-ARGS-001",
+                features_line,
+                "`train_test_split` requires at least one feature column in `features=[...]`.",
+                Some("List feature columns such as `features=[T_supply, T_return, m_dot]`."),
+            ),
+            features_span,
+            info.expression_span,
         ));
-    } else if let Some(feature) = info.features.iter().find(|feature| !is_identifier(feature)) {
-        diagnostics.push(Diagnostic::error(
-            "E-ML-ARGS-001",
-            features_line,
-            &format!("Feature `{feature}` is not a valid identifier."),
-            Some("Use bare schema column names in `features=[...]`; runtime leakage lint checks whether they exist in the source table."),
+    } else if let Some((index, feature)) = info
+        .features
+        .iter()
+        .enumerate()
+        .find(|(_, feature)| !is_identifier(feature))
+    {
+        diagnostics.push(anchor_ml_diagnostic(
+            Diagnostic::error(
+                "E-ML-ARGS-001",
+                features_line,
+                &format!("Feature `{feature}` is not a valid identifier."),
+                Some("Use bare schema column names in `features=[...]`; runtime leakage lint checks whether they exist in the source table."),
+            ),
+            info.feature_items
+                .get(index)
+                .map(|feature| feature.span)
+                .or(features_span),
+            info.expression_span,
         ));
     }
 
     match info.test_fraction.as_deref() {
         Some(value) if parse_test_fraction(value).is_some() => {}
-        Some(value) => diagnostics.push(Diagnostic::error(
-            "E-ML-ARGS-002",
-            test_fraction_line,
-            &format!("`test={value}` is not a valid held-out fraction."),
-            Some("Use a value between 0 and 1, or a percentage such as `20%`."),
+        Some(value) => diagnostics.push(anchor_ml_diagnostic(
+            Diagnostic::error(
+                "E-ML-ARGS-002",
+                test_fraction_line,
+                &format!("`test={value}` is not a valid held-out fraction."),
+                Some("Use a value between 0 and 1, or a percentage such as `20%`."),
+            ),
+            test_fraction_span,
+            info.expression_span,
         )),
-        None => diagnostics.push(Diagnostic::error(
-            "E-ML-ARGS-001",
-            info.line,
-            "`train_test_split` requires `test=<fraction>`.",
-            Some("Use an explicit held-out fraction such as `test=0.25`."),
-        )),
+        None => diagnostics.push(
+            Diagnostic::error(
+                "E-ML-ARGS-001",
+                info.line,
+                "`train_test_split` requires `test=<fraction>`.",
+                Some("Use an explicit held-out fraction such as `test=0.25`."),
+            )
+            .with_source_span(info.expression_span),
+        ),
     }
 
-    validate_optional_integer_value(info.seed.as_deref(), "seed", seed_line, diagnostics);
+    validate_optional_integer_value(
+        info.seed.as_deref(),
+        "seed",
+        seed_line,
+        seed_span,
+        info.expression_span,
+        diagnostics,
+    );
 }
 
 fn validate_regression_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic>) {
@@ -516,6 +603,15 @@ fn validate_regression_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic
     let test_fraction_line = info.test_fraction_line.unwrap_or(info.line);
     let seed_line = info.seed_line.unwrap_or(info.line);
     let algorithm_line = info.algorithm_line.unwrap_or(info.line);
+    let target_span =
+        argument(&info.arguments, &["target", "y"]).map(|argument| argument.value_span);
+    let features_span =
+        argument(&info.arguments, &["features", "x"]).map(|argument| argument.value_span);
+    let test_fraction_span =
+        argument(&info.arguments, &["test", "test_fraction"]).map(|argument| argument.value_span);
+    let seed_span = argument(&info.arguments, &["seed"]).map(|argument| argument.value_span);
+    let algorithm_span =
+        argument(&info.arguments, &["algorithm"]).map(|argument| argument.value_span);
 
     if is_table_regression_expression(&info.expression) {
         let call = regression_call_label(&info.expression);
@@ -525,47 +621,82 @@ fn validate_regression_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic
             .filter(|target| is_identifier(target))
             .is_none()
         {
-            diagnostics.push(Diagnostic::error(
-                "E-ML-ARGS-001",
-                target_line,
-                &format!("`{call}` requires `target=<column>` or `y=<column>`."),
-                Some("Pass the target table column, for example `with { target = annual_electricity }`."),
+            diagnostics.push(anchor_ml_diagnostic(
+                Diagnostic::error(
+                    "E-ML-ARGS-001",
+                    target_line,
+                    &format!("`{call}` requires `target=<column>` or `y=<column>`."),
+                    Some("Pass the target table column, for example `with { target = annual_electricity }`."),
+                ),
+                target_span,
+                info.expression_span,
             ));
         }
         if info.features.is_empty() {
-            diagnostics.push(Diagnostic::error(
-                "E-ML-ARGS-001",
-                features_line,
-                &format!("`{call}` requires `features=[...]` or `x=[...]`."),
-                Some("List feature columns such as `with { features = [people_density, cooling_cop] }`."),
+            diagnostics.push(anchor_ml_diagnostic(
+                Diagnostic::error(
+                    "E-ML-ARGS-001",
+                    features_line,
+                    &format!("`{call}` requires `features=[...]` or `x=[...]`."),
+                    Some("List feature columns such as `with { features = [people_density, cooling_cop] }`."),
+                ),
+                features_span,
+                info.expression_span,
             ));
-        } else if let Some(feature) = info.features.iter().find(|feature| !is_identifier(feature)) {
-            diagnostics.push(Diagnostic::error(
-                "E-ML-ARGS-001",
-                features_line,
-                &format!("Feature `{feature}` is not a valid identifier."),
-                Some("Use bare table column names in `features=[...]`."),
+        } else if let Some((index, feature)) = info
+            .features
+            .iter()
+            .enumerate()
+            .find(|(_, feature)| !is_identifier(feature))
+        {
+            diagnostics.push(anchor_ml_diagnostic(
+                Diagnostic::error(
+                    "E-ML-ARGS-001",
+                    features_line,
+                    &format!("Feature `{feature}` is not a valid identifier."),
+                    Some("Use bare table column names in `features=[...]`."),
+                ),
+                info.feature_items
+                    .get(index)
+                    .map(|feature| feature.span)
+                    .or(features_span),
+                info.expression_span,
             ));
         }
         if let Some(value) = info.test_fraction.as_deref() {
             if parse_test_fraction(value).is_none() {
-                diagnostics.push(Diagnostic::error(
-                    "E-ML-ARGS-002",
-                    test_fraction_line,
-                    &format!("`test={value}` is not a valid held-out fraction."),
-                    Some("Use a value between 0 and 1, or a percentage such as `20%`."),
+                diagnostics.push(anchor_ml_diagnostic(
+                    Diagnostic::error(
+                        "E-ML-ARGS-002",
+                        test_fraction_line,
+                        &format!("`test={value}` is not a valid held-out fraction."),
+                        Some("Use a value between 0 and 1, or a percentage such as `20%`."),
+                    ),
+                    test_fraction_span,
+                    info.expression_span,
                 ));
             }
         }
-        validate_optional_integer_value(info.seed.as_deref(), "seed", seed_line, diagnostics);
+        validate_optional_integer_value(
+            info.seed.as_deref(),
+            "seed",
+            seed_line,
+            seed_span,
+            info.expression_span,
+            diagnostics,
+        );
     }
     if let Some(algorithm) = info.algorithm.as_deref().map(unquote_value) {
         if algorithm != "linear" {
-            diagnostics.push(Diagnostic::error(
-                "E-ML-ARGS-003",
-                algorithm_line,
-                &format!("Unsupported regression algorithm `{algorithm}`."),
-                Some("The current data-driven modeling track supports `algorithm=linear`."),
+            diagnostics.push(anchor_ml_diagnostic(
+                Diagnostic::error(
+                    "E-ML-ARGS-003",
+                    algorithm_line,
+                    &format!("Unsupported regression algorithm `{algorithm}`."),
+                    Some("The current data-driven modeling track supports `algorithm=linear`."),
+                ),
+                algorithm_span,
+                info.expression_span,
             ));
         }
     }
@@ -575,40 +706,65 @@ fn validate_mlp_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic>) {
     let hidden_line = info.hidden_line.unwrap_or(info.line);
     let epochs_line = info.epochs_line.unwrap_or(info.line);
     let seed_line = info.seed_line.unwrap_or(info.line);
+    let hidden_span =
+        argument(&info.arguments, &["hidden", "layers"]).map(|argument| argument.value_span);
+    let epochs_span = argument(&info.arguments, &["epochs"]).map(|argument| argument.value_span);
+    let seed_span = argument(&info.arguments, &["seed"]).map(|argument| argument.value_span);
 
     match info.hidden_value.as_deref() {
         Some(value) if valid_positive_usize_list(value) => {}
-        Some(value) => diagnostics.push(Diagnostic::error(
-            "E-ML-ARGS-002",
-            hidden_line,
-            &format!("`hidden={value}` must contain positive integer layer sizes."),
-            Some("Use a list such as `hidden=[4]` or `hidden=[8, 4]`."),
+        Some(value) => diagnostics.push(anchor_ml_diagnostic(
+            Diagnostic::error(
+                "E-ML-ARGS-002",
+                hidden_line,
+                &format!("`hidden={value}` must contain positive integer layer sizes."),
+                Some("Use a list such as `hidden=[4]` or `hidden=[8, 4]`."),
+            ),
+            hidden_span,
+            info.expression_span,
         )),
-        None => diagnostics.push(Diagnostic::error(
-            "E-ML-ARGS-001",
-            info.line,
-            "`mlp` requires `hidden=[...]`.",
-            Some("Use explicit hidden layer sizes such as `hidden=[4]`."),
-        )),
+        None => diagnostics.push(
+            Diagnostic::error(
+                "E-ML-ARGS-001",
+                info.line,
+                "`mlp` requires `hidden=[...]`.",
+                Some("Use explicit hidden layer sizes such as `hidden=[4]`."),
+            )
+            .with_source_span(info.expression_span),
+        ),
     }
 
     match info.epochs_value.as_deref() {
         Some(value) if parse_positive_usize(value).is_some() => {}
-        Some(value) => diagnostics.push(Diagnostic::error(
-            "E-ML-ARGS-002",
-            epochs_line,
-            &format!("`epochs={value}` must be a positive integer."),
-            Some("Use an explicit training budget such as `epochs=80`."),
+        Some(value) => diagnostics.push(anchor_ml_diagnostic(
+            Diagnostic::error(
+                "E-ML-ARGS-002",
+                epochs_line,
+                &format!("`epochs={value}` must be a positive integer."),
+                Some("Use an explicit training budget such as `epochs=80`."),
+            ),
+            epochs_span,
+            info.expression_span,
         )),
-        None => diagnostics.push(Diagnostic::error(
-            "E-ML-ARGS-001",
-            info.line,
-            "`mlp` requires `epochs=<positive integer>`.",
-            Some("Use an explicit training budget such as `epochs=80`."),
-        )),
+        None => diagnostics.push(
+            Diagnostic::error(
+                "E-ML-ARGS-001",
+                info.line,
+                "`mlp` requires `epochs=<positive integer>`.",
+                Some("Use an explicit training budget such as `epochs=80`."),
+            )
+            .with_source_span(info.expression_span),
+        ),
     }
 
-    validate_optional_integer_value(info.seed.as_deref(), "seed", seed_line, diagnostics);
+    validate_optional_integer_value(
+        info.seed.as_deref(),
+        "seed",
+        seed_line,
+        seed_span,
+        info.expression_span,
+        diagnostics,
+    );
 }
 
 fn parse_test_fraction(value: &str) -> Option<f64> {
@@ -625,18 +781,32 @@ fn validate_optional_integer_value(
     value: Option<&str>,
     name: &str,
     line: usize,
+    source_span: Option<SourceSpan>,
+    fallback_span: SourceSpan,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     if let Some(value) = value {
         if value.trim().parse::<usize>().is_err() {
-            diagnostics.push(Diagnostic::error(
-                "E-ML-ARGS-002",
-                line,
-                &format!("`{name}={value}` must be a non-negative integer."),
-                Some("Use an integer seed such as `seed=7`."),
+            diagnostics.push(anchor_ml_diagnostic(
+                Diagnostic::error(
+                    "E-ML-ARGS-002",
+                    line,
+                    &format!("`{name}={value}` must be a non-negative integer."),
+                    Some("Use an integer seed such as `seed=7`."),
+                ),
+                source_span,
+                fallback_span,
             ));
         }
     }
+}
+
+fn anchor_ml_diagnostic(
+    diagnostic: Diagnostic,
+    source_span: Option<SourceSpan>,
+    fallback_span: SourceSpan,
+) -> Diagnostic {
+    diagnostic.with_source_span(source_span.unwrap_or(fallback_span))
 }
 
 fn valid_positive_usize_list(value: &str) -> bool {
@@ -791,23 +961,72 @@ fn is_identifier(value: &str) -> bool {
         && chars.all(|character| character.is_ascii_alphanumeric() || character == '_')
 }
 
-fn named_value(expression: &str, names: &[&str]) -> Option<String> {
-    let inside = call_inside(expression)?;
-    for part in split_top_level_commas(inside) {
-        let Some((name, value)) = part.split_once('=') else {
-            continue;
-        };
-        if names.iter().any(|candidate| name.trim() == *candidate) {
-            return Some(value.trim().to_owned());
-        }
-    }
-    None
+fn inline_ml_arguments(binding: &FastBinding) -> Vec<MlArgumentInfo> {
+    let expression = binding.expression.as_str();
+    let Some(inside) = call_inside(expression) else {
+        return Vec::new();
+    };
+    split_top_level_commas(inside)
+        .into_iter()
+        .filter_map(|part| {
+            let (name, value) = part.split_once('=')?;
+            let name = name.trim();
+            let value = value.trim();
+            if !is_identifier(name) || value.is_empty() {
+                return None;
+            }
+            Some(MlArgumentInfo {
+                name: name.to_owned(),
+                value: value.to_owned(),
+                key_span: subslice_span(expression, binding.expression_span, name)?,
+                value_span: subslice_span(expression, binding.expression_span, value)?,
+            })
+        })
+        .collect()
 }
 
-fn list_value(expression: &str, names: &[&str]) -> Vec<String> {
-    named_value(expression, names)
-        .map(|value| list_items(&value).into_iter().map(str::to_owned).collect())
-        .unwrap_or_default()
+fn argument<'a>(arguments: &'a [MlArgumentInfo], names: &[&str]) -> Option<&'a MlArgumentInfo> {
+    arguments.iter().find(|argument| {
+        names
+            .iter()
+            .any(|name| argument.name.eq_ignore_ascii_case(name))
+    })
+}
+
+fn argument_value(arguments: &[MlArgumentInfo], names: &[&str]) -> Option<String> {
+    argument(arguments, names).map(|argument| argument.value.clone())
+}
+
+fn feature_items_for_argument(argument: &MlArgumentInfo) -> Vec<MlFeatureInfo> {
+    list_items(&argument.value)
+        .into_iter()
+        .filter_map(|name| {
+            Some(MlFeatureInfo {
+                name: name.to_owned(),
+                span: subslice_span(&argument.value, argument.value_span, name)?,
+            })
+        })
+        .collect()
+}
+
+fn subslice_span(parent_text: &str, parent_span: SourceSpan, value: &str) -> Option<SourceSpan> {
+    if parent_span.end.checked_sub(parent_span.start)? != parent_text.len() {
+        return None;
+    }
+    let start = (value.as_ptr() as usize).checked_sub(parent_text.as_ptr() as usize)?;
+    let end = start.checked_add(value.len())?;
+    if end > parent_text.len()
+        || !parent_text.is_char_boundary(start)
+        || !parent_text.is_char_boundary(end)
+    {
+        return None;
+    }
+    Some(SourceSpan::new(
+        parent_span.start.checked_add(start)?,
+        parent_span.start.checked_add(end)?,
+        parent_span.line,
+        parent_span.column.checked_add(start)?,
+    ))
 }
 
 fn parse_usize_list(value: &str) -> Vec<usize> {
@@ -831,12 +1050,33 @@ fn list_items(value: &str) -> Vec<&str> {
 fn split_top_level_commas(value: &str) -> Vec<&str> {
     let mut parts = Vec::new();
     let mut start = 0usize;
+    let mut paren_depth = 0i32;
     let mut bracket_depth = 0i32;
+    let mut brace_depth = 0i32;
+    let mut in_string = false;
+    let mut escaped = false;
     for (index, character) in value.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            match character {
+                '\\' => escaped = true,
+                '"' => in_string = false,
+                _ => {}
+            }
+            continue;
+        }
         match character {
+            '"' => in_string = true,
+            '(' => paren_depth += 1,
+            ')' => paren_depth -= 1,
             '[' => bracket_depth += 1,
             ']' => bracket_depth -= 1,
-            ',' if bracket_depth == 0 => {
+            '{' => brace_depth += 1,
+            '}' => brace_depth -= 1,
+            ',' if paren_depth == 0 && bracket_depth == 0 && brace_depth == 0 => {
                 parts.push(value[start..index].trim());
                 start = index + 1;
             }
@@ -857,45 +1097,81 @@ fn apply_with_options(info: &mut MlInfo, options: &[WithOptionInfo]) {
     if !is_model_with_options_owner(&info.expression) {
         return;
     }
-    if let Some((value, line)) = with_option_value(options, &["target", "y"]) {
-        info.target = Some(value);
-        info.target_line = Some(line);
+    if let Some(option) = with_option(options, &["target", "y"]) {
+        info.target = Some(option.value.trim().to_owned());
+        info.target_line = Some(option.line);
+        replace_argument(info, &["target", "y"], argument_from_option(option));
     }
-    if let Some((value, line)) = with_option_value(options, &["features", "x"]) {
-        info.features = list_items(&value).into_iter().map(str::to_owned).collect();
-        info.features_line = Some(line);
+    if let Some(option) = with_option(options, &["features", "x"]) {
+        let argument = argument_from_option(option);
+        info.feature_items = feature_items_for_argument(&argument);
+        info.features = info
+            .feature_items
+            .iter()
+            .map(|feature| feature.name.clone())
+            .collect();
+        info.features_line = Some(option.line);
+        replace_argument(info, &["features", "x"], argument);
     }
-    if let Some((value, line)) = with_option_value(options, &["algorithm"]) {
-        info.algorithm = Some(value);
-        info.algorithm_line = Some(line);
+    if let Some(option) = with_option(options, &["algorithm"]) {
+        info.algorithm = Some(option.value.trim().to_owned());
+        info.algorithm_line = Some(option.line);
+        replace_argument(info, &["algorithm"], argument_from_option(option));
     }
-    if let Some((value, line)) = with_option_value(options, &["test", "test_fraction"]) {
-        info.test_fraction = Some(value);
-        info.test_fraction_line = Some(line);
+    if let Some(option) = with_option(options, &["test", "test_fraction"]) {
+        info.test_fraction = Some(option.value.trim().to_owned());
+        info.test_fraction_line = Some(option.line);
+        replace_argument(
+            info,
+            &["test", "test_fraction"],
+            argument_from_option(option),
+        );
     }
-    if let Some((value, line)) = with_option_value(options, &["seed"]) {
-        info.seed = Some(value);
-        info.seed_line = Some(line);
+    if let Some(option) = with_option(options, &["seed"]) {
+        info.seed = Some(option.value.trim().to_owned());
+        info.seed_line = Some(option.line);
+        replace_argument(info, &["seed"], argument_from_option(option));
     }
-    if let Some((value, line)) = with_option_value(options, &["hidden", "layers"]) {
-        info.hidden_layers = parse_usize_list(&value);
-        info.hidden_value = Some(value);
-        info.hidden_line = Some(line);
+    if let Some(option) = with_option(options, &["hidden", "layers"]) {
+        let value = option.value.trim();
+        info.hidden_layers = parse_usize_list(value);
+        info.hidden_value = Some(value.to_owned());
+        info.hidden_line = Some(option.line);
+        replace_argument(info, &["hidden", "layers"], argument_from_option(option));
     }
-    if let Some((value, line)) = with_option_value(options, &["epochs"]) {
+    if let Some(option) = with_option(options, &["epochs"]) {
+        let value = option.value.trim();
         info.epochs = value.parse::<usize>().ok();
-        info.epochs_value = Some(value);
-        info.epochs_line = Some(line);
+        info.epochs_value = Some(value.to_owned());
+        info.epochs_line = Some(option.line);
+        replace_argument(info, &["epochs"], argument_from_option(option));
     }
 }
 
-fn with_option_value(options: &[WithOptionInfo], names: &[&str]) -> Option<(String, usize)> {
-    options.iter().find_map(|option| {
+fn with_option<'a>(options: &'a [WithOptionInfo], names: &[&str]) -> Option<&'a WithOptionInfo> {
+    options.iter().find(|option| {
         names
             .iter()
             .any(|name| option.key.eq_ignore_ascii_case(name))
-            .then(|| (option.value.trim().to_owned(), option.line))
     })
+}
+
+fn argument_from_option(option: &WithOptionInfo) -> MlArgumentInfo {
+    MlArgumentInfo {
+        name: option.key.clone(),
+        value: option.value.trim().to_owned(),
+        key_span: option.key_span,
+        value_span: option.value_span,
+    }
+}
+
+fn replace_argument(info: &mut MlInfo, names: &[&str], argument: MlArgumentInfo) {
+    info.arguments.retain(|existing| {
+        !names
+            .iter()
+            .any(|name| existing.name.eq_ignore_ascii_case(name))
+    });
+    info.arguments.push(argument);
 }
 
 fn regression_call_label(expression: &str) -> &'static str {

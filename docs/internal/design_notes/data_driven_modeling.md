@@ -63,7 +63,12 @@ seed=...               must be a non-negative integer when present
 ```
 
 Missing or malformed required ML arguments produce `E-ML-ARGS-001` or
-`E-ML-ARGS-002`. Unsupported ML options produce `E-ML-ARGS-003`.
+`E-ML-ARGS-002`. Unsupported ML options produce `E-ML-ARGS-003`. Inline named
+arguments and attached `with` options are normalized into the same structured
+compiler metadata. Source/type failures underline the exact model, split, or
+table operand; argument failures underline the exact key, value, or individual
+feature path. Those ranges also drive editor highlighting, including repeated
+names and UTF-16 source positions, and stop before trailing line comments.
 
 ## Runtime Semantics
 

@@ -2716,49 +2716,55 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                 ml.prediction_input_span,
             );
         }
-        if let Some(target) = &ml.target {
-            builder.push_on_line(ml.line, "target", "property", &["model"]);
-            builder.push_named_argument_value_on_line(
-                ml.line,
-                "target",
-                target,
-                "property",
-                &["model"],
-            );
-        }
-        if !ml.features.is_empty() {
-            builder.push_on_line(ml.line, "features", "property", &["model"]);
-        }
-        for feature in &ml.features {
-            let feature_line = ml.features_line.unwrap_or(ml.line);
-            if is_simple_identifier_path(feature) {
-                builder.push_preferred_identifier_path_on_line(
-                    feature_line,
-                    feature,
-                    Some("property"),
-                    &["model"],
-                );
-            } else {
-                builder.push_on_line(feature_line, feature, "property", &["model"]);
+        for argument in &ml.arguments {
+            let name = argument.name.to_ascii_lowercase();
+            if !matches!(
+                name.as_str(),
+                "target"
+                    | "y"
+                    | "features"
+                    | "x"
+                    | "algorithm"
+                    | "test"
+                    | "test_fraction"
+                    | "seed"
+                    | "hidden"
+                    | "layers"
+                    | "epochs"
+                    | "split"
+            ) {
+                continue;
             }
-        }
-        if let Some(algorithm) = &ml.algorithm {
-            builder.push_on_line(ml.line, "algorithm", "property", &["model"]);
-            if is_simple_identifier_segment(algorithm) {
-                builder.push_on_line_unless_call(ml.line, algorithm, "keyword", &["model"]);
+            builder.push_named_span(argument.key_span, &argument.name, "property", &["model"]);
+            match name.as_str() {
+                "target" | "y" => {
+                    builder.push_preferred_identifier_path_span(
+                        argument.value_span,
+                        &argument.value,
+                        Some("property"),
+                        &["model"],
+                    );
+                }
+                "features" | "x" => {
+                    for feature in &ml.feature_items {
+                        builder.push_preferred_identifier_path_span(
+                            feature.span,
+                            &feature.name,
+                            Some("property"),
+                            &["model"],
+                        );
+                    }
+                }
+                "algorithm" if is_simple_identifier_segment(&argument.value) => {
+                    builder.push_within_span(
+                        argument.value_span,
+                        &argument.value,
+                        "keyword",
+                        &["model"],
+                    );
+                }
+                _ => {}
             }
-        }
-        if ml.test_fraction.is_some() {
-            builder.push_on_line(ml.line, "test", "property", &["model"]);
-        }
-        if ml.seed.is_some() {
-            builder.push_on_line(ml.line, "seed", "property", &["model"]);
-        }
-        if !ml.hidden_layers.is_empty() {
-            builder.push_on_line(ml.line, "hidden", "property", &["model"]);
-        }
-        if ml.epochs.is_some() {
-            builder.push_on_line(ml.line, "epochs", "property", &["model"]);
         }
     }
 
@@ -6434,105 +6440,6 @@ impl<'a> SemanticTokenBuilder<'a> {
                 ),
                 index,
             );
-        }
-    }
-
-    fn push_named_argument_value_on_line(
-        &mut self,
-        line_one_based: usize,
-        argument: &str,
-        label: &str,
-        token_type: &str,
-        modifiers: &[&str],
-    ) {
-        if argument.trim().is_empty() || label.trim().is_empty() {
-            return;
-        }
-        let Some(line_index) = line_one_based.checked_sub(1) else {
-            return;
-        };
-        let Some(line) = self.lines.get(line_index).copied() else {
-            return;
-        };
-        let bytes = line.as_bytes();
-        for argument_candidate in token_candidates(argument) {
-            let mut search_start = 0usize;
-            while search_start <= line.len() {
-                let Some(relative) = line[search_start..].find(&argument_candidate) else {
-                    break;
-                };
-                let argument_start = search_start + relative;
-                let argument_end = argument_start + argument_candidate.len();
-                search_start = argument_end;
-                if !is_identifier_boundary(line, argument_start, argument_end) {
-                    continue;
-                }
-                let mut cursor = skip_ascii_whitespace(bytes, argument_end, line.len());
-                if bytes.get(cursor) != Some(&b'=') {
-                    continue;
-                }
-                cursor = skip_ascii_whitespace(bytes, cursor + 1, line.len());
-                for value_candidate in token_candidates(label) {
-                    if !line[cursor..].starts_with(&value_candidate) {
-                        continue;
-                    }
-                    let value_end = cursor + value_candidate.len();
-                    if !is_identifier_boundary(line, cursor, value_end) {
-                        continue;
-                    }
-                    self.push_byte_range(
-                        line_index,
-                        cursor,
-                        value_candidate.len(),
-                        token_type,
-                        modifiers,
-                    );
-                    return;
-                }
-            }
-        }
-    }
-
-    fn push_on_line_unless_call(
-        &mut self,
-        line_one_based: usize,
-        label: &str,
-        token_type: &str,
-        modifiers: &[&str],
-    ) {
-        if label.trim().is_empty() {
-            return;
-        }
-        let Some(line_index) = line_one_based.checked_sub(1) else {
-            return;
-        };
-        let Some(line) = self.lines.get(line_index).copied() else {
-            return;
-        };
-        for candidate in token_candidates(label) {
-            let mut search_start = 0usize;
-            while search_start <= line.len() {
-                let Some(relative) = line[search_start..].find(&candidate) else {
-                    break;
-                };
-                let token_start = search_start + relative;
-                let token_end = token_start + candidate.len();
-                search_start = token_end;
-                if !is_identifier_boundary(line, token_start, token_end) {
-                    continue;
-                }
-                if next_non_whitespace_after(line, token_end) == Some('(') {
-                    continue;
-                }
-                self.push_byte_range(
-                    line_index,
-                    token_start,
-                    candidate.len(),
-                    token_type,
-                    modifiers,
-                );
-                return;
-            }
         }
     }
 
@@ -11759,6 +11666,99 @@ mod tests {
     }
 
     #[test]
+    fn ml_fixture_diagnostics_keep_compiler_owned_ranges() {
+        let repo_root = repo_root_for_tests();
+        let mut files = BTreeSet::new();
+        for relative in [
+            "examples",
+            "tests/diagnostics",
+            "tools/vscode-englang/test/grammar-fixtures",
+        ] {
+            files.extend(eng_files_under(&repo_root.join(relative)));
+        }
+
+        let mut observed = 0usize;
+        let mut missing = Vec::new();
+        for path in files {
+            let source = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            let report = check_source(&path, &source, &CheckOptions::default());
+            let lines = source_lines(&source);
+            for diagnostic in report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code.starts_with("E-ML-"))
+            {
+                observed += 1;
+                let line_index = line_index_from_one_based(&lines, diagnostic.line);
+                let line = lines.get(line_index).copied().unwrap_or_default();
+                if compiler_diagnostic_byte_range(line, diagnostic).is_none() {
+                    missing.push(format!(
+                        "{}:{} {}",
+                        path.strip_prefix(&repo_root).unwrap_or(&path).display(),
+                        diagnostic.line,
+                        diagnostic.code
+                    ));
+                }
+            }
+        }
+
+        assert!(
+            observed >= 15,
+            "ML diagnostic corpus unexpectedly shrank to {observed} item(s)"
+        );
+        assert!(
+            missing.is_empty(),
+            "ML diagnostics missing valid compiler ranges: {}",
+            missing.join(", ")
+        );
+    }
+
+    #[test]
+    fn diagnostic_corpus_compiler_range_coverage_does_not_regress() {
+        let repo_root = repo_root_for_tests();
+        let mut files = BTreeSet::new();
+        for relative in [
+            "examples",
+            "tests/diagnostics",
+            "tools/vscode-englang/test/grammar-fixtures",
+        ] {
+            files.extend(eng_files_under(&repo_root.join(relative)));
+        }
+
+        let mut fallback = Vec::new();
+        for path in files {
+            let source = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            let report = check_source(&path, &source, &CheckOptions::default());
+            let lines = source_lines(&source);
+            for diagnostic in &report.diagnostics {
+                let line_index = line_index_from_one_based(&lines, diagnostic.line);
+                let line = lines.get(line_index).copied().unwrap_or_default();
+                if compiler_diagnostic_byte_range(line, diagnostic).is_none() {
+                    fallback.push(format!(
+                        "{}:{} {}",
+                        path.strip_prefix(&repo_root).unwrap_or(&path).display(),
+                        diagnostic.line,
+                        diagnostic.code
+                    ));
+                }
+            }
+        }
+
+        println!(
+            "diagnostic range audit: {} compiler-fallback item(s)",
+            fallback.len()
+        );
+        assert!(
+            fallback.len() <= 152,
+            "compiler-owned diagnostic range coverage regressed to {} fallback item(s): {}",
+            fallback.len(),
+            fallback.join(", ")
+        );
+    }
+
+    #[test]
     fn network_fixture_url_references_do_not_emit_invalid_url_false_positives() {
         let repo_root = repo_root_for_tests();
         for relative in [
@@ -13942,6 +13942,73 @@ print "done"
             download,
             "E-NET-INVALID-URL",
             "url(\"ftp://download.example/data\")",
+        );
+    }
+
+    #[test]
+    fn ml_diagnostics_use_compiler_owned_argument_ranges() {
+        let source = concat!(
+            "note = \"😀 Q_missing target features annual_electricity\"\r\n",
+            "split = train_test_split(Q_missing, target=Q_missing, features=[], test=1.5) # ignored\r\n",
+            "designs = sample lhs\r\n",
+            "with { count = 1; seed = 7; x = uniform(0, 1) }\r\n",
+            "target = train regression designs\r\n",
+            "with {\r\n",
+            "    target = annual_electricity # repeated\r\n",
+            "    features = [people_density, bad.feature] // ignored\r\n",
+            "    algorithm = spline\r\n",
+            "    test = 1.5\r\n",
+            "    seed = nope\r\n",
+            "}\r\n",
+            "split_with = train_test_split(Q_attached_source)\r\n",
+            "with {\r\n",
+            "    target = Q_attached_target # exact target range\r\n",
+            "    features = [temperature]\r\n",
+            "    test = 0.25\r\n",
+            "}\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("ml_diagnostic_ranges.eng"), source);
+        let underline = |code: &str, message: &str| {
+            let diagnostic = snapshot
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code && diagnostic.message.contains(message))
+                .unwrap_or_else(|| panic!("missing {code} diagnostic containing {message}"));
+            let line = source
+                .lines()
+                .nth(diagnostic.line - 1)
+                .expect("diagnostic source line");
+            (
+                line[diagnostic.start_character..diagnostic.end_character].to_owned(),
+                diagnostic.start_character,
+            )
+        };
+
+        let split_line = source.lines().nth(1).expect("split line");
+        let source_start = split_line.find("Q_missing").expect("source occurrence");
+        let target_start = split_line.rfind("Q_missing").expect("target occurrence");
+        assert_eq!(
+            underline("E-ML-SOURCE-001", "Unknown ML source"),
+            ("Q_missing".to_owned(), source_start)
+        );
+        assert_eq!(
+            underline("E-ML-SOURCE-001", "Unknown ML target"),
+            ("Q_missing".to_owned(), target_start)
+        );
+        assert_eq!(underline("E-ML-ARGS-001", "at least one feature").0, "[]");
+        assert_eq!(underline("E-ML-ARGS-002", "test=1.5").0, "1.5");
+        assert_eq!(
+            underline("E-ML-ARGS-001", "not a valid identifier").0,
+            "bad.feature"
+        );
+        assert_eq!(
+            underline("E-ML-ARGS-003", "Unsupported regression").0,
+            "spline"
+        );
+        assert_eq!(underline("E-ML-ARGS-002", "seed=nope").0, "nope");
+        assert_eq!(
+            underline("E-ML-SOURCE-001", "Q_attached_target").0,
+            "Q_attached_target"
         );
     }
 
@@ -17540,6 +17607,80 @@ with {
             source,
             "soft_keyword_operand_spans.eng",
         );
+    }
+
+    #[test]
+    fn ml_argument_tokens_do_not_repaint_repeated_binding_names() {
+        let source = concat!(
+            "note = \"😀 target algorithm annual_electricity people_density\"\r\n",
+            "designs = sample lhs\r\n",
+            "with { count = 1; seed = 7; x = uniform(0, 1) }\r\n",
+            "target = train regression designs\r\n",
+            "with {\r\n",
+            "    target = annual_electricity # target\r\n",
+            "    features = [people_density] // people_density\r\n",
+            "    algorithm = linear\r\n",
+            "    test = 0.25\r\n",
+            "    seed = 7\r\n",
+            "}\r\n",
+            "algorithm = train regression designs\r\n",
+            "with { y = annual_electricity; x = [people_density]; test = 0.25; seed = 9 }\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("ml_argument_token_spans.eng"), source);
+
+        for (line_text, binding) in [
+            ("target = train regression designs", "target"),
+            ("algorithm = train regression designs", "algorithm"),
+        ] {
+            let line = source
+                .lines()
+                .position(|line| line == line_text)
+                .expect("model binding line");
+            let tokens = snapshot
+                .semantic_tokens
+                .tokens
+                .iter()
+                .filter(|token| {
+                    token.line == line && token.start == 0 && token.length == utf16_len(binding)
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(
+                tokens.len(),
+                1,
+                "binding token should be atomic: {tokens:#?}"
+            );
+            assert_eq!(tokens[0].token_type, "variable");
+            assert!(tokens[0]
+                .modifiers
+                .iter()
+                .any(|modifier| modifier == "declaration"));
+            assert!(tokens[0]
+                .modifiers
+                .iter()
+                .any(|modifier| modifier == "model"));
+        }
+
+        for (line, label) in [
+            ("    target = annual_electricity # target", "target"),
+            (
+                "    features = [people_density] // people_density",
+                "features",
+            ),
+            ("    algorithm = linear", "algorithm"),
+            (
+                "    target = annual_electricity # target",
+                "annual_electricity",
+            ),
+            (
+                "    features = [people_density] // people_density",
+                "people_density",
+            ),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, label, "property", "model",
+            );
+        }
+        assert_no_semantic_token_overlaps(&snapshot, "ml_argument_token_spans.eng");
     }
 
     #[test]

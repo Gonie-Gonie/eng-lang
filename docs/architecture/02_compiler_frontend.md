@@ -68,8 +68,12 @@ also a workflow keyword, without changing a real keyword occurrence elsewhere.
 `FastBinding.expression_span` identifies the complete source RHS before later
 semantic normalization. Successful inferred declarations retain that range,
 while `MlInfo` separately retains exact binding, source-model/table, and
-prediction-input spans. Alias and ML source diagnostics and editor roles can
-therefore target the resolved operand without repainting a same-spelled grammar
+prediction-input spans. It also exposes the complete ML expression, unified
+inline/attached `with` arguments through `MlArgumentInfo.key_span` and
+`value_span`, and each feature path through `MlFeatureInfo.span`. Trailing line
+comments are not part of an option value. Alias and ML source/argument
+diagnostics and editor roles can therefore target the resolved operand or
+individual malformed value without repainting a same-spelled binding or grammar
 word elsewhere in the expression or file.
 
 ## Semantic Analysis

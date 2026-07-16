@@ -51,7 +51,7 @@ pub use expected::{ExpectedType, ExpectedTypeSource};
 pub use formatter::{format_source, format_source_with_options, FormatOptions, FormatResult};
 pub use hover::HoverHint;
 pub use lexer::{Keyword, Symbol, Token, TokenKind};
-pub use ml::MlInfo;
+pub use ml::{MlArgumentInfo, MlFeatureInfo, MlInfo};
 pub use module_registry::{
     bundled_module_registry, load_module_registry, parse_module_registry, ModuleRegistry,
     ModuleRegistryEntry, ModuleRegistryError,
@@ -9936,6 +9936,127 @@ mod tests {
     }
 
     #[test]
+    fn ml_arguments_and_diagnostics_preserve_exact_spans() {
+        let source = concat!(
+            "note = \"😀 Q_missing target features annual_electricity\"\r\n",
+            "split = train_test_split(Q_missing, target=Q_missing, features=[], test=1.5) # ignored\r\n",
+            "designs = sample lhs\r\n",
+            "with { count = 1; seed = 7; x = uniform(0, 1) }\r\n",
+            "target = train regression designs\r\n",
+            "with {\r\n",
+            "    target = annual_electricity # repeated\r\n",
+            "    features = [people_density, bad.feature] // ignored\r\n",
+            "    algorithm = spline\r\n",
+            "    test = 1.5\r\n",
+            "    seed = nope\r\n",
+            "}\r\n",
+            "split_with = train_test_split(Q_attached_source)\r\n",
+            "with {\r\n",
+            "    target = Q_attached_target # exact target range\r\n",
+            "    features = [temperature]\r\n",
+            "    test = 0.25\r\n",
+            "}\r\n",
+        );
+        let report = check_source("ml_argument_spans.eng", source, &CheckOptions::default());
+        let span_text = |span: SourceSpan| &source[span.start..span.end];
+
+        let split = report
+            .semantic_program
+            .ml_infos
+            .iter()
+            .find(|info| info.binding == "split")
+            .expect("split ML info");
+        assert_eq!(
+            span_text(split.expression_span),
+            "train_test_split(Q_missing, target=Q_missing, features=[], test=1.5)"
+        );
+        assert_eq!(
+            split
+                .arguments
+                .iter()
+                .map(|argument| (span_text(argument.key_span), span_text(argument.value_span)))
+                .collect::<Vec<_>>(),
+            vec![("target", "Q_missing"), ("features", "[]"), ("test", "1.5")]
+        );
+
+        let model = report
+            .semantic_program
+            .ml_infos
+            .iter()
+            .find(|info| info.binding == "target")
+            .expect("regression ML info");
+        assert_eq!(span_text(model.expression_span), "train regression designs");
+        assert_eq!(
+            model
+                .arguments
+                .iter()
+                .map(|argument| (span_text(argument.key_span), span_text(argument.value_span)))
+                .collect::<Vec<_>>(),
+            vec![
+                ("target", "annual_electricity"),
+                ("features", "[people_density, bad.feature]"),
+                ("algorithm", "spline"),
+                ("test", "1.5"),
+                ("seed", "nope"),
+            ]
+        );
+        assert_eq!(
+            model
+                .feature_items
+                .iter()
+                .map(|feature| (feature.name.as_str(), span_text(feature.span)))
+                .collect::<Vec<_>>(),
+            vec![
+                ("people_density", "people_density"),
+                ("bad.feature", "bad.feature")
+            ]
+        );
+
+        let diagnostic_span = |message_fragment: &str, line: usize| {
+            report
+                .diagnostics
+                .iter()
+                .find(|diagnostic| {
+                    diagnostic.code.starts_with("E-ML-")
+                        && diagnostic.line == line
+                        && diagnostic.message.contains(message_fragment)
+                })
+                .unwrap_or_else(|| panic!("missing ML diagnostic containing {message_fragment}"))
+                .source_span
+                .expect("compiler-owned ML diagnostic span")
+        };
+        assert_eq!(
+            span_text(diagnostic_span("Unknown ML source", 2)),
+            "Q_missing"
+        );
+        assert_eq!(
+            span_text(diagnostic_span("Unknown ML target", 2)),
+            "Q_missing"
+        );
+        assert_eq!(span_text(diagnostic_span("at least one feature", 2)), "[]");
+        assert_eq!(span_text(diagnostic_span("test=1.5", 2)), "1.5");
+        assert_eq!(
+            span_text(diagnostic_span("not a valid identifier", 8)),
+            "bad.feature"
+        );
+        assert_eq!(
+            span_text(diagnostic_span("Unsupported regression", 9)),
+            "spline"
+        );
+        assert_eq!(span_text(diagnostic_span("test=1.5", 10)), "1.5");
+        assert_eq!(span_text(diagnostic_span("seed=nope", 11)), "nope");
+        assert_eq!(
+            span_text(diagnostic_span("Q_attached_target", 15)),
+            "Q_attached_target"
+        );
+        assert!(report
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code.starts_with("E-ML-"))
+            .all(|diagnostic| diagnostic.source_span.is_some()));
+    }
+
+    #[test]
     fn option_diagnostics_expose_compiler_owned_value_spans() {
         let source = concat!(
             "samples = sample lhs\r\n",
@@ -13810,6 +13931,47 @@ write csv "outputs/q.csv", Q
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "E-ML-SOURCE-001"));
+    }
+
+    #[test]
+    fn ml_source_validation_uses_prior_bindings_after_with_overrides() {
+        let forward = check_source(
+            "forward.eng",
+            "split = train_test_split(Q_later, target=Q_later, features=[T_supply], test=0.25)\ncp = 4180 J/kg/K\nQ_later = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n",
+            &CheckOptions::default(),
+        );
+        assert!(forward
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-ML-SOURCE-001"));
+
+        let overridden = check_source(
+            "override.eng",
+            "cp = 4180 J/kg/K\nQ_known = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nsplit = train_test_split(Q_known, target=Q_missing, features=[T_supply], test=0.25)\nwith { target = Q_known }\n",
+            &CheckOptions::default(),
+        );
+        assert!(
+            overridden
+                .diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.message.contains("Q_missing")),
+            "stale inline target diagnostic: {:?}",
+            overridden.diagnostics
+        );
+
+        let scoped = check_source(
+            "scoped.eng",
+            "cp = 4180 J/kg/K\nsplit = train_test_split(Q_local, target=Q_local, features=[T_supply], test=0.25)\nwhere {\n    Q_local = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n}\n",
+            &CheckOptions::default(),
+        );
+        assert!(
+            scoped
+                .diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.code.starts_with("E-ML-SOURCE-")),
+            "scoped ML source diagnostic: {:?}",
+            scoped.diagnostics
+        );
     }
 
     #[test]

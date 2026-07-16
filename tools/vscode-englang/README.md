@@ -334,6 +334,11 @@ using records` keep resolved variable colors without changing grammar keywords
 or dotted member fields that use the same spelling. Dotted ML operands and
 features color `args`, receivers, and members independently; dotted `apply`
 targets additionally color the final segment as a workflow-step function.
+Inline ML arguments and attached `with` options share compiler-owned key/value
+spans, and every feature path has its own range. Problems therefore underline
+the malformed ML value or feature itself, while option semantic colors do not
+repaint a binding declaration named `target` or `algorithm`. Trailing option
+comments are outside both Problems and highlight ranges.
 Unquoted dotted imports remain one namespace token, so `eng.stats` does not
 compete with shorter variable/property overlays.
 Numeric fallback also respects identifier boundaries: percentile helpers,
