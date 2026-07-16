@@ -783,6 +783,7 @@ pub struct ExpectationSuiteInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WhereBindingInfo {
     pub name: String,
+    pub span: SourceSpan,
     pub expression: String,
     pub quantity_kind: String,
     pub display_unit: String,
@@ -795,6 +796,7 @@ pub struct WhereBlockInfo {
     pub owner_line: Option<usize>,
     pub bindings: Vec<WhereBindingInfo>,
     pub line: usize,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -812,6 +814,7 @@ pub struct WithBlockInfo {
     pub owner_line: Option<usize>,
     pub options: Vec<WithOptionInfo>,
     pub line: usize,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2257,6 +2260,7 @@ fn analyze_where_blocks(
                 owner_line: block.owner_line,
                 bindings: infos,
                 line: block.line,
+                span: block.span,
             }
         })
         .collect()
@@ -2314,6 +2318,7 @@ fn analyze_where_binding_scope(
             defined_local_names.insert(binding.name.clone());
             WhereBindingInfo {
                 name: binding.name.clone(),
+                span: binding.span,
                 expression: binding.expression.clone(),
                 quantity_kind: semantic_type.quantity_kind.clone(),
                 display_unit: semantic_type.display_unit.clone(),
@@ -2324,6 +2329,7 @@ fn analyze_where_binding_scope(
             defined_local_names.insert(binding.name.clone());
             WhereBindingInfo {
                 name: binding.name.clone(),
+                span: binding.span,
                 expression: binding.expression.clone(),
                 quantity_kind: "unknown".to_owned(),
                 display_unit: "unknown".to_owned(),
@@ -2452,6 +2458,7 @@ fn analyze_with_blocks(
                 owner_line: block.owner_line,
                 options,
                 line: block.line,
+                span: block.span,
             }
         })
         .collect()

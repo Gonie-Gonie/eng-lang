@@ -396,6 +396,14 @@ Function return metadata also preserves the exact expression after a block
 return-side-effect diagnostics use that compiler range; missing-return
 diagnostics select the function name.
 
+`where`/`with` opener tokens and `where` local declarations use their
+parser-owned semantic spans. `with` option properties stay inside `key_span`;
+model list values, enum-like values, and `file`/`dir`/`join` helpers stay inside
+`value_span`. Inline options therefore cannot repaint matching text in an
+earlier option or string, and `where` local plus `with` option outline selections
+use the same UTF-16-safe ranges. A `unit <axis>` key is split only within its key
+span so `unit` remains a keyword and the axis remains a property.
+
 ## VS Code Fallback Mapping
 
 VS Code maps semantic tokens to TextMate fallback scopes in

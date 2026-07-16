@@ -3074,24 +3074,25 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for block in &program.where_blocks {
-        builder.push_keywords_on_line(block.line, &["where"], &["local"]);
+        builder.push_named_span(block.span, "where", "keyword", &["local"]);
         for binding in &block.bindings {
             let modifiers = semantic_modifiers_for_quantity(&binding.quantity_kind);
             let mut modifiers = modifiers;
             modifiers.push("local");
-            builder.push_on_line(binding.line, &binding.name, "variable", &modifiers);
+            builder.push_named_span(binding.span, &binding.name, "variable", &modifiers);
         }
     }
 
     for block in &program.with_blocks {
-        builder.push_keywords_on_line(
-            block.line,
-            &["with"],
+        builder.push_named_span(
+            block.span,
+            "with",
+            "keyword",
             with_block_semantic_modifiers(program, block),
         );
         for option in &block.options {
             let modifiers = with_option_semantic_modifiers(program, block, &option.key);
-            builder.push_on_line(option.line, &option.key, "property", modifiers);
+            add_with_option_key_semantic_token(&mut builder, option, modifiers);
             add_with_option_value_semantic_token(&mut builder, program, block, option);
         }
     }
@@ -3269,6 +3270,9 @@ fn with_option_semantic_modifiers(
         "results" | "on_error" if is_case_run_with_block(program, block.owner_line) => {
             &["workflowStep"]
         }
+        "output" if is_template_workflow_with_block(program, block.owner_line) => {
+            &["sideEffect", "workflowStep"]
+        }
         "overwrite" | "mode" | "confirm" | "recursive" | "output" => &["sideEffect"],
         "args"
         | "query"
@@ -3307,6 +3311,19 @@ fn with_option_semantic_modifiers(
     }
 }
 
+fn add_with_option_key_semantic_token(
+    builder: &mut SemanticTokenBuilder<'_>,
+    option: &WithOptionInfo,
+    modifiers: &[&str],
+) {
+    let Some(axis) = option.key.strip_prefix("unit ") else {
+        builder.push_named_span(option.key_span, &option.key, "property", modifiers);
+        return;
+    };
+    builder.push_within_span(option.key_span, "unit", "keyword", modifiers);
+    builder.push_within_span(option.key_span, axis.trim(), "property", modifiers);
+}
+
 fn add_with_option_value_semantic_token(
     builder: &mut SemanticTokenBuilder<'_>,
     program: &SemanticProgram,
@@ -3318,7 +3335,12 @@ fn add_with_option_value_semantic_token(
         && is_model_with_block(program, block.owner_line)
     {
         for value in option_list_value_identifiers(&option.value) {
-            builder.push_on_line(option.line, value, "property", &["model", "workflowStep"]);
+            builder.push_within_span(
+                option.value_span,
+                value,
+                "property",
+                &["model", "workflowStep"],
+            );
         }
         return;
     }
@@ -3328,7 +3350,7 @@ fn add_with_option_value_semantic_token(
     if let Some((token_type, modifiers)) =
         with_option_value_semantic_class(program, block, &option.key, value)
     {
-        builder.push_on_line(option.line, value, token_type, modifiers);
+        builder.push_within_span(option.value_span, value, token_type, modifiers);
     }
 }
 
@@ -3342,10 +3364,12 @@ fn add_with_option_path_helper_semantic_tokens(
     else {
         return;
     };
-    let Some(line_index) = option.line.checked_sub(1) else {
-        return;
-    };
-    builder.push_identifiers_on_line(line_index, &["file", "dir", "join"], "function", modifiers);
+    builder.push_identifiers_within_span(
+        option.value_span,
+        &["file", "dir", "join"],
+        "function",
+        modifiers,
+    );
 }
 
 fn with_option_path_helper_semantic_modifiers(
@@ -4604,12 +4628,12 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
             .bindings
             .iter()
             .map(|binding| {
-                make_document_symbol(
+                make_document_symbol_at_span(
                     &lines,
                     binding.name.clone(),
                     format!("{} [{}]", binding.quantity_kind, binding.display_unit),
                     SYMBOL_KIND_VARIABLE,
-                    binding.line,
+                    binding.span,
                     Vec::new(),
                 )
             })
@@ -4631,12 +4655,12 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
             .options
             .iter()
             .map(|option| {
-                make_document_symbol(
+                make_document_symbol_at_span(
                     &lines,
                     option.key.clone(),
                     option.status.clone(),
                     SYMBOL_KIND_KEY,
-                    option.line,
+                    option.key_span,
                     Vec::new(),
                 )
             })
@@ -6318,11 +6342,74 @@ impl<'a> SemanticTokenBuilder<'a> {
         if identifiers.is_empty() {
             return;
         }
+        let Some(line_length) = self.lines.get(line_index).map(|line| line.len()) else {
+            return;
+        };
+        self.push_identifiers_in_line_range(
+            line_index,
+            0,
+            line_length,
+            identifiers,
+            token_type,
+            modifiers,
+            skip_classified,
+        );
+    }
+
+    fn push_identifiers_within_span(
+        &mut self,
+        span: SourceSpan,
+        identifiers: &[&str],
+        token_type: &str,
+        modifiers: &[&str],
+    ) {
+        let Some(line_index) = span.line.checked_sub(1) else {
+            return;
+        };
+        let Some(byte_start) = span.column.checked_sub(1) else {
+            return;
+        };
+        let Some(byte_length) = span.end.checked_sub(span.start) else {
+            return;
+        };
+        let Some(byte_end) = byte_start.checked_add(byte_length) else {
+            return;
+        };
+        self.push_identifiers_in_line_range(
+            line_index,
+            byte_start,
+            byte_end,
+            identifiers,
+            token_type,
+            modifiers,
+            false,
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn push_identifiers_in_line_range(
+        &mut self,
+        line_index: usize,
+        byte_start: usize,
+        byte_end: usize,
+        identifiers: &[&str],
+        token_type: &str,
+        modifiers: &[&str],
+        skip_classified: bool,
+    ) {
+        if identifiers.is_empty() {
+            return;
+        }
         let Some(line) = self.lines.get(line_index).copied() else {
             return;
         };
+        if byte_start >= byte_end || byte_end > line.len() {
+            return;
+        }
         let bytes = line.as_bytes();
         for (range_start, range_end) in code_ranges(line) {
+            let range_start = range_start.max(byte_start);
+            let range_end = range_end.min(byte_end);
             let mut index = range_start;
             while index < range_end {
                 if index < bytes.len() && is_ident_start(bytes[index]) {
@@ -14015,12 +14102,27 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
             1,
             "`plot distribution(...)` should keep report context"
         );
-        assert_semantic_token_modifier(&snapshot, source, "unit y", "report");
+        for (label, token_type) in [("unit", "keyword"), ("y", "property")] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                "        unit y = kW",
+                label,
+                token_type,
+                "report",
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                "        unit y = kW",
+                label,
+                token_type,
+                "workflowStep",
+            );
+        }
         assert_semantic_token_modifier(&snapshot, source, "title", "report");
         assert_semantic_token_modifier(&snapshot, source, "confidence_band", "workflowStep");
-        for label in ["unit y", "title"] {
-            assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
-        }
+        assert_semantic_token_modifier(&snapshot, source, "title", "workflowStep");
         assert_semantic_token_modifier(&snapshot, source, "timestep", "solver");
         assert_semantic_token_modifier(&snapshot, source, "duration", "solver");
         assert_semantic_token_modifier(&snapshot, source, "solver", "solver");
@@ -16155,6 +16257,147 @@ with {
             "keyword",
         );
         assert_no_conflicting_semantic_token_types(&snapshot, source, "time_alignment_options.eng");
+    }
+
+    #[test]
+    fn inline_with_option_tokens_stay_inside_compiler_owned_spans() {
+        let source = concat!(
+            "cases = materialize cases designs\r\n",
+            "rendered = apply case_template over cases\r\n",
+            "with { template = file(\"😀output\"); output = join(args.output, \"template\"); values = cases }\r\n",
+            "rows = collect results rendered\r\n",
+            "db = open sqlite file(\"out.db\")\r\n",
+            "write rows to db.table(\"records\")\r\n",
+            "with { key = \"😀append\"; mode = append; transaction = commit }\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("inline_with_option_spans.eng"), source);
+        let lines = source.lines().collect::<Vec<_>>();
+        let first_line_index = 2usize;
+        let first_line = lines[first_line_index];
+        let second_line_index = 6usize;
+        let second_line = lines[second_line_index];
+
+        let output_string_byte = first_line.find("output\"").expect("string output");
+        let output_key_byte = first_line.find("; output =").expect("output option") + 2;
+        let file_byte = first_line.find("file").expect("template file helper");
+        let join_byte = first_line.find("join").expect("output join helper");
+        let append_string_byte = second_line.find("append\"").expect("string append");
+        let append_value_byte = second_line.rfind("append").expect("append value");
+        let mode_key_byte = second_line.find("; mode =").expect("mode option") + 2;
+
+        let token_at =
+            |line_index: usize, line: &str, byte_start: usize, label: &str, token_type: &str| {
+                let start = utf16_len(&line[..byte_start]);
+                snapshot.semantic_tokens.tokens.iter().find(|token| {
+                    token.line == line_index
+                        && token.start == start
+                        && token.length == utf16_len(label)
+                        && token.token_type == token_type
+                })
+            };
+
+        let output_key = token_at(
+            first_line_index,
+            first_line,
+            output_key_byte,
+            "output",
+            "property",
+        )
+        .expect("output key token");
+        assert!(output_key
+            .modifiers
+            .iter()
+            .any(|modifier| modifier == "sideEffect"));
+        assert!(output_key
+            .modifiers
+            .iter()
+            .any(|modifier| modifier == "workflowStep"));
+        assert!(
+            token_at(
+                first_line_index,
+                first_line,
+                output_string_byte,
+                "output",
+                "property",
+            )
+            .is_none(),
+            "text inside the earlier string must not receive the later option-key token"
+        );
+
+        let file = token_at(first_line_index, first_line, file_byte, "file", "function")
+            .expect("file helper token");
+        assert!(file
+            .modifiers
+            .iter()
+            .any(|modifier| modifier == "workflowStep"));
+        assert!(
+            !file
+                .modifiers
+                .iter()
+                .any(|modifier| modifier == "sideEffect"),
+            "the template helper must not inherit output-option side-effect modifiers"
+        );
+        let join = token_at(first_line_index, first_line, join_byte, "join", "function")
+            .expect("join helper token");
+        assert!(join
+            .modifiers
+            .iter()
+            .any(|modifier| modifier == "sideEffect"));
+        assert!(join
+            .modifiers
+            .iter()
+            .any(|modifier| modifier == "workflowStep"));
+
+        let append = token_at(
+            second_line_index,
+            second_line,
+            append_value_byte,
+            "append",
+            "keyword",
+        )
+        .expect("append value token");
+        assert!(append.modifiers.iter().any(|modifier| modifier == "db"));
+        assert_ne!(
+            append.start, append_value_byte,
+            "the non-BMP prefix should require UTF-16 conversion"
+        );
+        assert!(
+            token_at(
+                second_line_index,
+                second_line,
+                append_string_byte,
+                "append",
+                "keyword",
+            )
+            .is_none(),
+            "text inside the earlier string must not receive the later enum-value token"
+        );
+        let mode = token_at(
+            second_line_index,
+            second_line,
+            mode_key_byte,
+            "mode",
+            "property",
+        )
+        .expect("mode key token");
+        assert!(mode.modifiers.iter().any(|modifier| modifier == "db"));
+
+        let output_symbol = snapshot
+            .document_symbols
+            .iter()
+            .flat_map(|symbol| symbol.children.iter())
+            .find(|symbol| symbol.name == "output")
+            .expect("output option outline symbol");
+        assert_eq!(output_symbol.selection_line, first_line_index);
+        assert_eq!(
+            output_symbol.selection_character,
+            utf16_len(&first_line[..output_key_byte])
+        );
+        assert_no_conflicting_semantic_token_types(
+            &snapshot,
+            source,
+            "inline_with_option_spans.eng",
+        );
     }
 
     #[test]

@@ -311,6 +311,10 @@ even when names repeat on one signature line.
 Block and inline function returns also keep compiler-owned expression ranges, so
 duplicate, unresolved, dimension-mismatch, and return-side-effect Problems
 underline the expression rather than the function header.
+`where`/`with` openers, `where` locals, and `with` option keys now use exact
+compiler-owned ranges for semantic colors and outline selection. Inline option
+list/enum values and `file`/`dir`/`join` helpers are limited to their own value
+range, so matching text in an earlier option or string is not recolored.
 
 Role-aware highlighting also works on unsaved edits, so token colors do
 not have to wait for a file save. Sample-table member completions include

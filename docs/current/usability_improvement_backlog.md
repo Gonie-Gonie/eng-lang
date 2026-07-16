@@ -1,3 +1,4 @@
+- Batch 1011: Preserved parser-owned `where`/`with` block anchors and `where` local spans in semantic metadata; constrained inline `with` option keys, list/enum values, and `file`/`dir`/`join` helpers to exact key/value ranges; moved scoped outline selections to the same UTF-16-safe spans; and added CRLF plus non-BMP collision coverage.
 - Batch 1010: Reconciled current workflow, uncertainty, system-solver, runtime-artifact, bytecode/result, and language-scope documentation with native implementations; separated compiler-time unsolved metadata from runtime numeric results; removed stale one-state-only, metadata-only percentile, and deferred-native-solver claims; and kept broad production solver limits explicit.
 - Batch 1009: Preserved exact block and inline function return-expression spans through AST and `FunctionInfo`; pinned duplicate, missing, unresolved, dimension-mismatch, local-type, and function-purity diagnostics to compiler-owned function/local/expression ranges; and added CRLF plus non-BMP UTF-16 regression coverage.
 - Batch 1008: Preserved exact function parameter and return type/unit spans through AST and public semantic metadata; moved signature quantity/unit colors, unknown-type diagnostics, and function/parameter/local outline selections to compiler-owned UTF-16-safe ranges; and added CRLF, repeated-name, and non-BMP signature regression coverage.
@@ -182,7 +183,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - DB query support: typed SQLite table readback is implemented; arbitrary query APIs, parameter binding, and query transaction policy remain open.
 - Native IDE usability: current-file Outline, workspace symbol search, unsaved-aware static-import definition/references/rename, and compiler quick fixes are implemented; keep improving token insight and inspector flows for repeated debugging tasks.
 - VS Code navigation: current-file highlights plus unsaved-aware workspace symbols and static-import definition/references/rename are implemented; broader package/index identities remain open.
-- VS Code linter/highlighting: `with` option keys and values now have first-class parser spans and selected option diagnostics consume them directly; continue migrating non-option diagnostics and symbol occurrences away from inferred ranges.
+- VS Code linter/highlighting: `where`/`with` block anchors, `where` locals, and `with` option keys/values now have first-class parser spans; semantic tokens and outline selections consume those ranges directly, and selected option diagnostics do the same. Continue migrating other diagnostics and symbol occurrences away from inferred ranges.
 
 ## Documentation Policy
 

@@ -371,6 +371,11 @@ stream edit when that result is still cached and a complete `data` response
 when the result is unknown or expired. Delta history is bounded per document
 and follows the latest unsaved buffer.
 
+Scoped `where`/`with` opener tokens, `where` local declarations, and inline
+`with` option keys use compiler-owned spans. Option list/enum values and path
+helpers are searched only inside the corresponding option value span, so a
+matching word in an earlier option or string does not receive the later role.
+
 ## Document Symbols And Folding Ranges
 
 `document_symbols` uses LSP-style document symbol JSON with numeric symbol
@@ -388,6 +393,11 @@ spans, so a parameter that repeats its function name selects the parameter
 occurrence. Parameter and return type/unit colors share their parser spans with
 unknown-type Problems ranges and remain correct after non-BMP text in a generic
 type expression.
+
+`where` local and `with` option children select their exact compiler-owned name
+or key spans instead of the first matching word on the source line. This remains
+correct for CRLF input and for inline blocks containing non-BMP text before the
+selected option.
 
 Each state-space vector type is a top-level struct-like symbol whose member
 fields are nested children with role, quantity type, and unit detail.

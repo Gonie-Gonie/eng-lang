@@ -53,6 +53,12 @@ and editor metadata. Inline `with { ... }` parsing splits only at top-level
 commas or semicolons, preserving separators inside calls, lists, nested objects,
 and quoted strings.
 
+Semantic metadata retains the parser-owned `where`/`with` keyword anchors in
+`WhereBlockInfo.span` and `WithBlockInfo.span`, each `where` local name in
+`WhereBindingInfo.span`, and each option key/value in `WithOptionInfo.key_span`
+and `value_span`. Semantic highlighting and outline selection consume those
+ranges directly, including inline blocks with repeated words in earlier options.
+
 ## Semantic Analysis
 
 `semantic.rs` builds the `CheckReport`. The report carries diagnostics plus a

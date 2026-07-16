@@ -9707,6 +9707,97 @@ mod tests {
     }
 
     #[test]
+    fn scoped_block_semantic_metadata_preserves_parser_owned_spans() {
+        let source = concat!(
+            "total = repeated\r\n",
+            "where {\r\n",
+            "    repeated = 1 kW\r\n",
+            "}\r\n",
+            "samples = sample lhs\r\n",
+            "with { title = \"😀count\"; count = 2; x = uniform(0, 1) }\r\n",
+        );
+        let parsed = parse_source(source);
+        let report = check_source(
+            "scoped_semantic_spans.eng",
+            source,
+            &CheckOptions::default(),
+        );
+
+        let parsed_where = parsed
+            .items
+            .iter()
+            .find_map(|item| match item {
+                AstItem::WhereBlock(block) => Some(block),
+                _ => None,
+            })
+            .expect("parsed where block");
+        let parsed_binding = parsed
+            .items
+            .iter()
+            .find_map(|item| match item {
+                AstItem::WhereBinding(binding) => Some(binding),
+                _ => None,
+            })
+            .expect("parsed where binding");
+        let semantic_where = report
+            .semantic_program
+            .where_blocks
+            .first()
+            .expect("semantic where block");
+        assert_eq!(semantic_where.span, parsed_where.span);
+        assert_eq!(
+            &source[semantic_where.span.start..semantic_where.span.end],
+            "where"
+        );
+        assert_eq!(semantic_where.bindings[0].span, parsed_binding.span);
+        assert_eq!(
+            &source[semantic_where.bindings[0].span.start..semantic_where.bindings[0].span.end],
+            "repeated"
+        );
+
+        let parsed_with = parsed
+            .items
+            .iter()
+            .find_map(|item| match item {
+                AstItem::WithBlock(block) => Some(block),
+                _ => None,
+            })
+            .expect("parsed with block");
+        let parsed_options = parsed
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                AstItem::WithOption(option) => Some((option.key.as_str(), option)),
+                _ => None,
+            })
+            .collect::<std::collections::BTreeMap<_, _>>();
+        let semantic_with = report
+            .semantic_program
+            .with_blocks
+            .first()
+            .expect("semantic with block");
+        assert_eq!(semantic_with.span, parsed_with.span);
+        assert_eq!(
+            &source[semantic_with.span.start..semantic_with.span.end],
+            "with"
+        );
+        for option in &semantic_with.options {
+            let parsed_option = parsed_options
+                .get(option.key.as_str())
+                .expect("matching parsed option");
+            assert_eq!(option.key_span, parsed_option.key_span);
+            assert_eq!(option.value_span, parsed_option.value_span);
+        }
+        let count = semantic_with
+            .options
+            .iter()
+            .find(|option| option.key == "count")
+            .expect("count option");
+        assert_eq!(&source[count.key_span.start..count.key_span.end], "count");
+        assert_eq!(&source[count.value_span.start..count.value_span.end], "2");
+    }
+
+    #[test]
     fn option_diagnostics_expose_compiler_owned_value_spans() {
         let source = concat!(
             "samples = sample lhs\r\n",
