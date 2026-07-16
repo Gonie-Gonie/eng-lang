@@ -14,15 +14,16 @@ EngLang's official execution path is:
   -> HTML report + report_spec.json + review.json
 ```
 
-The current runtime implements this path incrementally: `eng run` builds
-bytecode, decodes it, executes native VM instructions, and returns a typed
-result object from the VM execution record. `--save-artifacts` writes the corresponding
-`.engbc`, `.engres`, PlotSpec, SVG, report, and review files. The supported surface includes
-TimeSeries/statistics metadata, PlotSpec v1, SVG rendering, plot manifests,
-review/report artifacts, minimal physical `system` and `eq` metadata, runtime
-table columns, TimeSeries points, computed summary statistics, trapezoidal
-integration, CSV-derived PlotSpec points, and a reviewable system IR with a
-computed fixed-step one-state ODE result for the official simple thermal system.
+The current runtime implements this path in two native layers. `eng run`
+builds and executes the compact object-loading bytecode, then runtime
+materialization evaluates typed tables, TimeSeries operations, workflow
+modules, and supported numeric solver paths before producing artifacts.
+`--save-artifacts` writes the corresponding `.engbc`,
+`.engres`, PlotSpec, SVG, report, and review files. The supported
+surface includes native HTTP/cache/table/sampling/case/model/SQLite workflow
+slices, computed TimeSeries statistics and integration, uncertainty
+propagation, PlotSpec/SVG rendering, and scoped system simulation and residual
+solve results with convergence and failure evidence.
 
 ## Crates
 
@@ -57,6 +58,7 @@ source
   -> build_bytecode
   -> parse_bytecode
   -> execute_bytecode
+  -> materialize typed workflow and numeric runtime data
   -> result_json
 ```
 
@@ -92,7 +94,7 @@ plot manifest path/hash section
 warning list
 ```
 
-System/equation support adds:
+Compiler-time system/equation support adds:
 
 ```text
 system block
@@ -103,16 +105,20 @@ der() dimension handling
 equation unit consistency diagnostics
 residual metadata in review/report/result artifacts
 system_ir dependency metadata in review/report/result artifacts
-solver_boundary status = unsolved
-solver_plan metadata-only solve_order and Jacobian setup columns
+static solver_boundary status = unsolved
+static solver_plan status = metadata_only
+source-order residuals and Jacobian sparsity dependencies
 ```
 
-Current system runtime support adds:
+Runtime simulation and solve support adds:
 
 ```text
-report_spec/result solver_boundary status = computed for the official one-state thermal ODE
-explicit_euler_fixed_step ODE runner
-solver_result trajectory in result.engres
+one-state thermal and multi-state source-equation ODE simulation
+fixed-step Euler, RK4, and adaptive Heun trajectories
+continuous/discrete typed-block state-space trajectories
+dense linear, fixed-point, and Newton residual solves
+implicit-Euler DAE and scoped dynamic-component solves
+runtime solver boundary upgrades, convergence diagnostics, and failure artifacts
 ```
 
 Runtime optimization track planning adds:
@@ -120,7 +126,7 @@ Runtime optimization track planning adds:
 ```text
 eng-kernel-plan-v1
 hot-kernel candidates for TimeSeries arithmetic/statistics/integration
-system residual interface metadata for future RHS/Jacobian kernels
+component residual, finite-difference Jacobian, and Newton-step candidates
 backend = interpreter-fallback
 ```
 
@@ -135,11 +141,13 @@ array
 
 Schema columns remain public boundary metadata. They are not emitted as runtime scalar objects.
 
-System variables are also boundary metadata. They appear in review/report
-variable tables, system summaries, the system IR dependency list, and
-solver_plan metadata. The current system runtime support additionally
-recognizes the official one-state thermal ODE and records a fixed-step runtime
-result in run artifacts.
+System variables begin as compiler-owned boundary metadata. They appear in
+review/report variable tables, system summaries, the system IR dependency list,
+and the static solver plan. Supported `simulate` and `solve`
+commands then materialize native numeric results as typed trajectories,
+residual values, convergence histories, step diagnostics, and explicit failure
+artifacts. The static `unsolved`/`metadata_only` values
+describe the pre-runtime plan, not the capability of the runtime as a whole.
 
 ## Data Boundary
 

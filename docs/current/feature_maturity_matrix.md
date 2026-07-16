@@ -147,13 +147,16 @@ separate.
 - Public package: `Supported` only for documented validation and scoped
   examples
 - Main status: `Supported` and `Internal` depending on the path
-- User-facing scope: narrow source-equation ODE, one-state thermal,
-  typed-block state-space, and constrained component residual examples where
-  current docs state evidence.
+- User-facing scope: documented one-state thermal and multi-state
+  source-equation ODE workflows with fixed-step Euler/RK4 or adaptive Heun,
+  typed-block state-space workflows, and constrained component residual
+  examples where current docs state evidence.
 - Evidence: official and internal examples, runtime tests, report/review/IDE
   solver artifacts.
-- Not included: general nonlinear/DAE/adaptive/component-coupled solving,
-  production multi-domain simulation, broad behavior graph solving.
+- Not included: a general nonlinear/DAE solver product, production multi-domain
+  simulation, broad component coupling, event handling, or broad behavior graph
+  solving. Dense linear, fixed-point, Newton, implicit-Euler DAE, dynamic
+  component, and behavior-node source paths remain internal targeted support.
 - Next cleanup action: keep solver detail in `docs/internal/solver/README.md` and
   avoid making it the README identity.
 
@@ -207,12 +210,18 @@ separate.
 
 ### Data-Driven Modeling Track
 
-- Public package: `Internal`
-- Main status: `Internal`
-- Evidence: train/test split metadata, deterministic metrics, model specs/cards,
-  target quantity/unit, prediction manifests with confidence-column metadata,
-  training/model hashes, parity/residual plots, and diagnostics.
-- Not included: broad ML package semantics.
+- Public package: narrow `Native workflow support` through
+  `eng.model`; `eng.ml` remains `Internal`
+- Main status: narrow native regression/model-card/prediction support plus an
+  internal broader modeling track
+- User-facing scope: workflow 02 deterministic `train regression`,
+  `evaluate`, `model_card`, and
+  `predict <model> using <table>` paths.
+- Evidence: native training/prediction tables, deterministic metrics, model
+  specs/cards, target quantity/unit, prediction manifests, training/model
+  hashes, SQLite prediction write/readback, plots, and diagnostics.
+- Not included: broad ML package semantics, arbitrary estimators, distributed
+  training, or a stable model interchange format.
 - Next cleanup action: describe as model review artifacts, not physical system
   simulation.
 

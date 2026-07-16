@@ -185,7 +185,7 @@ The current top-level declaration families are:
 | Fast binding | `Q = 10 kW` | Inferred declaration |
 | Schema | `schema SensorData { ... }` | CSV/data boundary |
 | Function | `fn heat_loss(...) -> HeatRate [W] { ... }` | Typed scalar helper support |
-| System | `system Room { ... }` | Supported one-state thermal and two-state source-equation run support; internal state-space vector path |
+| System | `system Room { ... }` | Scoped one-state thermal, multi-state source-equation ODE, and typed-block state-space simulation; targeted internal `solve` paths |
 | Domain/component | `domain Fluid { ... }` | Internal metadata track |
 | Print | `print "Q = {Q: .2 kW}"` | Debug/CLI output |
 | Log | `log warn "Q is high"` | Structured runtime message |
@@ -2003,7 +2003,7 @@ The current guide intentionally does not promise:
 | Full process sandboxing | Explicit process records and profile basics exist; sandbox isolation is deferred |
 | Project-wide test discovery/runner | Local source-file test blocks exist; workspace discovery is deferred |
 | Full package/module system | File imports and declared metadata only |
-| General nonlinear/DAE/behavior/broad adaptive/multi-domain solving | Deferred beyond supported one-state thermal fixed/adaptive path, supported two-state source-equation fixed-step path, narrow component residual Newton/implicit-Euler DAE smokes, narrow unitful temperature explicit-Euler source behavior RHS smokes, constrained Thermal/Fluid[Water] pressure/flow algebraic residual smoke, and internal fixed-step/continuous `adaptive_heun` state-space paths |
+| General nonlinear/DAE/behavior/event-aware/multi-domain solver product | Targeted internal dense-linear, fixed-point, Newton, implicit-Euler DAE, dynamic-component, behavior-node, and constrained domain source paths exist; production breadth, events, and broad coupling remain deferred |
 | Full artifact schema evolution policy | Stable-core schemas exist; broader future-track schemas may grow |
 
 ## Authoring Checklist

@@ -449,7 +449,8 @@ C * der(T) - (UA * (T_out - T) + Q_internal)
 dimension = Power
 ```
 
-The hardened system artifact contract also includes `system_ir`:
+The compiler-owned static system artifact contract also includes
+`system_ir`:
 
 ```text
 system_ir
@@ -467,14 +468,26 @@ field and allow `solver_plan.jacobian_seed` only as a compatibility alias.
 Sparsity entries use `status = sparsity_metadata`; compatibility seed entries
 retain `status = symbolic_seed` for existing consumers.
 
-For `eng run`, `report_spec.json` and `result.engres` can upgrade that runtime
-boundary to `computed` when a supported one-state thermal ODE pattern or
-two-state source-equation fixed-step ODE pattern is recognized. `result.engres`
-then includes `typed_payload.systems[].solver_result` and/or
-`typed_payload.systems[].solver_results` with fixed-step trajectories and final
-state values.
+The `unsolved` and `metadata_only` values above describe the
+pre-runtime source plan. For `eng run`, runtime-augmented
+`review.json` preserves that plan and adds grouped
+`simulation_results`. `report_spec.json` and
+`result.engres` upgrade the matching boundary and attach
+`solver_results` when a supported simulation runs. Current paths cover
+one-state thermal and multi-state source-equation ODEs with fixed-step Euler,
+RK4, or adaptive Heun, plus typed-block continuous/discrete state-space
+systems. Their records include named trajectories, final values, source
+equations, convergence status, and adaptive substep diagnostics where
+applicable.
 
-If a `simulate` command targets a system outside those supported runner shapes,
+Targeted source `solve` requests record separate
+`component_solutions`/assembly results for dense-linear, fixed-point,
+Newton, implicit-Euler DAE, dynamic-component, behavior-node, and constrained
+component/domain residual paths. These entries expose solved values, residual
+and convergence evidence, or explicit failure artifacts without claiming broad
+production solver support.
+
+If a `simulate` command targets a system outside supported runner shapes,
 runtime artifacts keep `solver_result.status = skipped_unsupported_shape` with
 a reason instead of materializing a `sim.<state>` TimeSeries.
 

@@ -1,12 +1,10 @@
 # Bytecode VM and Result v1
 
-The current package scope has an executable EngLang runtime path with
-TimeSeries/statistics metadata, PlotSpec/SVG/manifest output, explicit
-write/export outputs, constrained file operation records, output manifest
-metadata, structured run-log messages, explicit process-result records, system
-metadata, runtime test-result records, residuals, system IR dependencies,
-metadata-only solver_plan records, an explicit solver boundary, and a fixed-step
-ODE path for the official one-state thermal system:
+The current package has an executable EngLang runtime path. The compact
+bytecode VM loads declared scalar/table/TimeSeries/array objects and establishes
+the result boundary. Native runtime materialization then evaluates the supported
+table, TimeSeries, workflow-module, uncertainty, model, and numeric solver
+operations before report artifacts are serialized:
 
 ```text
   .eng source
@@ -21,9 +19,12 @@ ODE path for the official one-state thermal system:
 ```
 
 The VM is intentionally small, but it is a real execution boundary: `eng run`
-builds bytecode, decodes it, executes the instruction stream, and returns the
-result from the VM execution record. `--save-artifacts` writes the bytecode and
-result objects to disk.
+builds bytecode, decodes it, executes the instruction stream, and uses the VM
+execution record as the object-store base. The native runtime then materializes
+numeric values and workflow artifacts against compiler-owned semantic data.
+`--save-artifacts` writes both the bytecode record and the fully
+materialized result to disk. Numeric support in the runtime must not be confused
+with numeric opcodes in bytecode v1; those opcodes do not exist yet.
 
 ## Workflow Execution
 
@@ -95,8 +96,12 @@ timeseries
 array
 ```
 
-Schema columns and v0.8 system variables are public boundary metadata, not runtime scalar values. The bytecode builder skips those bindings and emits runtime objects only for executable top-level/script bindings and promoted tables.
-TimeSeries objects carry axis, quantity, and display-unit metadata.
+Schema columns and system variables are public boundary metadata, not automatic
+runtime scalar objects. The bytecode builder skips those declarations and emits
+objects for executable top-level bindings and promoted tables. Runtime
+materialization can later add concrete table, TimeSeries, case, model, and
+simulation shapes to the VM object-store summary. TimeSeries objects carry axis,
+quantity, and display-unit metadata.
 
 ## Result v1
 
@@ -125,27 +130,42 @@ System/equation support records:
 typed_payload.systems
 typed_payload.solver_boundaries
 typed_payload.system_ir
+typed_payload.component_solutions
 provenance.system_count
 provenance.equation_count
 provenance.residual_count
 ```
 
+The compiler-owned `system_ir` starts with an
+`unsolved`/`metadata_only` plan. Runtime simulation
+materializes one-state thermal, multi-state source-equation ODE, and typed-block
+state-space results. Targeted source `solve` requests materialize
+dense-linear, fixed-point, Newton, implicit-Euler DAE, dynamic-component,
+behavior-node, and constrained component/domain residual results. The result
+records preserve method, trajectory or solved values, convergence evidence,
+step diagnostics, residuals, and explicit failure artifacts.
+
 Uncertainty track records:
 
 ```text
 typed_payload.uncertainties
+typed_payload.timeseries_uncertainty_calculations
 ```
 
 Data-driven modeling track records:
 
 ```text
 typed_payload.ml
+typed_payload.model_specs
+typed_payload.model_cards
+typed_payload.prediction_manifests
 ```
 
-The `typed_payload` is the report payload. It carries computed statistics for the
-official CSV path, integration metadata, policy results, and reviewable system
-metadata. Future-track fields may carry deterministic uncertainty summaries and
-data-driven modeling metrics/plot points:
+The `typed_payload` is the runtime report payload. It carries computed
+statistics and integrations, table/sample/case/model/DB records, uncertainty
+calculations, quality and policy results, and reviewable system/component solver
+results. The abbreviated shape below shows stable top-level groups rather than
+every current workflow field:
 
 ```json
 {
@@ -171,7 +191,7 @@ v0.9 includes:
 ```text
 bytecode encode/decode unit test
 VM scalar execution unit test
-VM array seed unit test
+VM array object unit test
 VM TimeSeries object unit test
 TimeSeries axis/statistics/integration compiler test
 HeatRate sum lint smoke
@@ -185,6 +205,9 @@ test results artifact smoke
 top-level workflow run smoke
 official example run smoke
 simple system run smoke
+multi-state source-equation and state-space runtime tests
+dense-linear, fixed-point, Newton, DAE, and dynamic-component runtime tests
+native workflow 01/02/03 artifact and zero-process contract tests
 unit-aware print and explicit summary CSV export runtime test
 write text/json overwrite hardening runtime test
 copy/move/delete/mkdir file operation runtime test
@@ -205,8 +228,8 @@ source maps
 row-level table values
 general table expression execution
 general TimeSeries expression pages
-numeric solver execution
-adaptive or multi-equation solver execution
+typed workflow and numeric solver opcodes in the bytecode instruction stream
+serialized solver IR independent of compiler semantic data
+event-aware and broad production component/multi-domain solving
 binary bytecode encoding
-stable result schema validation
 ```

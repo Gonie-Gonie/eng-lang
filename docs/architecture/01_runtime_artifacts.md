@@ -578,8 +578,8 @@ residual name and expression
 status = unit_consistent or unit_unresolved
 ```
 
-The current system/equation support also records a machine-readable `system_ir` section in
-`review.json` and `report_spec.json`:
+The compiler-owned system/equation baseline records a machine-readable
+`system_ir` section:
 
 ```text
 system name
@@ -596,14 +596,25 @@ parameter/state/input dependencies per residual
 derivative state mentions
 ```
 
-`review.json` remains compiler-only and records the unsolved metadata boundary.
-During `eng run`, `report_spec.json` and `result.engres` can upgrade the same
-system to `computed` for the official one-state thermal ODE. The result payload
-then records `solver_result` with method `explicit_euler_fixed_step`, state
-trajectory points, step count, time step, and final state value.
-When `simulate` is requested for a system shape outside that runner, the same
-solver result records `skipped_unsupported_shape` and no `sim.<state>`
-TimeSeries is created.
+These values describe the static source plan before runtime execution. During
+`eng run`, runtime-augmented `review.json` adds grouped
+`simulation_results` while preserving that static plan.
+`report_spec.json` and `result.engres` attach numeric
+`solver_results` and update the matching boundary when a supported
+`simulate` path runs. Current simulation paths cover one-state
+thermal and multi-state source-equation ODEs with fixed-step Euler, RK4, or
+adaptive Heun, plus typed-block continuous/discrete state-space systems. Their
+records include named states, inputs, parameters, source equations,
+trajectories, output-grid details, convergence status, adaptive step
+diagnostics when applicable, and explicit failures.
+
+Source `solve` requests additionally emit component/assembly solution
+records for targeted dense-linear, fixed-point, Newton, implicit-Euler DAE,
+dynamic-component, behavior-node, and constrained domain residual paths. These
+are narrow tested implementations, not a general production solver claim.
+Unsupported simulation shapes retain an explicit
+`skipped_unsupported_shape` result and do not create a
+`sim.<state>` TimeSeries.
 
 ## `report.html`
 

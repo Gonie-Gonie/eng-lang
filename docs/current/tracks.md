@@ -56,7 +56,9 @@ and next cleanup action.
 ## T6 Uncertainty
 
 - Purpose: make uncertainty sources and propagation reviewable.
-- Public scope: none beyond internal examples unless explicitly documented.
+- Public scope: narrow workflow 03 support for pointwise `sensor_std`,
+  propagated summary calculations, validation records, and confidence-band
+  report/plot artifacts; no general uncertainty package claim.
 - Main internal: deterministic samples, diagnostics, scalar runtime numeric
   payloads, narrow measured/interval arithmetic propagation, validated
   propagation policy
@@ -64,17 +66,20 @@ and next cleanup action.
   statistic/probability validation type-checking, runtime pass/fail
   materialization for explicit statistic/probability/between validations, and
   pointwise TimeSeries sensor standard deviation review metadata, runtime
-  mean/integration/duration `sensor_std` propagation artifacts with
-  metadata-only percentile linkage, `sensor_std` confidence-band
-  PlotSpec rendering, internal IDE variable/inspector metadata, plus histogram
-  artifacts.
+  mean/integration/duration `sensor_std` propagation artifacts, native
+  nearest-rank percentile sensitivity propagation, `sensor_std`
+  confidence-band PlotSpec rendering, internal IDE variable/inspector metadata,
+  plus histogram artifacts.
 - Next cleanup: keep as internal until full probabilistic TimeSeries
   uncertainty propagation, full IDE projection, and tests align.
 
 ## T7 Data-Driven Modeling
 
 - Purpose: make model training/evaluation metadata reviewable.
-- Public scope: none beyond internal examples unless explicitly documented.
+- Public scope: narrow workflow 02 `train regression`,
+  `evaluate`, `model_card`, and native
+  `predict ... using ...` artifacts; the broader `eng.ml`
+  track remains internal.
 - Main internal: train/test metadata, deterministic metrics, model specs/cards,
   target quantity/unit, prediction manifests with confidence-column metadata,
   training/model hashes, parity plots, residual plots, and diagnostics.
@@ -117,14 +122,12 @@ and next cleanup action.
 - Public scope: typed path helpers, read text/json/toml, explicit write
   text/json, constrained copy/move/delete/mkdir, run logs, process results, test
   results, output manifests, and safe/normal/repro profiles.
-- Main internal: broader filesystem/process policy plus live `eng.net`
-  execution, `eng.cache` replay/invalidation, broad `eng.db` database support,
-  and broader `eng.model` train syntax are planned; network/cache record summaries,
-  native SQLite append/upsert/replace DB write manifests, native predict-table manifests,
-  output-manifest
-  `artifact_registry` summaries, and
-  model specs/cards/prediction-manifest summaries are supported as artifact
-  evidence.
+- Main internal: native HTTP(S), cache replay/invalidation, table transforms,
+  deterministic sampling, template/case execution, SQLite
+  append/upsert/replace, linear model training/prediction, output-manifest
+  `artifact_registry` summaries, and their review artifacts. Broader
+  filesystem/process isolation, network methods, shared or remote case caches,
+  database backends, parallel scheduling, and model algorithms remain planned.
 - Next cleanup: maintain artifact-first side-effect documentation and add
   module slices only with review/output-manifest evidence.
 
@@ -135,8 +138,8 @@ and next cleanup action.
   language identity.
 - Public scope: supported side-effect primitives plus executable native workflow
   examples; domain adapters remain layered above the generic modules.
-- Main internal: weather API to standard file and native surrogate
-  native examples define contracts for generic modules, including
+- Main internal: weather API to standard file, surrogate case, and uncertain
+  sensor report examples define contracts for generic modules, including
   promoted table diagnostics, deterministic promoted-table row selection,
   filter/select/derive/sort/require_one/join table transform records,
   native sample-table summaries, template-rendered case input artifacts,
@@ -146,8 +149,10 @@ and next cleanup action.
   quantity/unit and confidence-column metadata, and native SQLite DB
   side-effect manifests with schema diagnostics, transaction status, DB file
   hashes before/after, and table write records.
-- Next cleanup: grow `eng.net`, `eng.cache`, `eng.table`, `eng.sampling`,
-  `eng.case`, `eng.db`, and `eng.model` from generic workflow evidence.
+- Next cleanup: expand the tested slices behind `eng.net`,
+  `eng.cache`, `eng.table`, `eng.sampling`,
+  `eng.case`, `eng.db`, and `eng.model` while
+  keeping their supported limits explicit.
 
 ## Internal Detail
 
