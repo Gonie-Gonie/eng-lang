@@ -8151,8 +8151,8 @@ function Assert-VscodeSemanticFallbackCoverage {
     $MissingSelectors = @{}
     $EmptyFallbackSelectors = @{}
     $TokenCount = 0
-    $NonStringOverlapCount = 0
-    $NonStringOverlapSamples = @()
+    $OverlapCount = 0
+    $OverlapSamples = @()
     foreach ($SourceFile in $SourceFiles) {
         $SnapshotOutput = & $LspExecutable "--snapshot" $SourceFile.FullName
         if ($LASTEXITCODE -ne 0) {
@@ -8212,13 +8212,9 @@ function Assert-VscodeSemanticFallbackCoverage {
                 if ([int]$Left.start -ge $RightEnd) {
                     continue
                 }
-                $Types = @([string]$Left.type, [string]$Right.type)
-                if ($Types -contains "string") {
-                    continue
-                }
-                $NonStringOverlapCount += 1
-                if ($NonStringOverlapSamples.Count -lt 20) {
-                    $NonStringOverlapSamples += "$($SourceFile.FullName):$([int]$Left.line + 1) $($Left.start)+$($Left.length):$($Left.type) overlaps $($Right.start)+$($Right.length):$($Right.type)"
+                $OverlapCount += 1
+                if ($OverlapSamples.Count -lt 20) {
+                    $OverlapSamples += "$($SourceFile.FullName):$([int]$Left.line + 1) $($Left.start)+$($Left.length):$($Left.type) overlaps $($Right.start)+$($Right.length):$($Right.type)"
                 }
             }
         }
@@ -8240,9 +8236,9 @@ function Assert-VscodeSemanticFallbackCoverage {
             ForEach-Object { "$($_.Name)=$($_.Value)" }) -join ", "
         throw "VS Code semantic token scope fallback map has observed selector(s) with no fallback scopes: $EmptyFallbackSummary"
     }
-    if ($NonStringOverlapCount -gt 0) {
-        $NonStringOverlapSummary = $NonStringOverlapSamples -join ", "
-        throw "VS Code semantic token coverage found $NonStringOverlapCount overlapping non-string semantic token range(s): $NonStringOverlapSummary"
+    if ($OverlapCount -gt 0) {
+        $OverlapSummary = $OverlapSamples -join ", "
+        throw "VS Code semantic token coverage found $OverlapCount overlapping semantic token range(s): $OverlapSummary"
     }
     Write-Host "VS Code semantic fallback coverage passed. Checked $(@($SourceFiles).Count) snapshot(s), $($ObservedSelectors.Count) selector(s), $TokenCount semantic token(s)."
 }

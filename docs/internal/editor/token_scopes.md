@@ -429,9 +429,12 @@ exponent as part of the same token. Names and literals such as `p95`, `rk4`,
 Operator fallback excludes numeric exponents, generated hyphenated workflow
 literals, known units, and exact compiler-owned unit spans, so `1.25e-3`,
 `latin-hypercube`, and even a diagnosed composite unit such as `lb/s` remain
-atomic. `lsp-check` rejects every overlapping non-string semantic-token pair in
-all example and grammar-fixture snapshots, including equal-type and
-whole-path/segment overlaps. String/interpolation nesting is audited separately.
+atomic. Lexical strings are split into the uncovered fragments around nested
+interpolation parameters/properties, format precision numbers, display units,
+and quoted import namespaces. This preserves each inner role at its exact UTF-16
+range without asking clients to resolve an overlapping outer string token.
+`lsp-check` rejects every overlapping semantic-token pair in all example and
+grammar-fixture snapshots, including equal-type and whole-path/segment overlaps.
 
 ## VS Code Fallback Mapping
 

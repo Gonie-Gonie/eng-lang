@@ -5304,11 +5304,83 @@ impl<'a> SemanticTokenBuilder<'a> {
     }
 
     fn finish(mut self) -> LspSemanticTokens {
+        self.split_string_tokens_around_nested_roles();
         self.tokens.sort();
         LspSemanticTokens {
             legend: semantic_legend(),
             tokens: self.tokens,
         }
+    }
+
+    fn split_string_tokens_around_nested_roles(&mut self) {
+        let mut occupied_by_line = BTreeMap::<usize, Vec<(usize, usize)>>::new();
+        for token in &self.tokens {
+            if token.token_type == "string" || token.length == 0 {
+                continue;
+            }
+            occupied_by_line
+                .entry(token.line)
+                .or_default()
+                .push((token.start, token.start.saturating_add(token.length)));
+        }
+        for ranges in occupied_by_line.values_mut() {
+            ranges.sort_unstable();
+            let mut merged = Vec::<(usize, usize)>::with_capacity(ranges.len());
+            for (start, end) in ranges.drain(..) {
+                if let Some((_, previous_end)) = merged.last_mut() {
+                    if start <= *previous_end {
+                        *previous_end = (*previous_end).max(end);
+                        continue;
+                    }
+                }
+                merged.push((start, end));
+            }
+            *ranges = merged;
+        }
+
+        let mut normalized = Vec::with_capacity(self.tokens.len());
+        for token in std::mem::take(&mut self.tokens) {
+            if token.token_type != "string" {
+                normalized.push(token);
+                continue;
+            }
+            let token_end = token.start.saturating_add(token.length);
+            let Some(occupied) = occupied_by_line.get(&token.line) else {
+                normalized.push(token);
+                continue;
+            };
+            let mut cursor = token.start;
+            let mut overlapped = false;
+            for &(occupied_start, occupied_end) in occupied {
+                if occupied_end <= cursor {
+                    continue;
+                }
+                if occupied_start >= token_end {
+                    break;
+                }
+                overlapped = true;
+                if occupied_start > cursor {
+                    let mut segment = token.clone();
+                    segment.start = cursor;
+                    segment.length = occupied_start.min(token_end) - cursor;
+                    normalized.push(segment);
+                }
+                cursor = cursor.max(occupied_end.min(token_end));
+                if cursor >= token_end {
+                    break;
+                }
+            }
+            if !overlapped {
+                normalized.push(token);
+            } else if cursor < token_end {
+                let mut segment = token;
+                segment.start = cursor;
+                segment.length = token_end - cursor;
+                normalized.push(segment);
+            }
+        }
+        self.tokens = normalized;
+        self.rebuild_token_keys();
     }
 
     fn add_lexical_tokens(&mut self) {
@@ -11581,6 +11653,22 @@ mod tests {
         );
     }
 
+    fn assert_no_semantic_token_overlaps(snapshot: &LspSnapshot, source_label: &str) {
+        for (left_index, left) in snapshot.semantic_tokens.tokens.iter().enumerate() {
+            for right in snapshot.semantic_tokens.tokens.iter().skip(left_index + 1) {
+                if left.line != right.line {
+                    continue;
+                }
+                assert!(
+                    left.start + left.length <= right.start
+                        || right.start + right.length <= left.start,
+                    "semantic token ranges overlap in {source_label} on line {}: {left:?} and {right:?}",
+                    left.line + 1
+                );
+            }
+        }
+    }
+
     fn repo_root_for_tests() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
@@ -12256,19 +12344,7 @@ mod tests {
             source,
             "structural_reference_spans.eng",
         );
-        for (left_index, left) in snapshot.semantic_tokens.tokens.iter().enumerate() {
-            for right in snapshot.semantic_tokens.tokens.iter().skip(left_index + 1) {
-                if left.line != right.line {
-                    continue;
-                }
-                assert!(
-                    left.start + left.length <= right.start
-                        || right.start + right.length <= left.start,
-                    "semantic token ranges overlap on line {}: {left:?} and {right:?}",
-                    left.line + 1
-                );
-            }
-        }
+        assert_no_semantic_token_overlaps(&snapshot, "structural_reference_spans.eng");
 
         let assert_occurrence = |line_needle: &str,
                                  label: &str,
@@ -15754,12 +15830,27 @@ operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.012 1/min]
 "#;
         let snapshot = snapshot_for_source(Path::new("lexical_tokens.eng"), source);
 
-        assert_semantic_token_type(
-            &snapshot,
-            source,
-            "\"flow {Q: .2 kW} status={coverage.status} arg={args.region}\"",
-            "string",
+        let string_segments = snapshot
+            .semantic_tokens
+            .tokens
+            .iter()
+            .filter(|token| token.line == 0 && token.token_type == "string")
+            .filter_map(|token| semantic_token_source_text(source, token))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            string_segments,
+            vec![
+                "\"flow {",
+                ": .",
+                " ",
+                "} status={",
+                ".",
+                "} arg={",
+                ".",
+                "}\""
+            ]
         );
+        assert_no_semantic_token_overlaps(&snapshot, "lexical_tokens.eng");
         for (label, token_type) in [
             ("Q", "variable"),
             ("2", "number"),
@@ -15851,6 +15942,58 @@ operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.012 1/min]
             }),
             "semantic operator scan should not split slash-delimited unit tokens"
         );
+    }
+
+    #[test]
+    fn string_tokens_split_around_utf16_interpolation_and_namespace_roles() {
+        let source = concat!(
+            "print \"😀 flow {args.sensor: .2 kW} done\"\r\n",
+            "use \"thermal.eng\"\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("string_role_segments.eng"), source);
+        let lines = source.lines().collect::<Vec<_>>();
+
+        let string_segments_on_line = |line_index: usize| {
+            snapshot
+                .semantic_tokens
+                .tokens
+                .iter()
+                .filter(|token| token.line == line_index && token.token_type == "string")
+                .filter_map(|token| semantic_token_source_text(source, token))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            string_segments_on_line(0),
+            vec!["\"😀 flow {", ".", ": .", " ", "} done\""]
+        );
+        assert_eq!(string_segments_on_line(1), vec!["\"", "\""]);
+
+        let assert_role =
+            |line_index: usize, label: &str, token_type: &str, modifier: Option<&str>| {
+                let byte_start = lines[line_index]
+                    .find(label)
+                    .unwrap_or_else(|| panic!("missing `{label}` on `{}`", lines[line_index]));
+                let start = utf16_len(&lines[line_index][..byte_start]);
+                assert!(
+                    snapshot.semantic_tokens.tokens.iter().any(|token| {
+                        token.line == line_index
+                            && token.start == start
+                            && token.length == utf16_len(label)
+                            && token.token_type == token_type
+                            && modifier.is_none_or(|expected| {
+                                token.modifiers.iter().any(|actual| actual == expected)
+                            })
+                    }),
+                    "`{label}` on `{}` should be {token_type} with {modifier:?}",
+                    lines[line_index]
+                );
+            };
+        assert_role(0, "args", "parameter", None);
+        assert_role(0, "sensor", "property", None);
+        assert_role(0, "2", "number", None);
+        assert_role(0, "kW", "type", Some("unit"));
+        assert_role(1, "thermal.eng", "namespace", Some("imported"));
+        assert_no_semantic_token_overlaps(&snapshot, "string_role_segments.eng");
     }
 
     #[test]
@@ -15964,7 +16107,7 @@ custom = calibrate(args.input, split=args.output)
     }
 
     #[test]
-    fn dotted_semantic_paths_keep_segment_roles_without_non_string_overlaps() {
+    fn dotted_semantic_paths_keep_segment_roles_without_overlaps() {
         let source = concat!(
             "prefix = \"😀\"\r\n",
             "use eng.stats\r\n",
@@ -16032,21 +16175,7 @@ custom = calibrate(args.input, split=args.output)
                 "dotted path `{path}` should be emitted as identifier segments"
             );
         }
-        for (left_index, left) in snapshot.semantic_tokens.tokens.iter().enumerate() {
-            for right in snapshot.semantic_tokens.tokens.iter().skip(left_index + 1) {
-                if left.line != right.line
-                    || left.token_type == "string"
-                    || right.token_type == "string"
-                {
-                    continue;
-                }
-                assert!(
-                    left.start + left.length <= right.start
-                        || right.start + right.length <= left.start,
-                    "non-string semantic tokens overlap: {left:?} and {right:?}"
-                );
-            }
-        }
+        assert_no_semantic_token_overlaps(&snapshot, "dotted_semantic_paths.eng");
     }
 
     #[test]
@@ -17766,19 +17895,7 @@ with {
             source,
             "state_space_type_symbols.eng",
         );
-        for (left_index, left) in snapshot.semantic_tokens.tokens.iter().enumerate() {
-            for right in snapshot.semantic_tokens.tokens.iter().skip(left_index + 1) {
-                if left.line != right.line {
-                    continue;
-                }
-                assert!(
-                    left.start + left.length <= right.start
-                        || right.start + right.length <= left.start,
-                    "semantic token ranges overlap on line {}: {left:?} and {right:?}",
-                    left.line + 1
-                );
-            }
-        }
+        assert_no_semantic_token_overlaps(&snapshot, "state_space_type_symbols.eng");
 
         let assert_occurrence = |line_needle: &str,
                                  label: &str,

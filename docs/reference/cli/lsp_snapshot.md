@@ -399,10 +399,12 @@ rule and classify the final segment as a workflow-step function.
 Lexical number tokens require identifier boundaries and include valid decimal
 exponents. Operator tokens are excluded from those numbers, generated
 hyphenated workflow literals, catalog units, and exact compiler-owned unit
-spans. The snapshot coverage gate rejects every overlapping non-string token
+spans. Outer string tokens are split around interpolation parameters/properties,
+format precision numbers, display units, and quoted import namespaces, so the
+nested roles remain independently colorful without overlapping their string
+container. The snapshot coverage gate rejects every overlapping semantic-token
 pair across all examples and grammar fixtures, including equal-type and
-whole-path/segment overlaps. String/interpolation nesting remains a separate,
-intentional compatibility surface.
+whole-path/segment overlaps.
 
 ## Document Symbols And Folding Ranges
 

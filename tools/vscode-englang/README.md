@@ -332,8 +332,10 @@ solver literals, hash option names, and numbered bindings are not split into
 identifier plus number colors. Decimal exponents, hyphenated workflow literals,
 and compiler-owned composite units remain single semantic ranges without an
 embedded operator color. The packaged LSP coverage gate checks all examples and
-grammar fixtures and rejects every overlapping non-string semantic-token pair;
-string/interpolation nesting is tracked separately.
+grammar fixtures and rejects every overlapping semantic-token pair. Strings are
+emitted as fragments around interpolation parameters/properties, format precision
+numbers, display units, and quoted import namespaces, preserving those nested
+roles without overlapping ranges.
 
 Role-aware highlighting also works on unsaved edits, so token colors do
 not have to wait for a file save. Sample-table member completions include
