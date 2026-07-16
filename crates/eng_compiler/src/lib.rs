@@ -387,6 +387,7 @@ pub struct InferredDeclaration {
     pub quantity_kind: String,
     pub display_unit: String,
     pub expression: String,
+    pub expression_span: SourceSpan,
     pub line: usize,
 }
 
@@ -9835,6 +9836,84 @@ mod tests {
             );
         }
         assert!(parsed_writes[0].expression_span.column > "write text records".len());
+    }
+
+    #[test]
+    fn fast_binding_aliases_and_ml_operands_preserve_parser_owned_spans() {
+        let source = concat!(
+            "prefix = \"😀\"\r\n",
+            "designs = sample lhs\r\n",
+            "with { count = 1; seed = 7; x = uniform(0, 1) }\r\n",
+            "records = materialize cases designs\r\n",
+            "model = train regression records\r\n",
+            "model_alias = model\r\n",
+            "bad_metrics = evaluate(records)\r\n",
+            "bad_prediction = predict model using model\r\n",
+        );
+        let parsed = parse_source(source);
+        let report = check_source(
+            "fast_binding_operand_spans.eng",
+            source,
+            &CheckOptions::default(),
+        );
+
+        let parsed_alias = parsed
+            .items
+            .iter()
+            .find_map(|item| match item {
+                AstItem::FastBinding(binding) if binding.name == "model_alias" => Some(binding),
+                _ => None,
+            })
+            .expect("parsed model alias");
+        assert_eq!(
+            &source[parsed_alias.expression_span.start..parsed_alias.expression_span.end],
+            "model"
+        );
+        let semantic_alias = report
+            .inferred_declarations
+            .iter()
+            .find(|declaration| declaration.name == "model_alias")
+            .expect("semantic model alias");
+        assert_eq!(semantic_alias.expression_span, parsed_alias.expression_span);
+
+        for (binding_name, expected_source) in [("model", "records"), ("bad_metrics", "records")] {
+            let info = report
+                .semantic_program
+                .ml_infos
+                .iter()
+                .find(|info| info.binding == binding_name)
+                .unwrap_or_else(|| panic!("missing ML info for {binding_name}"));
+            assert_eq!(
+                &source[info.binding_span.start..info.binding_span.end],
+                binding_name
+            );
+            let source_span = info.source_span.expect("ML source span");
+            assert_eq!(&source[source_span.start..source_span.end], expected_source);
+        }
+
+        let source_diagnostic = report
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-ML-SOURCE-002" && diagnostic.line == 7)
+            .expect("ML source type diagnostic");
+        let source_span = source_diagnostic
+            .source_span
+            .expect("ML source diagnostic span");
+        assert_eq!(&source[source_span.start..source_span.end], "records");
+
+        let prediction = report
+            .semantic_program
+            .ml_infos
+            .iter()
+            .find(|info| info.binding == "bad_prediction")
+            .expect("prediction ML info");
+        let model_span = prediction.source_span.expect("prediction model span");
+        let input_span = prediction
+            .prediction_input_span
+            .expect("prediction input span");
+        assert_eq!(&source[model_span.start..model_span.end], "model");
+        assert_eq!(&source[input_span.start..input_span.end], "model");
+        assert!(model_span.end < input_span.start);
     }
 
     #[test]

@@ -2693,17 +2693,28 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for ml in &program.ml_infos {
-        builder.push_on_line(ml.line, &ml.binding, "variable", &["declaration", "model"]);
+        builder.push_named_span(
+            ml.binding_span,
+            &ml.binding,
+            "variable",
+            &["declaration", "model"],
+        );
         builder.push_keywords_on_line(
             ml.line,
             &["from", "on", "using"],
             &["model", "workflowStep"],
         );
         if let Some(source) = &ml.source {
-            builder.push_on_line(ml.line, source, "variable", &["model"]);
+            push_ml_operand_semantic_token(&mut builder, program, ml.line, source, ml.source_span);
         }
         if let Some(input) = &ml.prediction_input {
-            builder.push_on_line(ml.line, input, "variable", &["model"]);
+            push_ml_operand_semantic_token(
+                &mut builder,
+                program,
+                ml.line,
+                input,
+                ml.prediction_input_span,
+            );
         }
         if let Some(target) = &ml.target {
             builder.push_on_line(ml.line, "target", "property", &["model"]);
@@ -3118,9 +3129,33 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     add_review_risk_semantic_tokens(report, &mut builder);
-    add_compiler_resolved_symbol_reference_tokens(program, &mut builder);
+    add_compiler_resolved_symbol_reference_tokens(report, &mut builder);
 
     builder.finish()
+}
+
+fn push_ml_operand_semantic_token(
+    builder: &mut SemanticTokenBuilder<'_>,
+    program: &SemanticProgram,
+    line: usize,
+    operand: &str,
+    span: Option<SourceSpan>,
+) {
+    let operand = operand.trim();
+    let mut modifiers = program
+        .typed_bindings
+        .iter()
+        .find(|binding| binding.name == operand)
+        .map(|binding| semantic_modifiers_for_quantity(&binding.semantic_type.quantity_kind))
+        .unwrap_or_default();
+    if !modifiers.contains(&"model") {
+        modifiers.push("model");
+    }
+    if let Some(span) = span.filter(|_| is_simple_identifier_segment(operand)) {
+        builder.push_preferred_named_span(span, operand, "variable", &modifiers);
+    } else {
+        builder.push_on_line(line, operand, "variable", &modifiers);
+    }
 }
 
 fn with_block_semantic_modifiers(
@@ -3769,9 +3804,10 @@ fn add_function_scoped_symbol_semantic_tokens(
 }
 
 fn add_compiler_resolved_symbol_reference_tokens(
-    program: &SemanticProgram,
+    report: &CheckReport,
     builder: &mut SemanticTokenBuilder<'_>,
 ) {
+    let program = &report.semantic_program;
     let mut symbols = BTreeMap::<String, KnownSemanticSymbol>::new();
 
     for binding in &program.typed_bindings {
@@ -3832,6 +3868,21 @@ fn add_compiler_resolved_symbol_reference_tokens(
     }
 
     builder.push_known_symbol_references(&symbols);
+    for declaration in &report.inferred_declarations {
+        let expression = declaration.expression.trim();
+        if !is_simple_identifier_segment(expression) {
+            continue;
+        }
+        let Some(symbol) = symbols.get(expression) else {
+            continue;
+        };
+        builder.push_preferred_named_span(
+            declaration.expression_span,
+            expression,
+            symbol.token_type,
+            &symbol.modifiers,
+        );
+    }
 }
 
 fn is_net_with_block(program: &SemanticProgram, owner_line: Option<usize>) -> bool {
@@ -14593,7 +14644,7 @@ with {
 response = http get url("https://example.org/weather")
 payload_from_response = read json response.body
 submitted = http post url("https://example.org/weather")
-updated = http put url("https://example.org/weather")
+put_response = http put url("https://example.org/weather")
 patched = http patch url("https://example.org/weather")
 probed = http head url("https://example.org/weather")
 raw_request = http request url("https://example.org/weather")
@@ -15044,7 +15095,7 @@ struct LegacyArgs
         for line in [
             "response = http get url(\"https://example.org/weather\")",
             "submitted = http post url(\"https://example.org/weather\")",
-            "updated = http put url(\"https://example.org/weather\")",
+            "put_response = http put url(\"https://example.org/weather\")",
             "patched = http patch url(\"https://example.org/weather\")",
             "probed = http head url(\"https://example.org/weather\")",
             "raw_request = http request url(\"https://example.org/weather\")",
@@ -15064,7 +15115,7 @@ struct LegacyArgs
         }
         for (line, method) in [
             (
-                "updated = http put url(\"https://example.org/weather\")",
+                "put_response = http put url(\"https://example.org/weather\")",
                 "put",
             ),
             (
@@ -16579,6 +16630,98 @@ with {
     }
 
     #[test]
+    fn soft_keyword_aliases_and_ml_sources_prefer_compiler_spans() {
+        let source = concat!(
+            "designs = sample lhs\r\n",
+            "with { count = 1; seed = 7; x = uniform(0, 1) }\r\n",
+            "records = materialize cases designs\r\n",
+            "records_alias = records\r\n",
+            "model = train regression records\r\n",
+            "model_alias = model\r\n",
+            "predictions = predict model using records\r\n",
+            "promoted = promote json records payload.records as Row\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("soft_keyword_operand_spans.eng"), source);
+        let lines = source.lines().collect::<Vec<_>>();
+
+        let cases: &[(usize, &str, &[&str])] = &[
+            (3, "records", &["workflowStep"]),
+            (4, "records", &["workflowStep", "model"]),
+            (5, "model", &["model"]),
+            (6, "records", &["workflowStep", "model"]),
+        ];
+        for &(line_index, label, required_modifiers) in cases {
+            let line = lines[line_index];
+            let byte_start = line.rfind(label).expect("soft-keyword operand");
+            let start = utf16_len(&line[..byte_start]);
+            let tokens = snapshot
+                .semantic_tokens
+                .tokens
+                .iter()
+                .filter(|token| {
+                    token.line == line_index
+                        && token.start == start
+                        && token.length == utf16_len(label)
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(
+                tokens
+                    .iter()
+                    .filter(|token| token.token_type == "variable")
+                    .count(),
+                1,
+                "soft-keyword operand on line {line_index} should be one variable: {tokens:#?}"
+            );
+            assert!(tokens.iter().all(|token| token.token_type != "keyword"));
+            let variable = tokens
+                .iter()
+                .find(|token| token.token_type == "variable")
+                .expect("soft-keyword variable token");
+            for &modifier in required_modifiers {
+                assert!(
+                    variable
+                        .modifiers
+                        .iter()
+                        .any(|candidate| candidate == modifier),
+                    "missing {modifier} on {variable:#?}"
+                );
+            }
+        }
+
+        let grammar_line_index = 7usize;
+        let grammar_line = lines[grammar_line_index];
+        let grammar_byte = grammar_line
+            .find("records")
+            .expect("records grammar keyword");
+        let grammar_start = utf16_len(&grammar_line[..grammar_byte]);
+        let grammar_tokens = snapshot
+            .semantic_tokens
+            .tokens
+            .iter()
+            .filter(|token| {
+                token.line == grammar_line_index
+                    && token.start == grammar_start
+                    && token.length == utf16_len("records")
+            })
+            .collect::<Vec<_>>();
+        assert!(grammar_tokens.iter().any(|token| {
+            token.token_type == "keyword"
+                && token
+                    .modifiers
+                    .iter()
+                    .any(|modifier| modifier == "workflowStep")
+        }));
+        assert!(grammar_tokens
+            .iter()
+            .all(|token| token.token_type != "variable"));
+        assert_no_conflicting_semantic_token_types(
+            &snapshot,
+            source,
+            "soft_keyword_operand_spans.eng",
+        );
+    }
+
+    #[test]
     fn snapshot_marks_domain_conservation_shared_keyword_role_aware() {
         let source = r#"domain PositionOnly {
     across x: Length [m]
@@ -16720,19 +16863,13 @@ catalog_probe = model
             "metrics = evaluate(model)",
             "card = model_card(model)",
             "predictions = predict model using designs",
+            "catalog_probe = model",
         ] {
             assert_semantic_token_on_line_with_modifier(
                 &snapshot, source, line, "model", "variable", "model",
             );
             assert_no_semantic_token_on_line_type(&snapshot, source, line, "model", "keyword");
         }
-        assert_semantic_token_on_line_type(
-            &snapshot,
-            source,
-            "catalog_probe = model",
-            "model",
-            "keyword",
-        );
     }
 
     #[test]

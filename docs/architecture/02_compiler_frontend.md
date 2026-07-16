@@ -65,6 +65,13 @@ through the public semantic model. Editor projection can therefore classify a
 simple write-source identifier from its compiler role even when its spelling is
 also a workflow keyword, without changing a real keyword occurrence elsewhere.
 
+`FastBinding.expression_span` identifies the complete source RHS before later
+semantic normalization. Successful inferred declarations retain that range,
+while `MlInfo` separately retains exact binding, source-model/table, and
+prediction-input spans. Alias and ML source diagnostics and editor roles can
+therefore target the resolved operand without repainting a same-spelled grammar
+word elsewhere in the expression or file.
+
 ## Semantic Analysis
 
 `semantic.rs` builds the `CheckReport`. The report carries diagnostics plus a

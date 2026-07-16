@@ -381,6 +381,12 @@ expression span. If the identifier is also spelled like a language keyword, the
 exact source range emits one variable token with its binding and write-context
 modifiers; unrelated grammar occurrences keep their keyword token.
 
+Simple inferred aliases and ML source/input operands also use compiler-owned
+expression ranges. This keeps soft-keyword bindings such as `model` and
+`records` variable-colored in resolved value positions, merges their model or
+workflow modifiers into one token, and leaves actual grammar and member
+positions independently classified.
+
 ## Document Symbols And Folding Ranges
 
 `document_symbols` uses LSP-style document symbol JSON with numeric symbol

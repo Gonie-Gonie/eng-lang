@@ -319,6 +319,10 @@ Simple `write` source identifiers also use exact compiler-owned expression
 ranges. A binding such as `records` is shown once as a workflow/output variable
 at that source position, while `records` in `promote json records` remains a
 workflow keyword.
+Fast-binding aliases and model workflow operands use the same exact-range
+policy. `model_alias = model`, `train regression records`, and `predict model
+using records` keep resolved variable colors without changing grammar keywords
+or dotted member fields that use the same spelling.
 
 Role-aware highlighting also works on unsaved edits, so token colors do
 not have to wait for a file save. Sample-table member completions include

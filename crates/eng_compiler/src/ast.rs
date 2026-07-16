@@ -289,6 +289,7 @@ pub struct EquationDecl {
 pub struct FastBinding {
     pub name: String,
     pub expression: String,
+    pub expression_span: SourceSpan,
     pub line: usize,
     pub span: SourceSpan,
     pub context: ParseContext,

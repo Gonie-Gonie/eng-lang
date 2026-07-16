@@ -410,6 +410,13 @@ fallback is replaced by one variable token carrying the binding role plus
 side-effect and DB context. The same spelling in a real grammar position, such
 as `records` in `promote json records`, remains a workflow keyword.
 
+Simple inferred aliases use the preserved fast-binding expression span, and ML
+model/table/input operands use their dedicated `MlInfo` spans. A binding named
+`model` or `records` therefore keeps one variable role in aliases, training,
+evaluation, and prediction expressions. Grammar uses such as `promote json
+records` remain keywords, and member uses such as `payload.records` remain
+properties.
+
 ## VS Code Fallback Mapping
 
 VS Code maps semantic tokens to TextMate fallback scopes in

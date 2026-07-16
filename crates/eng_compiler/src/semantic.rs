@@ -2293,14 +2293,12 @@ fn analyze_where_binding_scope(
             }
         }
 
-        let temporary = FastBinding {
-            name: binding.name.clone(),
-            expression: binding.expression.clone(),
-            line: binding.line,
-            span: binding.span,
-            context: ParseContext::Where,
-        };
-        check_ambiguous_quantity(&temporary, diagnostics);
+        check_ambiguous_quantity(
+            &binding.name,
+            &binding.expression,
+            binding.line,
+            diagnostics,
+        );
 
         let semantic_type = infer_scoped_binding_semantic_type(
             &binding.name,
@@ -11267,19 +11265,23 @@ fn analyze_explicit_decl(declaration: &ExplicitDecl, outputs: ExplicitAnalysisOu
         &canonical_unit,
         declaration.line,
     ));
-    if declaration.context == ParseContext::TopLevel
-        && declaration.expression.as_deref().is_some_and(|expression| {
-            expression.trim_start().starts_with("select_first_row(")
+    if declaration.context == ParseContext::TopLevel {
+        if let (Some(expression), Some(expression_span)) =
+            (&declaration.expression, declaration.expression_span)
+        {
+            if expression.trim_start().starts_with("select_first_row(")
                 || is_simple_member_expression(expression)
-        })
-    {
-        inferred_declarations.push(InferredDeclaration {
-            name: declaration.name.clone(),
-            quantity_kind: declaration.type_name.clone(),
-            display_unit,
-            expression: declaration.expression.clone().unwrap_or_default(),
-            line: declaration.line,
-        });
+            {
+                inferred_declarations.push(InferredDeclaration {
+                    name: declaration.name.clone(),
+                    quantity_kind: declaration.type_name.clone(),
+                    display_unit,
+                    expression: expression.clone(),
+                    expression_span,
+                    line: declaration.line,
+                });
+            }
+        }
     }
 }
 
@@ -12905,7 +12907,12 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
     }
 
     check_dimensionless_operation(&binding.expression, binding.line, accum.diagnostics);
-    check_ambiguous_quantity(binding, accum.diagnostics);
+    check_ambiguous_quantity(
+        &binding.name,
+        &binding.expression,
+        binding.line,
+        accum.diagnostics,
+    );
     let available_bindings = accum.available_bindings();
     if let Some(diagnostic) = crate::stats::heat_rate_sum_diagnostic(binding, &available_bindings) {
         accum.diagnostics.push(diagnostic);
@@ -13002,6 +13009,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
             quantity_kind: semantic_type.quantity_kind.clone(),
             display_unit: semantic_type.display_unit.clone(),
             expression: binding.expression.clone(),
+            expression_span: binding.expression_span,
             line: binding.line,
         });
         accum.typed_bindings.push(TypedBinding {
@@ -13075,25 +13083,27 @@ fn schema_fast_assignment_help(binding: &FastBinding) -> String {
     "Write `T_supply: AbsoluteTemperature [degC]` instead of assigning a value.".to_owned()
 }
 
-fn check_ambiguous_quantity(binding: &FastBinding, diagnostics: &mut Vec<Diagnostic>) {
-    let Some(unit) = first_unit_in_expression(&binding.expression) else {
+fn check_ambiguous_quantity(
+    name: &str,
+    expression: &str,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(unit) = first_unit_in_expression(expression) else {
         return;
     };
     let candidates = candidates_for_unit(&unit);
     if candidates.len() <= 1 {
         return;
     }
-    if infer_quantity_from_name_and_unit(&binding.name, &unit).is_some() {
+    if infer_quantity_from_name_and_unit(name, &unit).is_some() {
         return;
     }
 
     diagnostics.push(Diagnostic::warning(
         "W-QTY-AMBIG-001",
-        binding.line,
-        &format!(
-            "`{}` has unit {}, but quantity kind is ambiguous.",
-            binding.name, unit
-        ),
+        line,
+        &format!("`{name}` has unit {unit}, but quantity kind is ambiguous."),
         Some(&format!(
             "Candidate quantity kinds: {}. Add an explicit annotation.",
             completion_labels(&candidates)

@@ -1,13 +1,17 @@
 use crate::ast::FastBinding;
 use crate::semantic::{TypedBinding, WithBlockInfo, WithOptionInfo};
+use crate::source::SourceSpan;
 use crate::Diagnostic;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MlInfo {
     pub binding: String,
+    pub binding_span: SourceSpan,
     pub kind: String,
     pub source: Option<String>,
+    pub source_span: Option<SourceSpan>,
     pub prediction_input: Option<String>,
+    pub prediction_input_span: Option<SourceSpan>,
     pub target: Option<String>,
     pub target_line: Option<usize>,
     pub features: Vec<String>,
@@ -56,6 +60,16 @@ pub fn ml_info(binding: &FastBinding) -> Option<MlInfo> {
         .map(|(model, _)| model.clone())
         .or_else(|| table_regression_source(expression))
         .or_else(|| first_argument(expression));
+    let source_span = source
+        .as_deref()
+        .and_then(|source| identifier_path_occurrence_span(binding, source, 0));
+    let prediction_input = prediction_arguments
+        .as_ref()
+        .map(|(_, input)| input.clone());
+    let prediction_input_span = prediction_input.as_deref().and_then(|input| {
+        let occurrence = usize::from(source.as_deref() == Some(input));
+        identifier_path_occurrence_span(binding, input, occurrence)
+    });
 
     let target = (kind != "PredictionResult")
         .then(|| named_value(expression, &["target", "y"]))
@@ -81,9 +95,12 @@ pub fn ml_info(binding: &FastBinding) -> Option<MlInfo> {
 
     Some(MlInfo {
         binding: binding.name.clone(),
+        binding_span: binding.span,
         kind: kind.to_owned(),
         source,
-        prediction_input: prediction_arguments.map(|(_, input)| input),
+        source_span,
+        prediction_input,
+        prediction_input_span,
         target_line: target.as_ref().map(|_| binding.line),
         target,
         features_line: (!features.is_empty()).then_some(binding.line),
@@ -198,6 +215,7 @@ struct MlSourceRequirement {
     call: &'static str,
     role: &'static str,
     source: Option<String>,
+    source_span: Option<SourceSpan>,
     expected: ExpectedMlSource,
 }
 
@@ -208,6 +226,7 @@ fn source_requirements(info: &MlInfo) -> Vec<MlSourceRequirement> {
             call,
             role: "source",
             source: info.source.clone(),
+            source_span: info.source_span,
             expected: ExpectedMlSource::TimeSeries,
         }],
         "RegressionModel" if is_table_regression_expression(&info.expression) => {
@@ -215,6 +234,7 @@ fn source_requirements(info: &MlInfo) -> Vec<MlSourceRequirement> {
                 call,
                 role: "table",
                 source: info.source.clone(),
+                source_span: info.source_span,
                 expected: ExpectedMlSource::Table,
             }]
         }
@@ -222,18 +242,21 @@ fn source_requirements(info: &MlInfo) -> Vec<MlSourceRequirement> {
             call,
             role: "split",
             source: info.source.clone(),
+            source_span: info.source_span,
             expected: ExpectedMlSource::TrainTestSplit,
         }],
         "ModelMetrics" => vec![MlSourceRequirement {
             call,
             role: "model",
             source: info.source.clone(),
+            source_span: info.source_span,
             expected: ExpectedMlSource::Model,
         }],
         "ModelCard" => vec![MlSourceRequirement {
             call,
             role: "model",
             source: info.source.clone(),
+            source_span: info.source_span,
             expected: ExpectedMlSource::Model,
         }],
         "PredictionResult" => vec![
@@ -241,12 +264,14 @@ fn source_requirements(info: &MlInfo) -> Vec<MlSourceRequirement> {
                 call,
                 role: "model",
                 source: info.source.clone(),
+                source_span: info.source_span,
                 expected: ExpectedMlSource::Model,
             },
             MlSourceRequirement {
                 call,
                 role: "input",
                 source: info.prediction_input.clone(),
+                source_span: info.prediction_input_span,
                 expected: ExpectedMlSource::Table,
             },
         ],
@@ -259,6 +284,7 @@ fn source_requirements(info: &MlInfo) -> Vec<MlSourceRequirement> {
                 call,
                 role: "target",
                 source: Some(target.clone()),
+                source_span: None,
                 expected: ExpectedMlSource::TimeSeries,
             });
         }
@@ -270,6 +296,7 @@ fn source_requirements(info: &MlInfo) -> Vec<MlSourceRequirement> {
                 call,
                 role: "split",
                 source: Some(split),
+                source_span: None,
                 expected: ExpectedMlSource::TrainTestSplit,
             });
         }
@@ -288,7 +315,7 @@ fn validate_source_requirement(
         .as_deref()
         .filter(|source| is_identifier(source))
     else {
-        return Some(Diagnostic::error(
+        let diagnostic = Diagnostic::error(
             "E-ML-SOURCE-001",
             line,
             &format!(
@@ -298,6 +325,10 @@ fn validate_source_requirement(
                 requirement.role
             ),
             Some(expected_source_help(requirement.expected)),
+        );
+        return Some(with_optional_source_span(
+            diagnostic,
+            requirement.source_span,
         ));
     };
 
@@ -305,7 +336,7 @@ fn validate_source_requirement(
         .iter()
         .find(|typed_binding| typed_binding.name == source)
     else {
-        return Some(Diagnostic::error(
+        let diagnostic = Diagnostic::error(
             "E-ML-SOURCE-001",
             line,
             &format!(
@@ -313,6 +344,10 @@ fn validate_source_requirement(
                 requirement.role, requirement.call
             ),
             Some("Check the source name or move the referenced ML binding before this expression."),
+        );
+        return Some(with_optional_source_span(
+            diagnostic,
+            requirement.source_span,
         ));
     };
 
@@ -320,7 +355,7 @@ fn validate_source_requirement(
         &source_binding.semantic_type.quantity_kind,
         requirement.expected,
     ) {
-        return Some(Diagnostic::error(
+        let diagnostic = Diagnostic::error(
             "E-ML-SOURCE-002",
             line,
             &format!(
@@ -331,10 +366,24 @@ fn validate_source_requirement(
                 requirement.role
             ),
             Some(expected_source_help(requirement.expected)),
+        );
+        return Some(with_optional_source_span(
+            diagnostic,
+            requirement.source_span,
         ));
     }
 
     None
+}
+
+fn with_optional_source_span(
+    diagnostic: Diagnostic,
+    source_span: Option<SourceSpan>,
+) -> Diagnostic {
+    match source_span {
+        Some(span) => diagnostic.with_source_span(span),
+        None => diagnostic,
+    }
 }
 
 fn matches_expected_source(quantity_kind: &str, expected: ExpectedMlSource) -> bool {
@@ -609,6 +658,53 @@ fn default_algorithm(kind: &str) -> Option<String> {
         "MlpModel" => Some("mlp".to_owned()),
         _ => None,
     }
+}
+
+fn identifier_path_occurrence_span(
+    binding: &FastBinding,
+    value: &str,
+    occurrence: usize,
+) -> Option<SourceSpan> {
+    let expression = binding.expression.as_str();
+    let value = value.trim();
+    if !is_identifier_path(value)
+        || binding
+            .expression_span
+            .end
+            .checked_sub(binding.expression_span.start)
+            != Some(expression.len())
+    {
+        return None;
+    }
+
+    let mut search_start = 0usize;
+    let mut matched = 0usize;
+    while search_start < expression.len() {
+        let relative_start = expression.get(search_start..)?.find(value)?;
+        let start = search_start + relative_start;
+        let end = start.checked_add(value.len())?;
+        let before = expression.get(..start)?.chars().next_back();
+        let after = expression.get(end..)?.chars().next();
+        let is_boundary = before.is_none_or(|character| !is_identifier_path_character(character))
+            && after.is_none_or(|character| !is_identifier_path_character(character));
+        if is_boundary {
+            if matched == occurrence {
+                return Some(SourceSpan::new(
+                    binding.expression_span.start + start,
+                    binding.expression_span.start + end,
+                    binding.expression_span.line,
+                    binding.expression_span.column + start,
+                ));
+            }
+            matched += 1;
+        }
+        search_start = end;
+    }
+    None
+}
+
+fn is_identifier_path_character(character: char) -> bool {
+    character.is_ascii_alphanumeric() || matches!(character, '_' | '.')
 }
 
 fn first_argument(expression: &str) -> Option<String> {

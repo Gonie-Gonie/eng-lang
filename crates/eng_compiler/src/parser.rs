@@ -2046,7 +2046,9 @@ fn parse_fast_binding(
     if !matches!(second.kind, TokenKind::Symbol(Symbol::Equal)) {
         return None;
     }
-    let expression = expression_after(line_text, '=')?;
+    let expression_source = line_text.split_once('=')?.1.trim();
+    let expression_span = source_span_for_subslice(first.span, line_text, expression_source)?;
+    let expression = expression_source.to_owned();
     if is_process_run_rhs(&expression) {
         return None;
     }
@@ -2059,6 +2061,7 @@ fn parse_fast_binding(
         FastBinding {
             name: name.clone(),
             expression,
+            expression_span,
             line: first.span.line,
             span: first.span,
             context,
