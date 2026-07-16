@@ -83,6 +83,12 @@ optional unit, and exact unit span. The public semantic model retains those
 ranges so solver lowering, review JSON, semantic highlighting, hover,
 completion, outline, and navigation consume one declaration identity.
 
+System and component typed declarations retain separate name, type, optional
+unit, and optional expression spans. `operator Name:` also separates the
+`operator` keyword anchor from `Name`. `SystemVariableInfo`,
+`StateSpaceVectorInfo`, and `LinearOperatorInfo` expose those ranges so editor
+tokens and diagnostics do not reconstruct typed declarations from line text.
+
 ## Editor Payload
 
 `eng_lsp` maps the same `CheckReport` into editor-facing data:

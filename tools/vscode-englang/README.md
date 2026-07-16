@@ -299,6 +299,8 @@ Hover is computed from the current unsaved buffer, so quantity, unit, and
 role/status labels stay aligned with live diagnostics and role-aware highlighting.
 Top-level state-space vector types and their members expose role-specific hover,
 completion, outline, reference, and rename metadata from the same compiler spans.
+Typed system vectors and linear operators use compiler-owned type/expression
+ranges for solver colors and precise Problems underlines.
 
 Role-aware highlighting also works on unsaved edits, so token colors do
 not have to wait for a file save. Sample-table member completions include

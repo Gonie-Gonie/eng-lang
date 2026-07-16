@@ -2769,6 +2769,14 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                     &["declaration"],
                 ),
             }
+            builder.push_type_identifiers_within_span(
+                variable.type_span,
+                &variable.type_name,
+                &semantic_modifiers_for_quantity(&variable.quantity_kind),
+            );
+            if let (Some(unit), Some(unit_span)) = (&variable.unit, variable.unit_span) {
+                builder.push_named_span(unit_span, unit, "type", &["unit"]);
+            }
         }
     }
 
@@ -2805,6 +2813,17 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             _ => ["declaration"].as_slice(),
         };
         builder.push_named_span(vector.span, &vector.name, "variable", modifiers);
+        if let (Some(declared_type), Some(type_span)) = (&vector.declared_type, vector.type_span) {
+            builder.push_all_type_identifiers_within_span(type_span, declared_type, &["solver"]);
+        }
+    }
+
+    for operator in &program.linear_operators {
+        builder.push_all_type_identifiers_within_span(
+            operator.type_span,
+            &operator.declared_type,
+            &["solver"],
+        );
     }
 
     for domain in &program.domains {
@@ -5879,6 +5898,25 @@ impl<'a> SemanticTokenBuilder<'a> {
         type_name: &str,
         modifiers: &[&str],
     ) {
+        self.push_type_identifiers_within_span_impl(span, type_name, modifiers, false);
+    }
+
+    fn push_all_type_identifiers_within_span(
+        &mut self,
+        span: SourceSpan,
+        type_name: &str,
+        modifiers: &[&str],
+    ) {
+        self.push_type_identifiers_within_span_impl(span, type_name, modifiers, true);
+    }
+
+    fn push_type_identifiers_within_span_impl(
+        &mut self,
+        span: SourceSpan,
+        type_name: &str,
+        modifiers: &[&str],
+        modify_all_identifiers: bool,
+    ) {
         let identifier_labels = |value: &str| {
             value
                 .split(|character: char| !(character.is_ascii_alphanumeric() || character == '_'))
@@ -5931,7 +5969,7 @@ impl<'a> SemanticTokenBuilder<'a> {
             }
             let token = &source_range[token_start..index];
             if labels.contains(token) {
-                let token_modifiers = if modifier_labels.contains(token) {
+                let token_modifiers = if modify_all_identifiers || modifier_labels.contains(token) {
                     modifiers
                 } else {
                     &[]
@@ -16441,7 +16479,7 @@ outputs RoomOutput {
 system StateSpaceFixture {
     state x: StateVector[RoomState] = [22 degC]
     input u: InputVector[RoomInput] = [8 degC]
-    parameter gain: DimensionlessNumber = 1
+    parameter gain: Ratio [1] = 1
     output y: OutputVector[RoomOutput]
     operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.012 1/min]]
 }
@@ -16503,6 +16541,42 @@ system StateSpaceFixture {
             "variable",
             "solver",
         );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "operator A:",
+            "A",
+            "variable",
+            "declaration",
+        );
+        for (line, label) in [
+            ("state x: StateVector[RoomState]", "StateVector"),
+            ("state x: StateVector[RoomState]", "RoomState"),
+            ("input u: InputVector[RoomInput]", "InputVector"),
+            ("output y: OutputVector[RoomOutput]", "OutputVector"),
+            ("operator A: LinearOperator", "LinearOperator"),
+            ("operator A: LinearOperator", "RoomState"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, label, "type", "solver",
+            );
+        }
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "parameter gain: Ratio [1]",
+            "Ratio",
+            "type",
+            "quantity",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "parameter gain: Ratio [1]",
+            "1",
+            "type",
+            "unit",
+        );
 
         for label in [
             "StateVector",
@@ -16510,12 +16584,41 @@ system StateSpaceFixture {
             "OutputVector",
             "LinearOperator",
             "Derivative",
+            "Ratio",
             "RoomState",
             "RoomInput",
             "RoomOutput",
         ] {
             assert_semantic_token_type(&snapshot, source, label, "type");
         }
+    }
+
+    #[test]
+    fn state_space_diagnostics_use_compiler_owned_type_and_expression_spans() {
+        assert_first_diagnostic_underlines_after(
+            "system Missing {\n    state x: StateVector[MissingState] = [20 degC]\n}\n",
+            "E-STATE-SPACE-VECTOR-TYPE-001",
+            "StateVector[",
+            "MissingState",
+        );
+        assert_first_diagnostic_underlines_after(
+            "states OneState {\n    T: AbsoluteTemperature [degC]\n}\nsystem BadInitial {\n    state x: StateVector[OneState] = [20 degC, 21 degC]\n}\n",
+            "E-STATE-SPACE-VECTOR-INIT-001",
+            "=",
+            "[20 degC, 21 degC]",
+        );
+        assert_first_diagnostic_underlines_after(
+            "system BadOperator {\n    state T: AbsoluteTemperature = 20 degC\n    states x = [T]\n    operator A: LinearOperator[StateVector -> Derivative[StateVector]] = [[bad]]\n}\n",
+            "E-STATE-SPACE-OP-ENTRY-VALUE-001",
+            "=",
+            "[[bad]]",
+        );
+        assert_first_diagnostic_underlines_after(
+            "system BadMember {\n    states x = [missing]\n}\n",
+            "E-STATE-SPACE-VECTOR-MEMBER-001",
+            "=",
+            "[missing]",
+        );
     }
 
     #[test]

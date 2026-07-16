@@ -405,6 +405,10 @@
             "entity.name.function.workflow-step.englang",
             "support.type.englang"
           ],
+          "type.timeseries": [
+            "support.type.englang",
+            "support.function.timeseries.englang"
+          ],
           "variable.timeseries": [
             "entity.name.function.englang",
             "variable.other.definition.englang"
@@ -557,6 +561,10 @@
             "keyword.control.solver.englang",
             "variable.other.property.englang",
             "entity.name.function.solver.englang"
+          ],
+          "type.solver": [
+            "support.type.englang",
+            "keyword.control.solver.englang"
           ],
           "class.solver": [
             "entity.name.type.englang",

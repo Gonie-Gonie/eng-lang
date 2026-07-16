@@ -118,8 +118,10 @@ Diagnostics are shaped like LSP diagnostics:
 `line` is zero-based. `character` uses LSP UTF-16 offsets. A compiler-owned
 `Diagnostic::source_span` is the first choice and is converted from source-byte
 coordinates to UTF-16. This currently covers precise `with` option key/value
-ranges used by selected network, process, sampling, and uncertainty checks.
-Older diagnostics retain source-aware inference: dimensionless arithmetic
+ranges used by selected network, process, sampling, and uncertainty checks. It
+also covers typed state-space vector type arguments and initial values, legacy
+vector member lists, and linear-operator type or matrix expressions. Older
+diagnostics retain source-aware inference: dimensionless arithmetic
 diagnostics highlight the offending `+` or `-`, schema fast-assignment
 diagnostics highlight `=`, and file mutation diagnostics target `move` or
 `delete`. The final fallback searches backticked message/help text, then the
@@ -254,6 +256,11 @@ domain variables, component ports, parameters, inputs and locals, class fields a
 methods, args fields, and class object bindings and fields use parser-owned source
 ranges. Same-line text search remains a compatibility fallback for symbol kinds
 whose exact ranges have not yet migrated.
+
+System/component type and unit tokens, typed state-space vector type
+expressions, and linear-operator type expressions also use parser-owned ranges.
+State-space vector and operator type identifiers carry the `solver` modifier,
+and `operator Name:` marks `Name` as the declaration rather than the keyword.
 
 Structural references on those declarations also use parser-owned ranges: schema,
 class, and args types; schema/class units; component-port domains; object-literal class
@@ -394,8 +401,8 @@ Use the stdio LSP server for:
 
 `textDocument/references` always analyzes the current unsaved document and
 honors `context.includeDeclaration`. For an importable `const`, function,
-schema, class, system, state-space vector type, domain, or component, it also searches open
-documents and
+schema, class, system, state-space vector type, domain, or component, it also
+searches open documents and
 saved `.eng` files under the initialized workspace roots. A candidate file is
 included only when its static file-import chain resolves the name to the same
 declaration file; unrelated same-name symbols are excluded. Open document text

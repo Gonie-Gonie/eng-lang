@@ -1846,20 +1846,18 @@ fn parse_system_variable_decl(
         return None;
     }
 
-    let raw_after_colon = line_text.split_once(':')?.1.trim();
-    let (type_part, expression) = raw_after_colon
-        .split_once('=')
-        .map(|(left, right)| (left.trim(), Some(right.trim().to_owned())))
-        .unwrap_or((raw_after_colon, None));
-    let (type_name, unit) = split_type_and_unit(type_part);
+    let parts = typed_declaration_parts(first.span, line_text)?;
 
     Some(SystemVariableDecl {
         role: role.to_owned(),
         name: name.clone(),
         name_span: second.span,
-        type_name,
-        unit,
-        expression,
+        type_name: parts.type_name,
+        type_span: parts.type_span,
+        unit: parts.unit,
+        unit_span: parts.unit_span,
+        expression: parts.expression,
+        expression_span: parts.expression_span,
         line: first.span.line,
         span: first.span,
         context,
@@ -1898,7 +1896,10 @@ fn parse_state_space_vector_decl(
         role: role.to_owned(),
         name: name.clone(),
         name_span: second.span,
+        declared_type: None,
+        type_span: None,
         members,
+        expression_span: source_span_after_equals(first.span, line_text),
         line: first.span.line,
         span: first.span,
         context,
@@ -1936,20 +1937,16 @@ fn parse_operator_decl(
     if !matches!(third.kind, TokenKind::Symbol(Symbol::Colon)) {
         return None;
     }
-    let raw_after_colon = line_text.split_once(':')?.1.trim();
-    let (type_part, expression) = raw_after_colon
-        .split_once('=')
-        .map(|(left, right)| (left.trim(), Some(right.trim().to_owned())))
-        .unwrap_or((raw_after_colon, None));
-    let (type_name, unit) = split_type_and_unit(type_part);
-    let (type_span, unit_span) = type_and_unit_source_spans(first.span, line_text, type_part)?;
+    let parts = typed_declaration_parts(first.span, line_text)?;
     Some(ExplicitDecl {
         name: name.clone(),
-        type_name,
-        type_span,
-        unit,
-        unit_span,
-        expression,
+        name_span: second.span,
+        type_name: parts.type_name,
+        type_span: parts.type_span,
+        unit: parts.unit,
+        unit_span: parts.unit_span,
+        expression: parts.expression,
+        expression_span: parts.expression_span,
         line: first.span.line,
         span: first.span,
         context,
@@ -3355,21 +3352,17 @@ fn parse_explicit_decl(
         return None;
     }
 
-    let raw_after_colon = line_text.split_once(':')?.1.trim();
-    let (type_part, expression) = raw_after_colon
-        .split_once('=')
-        .map(|(left, right)| (left.trim(), Some(right.trim().to_owned())))
-        .unwrap_or((raw_after_colon, None));
-    let (type_name, unit) = split_type_and_unit(type_part);
-    let (type_span, unit_span) = type_and_unit_source_spans(first.span, line_text, type_part)?;
+    let parts = typed_declaration_parts(first.span, line_text)?;
 
     Some(ExplicitDecl {
         name,
-        type_name,
-        type_span,
-        unit,
-        unit_span,
-        expression,
+        name_span: first.span,
+        type_name: parts.type_name,
+        type_span: parts.type_span,
+        unit: parts.unit,
+        unit_span: parts.unit_span,
+        expression: parts.expression,
+        expression_span: parts.expression_span,
         line: first.span.line,
         span: first.span,
         context,
@@ -3389,6 +3382,45 @@ fn parse_reserved_keyword_use(tokens: &[Token]) -> Option<AstItem> {
         });
     }
     None
+}
+
+struct TypedDeclarationParts {
+    type_name: String,
+    type_span: SourceSpan,
+    unit: Option<String>,
+    unit_span: Option<SourceSpan>,
+    expression: Option<String>,
+    expression_span: Option<SourceSpan>,
+}
+
+fn typed_declaration_parts(
+    line_anchor: SourceSpan,
+    line_text: &str,
+) -> Option<TypedDeclarationParts> {
+    let raw_after_colon = line_text.split_once(':')?.1.trim();
+    let (type_part, expression) = raw_after_colon
+        .split_once('=')
+        .map(|(left, right)| (left.trim(), Some(right.trim().to_owned())))
+        .unwrap_or((raw_after_colon, None));
+    let (type_name, unit) = split_type_and_unit(type_part);
+    if type_name.is_empty() {
+        return None;
+    }
+    let (type_span, unit_span) = type_and_unit_source_spans(line_anchor, line_text, type_part)?;
+    Some(TypedDeclarationParts {
+        type_name,
+        type_span,
+        unit,
+        unit_span,
+        expression,
+        expression_span: source_span_after_equals(line_anchor, line_text),
+    })
+}
+
+fn source_span_after_equals(line_anchor: SourceSpan, line_text: &str) -> Option<SourceSpan> {
+    let expression_start = line_text.find('=')? + '='.len_utf8();
+    let (start, end) = trimmed_byte_range(line_text, expression_start, line_text.len())?;
+    Some(source_span_for_line_range(line_anchor, start, end))
 }
 
 fn split_type_and_unit(type_part: &str) -> (String, Option<String>) {

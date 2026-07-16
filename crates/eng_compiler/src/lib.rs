@@ -13477,6 +13477,172 @@ write csv "outputs/q.csv", Q
     }
 
     #[test]
+    fn typed_system_declarations_preserve_exact_type_and_expression_spans() {
+        let source = concat!(
+            "states ZoneState {\r\n",
+            "    T_air: AbsoluteTemperature [degC]\r\n",
+            "}\r\n",
+            "system ZoneSystem {\r\n",
+            "    state x: StateVector[ZoneState] = [20 degC]\r\n",
+            "    parameter gain: Ratio [1] = 1\r\n",
+            "    operator ZoneState: LinearOperator[ZoneState -> Derivative[ZoneState]] = [[-0.1 1/s]]\r\n",
+            "    equation {\r\n",
+            "        der(x) eq ZoneState * x\r\n",
+            "    }\r\n",
+            "}\r\n",
+        );
+        let parsed = parse_source(source);
+        let variables = parsed
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                AstItem::SystemVariable(variable) => Some(variable),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let operator = parsed
+            .items
+            .iter()
+            .find_map(|item| match item {
+                AstItem::ExplicitDecl(declaration) if declaration.name == "ZoneState" => {
+                    Some(declaration)
+                }
+                _ => None,
+            })
+            .expect("operator declaration");
+
+        assert_eq!(variables.len(), 2);
+        let state = variables[0];
+        assert_eq!(&source[state.name_span.start..state.name_span.end], "x");
+        assert_eq!(
+            &source[state.type_span.start..state.type_span.end],
+            "StateVector[ZoneState]"
+        );
+        let state_expression_span = state.expression_span.expect("state expression span");
+        assert_eq!(
+            &source[state_expression_span.start..state_expression_span.end],
+            "[20 degC]"
+        );
+        let parameter = variables[1];
+        assert_eq!(
+            &source[parameter.type_span.start..parameter.type_span.end],
+            "Ratio"
+        );
+        let parameter_unit_span = parameter.unit_span.expect("parameter unit span");
+        assert_eq!(
+            &source[parameter_unit_span.start..parameter_unit_span.end],
+            "1"
+        );
+        let parameter_expression_span = parameter
+            .expression_span
+            .expect("parameter expression span");
+        assert_eq!(
+            &source[parameter_expression_span.start..parameter_expression_span.end],
+            "1"
+        );
+        assert_eq!(
+            &source[operator.name_span.start..operator.name_span.end],
+            "ZoneState"
+        );
+        assert_eq!(&source[operator.span.start..operator.span.end], "operator");
+        assert_eq!(
+            &source[operator.type_span.start..operator.type_span.end],
+            "LinearOperator[ZoneState -> Derivative[ZoneState]]"
+        );
+        let operator_expression_span = operator.expression_span.expect("operator expression span");
+        assert_eq!(
+            &source[operator_expression_span.start..operator_expression_span.end],
+            "[[-0.1 1/s]]"
+        );
+
+        let report = check_source("typed_system_spans.eng", source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let vector = report
+            .semantic_program
+            .state_space_vectors
+            .iter()
+            .find(|vector| vector.name == "x")
+            .expect("typed state vector metadata");
+        assert_eq!(
+            vector.declared_type.as_deref(),
+            Some("StateVector[ZoneState]")
+        );
+        let vector_type_span = vector.type_span.expect("vector type span");
+        assert_eq!(
+            &source[vector_type_span.start..vector_type_span.end],
+            "StateVector[ZoneState]"
+        );
+        let parameter_info = report.semantic_program.systems[0]
+            .variables
+            .iter()
+            .find(|variable| variable.name == "gain")
+            .expect("parameter semantic metadata");
+        assert_eq!(parameter_info.type_name, "Ratio");
+        assert_eq!(parameter_info.unit.as_deref(), Some("1"));
+        assert_eq!(
+            &source[parameter_info.type_span.start..parameter_info.type_span.end],
+            "Ratio"
+        );
+        let operator_info = &report.semantic_program.linear_operators[0];
+        assert_eq!(
+            &source[operator_info.span.start..operator_info.span.end],
+            "ZoneState"
+        );
+        assert_eq!(operator_info.declared_type, operator.type_name);
+        assert_eq!(operator_info.type_span, operator.type_span);
+        assert_eq!(operator_info.expression_span, operator.expression_span);
+        let operator_binding = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| {
+                binding.name == "ZoneState"
+                    && binding
+                        .semantic_type
+                        .quantity_kind
+                        .starts_with("LinearOperator[")
+            })
+            .expect("operator typed binding");
+        assert_eq!(
+            &source[operator_binding.span.start..operator_binding.span.end],
+            "ZoneState"
+        );
+
+        for (invalid_source, code, expected_source) in [
+            (
+                "system Missing {\n    state x: StateVector[MissingState] = [20 degC]\n}\n",
+                "E-STATE-SPACE-VECTOR-TYPE-001",
+                "MissingState",
+            ),
+            (
+                "states OneState {\n    T: AbsoluteTemperature [degC]\n}\nsystem BadInitial {\n    state x: StateVector[OneState] = [20 degC, 21 degC]\n}\n",
+                "E-STATE-SPACE-VECTOR-INIT-001",
+                "[20 degC, 21 degC]",
+            ),
+            (
+                "system BadOperator {\n    state T: AbsoluteTemperature = 20 degC\n    states x = [T]\n    operator A: LinearOperator[StateVector -> Derivative[StateVector]] = [[bad]]\n}\n",
+                "E-STATE-SPACE-OP-ENTRY-VALUE-001",
+                "[[bad]]",
+            ),
+            (
+                "system BadMember {\n    states x = [missing]\n}\n",
+                "E-STATE-SPACE-VECTOR-MEMBER-001",
+                "[missing]",
+            ),
+        ] {
+            let invalid_report =
+                check_source("typed_system_span_error.eng", invalid_source, &CheckOptions::default());
+            let diagnostic = invalid_report
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code)
+                .unwrap_or_else(|| panic!("missing {code}: {:?}", invalid_report.diagnostics));
+            let span = diagnostic.source_span.expect("compiler-owned diagnostic span");
+            assert_eq!(&invalid_source[span.start..span.end], expected_source);
+        }
+    }
+
+    #[test]
     fn rejects_missing_state_derivative_equation() {
         let report = check_source(
             "bad.eng",

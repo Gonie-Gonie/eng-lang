@@ -403,7 +403,7 @@ from generic fallback colors. Important pairings:
 | `variable.quantity`, `property.quantity`, `parameter.quantity` | Quantity-bearing values and properties. |
 | `parameter.declaration` | Function and args parameter declarations. |
 | `variable.axis`, `property.axis` | Axis/workflow-step emphasis. |
-| `variable.timeseries`, `property.timeseries`, `function.timeseries` | TimeSeries value and statistic helper emphasis. |
+| `type.timeseries`, `variable.timeseries`, `property.timeseries`, `function.timeseries` | TimeSeries type, value, and statistic helper emphasis. |
 | `variable.uncertain`, `function.uncertain`, `property.uncertain`, `keyword.uncertain` | Uncertainty values, functions, properties, and block introducers. |
 | `keyword.defaultLibrary`, `function.defaultLibrary`, `namespace.defaultLibrary` | Built-in command-style keywords, helper functions, and modules. |
 | `keyword.imported`, `namespace.imported` | Import statement keywords and user-imported module namespaces. |
@@ -413,7 +413,7 @@ from generic fallback colors. Important pairings:
 | `function.temporal` | Supported calendar date construction helpers. |
 | `keyword.validation`, `variable.validation`, `function.validation` | Validation and coverage operations. |
 | `keyword.report`, `variable.report`, `property.report` | Report and plot operations. |
-| `class.solver`, `function.solver`, `keyword.solver`, `variable.solver`, `property.solver` | Solver declarations, fields, and equation operations. |
+| `type.solver`, `class.solver`, `function.solver`, `keyword.solver`, `variable.solver`, `property.solver` | Solver types, declarations, fields, and equation operations. |
 | `class.deprecated`, `property.deprecated` | Deprecated legacy declaration names and deprecated property roles. |
 | `class.state`, `variable.state`, `property.state` | State-space type, system state, and state-member tokens. |
 | `class.input`, `variable.input`, `parameter.input`, `property.input` | State-space input type, system inputs, input parameters, and input members. |

@@ -103,11 +103,16 @@ pub struct SystemVariableInfo {
     pub role: String,
     pub name: String,
     pub span: SourceSpan,
+    pub type_name: String,
+    pub type_span: SourceSpan,
+    pub unit: Option<String>,
+    pub unit_span: Option<SourceSpan>,
     pub quantity_kind: String,
     pub display_unit: String,
     pub canonical_unit: String,
     pub dimension: String,
     pub initial_value: Option<String>,
+    pub expression_span: Option<SourceSpan>,
     pub line: usize,
 }
 
@@ -217,7 +222,10 @@ pub struct StateSpaceVectorInfo {
     pub name: String,
     pub span: SourceSpan,
     pub vector_type: String,
+    pub declared_type: Option<String>,
+    pub type_span: Option<SourceSpan>,
     pub members: Vec<String>,
+    pub expression_span: Option<SourceSpan>,
     pub status: String,
     pub line: usize,
 }
@@ -255,9 +263,13 @@ pub struct LinearOperatorEntryInfo {
 pub struct LinearOperatorInfo {
     pub system: String,
     pub name: String,
+    pub span: SourceSpan,
+    pub declared_type: String,
+    pub type_span: SourceSpan,
     pub from: String,
     pub to: String,
     pub expression: Option<String>,
+    pub expression_span: Option<SourceSpan>,
     pub canonical_matrix: Option<Vec<Vec<f64>>>,
     pub canonical_entries: Vec<LinearOperatorEntryInfo>,
     pub row_count: usize,
@@ -11159,14 +11171,14 @@ fn analyze_explicit_decl(declaration: &ExplicitDecl, outputs: ExplicitAnalysisOu
             display_unit: display_unit.clone(),
         },
         line: declaration.line,
-        span: declaration.span,
+        span: declaration.name_span,
     });
     hover_hints.push(HoverHint::explicit(
         declaration.name.clone(),
         declaration.type_name.clone(),
         display_unit.clone(),
         declaration.expression.clone(),
-        declaration.span,
+        declaration.name_span,
     ));
     type_infos.push(TypeInfo {
         name: declaration.name.clone(),
@@ -11180,7 +11192,7 @@ fn analyze_explicit_decl(declaration: &ExplicitDecl, outputs: ExplicitAnalysisOu
             TypeInfoSource::Explicit
         },
         line: declaration.line,
-        span: declaration.span,
+        span: declaration.name_span,
     });
     unit_derivations.push(unit_derivation(
         &declaration.name,
@@ -11281,11 +11293,16 @@ fn analyze_system_variable(
         role: declaration.role.clone(),
         name: declaration.name.clone(),
         span: declaration.name_span,
+        type_name: declaration.type_name.clone(),
+        type_span: declaration.type_span,
+        unit: declaration.unit.clone(),
+        unit_span: declaration.unit_span,
         quantity_kind: declaration.type_name.clone(),
         display_unit,
         canonical_unit,
         dimension,
         initial_value: declaration.expression.clone(),
+        expression_span: declaration.expression_span,
         line: declaration.line,
     });
 }
@@ -11310,15 +11327,21 @@ fn analyze_typed_state_space_vector_variable(
         .iter()
         .find(|block| block.role == vector_role && block.name == type_name)
     else {
-        diagnostics.push(Diagnostic::error(
-            "E-STATE-SPACE-VECTOR-TYPE-001",
-            declaration.line,
-            &format!(
-                "State-space vector `{}` references undeclared {} type `{}`.",
-                declaration.name, vector_role, type_name
+        diagnostics.push(
+            Diagnostic::error(
+                "E-STATE-SPACE-VECTOR-TYPE-001",
+                declaration.line,
+                &format!(
+                    "State-space vector `{}` references undeclared {} type `{}`.",
+                    declaration.name, vector_role, type_name
+                ),
+                Some("Declare a matching top-level `states Name { ... }` or `inputs Name { ... }` block before the system."),
+            )
+            .with_source_span(
+                nested_type_source_span(declaration.type_span, &declaration.type_name, type_name)
+                    .unwrap_or(declaration.type_span),
             ),
-            Some("Declare a matching top-level `states Name { ... }` or `inputs Name { ... }` block before the system."),
-        ));
+        );
         return;
     };
 
@@ -11329,18 +11352,21 @@ fn analyze_typed_state_space_vector_variable(
     );
     let initial_values = vector_literal_values(declaration.expression.as_deref());
     if !initial_values.is_empty() && initial_values.len() != type_block.members.len() {
-        diagnostics.push(Diagnostic::error(
-            "E-STATE-SPACE-VECTOR-INIT-001",
-            declaration.line,
-            &format!(
-                "State-space vector `{}` has {} initial value(s), expected {} for `{}`.",
-                declaration.name,
-                initial_values.len(),
-                type_block.members.len(),
-                type_name
-            ),
-            Some("Provide one initial value per member, for example `[20 degC, 19 degC]`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-STATE-SPACE-VECTOR-INIT-001",
+                declaration.line,
+                &format!(
+                    "State-space vector `{}` has {} initial value(s), expected {} for `{}`.",
+                    declaration.name,
+                    initial_values.len(),
+                    type_block.members.len(),
+                    type_name
+                ),
+                Some("Provide one initial value per member, for example `[20 degC, 19 degC]`."),
+            )
+            .with_source_span(declaration.expression_span.unwrap_or(declaration.name_span)),
+        );
     }
 
     if let Some(scalar_role) = scalar_role_for_state_space_vector(vector_role) {
@@ -11350,8 +11376,11 @@ fn analyze_typed_state_space_vector_variable(
                 name: member.name.clone(),
                 name_span: member.span,
                 type_name: member.type_name.clone(),
+                type_span: member.type_span,
                 unit: member.unit.clone(),
+                unit_span: member.unit_span,
                 expression: initial_values.get(index).cloned(),
+                expression_span: None,
                 line: member.line,
                 span: member.span,
                 context: ParseContext::System,
@@ -11372,11 +11401,14 @@ fn analyze_typed_state_space_vector_variable(
         role: vector_role.to_owned(),
         name: declaration.name.clone(),
         name_span: declaration.name_span,
+        declared_type: Some(declaration.type_name.clone()),
+        type_span: Some(declaration.type_span),
         members: type_block
             .members
             .iter()
             .map(|member| member.name.clone())
             .collect(),
+        expression_span: declaration.expression_span,
         line: declaration.line,
         span: declaration.span,
         context: ParseContext::System,
@@ -11417,6 +11449,24 @@ fn state_space_vector_type_parameter(type_name: &str) -> Option<(&'static str, &
         }
     }
     None
+}
+
+fn nested_type_source_span(
+    type_span: SourceSpan,
+    declared_type: &str,
+    nested_type: &str,
+) -> Option<SourceSpan> {
+    let nested_search_start = declared_type.find('[')? + '['.len_utf8();
+    let nested_start = nested_search_start
+        + declared_type
+            .get(nested_search_start..)?
+            .find(nested_type)?;
+    Some(SourceSpan::new(
+        type_span.start + nested_start,
+        type_span.start + nested_start + nested_type.len(),
+        type_span.line,
+        type_span.column + nested_start,
+    ))
 }
 
 fn vector_literal_values(expression: Option<&str>) -> Vec<String> {
@@ -11504,7 +11554,10 @@ fn analyze_state_space_vector_decl(
         name: declaration.name.clone(),
         span: declaration.name_span,
         vector_type: vector_type.to_owned(),
+        declared_type: declaration.declared_type.clone(),
+        type_span: declaration.type_span,
         members: declaration.members.clone(),
+        expression_span: declaration.expression_span,
         status: if declaration.members.is_empty() {
             "empty".to_owned()
         } else {
@@ -11539,9 +11592,13 @@ fn analyze_linear_operator_decl(
     Some(LinearOperatorInfo {
         system: system_name.to_owned(),
         name: declaration.name.clone(),
+        span: declaration.name_span,
+        declared_type: declaration.type_name.clone(),
+        type_span: declaration.type_span,
         from,
         to,
         expression: declaration.expression.clone(),
+        expression_span: declaration.expression_span,
         canonical_matrix: None,
         canonical_entries: Vec::new(),
         row_count,
@@ -11632,16 +11689,19 @@ fn validate_state_space_vector_members(
             .collect::<Vec<_>>();
         if !missing_members.is_empty() {
             vector.status = "member_unresolved".to_owned();
-            diagnostics.push(Diagnostic::error(
-                "E-STATE-SPACE-VECTOR-MEMBER-001",
-                vector.line,
-                &format!(
-                    "State-space vector `{}` references undeclared member(s): {}.",
-                    vector.name,
-                    missing_members.join(", ")
-                ),
-                Some("List only state/input/output names declared in the same system."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-STATE-SPACE-VECTOR-MEMBER-001",
+                    vector.line,
+                    &format!(
+                        "State-space vector `{}` references undeclared member(s): {}.",
+                        vector.name,
+                        missing_members.join(", ")
+                    ),
+                    Some("List only state/input/output names declared in the same system."),
+                )
+                .with_source_span(vector.expression_span.unwrap_or(vector.span)),
+            );
             continue;
         }
 
@@ -11658,16 +11718,19 @@ fn validate_state_space_vector_members(
             vector.status = "members_checked".to_owned();
         } else {
             vector.status = "member_role_mismatch".to_owned();
-            diagnostics.push(Diagnostic::error(
-                "E-STATE-SPACE-VECTOR-MEMBER-ROLE",
-                vector.line,
-                &format!(
-                    "State-space vector `{}` has member(s) with incompatible role(s): {}.",
-                    vector.name,
-                    role_mismatches.join(", ")
-                ),
-                Some(state_space_vector_member_role_help(&vector.role)),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-STATE-SPACE-VECTOR-MEMBER-ROLE",
+                    vector.line,
+                    &format!(
+                        "State-space vector `{}` has member(s) with incompatible role(s): {}.",
+                        vector.name,
+                        role_mismatches.join(", ")
+                    ),
+                    Some(state_space_vector_member_role_help(&vector.role)),
+                )
+                .with_source_span(vector.expression_span.unwrap_or(vector.span)),
+            );
         }
     }
 }
@@ -11700,15 +11763,18 @@ fn validate_system_state_declarations(systems: &[SystemInfo], diagnostics: &mut 
             if !unsupported_state_quantity(&state.quantity_kind) {
                 continue;
             }
-            diagnostics.push(Diagnostic::error(
-                "E-SYS-STATE-UNSUPPORTED",
-                state.line,
-                &format!(
-                    "State `{}` in system `{}` uses unsupported state type `{}`.",
-                    state.name, system.name, state.quantity_kind
-                ),
-                Some("Use a numeric scalar quantity as a state, a TimeSeries as an input, or a `states x = [...]` vector declaration for the state-space path."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SYS-STATE-UNSUPPORTED",
+                    state.line,
+                    &format!(
+                        "State `{}` in system `{}` uses unsupported state type `{}`.",
+                        state.name, system.name, state.quantity_kind
+                    ),
+                    Some("Use a numeric scalar quantity as a state, a TimeSeries as an input, or a `states x = [...]` vector declaration for the state-space path."),
+                )
+                .with_source_span(state.type_span),
+            );
         }
     }
 }
@@ -11770,18 +11836,21 @@ fn validate_system_derivative_equations(systems: &[SystemInfo], diagnostics: &mu
 
         for (state, equations) in state_equations {
             if equations.is_empty() {
-                diagnostics.push(Diagnostic::error(
-                    "E-SYS-DER-MISSING",
-                    state.line,
-                    &format!(
-                        "State `{}` in system `{}` has no derivative equation.",
-                        state.name, system.name
-                    ),
-                    Some(&format!(
-                        "Add exactly one equation with `der({})` on the left-hand side, or use a checked state-space vector equation.",
-                        state.name
-                    )),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SYS-DER-MISSING",
+                        state.line,
+                        &format!(
+                            "State `{}` in system `{}` has no derivative equation.",
+                            state.name, system.name
+                        ),
+                        Some(&format!(
+                            "Add exactly one equation with `der({})` on the left-hand side, or use a checked state-space vector equation.",
+                            state.name
+                        )),
+                    )
+                    .with_source_span(state.span),
+                );
                 continue;
             }
             for duplicate in equations.iter().skip(1) {
@@ -11823,15 +11892,18 @@ fn validate_linear_operator_shapes(
         else {
             operator.status = "shape_unresolved".to_owned();
             operator.compatibility_status = "shape_unresolved".to_owned();
-            diagnostics.push(Diagnostic::error(
-                "E-STATE-SPACE-OP-SHAPE-001",
-                operator.line,
-                &format!(
-                    "Linear operator `{}` references undeclared vector type `{}` -> `{}`.",
-                    operator.name, operator.from, operator.to
-                ),
-                Some("Declare matching `states`, `inputs`, or `outputs` vectors before the operator."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-STATE-SPACE-OP-SHAPE-001",
+                    operator.line,
+                    &format!(
+                        "Linear operator `{}` references undeclared vector type `{}` -> `{}`.",
+                        operator.name, operator.from, operator.to
+                    ),
+                    Some("Declare matching `states`, `inputs`, or `outputs` vectors before the operator."),
+                )
+                .with_source_span(operator.type_span),
+            );
             continue;
         };
         if [operator.to.as_str(), operator.from.as_str()]
@@ -11846,21 +11918,24 @@ fn validate_linear_operator_shapes(
         if operator.row_count != expected_rows || operator.column_count != expected_columns {
             operator.status = "shape_mismatch".to_owned();
             operator.compatibility_status = "shape_mismatch".to_owned();
-            diagnostics.push(Diagnostic::error(
-                "E-STATE-SPACE-OP-SHAPE-001",
-                operator.line,
-                &format!(
-                    "Linear operator `{}` is {}x{}, expected {}x{} for `{}` -> `{}`.",
-                    operator.name,
-                    operator.row_count,
-                    operator.column_count,
-                    expected_rows,
-                    expected_columns,
-                    operator.from,
-                    operator.to
-                ),
-                Some("Make the matrix rows match the target vector and columns match the source vector."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-STATE-SPACE-OP-SHAPE-001",
+                    operator.line,
+                    &format!(
+                        "Linear operator `{}` is {}x{}, expected {}x{} for `{}` -> `{}`.",
+                        operator.name,
+                        operator.row_count,
+                        operator.column_count,
+                        expected_rows,
+                        expected_columns,
+                        operator.from,
+                        operator.to
+                    ),
+                    Some("Make the matrix rows match the target vector and columns match the source vector."),
+                )
+                .with_source_span(operator.expression_span.unwrap_or(operator.span)),
+            );
         } else if !linear_operator_rows_are_rectangular(operator, expected_columns, diagnostics) {
             operator.status = "shape_mismatch".to_owned();
             operator.compatibility_status = "shape_mismatch".to_owned();
@@ -11913,31 +11988,37 @@ fn validate_linear_operator_entries(
     for (row_index, row) in matrix_rows(expression).iter().enumerate() {
         for (column_index, entry) in row.iter().enumerate() {
             let Some((value, unit)) = matrix_entry_number_with_optional_unit(entry) else {
-                diagnostics.push(Diagnostic::error(
-                    "E-STATE-SPACE-OP-ENTRY-VALUE-001",
-                    operator.line,
-                    &format!(
-                        "Linear operator `{}` entry ({}, {}) must be a numeric coefficient with an optional unit.",
-                        operator.name,
-                        row_index + 1,
-                        column_index + 1
-                    ),
-                    Some("Use entries such as `0.1`, `0.1 1/s`, `0.1 1/min`, or `0.1 1/h`."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-STATE-SPACE-OP-ENTRY-VALUE-001",
+                        operator.line,
+                        &format!(
+                            "Linear operator `{}` entry ({}, {}) must be a numeric coefficient with an optional unit.",
+                            operator.name,
+                            row_index + 1,
+                            column_index + 1
+                        ),
+                        Some("Use entries such as `0.1`, `0.1 1/s`, `0.1 1/min`, or `0.1 1/h`."),
+                    )
+                    .with_source_span(operator.expression_span.unwrap_or(operator.span)),
+                );
                 return LinearOperatorEntryValidation::InvalidValue;
             };
             if !value.is_finite() {
-                diagnostics.push(Diagnostic::error(
-                    "E-STATE-SPACE-OP-ENTRY-VALUE-001",
-                    operator.line,
-                    &format!(
-                        "Linear operator `{}` entry ({}, {}) must be finite.",
-                        operator.name,
-                        row_index + 1,
-                        column_index + 1
-                    ),
-                    Some("Use a finite numeric coefficient before runtime state-space execution."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-STATE-SPACE-OP-ENTRY-VALUE-001",
+                        operator.line,
+                        &format!(
+                            "Linear operator `{}` entry ({}, {}) must be finite.",
+                            operator.name,
+                            row_index + 1,
+                            column_index + 1
+                        ),
+                        Some("Use a finite numeric coefficient before runtime state-space execution."),
+                    )
+                    .with_source_span(operator.expression_span.unwrap_or(operator.span)),
+                );
                 return LinearOperatorEntryValidation::InvalidValue;
             }
             let Some(unit) = unit else {
@@ -11946,20 +12027,23 @@ fn validate_linear_operator_entries(
             if linear_operator_entry_unit_supported(operator, row_index, column_index, &unit) {
                 continue;
             }
-            diagnostics.push(Diagnostic::error(
-                "E-STATE-SPACE-OP-ENTRY-UNIT-001",
-                operator.line,
-                &format!(
-                    "Linear operator `{}` entry ({}, {}) uses unit `{}`; that coefficient unit is not supported for `{}` -> `{}`.",
-                    operator.name,
-                    row_index + 1,
-                    column_index + 1,
-                    unit,
-                    operator.from,
-                    operator.to
-                ),
-                Some("Use canonical numeric coefficients, or an inverse-time coefficient such as `1/s`, `1/min`, or `1/h` only when the target derivative unit is exactly the source unit per second."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-STATE-SPACE-OP-ENTRY-UNIT-001",
+                    operator.line,
+                    &format!(
+                        "Linear operator `{}` entry ({}, {}) uses unit `{}`; that coefficient unit is not supported for `{}` -> `{}`.",
+                        operator.name,
+                        row_index + 1,
+                        column_index + 1,
+                        unit,
+                        operator.from,
+                        operator.to
+                    ),
+                    Some("Use canonical numeric coefficients, or an inverse-time coefficient such as `1/s`, `1/min`, or `1/h` only when the target derivative unit is exactly the source unit per second."),
+                )
+                .with_source_span(operator.expression_span.unwrap_or(operator.span)),
+            );
             return LinearOperatorEntryValidation::UnsupportedUnit;
         }
     }
@@ -11984,15 +12068,18 @@ fn linear_operator_rows_are_rectangular(
         .map(|(index, row)| format!("row {} has {}", index + 1, row.len()))
         .collect::<Vec<_>>()
         .join(", ");
-    diagnostics.push(Diagnostic::error(
-        "E-STATE-SPACE-OP-SHAPE-001",
-        operator.line,
-        &format!(
-            "Linear operator `{}` has a non-rectangular matrix: {} column(s) expected, {}.",
-            operator.name, expected_columns, row_summary
-        ),
-        Some("Provide every row with the same number of entries as the source vector."),
-    ));
+    diagnostics.push(
+        Diagnostic::error(
+            "E-STATE-SPACE-OP-SHAPE-001",
+            operator.line,
+            &format!(
+                "Linear operator `{}` has a non-rectangular matrix: {} column(s) expected, {}.",
+                operator.name, expected_columns, row_summary
+            ),
+            Some("Provide every row with the same number of entries as the source vector."),
+        )
+        .with_source_span(operator.expression_span.unwrap_or(operator.span)),
+    );
     false
 }
 
