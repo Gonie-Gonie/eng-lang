@@ -1520,12 +1520,22 @@ fn parse_inline_function_return_decl(tokens: &[Token], line_text: &str) -> Optio
     if !matches!(first.kind, TokenKind::Keyword(Keyword::Fn)) {
         return None;
     }
-    let expression = line_text.split_once('=').map(|(_, right)| right.trim())?;
-    if expression.is_empty() || expression.starts_with('{') {
+    let equal = tokens
+        .iter()
+        .find(|token| matches!(token.kind, TokenKind::Symbol(Symbol::Equal)))?;
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let expression_start = equal.span.end.checked_sub(line_start)?;
+    let (expression, expression_span) =
+        trimmed_source_parts(first.span, line_text, expression_start, line_text.len())?;
+    if expression.starts_with('{') {
         return None;
     }
     Some(ReturnDecl {
-        expression: expression.to_owned(),
+        expression,
+        expression_span,
         line: first.span.line,
         span: first.span,
         context: ParseContext::Function,
@@ -1624,13 +1634,16 @@ fn parse_return_decl(
     if !matches!(first.kind, TokenKind::Keyword(Keyword::Return)) {
         return None;
     }
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let expression_start = first.span.end.checked_sub(line_start)?;
+    let (expression, expression_span) =
+        trimmed_source_parts(first.span, line_text, expression_start, line_text.len())?;
     Some(ReturnDecl {
-        expression: line_text
-            .trim()
-            .strip_prefix("return")
-            .unwrap_or(line_text.trim())
-            .trim()
-            .to_owned(),
+        expression,
+        expression_span,
         line: first.span.line,
         span: first.span,
         context,
@@ -2333,6 +2346,19 @@ fn trimmed_byte_range(text: &str, start: usize, end: usize) -> Option<(usize, us
     let leading = slice.len() - slice.trim_start().len();
     let trimmed_start = start + leading;
     Some((trimmed_start, trimmed_start + trimmed.len()))
+}
+
+fn trimmed_source_parts(
+    line_anchor: SourceSpan,
+    line_text: &str,
+    start: usize,
+    end: usize,
+) -> Option<(String, SourceSpan)> {
+    let (trimmed_start, trimmed_end) = trimmed_byte_range(line_text, start, end)?;
+    Some((
+        line_text.get(trimmed_start..trimmed_end)?.to_owned(),
+        source_span_for_line_range(line_anchor, trimmed_start, trimmed_end),
+    ))
 }
 
 fn source_span_for_line_range(line_anchor: SourceSpan, start: usize, end: usize) -> SourceSpan {

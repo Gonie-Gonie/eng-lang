@@ -8902,6 +8902,14 @@ mod tests {
                 _ => None,
             })
             .expect("function declaration");
+        let return_declaration = parsed
+            .items
+            .iter()
+            .find_map(|item| match item {
+                AstItem::Return(declaration) => Some(declaration),
+                _ => None,
+            })
+            .expect("return declaration");
 
         assert_eq!(&source[declaration.span.start..declaration.span.end], "fn");
         assert_eq!(
@@ -8931,6 +8939,11 @@ mod tests {
         assert_eq!(
             &source[return_unit_span.start..return_unit_span.end],
             declaration.return_unit.as_deref().expect("return unit")
+        );
+        assert_eq!(
+            &source
+                [return_declaration.expression_span.start..return_declaration.expression_span.end],
+            return_declaration.expression
         );
 
         let report = check_source("function_spans.eng", source, &CheckOptions::default());
@@ -8972,8 +8985,33 @@ mod tests {
                 .as_deref()
                 .expect("semantic return unit")
         );
+        let return_expression_span = function
+            .return_expression_span
+            .expect("semantic return expression span");
+        assert_eq!(
+            &source[return_expression_span.start..return_expression_span.end],
+            function
+                .return_expression
+                .as_deref()
+                .expect("semantic return expression")
+        );
         let local = function.locals.first().expect("function local");
         assert_eq!(&source[local.span.start..local.span.end], local.name);
+
+        let inline_source = "fn inline(value: Ratio [1]) -> Ratio [1] = value + 1\r\n";
+        let inline_parsed = parse_source(inline_source);
+        let inline_return = inline_parsed
+            .items
+            .iter()
+            .find_map(|item| match item {
+                AstItem::Return(declaration) => Some(declaration),
+                _ => None,
+            })
+            .expect("inline return declaration");
+        assert_eq!(
+            &inline_source[inline_return.expression_span.start..inline_return.expression_span.end],
+            "value + 1"
+        );
 
         let invalid_source = concat!(
             "fn invalid(value: MissingParam [1]) -> MissingReturn [1] {\r\n",
@@ -8998,6 +9036,42 @@ mod tests {
                 .source_span
                 .expect("function type diagnostic span");
             assert_eq!(&invalid_source[span.start..span.end], expected);
+        }
+
+        let return_error_source = concat!(
+            "fn duplicate(value: Ratio [1]) -> Ratio [1] {\r\n",
+            "    return value\r\n",
+            "    return value + 1\r\n",
+            "}\r\n",
+            "fn unresolved(value: HeatRate [W]) -> HeatRate [W] {\r\n",
+            "    return \"\u{1f600}\" + missing\r\n",
+            "}\r\n",
+            "fn mismatched(value: Ratio [1]) -> HeatRate [W] {\r\n",
+            "    return value + 0\r\n",
+            "}\r\n",
+            "fn no_return(value: Ratio [1]) -> Ratio [1] {\r\n",
+            "}\r\n",
+        );
+        let return_error_report = check_source(
+            "function_return_spans.eng",
+            return_error_source,
+            &CheckOptions::default(),
+        );
+        for (code, expected) in [
+            ("E-FN-RETURN-001", "value + 1"),
+            ("E-FN-RETURN-002", "no_return"),
+            ("E-FN-RETURN-003", "\"\u{1f600}\" + missing"),
+            ("E-FN-RETURN-004", "value + 0"),
+        ] {
+            let diagnostic = return_error_report
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code)
+                .unwrap_or_else(|| panic!("missing {code} diagnostic"));
+            let span = diagnostic
+                .source_span
+                .unwrap_or_else(|| panic!("missing {code} source span"));
+            assert_eq!(&return_error_source[span.start..span.end], expected);
         }
     }
 

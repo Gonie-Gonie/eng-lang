@@ -72,6 +72,7 @@ pub struct ConstDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReturnDecl {
     pub expression: String,
+    pub expression_span: SourceSpan,
     pub line: usize,
     pub span: SourceSpan,
     pub context: ParseContext,

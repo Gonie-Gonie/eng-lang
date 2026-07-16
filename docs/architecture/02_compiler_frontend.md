@@ -105,6 +105,12 @@ return type/optional-unit spans. `FunctionParamInfo.unit` and
 quantity/unit semantic tokens, and function/parameter/local outline selections
 consume the same parser-owned ranges.
 
+Block `return expression` and inline `fn ... = expression` forms retain an exact
+expression span in `ReturnDecl` and `FunctionInfo.return_expression_span`.
+Duplicate, unresolved, dimension-mismatched, and side-effecting return
+diagnostics underline that expression. A missing-return diagnostic instead uses
+the function name because no expression exists.
+
 ## Editor Payload
 
 `eng_lsp` maps the same `CheckReport` into editor-facing data:

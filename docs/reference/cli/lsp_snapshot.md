@@ -121,7 +121,9 @@ coordinates to UTF-16. This currently covers precise `with` option key/value
 ranges used by selected network, process, sampling, and uncertainty checks. It
 also covers typed state-space vector type arguments and initial values, legacy
 vector member lists, linear-operator type or matrix expressions, and unknown
-function parameter or return types. Older
+function parameter or return types. Function return diagnostics use the exact
+block or inline return expression; missing-return diagnostics use the function
+name because there is no expression. Older
 diagnostics retain source-aware inference: dimensionless arithmetic
 diagnostics highlight the offending `+` or `-`, schema fast-assignment
 diagnostics highlight `=`, and file mutation diagnostics target `move` or

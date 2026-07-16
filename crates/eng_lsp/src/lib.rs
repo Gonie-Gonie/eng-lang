@@ -16038,6 +16038,53 @@ use eng.stats
     }
 
     #[test]
+    fn function_return_diagnostics_use_compiler_owned_expression_spans() {
+        let source = concat!(
+            "fn duplicate(value: Ratio [1]) -> Ratio [1] {\r\n",
+            "    return value\r\n",
+            "    return value + 1\r\n",
+            "}\r\n",
+            "fn unresolved(value: HeatRate [W]) -> HeatRate [W] {\r\n",
+            "    return \"\u{1f600}\" + missing\r\n",
+            "}\r\n",
+            "fn mismatched(value: Ratio [1]) -> HeatRate [W] {\r\n",
+            "    return value + 0\r\n",
+            "}\r\n",
+            "fn no_return(value: Ratio [1]) -> Ratio [1] {\r\n",
+            "}\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("function_return_ranges.eng"), source);
+        for (code, line_fragment, label) in [
+            ("E-FN-RETURN-001", "return value + 1", "value + 1"),
+            ("E-FN-RETURN-002", "fn no_return(value:", "no_return"),
+            (
+                "E-FN-RETURN-003",
+                "return \"\u{1f600}\" + missing",
+                "\"\u{1f600}\" + missing",
+            ),
+            ("E-FN-RETURN-004", "return value + 0", "value + 0"),
+        ] {
+            let line_index = source
+                .lines()
+                .position(|line| line.contains(line_fragment))
+                .unwrap_or_else(|| panic!("missing line for {code}"));
+            let line = source.lines().nth(line_index).expect("diagnostic line");
+            let byte_start = line.find(label).expect("diagnostic label");
+            let diagnostic = snapshot
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code)
+                .unwrap_or_else(|| panic!("missing {code} diagnostic"));
+            assert_eq!(diagnostic.line, line_index + 1);
+            assert_eq!(diagnostic.start_character, utf16_len(&line[..byte_start]));
+            assert_eq!(
+                diagnostic.end_character,
+                utf16_len(&line[..byte_start + label.len()])
+            );
+        }
+    }
+
+    #[test]
     fn snapshot_marks_contextual_constant_literals_role_aware() {
         let source = r#"Q_dist = distribution(kind=normal, mean=10 kW, std=1 kW)
 Q_unc = propagate(Q_dist, method=linear)

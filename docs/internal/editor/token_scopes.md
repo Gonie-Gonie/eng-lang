@@ -391,6 +391,11 @@ outline selections use their exact name occurrences, while `E-FN-TYPE-001` and
 `E-FN-TYPE-002` underline the corresponding return or parameter type instead of
 the `fn` keyword.
 
+Function return metadata also preserves the exact expression after a block
+`return` keyword or inline `=`. Duplicate, unresolved, dimension-mismatch, and
+return-side-effect diagnostics use that compiler range; missing-return
+diagnostics select the function name.
+
 ## VS Code Fallback Mapping
 
 VS Code maps semantic tokens to TextMate fallback scopes in

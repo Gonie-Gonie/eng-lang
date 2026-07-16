@@ -308,6 +308,9 @@ Function parameter and return type/unit annotations use the same compiler-owned
 ranges for quantity/unit colors and unknown-type underlines. Function,
 parameter, and local outline selections stay on their exact declaration names
 even when names repeat on one signature line.
+Block and inline function returns also keep compiler-owned expression ranges, so
+duplicate, unresolved, dimension-mismatch, and return-side-effect Problems
+underline the expression rather than the function header.
 
 Role-aware highlighting also works on unsaved edits, so token colors do
 not have to wait for a file save. Sample-table member completions include

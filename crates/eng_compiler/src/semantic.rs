@@ -88,6 +88,7 @@ pub struct FunctionInfo {
     pub return_canonical_unit: String,
     pub return_dimension: String,
     pub return_expression: Option<String>,
+    pub return_expression_span: Option<SourceSpan>,
     pub status: String,
     pub line: usize,
 }
@@ -3625,6 +3626,7 @@ fn analyze_function_decl(
         return_canonical_unit,
         return_dimension,
         return_expression: None,
+        return_expression_span: None,
         status: "declared".to_owned(),
         line: function.span.line,
     }
@@ -3675,18 +3677,22 @@ fn analyze_function_return(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     if function.return_expression.is_some() {
-        diagnostics.push(Diagnostic::error(
-            "E-FN-RETURN-001",
-            return_decl.line,
-            &format!(
-                "Function `{}` has more than one return expression.",
-                function.name
-            ),
-            Some("Keep one explicit `return ...` in the function body."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-FN-RETURN-001",
+                return_decl.line,
+                &format!(
+                    "Function `{}` has more than one return expression.",
+                    function.name
+                ),
+                Some("Keep one explicit `return ...` in the function body."),
+            )
+            .with_source_span(return_decl.expression_span),
+        );
         return;
     }
     function.return_expression = Some(return_decl.expression.clone());
+    function.return_expression_span = Some(return_decl.expression_span);
 }
 
 fn reject_function_side_effect(
@@ -3732,12 +3738,15 @@ fn validate_function_returns(
 ) {
     for function in functions.iter_mut() {
         let Some(expression) = function.return_expression.clone() else {
-            diagnostics.push(Diagnostic::error(
-                "E-FN-RETURN-002",
-                function.line,
-                &format!("Function `{}` does not return a value.", function.name),
-                Some("Add `return <expression>` inside the function body."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-FN-RETURN-002",
+                    function.line,
+                    &format!("Function `{}` does not return a value.", function.name),
+                    Some("Add `return <expression>` inside the function body."),
+                )
+                .with_source_span(function.span),
+            );
             function.status = "missing_return".to_owned();
             continue;
         };
@@ -3770,15 +3779,18 @@ fn validate_function_returns(
             let Some(local_dimension) =
                 expression_dimension_with_symbols(&local.expression, &symbols)
             else {
-                diagnostics.push(Diagnostic::error(
-                    "E-FN-LOCAL-001",
-                    local.line,
-                    &format!(
-                        "Function `{}` local `{}` could not be type-checked.",
-                        function.name, local.name
-                    ),
-                    Some("Use parameters, previous locals, const values, and literals with units."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-FN-LOCAL-001",
+                        local.line,
+                        &format!(
+                            "Function `{}` local `{}` could not be type-checked.",
+                            function.name, local.name
+                        ),
+                        Some("Use parameters, previous locals, const values, and literals with units."),
+                    )
+                    .with_source_span(local.span),
+                );
                 continue;
             };
             symbols.push(DimensionSymbol {
@@ -3788,28 +3800,34 @@ fn validate_function_returns(
         }
         let Some(actual_dimension) = expression_dimension_with_symbols(&expression, &symbols)
         else {
-            diagnostics.push(Diagnostic::error(
-                "E-FN-RETURN-003",
-                function.line,
-                &format!(
-                    "Function `{}` return expression could not be type-checked.",
-                    function.name
-                ),
-                Some("Use parameters, literals with units, and supported arithmetic in the return expression."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-FN-RETURN-003",
+                    function.line,
+                    &format!(
+                        "Function `{}` return expression could not be type-checked.",
+                        function.name
+                    ),
+                    Some("Use parameters, literals with units, and supported arithmetic in the return expression."),
+                )
+                .with_source_span(function.return_expression_span.unwrap_or(function.span)),
+            );
             function.status = "unit_unresolved".to_owned();
             continue;
         };
         if !dimensions_compatible(&function.return_dimension, &actual_dimension) {
-            diagnostics.push(Diagnostic::error(
-                "E-FN-RETURN-004",
-                function.line,
-                &format!(
-                    "Function `{}` returns {}, but its body has dimension {}.",
-                    function.name, function.return_dimension, actual_dimension
-                ),
-                Some("Make the return annotation match the expression quantity or fix the expression units."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-FN-RETURN-004",
+                    function.line,
+                    &format!(
+                        "Function `{}` returns {}, but its body has dimension {}.",
+                        function.name, function.return_dimension, actual_dimension
+                    ),
+                    Some("Make the return annotation match the expression quantity or fix the expression units."),
+                )
+                .with_source_span(function.return_expression_span.unwrap_or(function.span)),
+            );
             function.status = "unit_mismatch".to_owned();
         } else if !has_side_effect {
             function.status = "unit_consistent".to_owned();
@@ -3825,20 +3843,18 @@ fn validate_function_purity(
     let mut has_side_effect = false;
     for local in &function.locals {
         if expression_has_side_effect(&local.expression) {
-            diagnostics.push(function_side_effect_diagnostic(
-                &function.name,
-                "local expression",
-                local.line,
-            ));
+            diagnostics.push(
+                function_side_effect_diagnostic(&function.name, "local expression", local.line)
+                    .with_source_span(local.span),
+            );
             has_side_effect = true;
         }
     }
     if expression_has_side_effect(return_expression) {
-        diagnostics.push(function_side_effect_diagnostic(
-            &function.name,
-            "return expression",
-            function.line,
-        ));
+        diagnostics.push(
+            function_side_effect_diagnostic(&function.name, "return expression", function.line)
+                .with_source_span(function.return_expression_span.unwrap_or(function.span)),
+        );
         has_side_effect = true;
     }
     if has_side_effect {
