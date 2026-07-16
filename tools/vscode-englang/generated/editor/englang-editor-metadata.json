@@ -2484,6 +2484,12 @@
                                  "lsp_kind":  7
                              },
                              {
+                                 "detail":  "canonical unit W/m2/K",
+                                 "kind":  "class",
+                                 "label":  "ThermalTransmittance",
+                                 "lsp_kind":  7
+                             },
+                             {
                                  "detail":  "canonical unit person/m2",
                                  "kind":  "class",
                                  "label":  "PeopleDensity",
@@ -2694,6 +2700,30 @@
                                  "lsp_kind":  11
                              },
                              {
+                                 "detail":  "ThermalTransmittance unit",
+                                 "kind":  "unit",
+                                 "label":  "W/m2/K",
+                                 "lsp_kind":  11
+                             },
+                             {
+                                 "detail":  "ThermalTransmittance unit",
+                                 "kind":  "unit",
+                                 "label":  "W/m^2/K",
+                                 "lsp_kind":  11
+                             },
+                             {
+                                 "detail":  "ThermalTransmittance unit",
+                                 "kind":  "unit",
+                                 "label":  "W/(m2*K)",
+                                 "lsp_kind":  11
+                             },
+                             {
+                                 "detail":  "ThermalTransmittance unit",
+                                 "kind":  "unit",
+                                 "label":  "W/(m^2*K)",
+                                 "lsp_kind":  11
+                             },
+                             {
                                  "detail":  "PeopleDensity unit",
                                  "kind":  "unit",
                                  "label":  "person/m2",
@@ -2706,7 +2736,7 @@
                                  "lsp_kind":  11
                              }
                          ],
-    "completion_items_count":  435,
+    "completion_items_count":  440,
     "format":  "eng-lsp-editor-metadata-v2",
     "semantic_token_legend":  {
                                   "token_modifiers":  [
@@ -3914,6 +3944,12 @@
                                                   "label":  "Irradiance"
                                               },
                                               {
+                                                  "canonical_unit":  "W/m2/K",
+                                                  "detail":  "Heat transfer rate per unit area and temperature difference.",
+                                                  "dimension":  "Power/Area/Temperature",
+                                                  "label":  "ThermalTransmittance"
+                                              },
+                                              {
                                                   "canonical_unit":  "person/m2",
                                                   "detail":  "Occupant count per unit floor area.",
                                                   "dimension":  "Count/Area",
@@ -4256,6 +4292,30 @@
                                              "dimension":  "Power/Area",
                                              "label":  "W/m^2",
                                              "quantity_hint":  "Irradiance"
+                                         },
+                                         {
+                                             "canonical_unit":  "W/m2/K",
+                                             "dimension":  "Power/Area/Temperature",
+                                             "label":  "W/m2/K",
+                                             "quantity_hint":  "ThermalTransmittance"
+                                         },
+                                         {
+                                             "canonical_unit":  "W/m2/K",
+                                             "dimension":  "Power/Area/Temperature",
+                                             "label":  "W/m^2/K",
+                                             "quantity_hint":  "ThermalTransmittance"
+                                         },
+                                         {
+                                             "canonical_unit":  "W/m2/K",
+                                             "dimension":  "Power/Area/Temperature",
+                                             "label":  "W/(m2*K)",
+                                             "quantity_hint":  "ThermalTransmittance"
+                                         },
+                                         {
+                                             "canonical_unit":  "W/m2/K",
+                                             "dimension":  "Power/Area/Temperature",
+                                             "label":  "W/(m^2*K)",
+                                             "quantity_hint":  "ThermalTransmittance"
                                          },
                                          {
                                              "canonical_unit":  "person/m2",

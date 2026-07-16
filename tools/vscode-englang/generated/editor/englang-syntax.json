@@ -1153,6 +1153,12 @@
                                                   "label":  "Irradiance"
                                               },
                                               {
+                                                  "canonical_unit":  "W/m2/K",
+                                                  "detail":  "Heat transfer rate per unit area and temperature difference.",
+                                                  "dimension":  "Power/Area/Temperature",
+                                                  "label":  "ThermalTransmittance"
+                                              },
+                                              {
                                                   "canonical_unit":  "person/m2",
                                                   "detail":  "Occupant count per unit floor area.",
                                                   "dimension":  "Count/Area",
@@ -1495,6 +1501,30 @@
                                              "dimension":  "Power/Area",
                                              "label":  "W/m^2",
                                              "quantity_hint":  "Irradiance"
+                                         },
+                                         {
+                                             "canonical_unit":  "W/m2/K",
+                                             "dimension":  "Power/Area/Temperature",
+                                             "label":  "W/m2/K",
+                                             "quantity_hint":  "ThermalTransmittance"
+                                         },
+                                         {
+                                             "canonical_unit":  "W/m2/K",
+                                             "dimension":  "Power/Area/Temperature",
+                                             "label":  "W/m^2/K",
+                                             "quantity_hint":  "ThermalTransmittance"
+                                         },
+                                         {
+                                             "canonical_unit":  "W/m2/K",
+                                             "dimension":  "Power/Area/Temperature",
+                                             "label":  "W/(m2*K)",
+                                             "quantity_hint":  "ThermalTransmittance"
+                                         },
+                                         {
+                                             "canonical_unit":  "W/m2/K",
+                                             "dimension":  "Power/Area/Temperature",
+                                             "label":  "W/(m^2*K)",
+                                             "quantity_hint":  "ThermalTransmittance"
                                          },
                                          {
                                              "canonical_unit":  "person/m2",

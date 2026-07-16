@@ -130,10 +130,15 @@ reviewable artifacts.
 
 EngLang source files are UTF-8 text files.
 
-Comments use `//`:
+Ordinary line comments may use `//` or `#`. Documentation comments use `///`
+and receive a distinct editor scope. Block comments are not part of the current
+language syntax.
 
 ```eng partial
 Q = 10 kW // design heat rate
+# alternate line-comment spelling
+/// Documentation for the declaration below.
+U = 0.35 W/(m2*K)
 ```
 
 Strings use double quotes:

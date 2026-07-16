@@ -13761,6 +13761,42 @@ write csv "outputs/q.csv", Q
     }
 
     #[test]
+    fn records_native_parenthesized_thermal_transmittance_units() {
+        let source = concat!(
+            "u_value: ThermalTransmittance [W/(m2*K)] = 0.35 W/(m2*K)\n",
+            "symbolic_u = 0.40 W/(m^2*K)\n",
+            "flat_u = 0.45 W/m^2/K\n",
+        );
+        let report = check_source("ok.eng", source, &CheckOptions::default());
+
+        assert!(!report.has_errors(), "{:#?}", report.diagnostics);
+        assert!(report.diagnostics.is_empty(), "{:#?}", report.diagnostics);
+        for name in ["symbolic_u", "flat_u"] {
+            let declaration = report
+                .inferred_declarations
+                .iter()
+                .find(|declaration| declaration.name == name)
+                .unwrap_or_else(|| panic!("missing inferred declaration {name}"));
+            assert_eq!(declaration.quantity_kind, "ThermalTransmittance");
+            assert_eq!(declaration.display_unit, "W/m2/K");
+        }
+
+        let derivation = report
+            .semantic_program
+            .unit_derivations
+            .iter()
+            .find(|derivation| derivation.name == "u_value")
+            .expect("thermal transmittance derivation");
+        assert_eq!(derivation.source_unit.as_deref(), Some("W/(m2*K)"));
+        assert_eq!(derivation.display_unit, "W/(m2*K)");
+        assert_eq!(derivation.canonical_unit, "W/m2/K");
+        assert_eq!(normalize_unit("W/(m2*K)"), "w/(m2*k)");
+        assert_eq!(normalize_unit("(W/(m2*K))"), "w/(m2*k)");
+        assert_eq!(normalize_unit("(kW)"), "kw");
+        assert_eq!(normalize_unit("kW,"), "kw");
+    }
+
+    #[test]
     fn records_duration_quantity_and_unit_derivation() {
         let report = check_source("ok.eng", "unmet = 2 h", &CheckOptions::default());
 

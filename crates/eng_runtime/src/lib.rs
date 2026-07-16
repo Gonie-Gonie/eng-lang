@@ -18301,13 +18301,21 @@ mod tests {
     }
 
     #[test]
-    fn converts_native_area_volume_and_dimensionless_unit_aliases() {
+    fn converts_native_area_volume_dimensionless_and_transmittance_unit_aliases() {
         assert_eq!(convert_between_units(25.0, "m^2", "m2", "Area"), Some(25.0));
         assert_eq!(
             convert_between_units(73.0, "m^3", "m3", "Volume"),
             Some(73.0)
         );
         assert_eq!(convert_between_units(25.0, "m^2", "m3", "Area"), None);
+        assert_eq!(
+            convert_between_units(0.35, "W/(m2*K)", "W/m^2/K", "ThermalTransmittance"),
+            Some(0.35)
+        );
+        assert_eq!(
+            convert_between_units(0.35, "W/(m2*K)", "W/m2/K", "Irradiance"),
+            None
+        );
         assert_eq!(convert_between_units(25.0, "%", "1", "Ratio"), Some(0.25));
         assert_eq!(convert_between_units(0.25, "1", "%", "Ratio"), Some(25.0));
         assert_eq!(convert_between_units(25.0, "%", "1", "HeatRate"), None);
@@ -18320,6 +18328,10 @@ mod tests {
             Some((-5.0, Some("%".to_owned())))
         );
         assert_eq!(number_with_optional_unit("25 % trailing"), None);
+        assert_eq!(
+            number_with_optional_unit("0.35 W/(m2*K)"),
+            Some((0.35, Some("W/(m2*K)".to_owned())))
+        );
         assert_eq!(
             format_runtime_value(
                 RuntimeFormatValue::Number {

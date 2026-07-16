@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v2",
-    "completion_items_count":  435,
+    "completion_items_count":  440,
     "completion_items":  [
                              {
                                  "detail":  "Schema array value",
@@ -2486,6 +2486,12 @@
                                  "lsp_kind":  7
                              },
                              {
+                                 "detail":  "canonical unit W/m2/K",
+                                 "kind":  "class",
+                                 "label":  "ThermalTransmittance",
+                                 "lsp_kind":  7
+                             },
+                             {
                                  "detail":  "canonical unit person/m2",
                                  "kind":  "class",
                                  "label":  "PeopleDensity",
@@ -2693,6 +2699,30 @@
                                  "detail":  "Irradiance unit",
                                  "kind":  "unit",
                                  "label":  "W/m^2",
+                                 "lsp_kind":  11
+                             },
+                             {
+                                 "detail":  "ThermalTransmittance unit",
+                                 "kind":  "unit",
+                                 "label":  "W/m2/K",
+                                 "lsp_kind":  11
+                             },
+                             {
+                                 "detail":  "ThermalTransmittance unit",
+                                 "kind":  "unit",
+                                 "label":  "W/m^2/K",
+                                 "lsp_kind":  11
+                             },
+                             {
+                                 "detail":  "ThermalTransmittance unit",
+                                 "kind":  "unit",
+                                 "label":  "W/(m2*K)",
+                                 "lsp_kind":  11
+                             },
+                             {
+                                 "detail":  "ThermalTransmittance unit",
+                                 "kind":  "unit",
+                                 "label":  "W/(m^2*K)",
                                  "lsp_kind":  11
                              },
                              {

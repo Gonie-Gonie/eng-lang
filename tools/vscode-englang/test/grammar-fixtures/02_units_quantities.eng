@@ -10,6 +10,8 @@ room_volume: Volume [m3] = 72 m3
 symbolic_volume: Volume [m^3] = 73 m^3
 efficiency: Ratio [%] = 25%
 normalized_efficiency: Ratio [1] = 0.25 1
+u_value: ThermalTransmittance [W/(m2*K)] = 0.35 W/(m2*K)
+symbolic_u_value: ThermalTransmittance [W/(m^2*K)] = 0.40 W/m^2/K
 T_out: AbsoluteTemperature [°C] = 24 °C
 irradiance_label = "irradiance={irradiance: .1 W/m^2}"
 density_label = "density={density: .2 people/m2}"

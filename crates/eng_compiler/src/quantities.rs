@@ -92,6 +92,12 @@ pub const QUANTITY_COMPLETIONS: &[QuantityCompletion] = &[
         description: "Radiant power incident per unit area.",
     },
     QuantityCompletion {
+        quantity_kind: "ThermalTransmittance",
+        canonical_unit: "W/m2/K",
+        dimension: "Power/Area/Temperature",
+        description: "Heat transfer rate per unit area and temperature difference.",
+    },
+    QuantityCompletion {
         quantity_kind: "PeopleDensity",
         canonical_unit: "person/m2",
         dimension: "Count/Area",
@@ -151,6 +157,9 @@ pub fn candidates_for_unit(unit: &str) -> Vec<QuantityCompletion> {
         "j" | "wh" | "kwh" | "mj" => completions_for(&["Energy"]),
         "s" | "min" | "h" | "hr" | "hour" | "hours" => completions_for(&["Duration"]),
         "w/m2" | "w/m^2" => completions_for(&["Irradiance"]),
+        "w/m2/k" | "w/m^2/k" | "w/(m2*k)" | "w/(m^2*k)" => {
+            completions_for(&["ThermalTransmittance"])
+        }
         "person/m2" | "people/m2" => completions_for(&["PeopleDensity"]),
         "pa" | "kpa" => completions_for(&["Pressure"]),
         "kg/s" => completions_for(&["MassFlowRate"]),
@@ -248,6 +257,18 @@ pub fn parse_numeric_literal(expression: &str) -> Option<(f64, Option<String>)> 
 }
 
 pub fn first_unit_in_expression(expression: &str) -> Option<String> {
+    let raw_words = expression.split_whitespace().collect::<Vec<_>>();
+    for pair in raw_words.windows(2) {
+        let [number, unit] = pair else {
+            continue;
+        };
+        if parse_numeric_value(trim_expression_punctuation(number)).is_some() {
+            if let Some(unit) = registered_unit_from_word(unit) {
+                return Some(unit);
+            }
+        }
+    }
+
     let normalized = expression
         .chars()
         .map(|character| match character {
@@ -334,7 +355,7 @@ pub fn is_number_literal(value: &str) -> bool {
 }
 
 pub fn normalize_unit(unit: &str) -> String {
-    let normalized = trim_expression_punctuation(unit).to_ascii_lowercase();
+    let normalized = trim_unit_punctuation(unit).to_ascii_lowercase();
     match normalized.as_str() {
         "°c" | "℃" => "degc".to_owned(),
         _ => normalized,
@@ -368,6 +389,59 @@ fn parse_numeric_value(value: &str) -> Option<f64> {
         return None;
     }
     value.parse::<f64>().ok()
+}
+
+fn registered_unit_from_word(word: &str) -> Option<String> {
+    let mut candidate = word.trim_matches(|character: char| {
+        matches!(character, ',' | ';' | ']' | '[' | '{' | '}' | '"' | '\'')
+    });
+    loop {
+        if !candidates_for_unit(candidate).is_empty() {
+            return Some(candidate.to_owned());
+        }
+        if let Some(stripped) = candidate.strip_suffix(')') {
+            candidate = stripped;
+            continue;
+        }
+        if let Some(stripped) = candidate.strip_prefix('(') {
+            candidate = stripped;
+            continue;
+        }
+        return None;
+    }
+}
+
+fn trim_unit_punctuation(value: &str) -> &str {
+    let mut trimmed = value.trim_matches(|character: char| {
+        matches!(character, ',' | ';' | ']' | '[' | '{' | '}' | '"' | '\'')
+    });
+    while parentheses_wrap_entire_value(trimmed) {
+        trimmed = &trimmed[1..trimmed.len() - 1];
+    }
+    trimmed
+}
+
+fn parentheses_wrap_entire_value(value: &str) -> bool {
+    if !value.starts_with('(') || !value.ends_with(')') {
+        return false;
+    }
+    let mut depth = 0usize;
+    for (index, character) in value.char_indices() {
+        match character {
+            '(' => depth += 1,
+            ')' => {
+                let Some(next_depth) = depth.checked_sub(1) else {
+                    return false;
+                };
+                depth = next_depth;
+                if depth == 0 && index + character.len_utf8() < value.len() {
+                    return false;
+                }
+            }
+            _ => {}
+        }
+    }
+    depth == 0
 }
 
 fn trim_expression_punctuation(value: &str) -> &str {

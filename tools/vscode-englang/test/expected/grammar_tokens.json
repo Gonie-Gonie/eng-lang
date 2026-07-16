@@ -368,6 +368,12 @@
   },
   {
     "fixture": "02_units_quantities.eng",
+    "scope": "support.type.englang",
+    "text": "ThermalTransmittance",
+    "fullMatch": true
+  },
+  {
+    "fixture": "02_units_quantities.eng",
     "scope": "constant.other.unit.englang",
     "text": "J/kg/K",
     "fullMatch": true
@@ -1397,6 +1403,24 @@
     "fixture": "02_units_quantities.eng",
     "scope": "constant.other.unit.englang",
     "text": "1",
+    "fullMatch": true
+  },
+  {
+    "fixture": "02_units_quantities.eng",
+    "scope": "constant.other.unit.englang",
+    "text": "W/(m2*K)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "02_units_quantities.eng",
+    "scope": "constant.other.unit.englang",
+    "text": "W/(m^2*K)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "02_units_quantities.eng",
+    "scope": "constant.other.unit.englang",
+    "text": "W/m^2/K",
     "fullMatch": true
   },
   {

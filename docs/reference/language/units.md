@@ -12,6 +12,9 @@ quantity kind carried by each value.
   for example `12 kW`, `30 s`, or `2 MB`.
 - Write ratios as an attached or spaced percentage such as `25%` or `25 %`;
   `%` converts to the canonical dimensionless unit `1` with scale `0.01`.
+- Write thermal transmittance as `W/m2/K`, `W/m^2/K`, `W/(m2*K)`, or
+  `W/(m^2*K)`. These spellings share canonical unit `W/m2/K` and are kept as a
+  single unit token by editor tooling.
 - Use compatible display units in plot/report options such as `unit y = kW`.
 - Use `1` for dimensionless schema units and dimensionless plot axes.
 

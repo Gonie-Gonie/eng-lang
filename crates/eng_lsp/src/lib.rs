@@ -14183,6 +14183,44 @@ efficiency = 25%
     }
 
     #[test]
+    fn snapshot_marks_parenthesized_thermal_transmittance_units() {
+        let source = r#"declared: ThermalTransmittance [W/(m2*K)] = 0.35 W/m2/K
+parenthesized = 0.40 W/(m^2*K)
+"#;
+        let snapshot =
+            snapshot_for_source(Path::new("parenthesized_thermal_transmittance.eng"), source);
+
+        assert_semantic_token_on_line_type(
+            &snapshot,
+            source,
+            "declared:",
+            "ThermalTransmittance",
+            "type",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "declared:",
+            "W/(m2*K)",
+            "type",
+            "unit",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "parenthesized =",
+            "W/(m^2*K)",
+            "type",
+            "unit",
+        );
+        assert_no_conflicting_semantic_token_types(
+            &snapshot,
+            source,
+            "parenthesized_thermal_transmittance.eng",
+        );
+    }
+
+    #[test]
     fn workflow_sources_do_not_emit_conflicting_semantic_token_types() {
         let repo_root = repo_root_for_tests();
         for relative in [

@@ -68,6 +68,7 @@ MechanicalPower [W]
 Energy [J]
 Duration [s]
 Irradiance [W/m2]
+ThermalTransmittance [W/m2/K]
 PeopleDensity [person/m2]
 Pressure [Pa]
 MassFlowRate [kg/s]
@@ -79,6 +80,10 @@ ReynoldsNumber [1]
 The compiler-owned unit registry records both `1` and `%`. Percentage literals
 such as `25%` and `25 %` infer `Ratio`, retain `%` as their source unit, and use
 `1` as the canonical unit with a `0.01` scale.
+
+The same registry normalizes flat and parenthesized thermal-transmittance
+spellings such as `W/m^2/K` and `W/(m2*K)` to canonical `W/m2/K`. Parentheses
+inside a registered unit are preserved during source-unit parsing.
 
 The catalog is used to:
 
