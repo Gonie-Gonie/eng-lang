@@ -2983,8 +2983,28 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         } else if write.format == "standard_text" {
             modifiers.push("workflowStep");
         }
+        let mut source_modifiers = program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == write.expression.trim())
+            .map(|binding| semantic_modifiers_for_quantity(&binding.semantic_type.quantity_kind))
+            .unwrap_or_default();
+        for modifier in &modifiers {
+            if !source_modifiers.contains(modifier) {
+                source_modifiers.push(modifier);
+            }
+        }
         if !is_string_literal_expression(&write.expression) {
-            builder.push_on_line(write.line, &write.expression, "variable", &modifiers);
+            if is_simple_identifier_segment(write.expression.trim()) {
+                builder.push_preferred_named_span(
+                    write.expression_span,
+                    write.expression.trim(),
+                    "variable",
+                    &source_modifiers,
+                );
+            } else {
+                builder.push_on_line(write.line, &write.expression, "variable", &source_modifiers);
+            }
         }
         builder.push_keywords_on_line(write.line, &["write"], &modifiers);
         if write.quantity_kind == "DbWrite" {
@@ -6109,6 +6129,72 @@ impl<'a> SemanticTokenBuilder<'a> {
             self.push_byte_range(line_index, byte_start, byte_length, token_type, modifiers);
         } else {
             self.push_on_line(span.line, label, token_type, modifiers);
+        }
+    }
+
+    fn push_preferred_named_span(
+        &mut self,
+        span: SourceSpan,
+        label: &str,
+        token_type: &str,
+        modifiers: &[&str],
+    ) {
+        let Some(line_index) = span.line.checked_sub(1) else {
+            return;
+        };
+        let Some(byte_start) = span.column.checked_sub(1) else {
+            return;
+        };
+        let Some(byte_length) = span.end.checked_sub(span.start) else {
+            return;
+        };
+        let Some(byte_end) = byte_start.checked_add(byte_length) else {
+            return;
+        };
+        if self
+            .lines
+            .get(line_index)
+            .and_then(|line| line.get(byte_start..byte_end))
+            != Some(label)
+        {
+            return;
+        }
+        self.remove_tokens_at_byte_range(line_index, byte_start, byte_length);
+        self.push_byte_range(line_index, byte_start, byte_length, token_type, modifiers);
+    }
+
+    fn remove_tokens_at_byte_range(&mut self, line: usize, byte_start: usize, byte_length: usize) {
+        let Some(line_text) = self.lines.get(line).copied() else {
+            return;
+        };
+        let Some(byte_end) = byte_start.checked_add(byte_length) else {
+            return;
+        };
+        if byte_end > line_text.len() {
+            return;
+        }
+        let start = utf16_len(&line_text[..byte_start]);
+        let length = utf16_len(&line_text[byte_start..byte_end]);
+        if !self
+            .tokens
+            .iter()
+            .any(|token| token.line == line && token.start == start && token.length == length)
+        {
+            return;
+        }
+        self.tokens
+            .retain(|token| token.line != line || token.start != start || token.length != length);
+        self.token_keys.clear();
+        for (index, token) in self.tokens.iter().enumerate() {
+            self.token_keys.insert(
+                (
+                    token.line,
+                    token.start,
+                    token.length,
+                    token.token_type.clone(),
+                ),
+                index,
+            );
         }
     }
 
@@ -16398,6 +16484,98 @@ with {
             source,
             "inline_with_option_spans.eng",
         );
+    }
+
+    #[test]
+    fn write_sources_prefer_compiler_spans_over_keyword_fallbacks() {
+        let source = concat!(
+            "samples = sample lhs\r\n",
+            "with { count = 1; seed = 7; x = uniform(0, 1) }\r\n",
+            "records = materialize cases samples\r\n",
+            "write text \"😀records.txt\", records\r\n",
+            "db = open sqlite file(\"out.db\")\r\n",
+            "write records to db.table(\"records\")\r\n",
+            "with { mode = append; transaction = commit }\r\n",
+            "promoted = promote json records payload.records as Row\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("write_source_spans.eng"), source);
+        let lines = source.lines().collect::<Vec<_>>();
+
+        for (line_index, required_modifier) in [(3usize, "sideEffect"), (5usize, "db")] {
+            let line = lines[line_index];
+            let byte_start = if line_index == 3 {
+                line.rfind("records").expect("text write source")
+            } else {
+                line.find("records").expect("DB write source")
+            };
+            let start = utf16_len(&line[..byte_start]);
+            let tokens = snapshot
+                .semantic_tokens
+                .tokens
+                .iter()
+                .filter(|token| {
+                    token.line == line_index
+                        && token.start == start
+                        && token.length == utf16_len("records")
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(
+                tokens
+                    .iter()
+                    .filter(|token| token.token_type == "variable")
+                    .count(),
+                1,
+                "write source on line {line_index} should have one variable token: {tokens:#?}"
+            );
+            let variable = tokens
+                .iter()
+                .find(|token| token.token_type == "variable")
+                .expect("write source variable token");
+            assert!(variable
+                .modifiers
+                .iter()
+                .any(|modifier| modifier == required_modifier));
+            assert!(variable
+                .modifiers
+                .iter()
+                .any(|modifier| modifier == "workflowStep"));
+            assert!(
+                tokens.iter().all(|token| token.token_type != "keyword"),
+                "lexical keyword fallback must yield to the exact write-source span"
+            );
+            if line_index == 3 {
+                assert_ne!(
+                    variable.start, byte_start,
+                    "the non-BMP path prefix should require UTF-16 conversion"
+                );
+            }
+        }
+
+        let keyword_line_index = 7usize;
+        let keyword_line = lines[keyword_line_index];
+        let keyword_byte = keyword_line.find("records").expect("records keyword");
+        let keyword_start = utf16_len(&keyword_line[..keyword_byte]);
+        let keyword_tokens = snapshot
+            .semantic_tokens
+            .tokens
+            .iter()
+            .filter(|token| {
+                token.line == keyword_line_index
+                    && token.start == keyword_start
+                    && token.length == utf16_len("records")
+            })
+            .collect::<Vec<_>>();
+        assert!(keyword_tokens.iter().any(|token| {
+            token.token_type == "keyword"
+                && token
+                    .modifiers
+                    .iter()
+                    .any(|modifier| modifier == "workflowStep")
+        }));
+        assert!(keyword_tokens
+            .iter()
+            .all(|token| token.token_type != "variable"));
+        assert_no_conflicting_semantic_token_types(&snapshot, source, "write_source_spans.eng");
     }
 
     #[test]

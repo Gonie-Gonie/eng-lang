@@ -315,6 +315,10 @@ underline the expression rather than the function header.
 compiler-owned ranges for semantic colors and outline selection. Inline option
 list/enum values and `file`/`dir`/`join` helpers are limited to their own value
 range, so matching text in an earlier option or string is not recolored.
+Simple `write` source identifiers also use exact compiler-owned expression
+ranges. A binding such as `records` is shown once as a workflow/output variable
+at that source position, while `records` in `promote json records` remains a
+workflow keyword.
 
 Role-aware highlighting also works on unsaved edits, so token colors do
 not have to wait for a file save. Sample-table member completions include

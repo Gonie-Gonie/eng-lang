@@ -376,6 +376,11 @@ Scoped `where`/`with` opener tokens, `where` local declarations, and inline
 helpers are searched only inside the corresponding option value span, so a
 matching word in an earlier option or string does not receive the later role.
 
+Simple identifier sources in `write` statements use the compiler-owned write
+expression span. If the identifier is also spelled like a language keyword, the
+exact source range emits one variable token with its binding and write-context
+modifiers; unrelated grammar occurrences keep their keyword token.
+
 ## Document Symbols And Folding Ranges
 
 `document_symbols` uses LSP-style document symbol JSON with numeric symbol

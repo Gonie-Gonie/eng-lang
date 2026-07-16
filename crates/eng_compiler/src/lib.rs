@@ -9798,6 +9798,46 @@ mod tests {
     }
 
     #[test]
+    fn write_expressions_preserve_parser_owned_spans() {
+        let source = concat!(
+            "samples = sample lhs\r\n",
+            "with { count = 1; seed = 7; x = uniform(0, 1) }\r\n",
+            "records = materialize cases samples\r\n",
+            "write text \"😀records.txt\", records\r\n",
+            "db = open sqlite file(\"out.db\")\r\n",
+            "write records to db.table(\"records\")\r\n",
+            "with { mode = append; transaction = commit }\r\n",
+        );
+        let parsed = parse_source(source);
+        let report = check_source(
+            "write_expression_spans.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        let parsed_writes = parsed
+            .items
+            .iter()
+            .filter_map(|item| match item {
+                AstItem::Write(write) => Some(write),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(parsed_writes.len(), 2);
+        assert_eq!(report.semantic_program.writes.len(), 2);
+
+        for (parsed_write, semantic_write) in
+            parsed_writes.iter().zip(&report.semantic_program.writes)
+        {
+            assert_eq!(semantic_write.expression_span, parsed_write.expression_span);
+            assert_eq!(
+                &source[semantic_write.expression_span.start..semantic_write.expression_span.end],
+                "records"
+            );
+        }
+        assert!(parsed_writes[0].expression_span.column > "write text records".len());
+    }
+
+    #[test]
     fn option_diagnostics_expose_compiler_owned_value_spans() {
         let source = concat!(
             "samples = sample lhs\r\n",

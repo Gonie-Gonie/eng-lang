@@ -59,6 +59,12 @@ Semantic metadata retains the parser-owned `where`/`with` keyword anchors in
 and `value_span`. Semantic highlighting and outline selection consume those
 ranges directly, including inline blocks with repeated words in earlier options.
 
+`WriteDecl.expression_span` identifies the exact source expression after the
+selected write path/format syntax, and `WriteInfo.expression_span` carries it
+through the public semantic model. Editor projection can therefore classify a
+simple write-source identifier from its compiler role even when its spelling is
+also a workflow keyword, without changing a real keyword occurrence elsewhere.
+
 ## Semantic Analysis
 
 `semantic.rs` builds the `CheckReport`. The report carries diagnostics plus a

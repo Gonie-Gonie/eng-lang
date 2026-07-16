@@ -2382,6 +2382,22 @@ fn source_span_for_parent_range(parent: SourceSpan, start: usize, end: usize) ->
     )
 }
 
+fn source_span_for_subslice(
+    line_anchor: SourceSpan,
+    line_text: &str,
+    subslice: &str,
+) -> Option<SourceSpan> {
+    let start = (subslice.as_ptr() as usize).checked_sub(line_text.as_ptr() as usize)?;
+    let end = start.checked_add(subslice.len())?;
+    if end > line_text.len()
+        || !line_text.is_char_boundary(start)
+        || !line_text.is_char_boundary(end)
+    {
+        return None;
+    }
+    Some(source_span_for_line_range(line_anchor, start, end))
+}
+
 fn split_top_level_ranges(text: &str, separators: &[char]) -> Vec<(usize, usize)> {
     let mut ranges = Vec::new();
     let mut start = 0usize;
@@ -3047,6 +3063,7 @@ fn parse_write_decl(tokens: &[Token], line_text: &str, context: ParseContext) ->
                 format: "db".to_owned(),
                 path: target.to_owned(),
                 expression: expression.to_owned(),
+                expression_span: source_span_for_subslice(first.span, line_text, expression)?,
                 line: first.span.line,
                 span: first.span,
                 context,
@@ -3058,19 +3075,20 @@ fn parse_write_decl(tokens: &[Token], line_text: &str, context: ParseContext) ->
     if format == "standard_text" {
         let rest = rest.trim();
         let (path, expression) = if let Some((path, expression)) = split_once_top_level(rest, ',') {
-            (path.trim().to_owned(), expression.trim().to_owned())
+            (path.trim(), expression.trim())
         } else if let Some((expression, path)) = rest.rsplit_once(" to ") {
-            (path.trim().to_owned(), expression.trim().to_owned())
+            (path.trim(), expression.trim())
         } else {
-            (String::new(), rest.to_owned())
+            ("", rest)
         };
         if expression.is_empty() {
             return None;
         }
         return Some(WriteDecl {
             format: format.to_owned(),
-            path,
-            expression,
+            path: path.to_owned(),
+            expression: expression.to_owned(),
+            expression_span: source_span_for_subslice(first.span, line_text, expression)?,
             line: first.span.line,
             span: first.span,
             context,
@@ -3086,6 +3104,7 @@ fn parse_write_decl(tokens: &[Token], line_text: &str, context: ParseContext) ->
         format: format.to_owned(),
         path: path.to_owned(),
         expression: expression.to_owned(),
+        expression_span: source_span_for_subslice(first.span, line_text, expression)?,
         line: first.span.line,
         span: first.span,
         context,

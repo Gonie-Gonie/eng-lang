@@ -404,6 +404,12 @@ earlier option or string, and `where` local plus `with` option outline selection
 use the same UTF-16-safe ranges. A `unit <axis>` key is split only within its key
 span so `unit` remains a keyword and the axis remains a property.
 
+Simple identifier sources in `write` statements use `WriteInfo.expression_span`
+as an authoritative semantic range. At that exact range, a lexical keyword
+fallback is replaced by one variable token carrying the binding role plus
+side-effect and DB context. The same spelling in a real grammar position, such
+as `records` in `promote json records`, remains a workflow keyword.
+
 ## VS Code Fallback Mapping
 
 VS Code maps semantic tokens to TextMate fallback scopes in
