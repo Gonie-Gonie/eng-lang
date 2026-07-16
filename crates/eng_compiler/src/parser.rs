@@ -1243,7 +1243,9 @@ fn parse_class_method_decl(
     if context != ParseContext::Class {
         return None;
     }
-    let first = tokens.first()?;
+    let [first, second, ..] = tokens else {
+        return None;
+    };
     if !token_is_identifier(first, "method") {
         return None;
     }
@@ -1251,7 +1253,7 @@ fn parse_class_method_decl(
     let rest = text.strip_prefix("method")?.trim();
     let open = rest.find('(')?;
     let name = rest[..open].trim();
-    if name.is_empty() || !is_identifier_text(name) {
+    if name.is_empty() || !is_identifier_text(name) || name != second.lexeme {
         return None;
     }
     let after_open = &rest[open + 1..];
@@ -1266,6 +1268,7 @@ fn parse_class_method_decl(
     }
     Some(ClassMethodDecl {
         name: name.to_owned(),
+        name_span: second.span,
         return_type,
         return_unit,
         expression: expression.to_owned(),
@@ -1721,6 +1724,7 @@ fn parse_domain_variable_decl(
     Some(DomainVariableDecl {
         role: role.to_owned(),
         name: name.clone(),
+        name_span: second.span,
         type_name,
         unit,
         line: first.span.line,
@@ -1771,6 +1775,7 @@ fn parse_port_decl(tokens: &[Token], line_text: &str, context: ParseContext) -> 
     let domain = line_text.split_once(':')?.1.trim().to_owned();
     Some(PortDecl {
         name: name.clone(),
+        name_span: second.span,
         domain,
         line: first.span.line,
         span: first.span,

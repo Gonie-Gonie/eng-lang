@@ -46,6 +46,8 @@ those exact spans; its same-line name search is a compatibility path for incompl
 or migrating metadata, not the source of truth for new declarations. Function-scope
 reference scans must also skip already-classified declaration ranges so different
 token types never overlap.
+Domain variables, component ports, and class methods keep separate keyword anchors
+and lexer-owned name spans; editor declarations consume the name spans.
 Component templates and system-local component instances are separate compiler
 collections. Editor symbol passes consume both collections: template declarations
 own their nested port/parameter/local tokens, while instance bindings own only the

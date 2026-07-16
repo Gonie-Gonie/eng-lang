@@ -8863,13 +8863,20 @@ mod tests {
             "    state temperature: AbsoluteTemperature = 20 degC\r\n",
             "    states state_vector = [temperature]\r\n",
             "}\r\n",
+            "domain SignalDomain {\r\n",
+            "    across potential: Ratio [1]\r\n",
+            "    through flow: Ratio [1]\r\n",
+            "    conservation sum(flow) = 0\r\n",
+            "}\r\n",
             "component Controller {\r\n",
+            "    port signal_port: SignalDomain\r\n",
             "    parameter setpoint: Ratio [1] = 1\r\n",
             "    input signal: Ratio [1]\r\n",
             "    local_value = setpoint\r\n",
             "}\r\n",
             "class Settings {\r\n",
             "    threshold: Ratio [1] = 1\r\n",
+            "    method summary() -> Ratio [1] = self.threshold\r\n",
             "}\r\n",
             "settings = Settings {\r\n",
             "    threshold = 1\r\n",
@@ -8901,11 +8908,24 @@ mod tests {
                 &program.state_space_vectors[0].name,
                 program.state_space_vectors[0].span,
             ),
+            (
+                &program.domains[0].variables[0].name,
+                program.domains[0].variables[0].span,
+            ),
+            (
+                &program.domains[0].variables[1].name,
+                program.domains[0].variables[1].span,
+            ),
+            (&component.ports[0].name, component.ports[0].span),
             (&component.parameters[0].name, component.parameters[0].span),
             (&component.inputs[0].name, component.inputs[0].span),
             (
                 &program.classes[0].fields[0].name,
                 program.classes[0].fields[0].span,
+            ),
+            (
+                &program.classes[0].methods[0].name,
+                program.classes[0].methods[0].span,
             ),
             (&object.name, object.span),
             (&object.fields[0].name, object.fields[0].span),
@@ -8916,6 +8936,38 @@ mod tests {
         let local = &component.local_expressions[0];
         let local_span = local.span.expect("component local binding span");
         assert_eq!(&source[local_span.start..local_span.end], local.name);
+
+        let parsed = parse_source(source);
+        let mut ast_spans = Vec::new();
+        for item in &parsed.items {
+            let symbol = match item {
+                AstItem::DomainVariable(declaration) => (
+                    declaration.role.as_str(),
+                    &declaration.name,
+                    declaration.span,
+                    declaration.name_span,
+                ),
+                AstItem::Port(declaration) => (
+                    "port",
+                    &declaration.name,
+                    declaration.span,
+                    declaration.name_span,
+                ),
+                AstItem::ClassMethod(declaration) => (
+                    "method",
+                    &declaration.name,
+                    declaration.span,
+                    declaration.name_span,
+                ),
+                _ => continue,
+            };
+            ast_spans.push(symbol);
+        }
+        assert_eq!(ast_spans.len(), 4);
+        for (anchor, name, anchor_span, name_span) in ast_spans {
+            assert_eq!(&source[anchor_span.start..anchor_span.end], anchor);
+            assert_eq!(&source[name_span.start..name_span.end], name);
+        }
     }
 
     #[test]

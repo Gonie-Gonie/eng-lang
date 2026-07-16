@@ -2781,14 +2781,14 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             );
         }
         for variable in &domain.variables {
-            builder.push_on_line(variable.line, &variable.name, "property", &["declaration"]);
+            builder.push_named_span(variable.span, &variable.name, "property", &["declaration"]);
         }
     }
 
     for component in &program.component_templates {
         builder.push_named_span(component.span, &component.name, "class", &["declaration"]);
         for port in &component.ports {
-            builder.push_on_line(port.line, &port.name, "property", &["declaration"]);
+            builder.push_named_span(port.span, &port.name, "property", &["declaration"]);
             builder.push_on_line(
                 port.line,
                 &port.domain_name,
@@ -2832,7 +2832,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             builder.push_keywords_on_line(validation.line, &["validate"], &["validation"]);
         }
         for method in &class_info.methods {
-            builder.push_on_line(method.line, &method.name, "method", &["declaration"]);
+            builder.push_named_span(method.span, &method.name, "method", &["declaration"]);
         }
     }
 
@@ -11223,13 +11223,20 @@ mod tests {
             "    state temperature: AbsoluteTemperature = 20 degC\r\n",
             "    states state_vector = [temperature]\r\n",
             "}\r\n",
+            "domain SignalDomain {\r\n",
+            "    across potential: Ratio [1]\r\n",
+            "    through flow: Ratio [1]\r\n",
+            "    conservation sum(flow) = 0\r\n",
+            "}\r\n",
             "component Controller {\r\n",
+            "    port signal_port: SignalDomain\r\n",
             "    parameter setpoint: Ratio [1] = 1\r\n",
             "    input signal: Ratio [1]\r\n",
             "    local_value = setpoint\r\n",
             "}\r\n",
             "class Settings {\r\n",
             "    threshold: Ratio [1] = 1\r\n",
+            "    method summary() -> Ratio [1] = self.threshold\r\n",
             "}\r\n",
             "settings = Settings {\r\n",
             "    threshold = 1\r\n",
@@ -11243,10 +11250,14 @@ mod tests {
             ("parameter gain", "gain", "parameter"),
             ("state temperature", "temperature", "variable"),
             ("states state_vector", "state_vector", "variable"),
+            ("across potential", "potential", "property"),
+            ("through flow", "flow", "property"),
+            ("port signal_port", "signal_port", "property"),
             ("parameter setpoint", "setpoint", "parameter"),
             ("input signal", "signal", "parameter"),
             ("local_value =", "local_value", "variable"),
             ("threshold: Ratio", "threshold", "property"),
+            ("method summary", "summary", "method"),
             ("settings = Settings", "settings", "variable"),
             ("threshold = 1", "threshold", "property"),
         ] {

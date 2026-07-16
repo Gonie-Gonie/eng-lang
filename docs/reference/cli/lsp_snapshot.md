@@ -246,9 +246,10 @@ Component hover/completion details distinguish a `component template` from a
 and constructs one or more system-local instances.
 
 Declaration tokens for schema columns, system variables and state vectors,
-component parameters, inputs and locals, class and args fields, and class object
-bindings and fields use parser-owned source ranges. Same-line text search remains a
-compatibility fallback for symbol kinds whose exact ranges have not yet migrated.
+domain variables, component ports, parameters, inputs and locals, class fields and
+methods, args fields, and class object bindings and fields use parser-owned source
+ranges. Same-line text search remains a compatibility fallback for symbol kinds
+whose exact ranges have not yet migrated.
 
 Compiler symbol metadata remains the preferred hover source. When a semantic
 token has no matching symbol hover, the snapshot adds a role hover for units,

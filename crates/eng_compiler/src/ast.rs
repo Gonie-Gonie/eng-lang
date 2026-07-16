@@ -102,6 +102,7 @@ pub struct ClassValidationDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClassMethodDecl {
     pub name: String,
+    pub name_span: SourceSpan,
     pub return_type: String,
     pub return_unit: Option<String>,
     pub expression: String,
@@ -189,6 +190,7 @@ pub struct DomainTypeParameterDecl {
 pub struct DomainVariableDecl {
     pub role: String,
     pub name: String,
+    pub name_span: SourceSpan,
     pub type_name: String,
     pub unit: Option<String>,
     pub line: usize,
@@ -212,6 +214,7 @@ pub struct ComponentDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PortDecl {
     pub name: String,
+    pub name_span: SourceSpan,
     pub domain: String,
     pub line: usize,
     pub span: SourceSpan,

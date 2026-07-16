@@ -194,6 +194,7 @@ pub struct SystemInfo {
 pub struct DomainVariableInfo {
     pub role: String,
     pub name: String,
+    pub span: SourceSpan,
     pub quantity_kind: String,
     pub display_unit: String,
     pub canonical_unit: String,
@@ -290,6 +291,7 @@ pub struct DomainInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PortInfo {
     pub name: String,
+    pub span: SourceSpan,
     pub domain: String,
     pub domain_name: String,
     pub type_arguments: Vec<String>,
@@ -515,6 +517,7 @@ pub struct ClassValidationInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClassMethodInfo {
     pub name: String,
+    pub span: SourceSpan,
     pub return_type: String,
     pub return_quantity_kind: String,
     pub return_display_unit: String,
@@ -7114,6 +7117,7 @@ fn analyze_class_method(
     };
     class_info.methods.push(ClassMethodInfo {
         name: method.name.clone(),
+        span: method.name_span,
         return_type: method.return_type.clone(),
         return_quantity_kind: method.return_type.clone(),
         return_display_unit,
@@ -7836,6 +7840,7 @@ fn analyze_domain_variable(declaration: &DomainVariableDecl, domain: &mut Domain
     domain.variables.push(DomainVariableInfo {
         role: declaration.role.clone(),
         name: declaration.name.clone(),
+        span: declaration.name_span,
         quantity_kind: declaration.type_name.clone(),
         display_unit,
         canonical_unit,
@@ -7911,6 +7916,7 @@ fn analyze_port(declaration: &PortDecl, component: &mut ComponentInfo) {
     let domain_ref = parse_domain_reference(&declaration.domain);
     component.ports.push(PortInfo {
         name: declaration.name.clone(),
+        span: declaration.name_span,
         domain: domain_ref.canonical(),
         domain_name: domain_ref.name,
         type_arguments: domain_ref.type_arguments,
