@@ -41,6 +41,7 @@ pub struct TypedBinding {
     pub name: String,
     pub semantic_type: SemanticType,
     pub line: usize,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2213,6 +2214,7 @@ fn analyze_where_binding_scope(
                 name: binding.name.clone(),
                 semantic_type: semantic_type.clone(),
                 line: binding.line,
+                span: binding.span,
             };
             available_bindings.push(typed.clone());
             defined_local_names.insert(binding.name.clone());
@@ -2251,6 +2253,7 @@ fn analyze_where_binding_scope(
                         display_unit: "unknown".to_owned(),
                     },
                     line: binding.line,
+                    span: binding.span,
                 },
                 info,
             ));
@@ -4077,6 +4080,7 @@ fn analyze_process_run_decl(
         name: binding.clone(),
         semantic_type: semantic_type.clone(),
         line: process.line,
+        span: process.span,
     });
     hover_hints.push(HoverHint::inferred(
         binding.clone(),
@@ -7108,6 +7112,7 @@ fn analyze_class_object_decl(
             display_unit: "object".to_owned(),
         },
         line: object.line,
+        span: object.span,
     });
     hover_hints.push(HoverHint::explicit(
         object.name.clone(),
@@ -7179,6 +7184,7 @@ fn analyze_class_object_copy_decl(
             display_unit: "object".to_owned(),
         },
         line: object.line,
+        span: object.span,
     });
     hover_hints.push(HoverHint::explicit(
         object.name.clone(),
@@ -10961,7 +10967,7 @@ fn analyze_const_decl(
         display_unit: Some(display_unit.clone()),
         source: ExpectedTypeSource::ExplicitAnnotation,
         line: declaration.line,
-        span: declaration.span,
+        span: declaration.name_span,
     });
     typed_bindings.push(TypedBinding {
         name: declaration.name.clone(),
@@ -10970,13 +10976,14 @@ fn analyze_const_decl(
             display_unit: display_unit.clone(),
         },
         line: declaration.line,
+        span: declaration.name_span,
     });
     hover_hints.push(HoverHint::importable_const(
         declaration.name.clone(),
         declaration.type_name.clone(),
         display_unit.clone(),
         declaration.expression.clone(),
-        declaration.span,
+        declaration.name_span,
     ));
     type_infos.push(TypeInfo {
         name: declaration.name.clone(),
@@ -10986,7 +10993,7 @@ fn analyze_const_decl(
         dimension: dimension.clone(),
         source: TypeInfoSource::Const,
         line: declaration.line,
-        span: declaration.span,
+        span: declaration.name_span,
     });
     unit_derivations.push(unit_derivation(
         &declaration.name,
@@ -11048,6 +11055,7 @@ fn analyze_explicit_decl(declaration: &ExplicitDecl, outputs: ExplicitAnalysisOu
             display_unit: display_unit.clone(),
         },
         line: declaration.line,
+        span: declaration.span,
     });
     hover_hints.push(HoverHint::explicit(
         declaration.name.clone(),
@@ -11129,7 +11137,7 @@ fn analyze_system_variable(
         display_unit: Some(display_unit.clone()),
         source: ExpectedTypeSource::SystemBoundary,
         line: declaration.line,
-        span: declaration.span,
+        span: declaration.name_span,
     });
     typed_bindings.push(TypedBinding {
         name: declaration.name.clone(),
@@ -11138,13 +11146,14 @@ fn analyze_system_variable(
             display_unit: display_unit.clone(),
         },
         line: declaration.line,
+        span: declaration.name_span,
     });
     hover_hints.push(HoverHint::explicit(
         declaration.name.clone(),
         declaration.type_name.clone(),
         display_unit.clone(),
         declaration.expression.clone(),
-        declaration.span,
+        declaration.name_span,
     ));
     type_infos.push(TypeInfo {
         name: declaration.name.clone(),
@@ -11154,7 +11163,7 @@ fn analyze_system_variable(
         dimension: dimension.clone(),
         source: TypeInfoSource::SystemBoundary,
         line: declaration.line,
-        span: declaration.span,
+        span: declaration.name_span,
     });
     unit_derivations.push(unit_derivation(
         &declaration.name,
@@ -11234,6 +11243,7 @@ fn analyze_typed_state_space_vector_variable(
             let generated = SystemVariableDecl {
                 role: scalar_role.to_owned(),
                 name: member.name.clone(),
+                name_span: member.span,
                 type_name: member.type_name.clone(),
                 unit: member.unit.clone(),
                 expression: initial_values.get(index).cloned(),
@@ -11256,6 +11266,7 @@ fn analyze_typed_state_space_vector_variable(
     let vector_decl = StateSpaceVectorDecl {
         role: vector_role.to_owned(),
         name: declaration.name.clone(),
+        name_span: declaration.name_span,
         members: type_block
             .members
             .iter()
@@ -11363,13 +11374,14 @@ fn analyze_state_space_vector_decl(
             display_unit: "vector".to_owned(),
         },
         line: declaration.line,
+        span: declaration.name_span,
     });
     hover_hints.push(HoverHint::explicit(
         declaration.name.clone(),
         vector_type.to_owned(),
         "vector".to_owned(),
         Some(format!("[{}]", declaration.members.join(", "))),
-        declaration.span,
+        declaration.name_span,
     ));
     type_infos.push(TypeInfo {
         name: declaration.name.clone(),
@@ -11379,7 +11391,7 @@ fn analyze_state_space_vector_decl(
         dimension: "StateSpace".to_owned(),
         source: TypeInfoSource::SystemBoundary,
         line: declaration.line,
-        span: declaration.span,
+        span: declaration.name_span,
     });
     state_space_vectors.push(StateSpaceVectorInfo {
         system: system_name.to_owned(),
@@ -12738,6 +12750,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
             name: binding.name.clone(),
             semantic_type: semantic_type.clone(),
             line: binding.line,
+            span: binding.span,
         });
         accum.hover_hints.push(HoverHint::inferred(
             binding.name.clone(),

@@ -8616,6 +8616,84 @@ mod tests {
     }
 
     #[test]
+    fn typed_bindings_preserve_exact_declaration_name_spans() {
+        let source = concat!(
+            "const BASE: HeatRate [kW] = 5 kW\r\n",
+            "system Plant {\r\n",
+            "    parameter gain: Ratio [1] = 1\r\n",
+            "    state temperature: AbsoluteTemperature [degC] = 20 degC\r\n",
+            "    states state_values = [temperature]\r\n",
+            "}\r\n",
+            "result = BASE\r\n",
+        );
+        let parsed = parse_source(source);
+        let constant = parsed
+            .items
+            .iter()
+            .find_map(|item| match item {
+                AstItem::Const(declaration) => Some(declaration),
+                _ => None,
+            })
+            .expect("const declaration");
+        assert_eq!(&source[constant.span.start..constant.span.end], "const");
+        assert_eq!(
+            &source[constant.name_span.start..constant.name_span.end],
+            "BASE"
+        );
+
+        let system_variable = parsed
+            .items
+            .iter()
+            .find_map(|item| match item {
+                AstItem::SystemVariable(declaration) if declaration.name == "gain" => {
+                    Some(declaration)
+                }
+                _ => None,
+            })
+            .expect("system parameter declaration");
+        assert_eq!(
+            &source[system_variable.span.start..system_variable.span.end],
+            "parameter"
+        );
+        assert_eq!(
+            &source[system_variable.name_span.start..system_variable.name_span.end],
+            "gain"
+        );
+
+        let vector = parsed
+            .items
+            .iter()
+            .find_map(|item| match item {
+                AstItem::StateSpaceVector(declaration) => Some(declaration),
+                _ => None,
+            })
+            .expect("state-space vector declaration");
+        assert_eq!(&source[vector.span.start..vector.span.end], "states");
+        assert_eq!(
+            &source[vector.name_span.start..vector.name_span.end],
+            "state_values"
+        );
+
+        let report = check_source("name_spans.eng", source, &CheckOptions::default());
+        for binding in &report.semantic_program.typed_bindings {
+            assert_eq!(
+                &source[binding.span.start..binding.span.end],
+                binding.name,
+                "typed binding `{}` should retain its exact declaration token",
+                binding.name
+            );
+        }
+        for hover in &report.semantic_program.hover_hints {
+            assert_eq!(
+                &source[hover.span.start..hover.span.end],
+                hover.name,
+                "hover `{}` should retain its exact declaration token",
+                hover.name
+            );
+        }
+    }
+
+    #[test]
     fn parser_records_top_level_workflow_and_binding_items() {
         let report = check_source("ok.eng", "L = 1 m + 20 cm\n", &CheckOptions::default());
 

@@ -49,6 +49,7 @@ pub struct ArgsDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ConstDecl {
     pub name: String,
+    pub name_span: SourceSpan,
     pub type_name: String,
     pub unit: Option<String>,
     pub expression: String,
@@ -221,6 +222,7 @@ pub struct ConnectDecl {
 pub struct SystemVariableDecl {
     pub role: String,
     pub name: String,
+    pub name_span: SourceSpan,
     pub type_name: String,
     pub unit: Option<String>,
     pub expression: Option<String>,
@@ -233,6 +235,7 @@ pub struct SystemVariableDecl {
 pub struct StateSpaceVectorDecl {
     pub role: String,
     pub name: String,
+    pub name_span: SourceSpan,
     pub members: Vec<String>,
     pub line: usize,
     pub span: SourceSpan,

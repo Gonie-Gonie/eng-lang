@@ -38,6 +38,11 @@ Role-specific builtin first-paint lists are compiler-owned under
 lexical fallback consume those groups directly; do not add parallel hardcoded
 model, uncertainty, TimeSeries, solver, path, temporal, or boundary lists.
 
+Compiler-resolved declaration overlays carry parser-owned name ranges through
+`TypedBinding` and `HoverHint`. The LSP validates and consumes those exact spans;
+its same-line name search is a compatibility path for incomplete or migrating
+metadata, not the source of truth for new declarations.
+
 After LSP semantic legend or completion changes run:
 
 ```bat

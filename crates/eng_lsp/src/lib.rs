@@ -7,7 +7,7 @@ use eng_compiler::{
     db_read_expression, read_only_io_expression, review_validation_records, CheckOptions,
     CheckReport, ClassFieldInfo, CommandStyleInfo, Diagnostic, DomainTypeParameterInfo,
     FileOperationInfo, FunctionInfo, ImportSourceOverrides, ReviewValidationRecord,
-    SemanticProgram, Severity, WithBlockInfo, WithOptionInfo,
+    SemanticProgram, Severity, SourceSpan, WithBlockInfo, WithOptionInfo,
 };
 use serde_json::{json, Value};
 
@@ -2325,7 +2325,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         }
         let mut modifiers = semantic_modifiers_for_quantity(&binding.semantic_type.quantity_kind);
         modifiers.push("declaration");
-        builder.push_on_line(binding.line, &binding.name, "variable", &modifiers);
+        builder.push_named_span(binding.span, &binding.name, "variable", &modifiers);
     }
 
     for hover in &program.hover_hints {
@@ -2337,7 +2337,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             modifiers.push("readonly");
             modifiers.push("defaultLibrary");
         }
-        builder.push_on_line(hover.line, &hover.name, "variable", &modifiers);
+        builder.push_named_span(hover.span, &hover.name, "variable", &modifiers);
     }
 
     for function in &program.functions {
@@ -5689,6 +5689,37 @@ impl<'a> SemanticTokenBuilder<'a> {
                 self.push_byte_range(line_index, start, candidate.len(), token_type, modifiers);
                 return;
             }
+        }
+    }
+
+    fn push_named_span(
+        &mut self,
+        span: SourceSpan,
+        label: &str,
+        token_type: &str,
+        modifiers: &[&str],
+    ) {
+        let Some(line_index) = span.line.checked_sub(1) else {
+            return;
+        };
+        let Some(byte_start) = span.column.checked_sub(1) else {
+            return;
+        };
+        let Some(byte_length) = span.end.checked_sub(span.start) else {
+            return;
+        };
+        let Some(byte_end) = byte_start.checked_add(byte_length) else {
+            return;
+        };
+        let matches_label = self
+            .lines
+            .get(line_index)
+            .and_then(|line| line.get(byte_start..byte_end))
+            == Some(label);
+        if matches_label {
+            self.push_byte_range(line_index, byte_start, byte_length, token_type, modifiers);
+        } else {
+            self.push_on_line(span.line, label, token_type, modifiers);
         }
     }
 
@@ -10954,6 +10985,26 @@ mod tests {
         let line = source.lines().nth(line_index).expect("diagnostic line");
 
         (line, start, end)
+    }
+
+    #[test]
+    fn semantic_token_builder_prefers_compiler_owned_name_spans() {
+        let source = "value + value";
+        let start = source.rfind("value").unwrap();
+        let mut builder = SemanticTokenBuilder::new(source);
+        builder.push_named_span(
+            SourceSpan::new(start, start + "value".len(), 1, start + 1),
+            "value",
+            "variable",
+            &["declaration"],
+        );
+        let tokens = builder.finish().tokens;
+
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].start, start);
+        assert_eq!(tokens[0].length, "value".len());
+        assert_eq!(tokens[0].token_type, "variable");
+        assert_eq!(tokens[0].modifiers, vec!["declaration"]);
     }
 
     #[test]

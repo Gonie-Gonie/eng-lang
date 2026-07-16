@@ -1441,6 +1441,7 @@ fn parse_const_decl(tokens: &[Token], line_text: &str, context: ParseContext) ->
     }
     Some(ConstDecl {
         name: name.clone(),
+        name_span: second.span,
         type_name,
         unit,
         expression: expression.to_owned(),
@@ -1797,6 +1798,7 @@ fn parse_system_variable_decl(
     Some(SystemVariableDecl {
         role: role.to_owned(),
         name: name.clone(),
+        name_span: second.span,
         type_name,
         unit,
         expression,
@@ -1837,6 +1839,7 @@ fn parse_state_space_vector_decl(
     Some(StateSpaceVectorDecl {
         role: role.to_owned(),
         name: name.clone(),
+        name_span: second.span,
         members,
         line: first.span.line,
         span: first.span,

@@ -222,8 +222,8 @@ separate.
 - Main status: `Internal`
 - Evidence: `eng-lsp.exe` smoke/editor-request checks, a versioned persistent
   document cache with debounced diagnostics, request-ID-scoped protocol
-  cancellation with cooperative workspace scan interruption, stdio tests, and
-  optional VS Code source.
+  cancellation with cooperative workspace scan interruption, compiler-owned
+  declaration name ranges, stdio tests, and optional VS Code source.
 - Not included: stable long-running editor protocol contract.
 - Next cleanup action: keep editor tooling commands labeled as internal smoke
   and diagnostic checks.
