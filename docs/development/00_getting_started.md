@@ -110,6 +110,7 @@ build/
 .\dev.bat build
 .\dev.bat test
 .\dev.bat fmt
+.\dev.bat fmt-check
 .\dev.bat clippy
 .\dev.bat ci
 .\dev.bat docs-check

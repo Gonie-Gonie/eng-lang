@@ -16,10 +16,10 @@ The documentation plans in `EngLang_Documentation_Reorganization_and_User_Guide_
 
 | Gate | Command | Current purpose |
 |---|---|---|
-| Workspace CI | `dev.bat ci` | Runs Rust formatting, workspace tests, example smoke, LSP smoke, JIT checks, clippy, and the package run example. |
+| Workspace CI | `dev.bat ci` | Fails on Rust formatting drift, then runs workspace tests, example smoke, LSP smoke, JIT checks, clippy, and the package run example. |
 | Example workflow smoke | `cargo run -p eng_cli -- test examples` | Checks all official, workflow, advanced solver, internal, and compatibility examples, then runs targeted artifact assertions. |
 | Artifact golden check | `dev.bat artifacts-check` | Validates schemas and stable artifact snapshots for official and internal fixtures. |
-| Documentation check | `dev.bat docs-check` | Checks documented snippets and supported documentation examples. |
+| Documentation check | `dev.bat docs-check` | Checks Markdown final-newline/trailing-whitespace hygiene, links, documented snippets, and supported documentation examples. |
 | Native workflow status | `dev.bat workflow-native-status` | Quickly reports workflow 01/02/03 native-only source/docs status and latest process/run-graph artifact evidence without rerunning the full smoke gate. |
 | Package smoke | `dev.bat package-smoke` | Validates the portable public package path. Workflow fixtures stay in workflow smoke until promoted. |
 

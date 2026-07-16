@@ -48,8 +48,9 @@ Preferred order:
 3. update docs and release notes
 4. run eng fmt <changed.eng> --write for changed EngLang sources
 5. run .\dev.bat fmt
-6. run .\dev.bat test
-7. run .\dev.bat clippy when the change touches Rust behavior
+6. run .\dev.bat fmt-check
+7. run .\dev.bat test
+8. run .\dev.bat clippy when the change touches Rust behavior
 ```
 
 Commit after each independently useful unit that passes the relevant checks.

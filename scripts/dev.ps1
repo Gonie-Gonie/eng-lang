@@ -1694,6 +1694,16 @@ function Invoke-Fmt {
     Invoke-Native $cargo "fmt" "--all"
 }
 
+function Invoke-FmtCheck {
+    Set-DevEnvironment
+    $cargo = Get-Cargo
+    if ($null -eq $cargo) {
+        Write-Host "Cargo not found. Run .\dev.bat setup."
+        exit 1
+    }
+    Invoke-Native $cargo "fmt" "--all" "--" "--check"
+}
+
 function Invoke-Clippy {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -1705,7 +1715,7 @@ function Invoke-Clippy {
 }
 
 function Invoke-Ci {
-    Invoke-Fmt
+    Invoke-FmtCheck
     Invoke-Test
     Invoke-LspCheck
     Invoke-JitCheck
@@ -1753,6 +1763,42 @@ function Get-CodeFences {
     if ($inFence) {
         throw "Unclosed code fence in $Path starting at line $startLine"
     }
+}
+
+function Test-MarkdownSourceHygiene {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]] $Roots
+    )
+
+    $Files = @($Roots | ForEach-Object {
+        $Path = Join-Path $RepoRoot $_
+        if (Test-Path -LiteralPath $Path -PathType Leaf) {
+            Get-Item -LiteralPath $Path
+        } elseif (Test-Path -LiteralPath $Path -PathType Container) {
+            Get-ChildItem -LiteralPath $Path -Recurse -Filter "*.md" -File |
+                Where-Object { $_.FullName -notmatch '[\\/]node_modules[\\/]' }
+        }
+    } | Sort-Object FullName -Unique)
+    $Issues = New-Object System.Collections.Generic.List[string]
+    foreach ($File in $Files) {
+        $Bytes = [System.IO.File]::ReadAllBytes($File.FullName)
+        $RelativePath = $File.FullName.Substring($RepoRoot.Length).TrimStart('\')
+        if ($Bytes.Length -eq 0 -or $Bytes[$Bytes.Length - 1] -ne 10) {
+            $Issues.Add("missing final LF: $RelativePath") | Out-Null
+        }
+        $LineNumber = 0
+        foreach ($Line in [System.IO.File]::ReadAllLines($File.FullName)) {
+            $LineNumber += 1
+            if ($Line -match '[\t ]+$') {
+                $Issues.Add("trailing whitespace: $RelativePath`:$LineNumber") | Out-Null
+            }
+        }
+    }
+    if ($Issues.Count -gt 0) {
+        throw "Markdown source hygiene failed:`n - $($Issues -join "`n - ")"
+    }
+    Write-Host "Markdown source hygiene passed. Checked $($Files.Count) file(s)."
 }
 
 function Test-MarkdownLinks {
@@ -2311,6 +2357,17 @@ function Invoke-DocsCheck {
         (Join-Path $RepoRoot "crates\eng_compiler\src\lib.rs"),
         (Join-Path $RepoRoot "crates\eng_compiler\src\units.rs"),
         (Join-Path $RepoRoot "stdlib\units.eng")
+    )
+    Test-MarkdownSourceHygiene -Roots @(
+        "README.md",
+        "LLM_CONTEXT.md",
+        "artifacts",
+        "benchmarks",
+        "crates",
+        "docs",
+        "examples",
+        "stdlib",
+        "tools"
     )
     Test-NoCelsiusMojibake -Paths $CelsiusMojibakeCheckFiles
     Test-MarkdownLinks -Files $linkFiles.ToArray()
@@ -9563,8 +9620,9 @@ Usage:
   .\dev.bat workflows-test Run native workflow module and workflow example smoke tests
   .\dev.bat workflow-native-status Show native workflow source/doc/latest artifact status
   .\dev.bat fmt            Format Rust code
+  .\dev.bat fmt-check      Check Rust formatting without modifying files
   .\dev.bat clippy         Run clippy with warnings denied
-  .\dev.bat ci             Run fmt, tests, clippy, and preview example
+  .\dev.bat ci             Check formatting, then run tests, clippy, and preview example
   .\dev.bat docs-check     Check supported documentation Eng snippets
   .\dev.bat user-docs-markdown Assemble curated user guide Markdown for publishing checks
   .\dev.bat grammar-docs   Generate the oodocs language grammar PDF
@@ -9603,6 +9661,7 @@ switch ($Command) {
     "workflows-test" { Invoke-WorkflowsTest }
     "workflow-native-status" { Invoke-WorkflowNativeStatus }
     "fmt" { Invoke-Fmt }
+    "fmt-check" { Invoke-FmtCheck }
     "clippy" { Invoke-Clippy }
     "ci" { Invoke-Ci }
     "docs-check" { Invoke-DocsCheck }
