@@ -99,6 +99,7 @@ pub struct ClassFieldDecl {
     pub unit: Option<String>,
     pub unit_span: Option<SourceSpan>,
     pub default_value: Option<String>,
+    pub default_value_span: Option<SourceSpan>,
     pub line: usize,
     pub span: SourceSpan,
 }
@@ -106,6 +107,7 @@ pub struct ClassFieldDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClassValidationDecl {
     pub expression: String,
+    pub expression_span: SourceSpan,
     pub line: usize,
     pub span: SourceSpan,
 }
@@ -115,8 +117,11 @@ pub struct ClassMethodDecl {
     pub name: String,
     pub name_span: SourceSpan,
     pub return_type: String,
+    pub return_type_span: SourceSpan,
     pub return_unit: Option<String>,
+    pub return_unit_span: Option<SourceSpan>,
     pub expression: String,
+    pub expression_span: SourceSpan,
     pub line: usize,
     pub span: SourceSpan,
 }
@@ -146,6 +151,7 @@ pub struct ClassObjectFieldDecl {
     pub owner_line: Option<usize>,
     pub name: String,
     pub expression: String,
+    pub expression_span: SourceSpan,
     pub line: usize,
     pub span: SourceSpan,
 }

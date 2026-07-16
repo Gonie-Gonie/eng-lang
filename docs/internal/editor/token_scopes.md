@@ -461,6 +461,17 @@ Value quick fixes prefer the exact Problems range; when a single required
 option is absent, the LSP inserts it into the attached `with` block or creates a
 new block on the owner declaration.
 
+Class field defaults, validation expressions, method return type/unit and return
+expressions, and object-field values also retain compiler-owned spans. Every
+`E-CLASS-*` diagnostic in the fixture corpus must select its failing name,
+expression, or argument before UTF-16 conversion. Method return quantities and
+units use those exact spans for semantic colors. Class, field, validation,
+method, object, and explicit object-field Outline selections use their source
+occurrences; inherited copy-with fields are omitted from the copy's Outline so
+they cannot navigate back into the source object. Evaluated object validation
+results stay in the validation payload instead of appearing as structural
+Outline children that point back to the class rule.
+
 Command-style targets and clause names/values use `CommandStyleInfo` spans for
 semantic tokens. Command Outline entries select the target, while assertion
 children select `AssertInfo.operator_span` with operand fallback. Direct

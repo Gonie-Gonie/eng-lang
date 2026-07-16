@@ -1198,10 +1198,17 @@ fn parse_class_field_decl(
     if !matches!(second.kind, TokenKind::Symbol(Symbol::Colon)) {
         return None;
     }
-    let raw_after_colon = line_text.split_once(':')?.1.trim().trim_end_matches(',');
-    let (type_part, default_value) = raw_after_colon
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let code_end = tokens.last()?.span.end.checked_sub(line_start)?;
+    let code = line_text.get(..code_end)?.trim_end();
+    let code = code.strip_suffix(',').unwrap_or(code).trim_end();
+    let raw_after_colon = code.split_once(':')?.1.trim();
+    let (type_part, default_value_source) = raw_after_colon
         .split_once('=')
-        .map(|(left, right)| (left.trim(), Some(right.trim().to_owned())))
+        .map(|(left, right)| (left.trim(), Some(right.trim())))
         .unwrap_or((raw_after_colon, None));
     let (type_name, unit) = split_type_and_unit(type_part);
     let (type_span, unit_span) = type_and_unit_source_spans(first.span, line_text, type_part)?;
@@ -1214,7 +1221,9 @@ fn parse_class_field_decl(
         type_span,
         unit,
         unit_span,
-        default_value,
+        default_value: default_value_source.map(str::to_owned),
+        default_value_span: default_value_source
+            .and_then(|value| source_span_for_subslice(first.span, line_text, value)),
         line: first.span.line,
         span: first.span,
     })
@@ -1226,44 +1235,51 @@ fn parse_class_validation_decl(
     context: ParseContext,
 ) -> Option<ClassValidationDecl> {
     let first = tokens.first()?;
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let code_end = tokens.last()?.span.end.checked_sub(line_start)?;
+    let code = line_text.get(..code_end)?;
     let expression = match context {
         ParseContext::Class => {
             if !token_is_identifier(first, "validate") {
                 return None;
             }
-            let rest = line_text.trim_start().strip_prefix("validate")?.trim();
+            let rest = code.trim_start().strip_prefix("validate")?.trim();
             class_validation_expression_from_validate_line(rest)?
         }
-        ParseContext::ClassValidation => class_validation_expression_from_block_line(line_text)?,
+        ParseContext::ClassValidation => class_validation_expression_from_block_line(code)?,
         _ => return None,
     };
     Some(ClassValidationDecl {
-        expression,
+        expression: expression.to_owned(),
+        expression_span: source_span_for_subslice(first.span, line_text, expression)?,
         line: first.span.line,
         span: first.span,
     })
 }
 
-fn class_validation_expression_from_validate_line(rest: &str) -> Option<String> {
+fn class_validation_expression_from_validate_line(rest: &str) -> Option<&str> {
     let trimmed = rest.trim().trim_end_matches(',').trim();
     if trimmed.is_empty() || trimmed == "{" {
         return None;
     }
     if let Some(after_open) = trimmed.strip_prefix('{') {
         let expression = after_open.trim().trim_end_matches('}').trim();
-        return (!expression.is_empty()).then(|| expression.to_owned());
+        return (!expression.is_empty()).then_some(expression);
     }
     let expression = trimmed.trim_end_matches('{').trim();
-    (!expression.is_empty()).then(|| expression.to_owned())
+    (!expression.is_empty()).then_some(expression)
 }
 
-fn class_validation_expression_from_block_line(line_text: &str) -> Option<String> {
+fn class_validation_expression_from_block_line(line_text: &str) -> Option<&str> {
     let trimmed = line_text.trim().trim_end_matches(',').trim();
     if trimmed.is_empty() || trimmed == "}" {
         return None;
     }
     let expression = trimmed.trim_end_matches('}').trim();
-    (!expression.is_empty()).then(|| expression.to_owned())
+    (!expression.is_empty()).then_some(expression)
 }
 
 fn parse_class_method_decl(
@@ -1280,7 +1296,12 @@ fn parse_class_method_decl(
     if !token_is_identifier(first, "method") {
         return None;
     }
-    let text = line_text.trim().trim_end_matches(',');
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let code_end = tokens.last()?.span.end.checked_sub(line_start)?;
+    let text = line_text.get(..code_end)?.trim().trim_end_matches(',');
     let rest = text.strip_prefix("method")?.trim();
     let open = rest.find('(')?;
     let name = rest[..open].trim();
@@ -1292,17 +1313,24 @@ fn parse_class_method_decl(
     let after_signature = after_open[close + 1..].trim();
     let after_arrow = after_signature.strip_prefix("->")?.trim();
     let (return_part, expression) = after_arrow.split_once('=')?;
-    let (return_type, return_unit) = split_type_and_unit(return_part.trim());
+    let return_part = return_part.trim();
+    let (return_type, return_unit) = split_type_and_unit(return_part);
     let expression = expression.trim();
     if return_type.is_empty() || expression.is_empty() {
         return None;
     }
+    let return_span = source_span_for_subslice(first.span, line_text, return_part)?;
+    let (return_type_span, return_unit_span) =
+        type_and_unit_source_spans_at(first.span, return_span.column.checked_sub(1)?, return_part);
     Some(ClassMethodDecl {
         name: name.to_owned(),
         name_span: second.span,
         return_type,
+        return_type_span,
         return_unit,
+        return_unit_span,
         expression: expression.to_owned(),
+        expression_span: source_span_for_subslice(first.span, line_text, expression)?,
         line: first.span.line,
         span: first.span,
     })
@@ -1409,11 +1437,22 @@ fn parse_class_object_field_decl(
     if !matches!(second.kind, TokenKind::Symbol(Symbol::Equal)) {
         return None;
     }
-    let expression = expression_after(line_text.trim().trim_end_matches(','), '=')?;
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let code_end = tokens.last()?.span.end.checked_sub(line_start)?;
+    let code = line_text.get(..code_end)?.trim_end();
+    let code = code.strip_suffix(',').unwrap_or(code).trim_end();
+    let expression = code.split_once('=')?.1.trim();
+    if expression.is_empty() {
+        return None;
+    }
     Some(ClassObjectFieldDecl {
         owner_line,
         name: name.clone(),
-        expression,
+        expression: expression.to_owned(),
+        expression_span: source_span_for_subslice(first.span, line_text, expression)?,
         line: first.span.line,
         span: first.span,
     })

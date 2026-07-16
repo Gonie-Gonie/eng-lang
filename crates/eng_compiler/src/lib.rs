@@ -11888,6 +11888,277 @@ system Envelope {
     }
 
     #[test]
+    fn class_contract_diagnostics_preserve_exact_source_spans() {
+        let assert_span =
+            |report: &CheckReport, source: &str, code: &str, message: &str, expected: &str| {
+                let diagnostic = report
+                    .diagnostics
+                    .iter()
+                    .find(|diagnostic| {
+                        diagnostic.code == code && diagnostic.message.contains(message)
+                    })
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "missing {code} diagnostic containing `{message}`: {:?}",
+                            report.diagnostics
+                        )
+                    });
+                let span = diagnostic
+                    .source_span
+                    .unwrap_or_else(|| panic!("{code} should own its source span"));
+                assert_eq!(&source[span.start..span.end], expected, "{code}");
+            };
+
+        let class_source = concat!(
+            "class BadClass {\r\n",
+            "    distance: Length [m] = 1 s // repeated 1 s\r\n",
+            "    bad_type: MissingType\r\n",
+            "    name: String\r\n",
+            "    validate { name != \"\" }\r\n",
+            "    validate { name } // repeated name\r\n",
+            "    method bad() -> Length [m] = self.name // repeated self.name\r\n",
+            "    method missing() -> String = self.unknown\r\n",
+            "}\r\n",
+        );
+        let class_report = check_source(
+            "class_declaration_spans.eng",
+            class_source,
+            &CheckOptions::default(),
+        );
+        assert_span(
+            &class_report,
+            class_source,
+            "E-CLASS-FIELD-TYPE-001",
+            "field `distance`",
+            "1 s",
+        );
+        assert_span(
+            &class_report,
+            class_source,
+            "E-CLASS-FIELD-TYPE-002",
+            "bad_type",
+            "MissingType",
+        );
+        assert_span(
+            &class_report,
+            class_source,
+            "E-CLASS-VALIDATION-001",
+            "validation `name`",
+            "name",
+        );
+        assert_span(
+            &class_report,
+            class_source,
+            "E-CLASS-METHOD-RETURN-001",
+            "method `bad`",
+            "self.name",
+        );
+        assert_span(
+            &class_report,
+            class_source,
+            "E-CLASS-METHOD-SELF-001",
+            "method `missing`",
+            "self.unknown",
+        );
+        let class_info = &class_report.semantic_program.classes[0];
+        let distance = class_info
+            .fields
+            .iter()
+            .find(|field| field.name == "distance")
+            .expect("distance class field");
+        let default_span = distance.default_value_span.expect("class default span");
+        assert_eq!(&class_source[default_span.start..default_span.end], "1 s");
+        let validation = class_info.validations.first().expect("class validation");
+        assert_eq!(
+            &class_source[validation.expression_span.start..validation.expression_span.end],
+            "name != \"\""
+        );
+        for (method_name, expected) in [("bad", "self.name"), ("missing", "self.unknown")] {
+            let method = class_info
+                .methods
+                .iter()
+                .find(|method| method.name == method_name)
+                .expect("class method");
+            assert_eq!(
+                &class_source[method.expression_span.start..method.expression_span.end],
+                expected
+            );
+        }
+        let bad_method = class_info
+            .methods
+            .iter()
+            .find(|method| method.name == "bad")
+            .expect("bad class method");
+        assert_eq!(
+            &class_source[bad_method.return_type_span.start..bad_method.return_type_span.end],
+            "Length"
+        );
+        let return_unit_span = bad_method
+            .return_unit_span
+            .expect("method return unit span");
+        assert_eq!(
+            &class_source[return_unit_span.start..return_unit_span.end],
+            "m"
+        );
+
+        let object_source = concat!(
+            "class Construction {\r\n",
+            "    u_value: Conductance [W/K]\r\n",
+            "    thickness: Length [m]\r\n",
+            "    validate { u_value > 0 W/K }\r\n",
+            "}\r\n",
+            "wall = Construction {\r\n",
+            "    u_value = 3 m // repeated 3 m\r\n",
+            "    color = \"white\"\r\n",
+            "}\r\n",
+            "failed = Construction {\r\n",
+            "    u_value = 0 W/K // repeated 0 W/K\r\n",
+            "    thickness = 1 m\r\n",
+            "}\r\n",
+            "missing_class = MissingClass {\r\n",
+            "    value = 1\r\n",
+            "}\r\n",
+            "copy_missing = nope with {\r\n",
+            "    u_value = 100 W/K\r\n",
+            "}\r\n",
+        );
+        let object_report = check_source(
+            "class_object_spans.eng",
+            object_source,
+            &CheckOptions::default(),
+        );
+        assert_span(
+            &object_report,
+            object_source,
+            "E-CLASS-FIELD-TYPE-001",
+            "field `u_value`",
+            "3 m",
+        );
+        assert_span(
+            &object_report,
+            object_source,
+            "E-CLASS-FIELD-UNKNOWN-001",
+            "field `color`",
+            "color",
+        );
+        assert_span(
+            &object_report,
+            object_source,
+            "E-CLASS-FIELD-MISSING-001",
+            "Object `wall`",
+            "wall",
+        );
+        assert_span(
+            &object_report,
+            object_source,
+            "E-CLASS-VALIDATION-002",
+            "Object `failed`",
+            "0 W/K",
+        );
+        assert_span(
+            &object_report,
+            object_source,
+            "E-CLASS-OBJECT-001",
+            "MissingClass",
+            "MissingClass",
+        );
+        assert_span(
+            &object_report,
+            object_source,
+            "E-CLASS-COPY-001",
+            "source object `nope`",
+            "nope",
+        );
+        assert_span(
+            &object_report,
+            object_source,
+            "E-CLASS-OBJECT-002",
+            "Object field `u_value`",
+            "u_value",
+        );
+        let wall = object_report
+            .semantic_program
+            .class_objects
+            .iter()
+            .find(|object| object.name == "wall")
+            .expect("wall object");
+        let wall_u_value = wall
+            .fields
+            .iter()
+            .find(|field| field.name == "u_value")
+            .expect("wall u_value");
+        assert_eq!(
+            &object_source[wall_u_value.expression_span.start..wall_u_value.expression_span.end],
+            "3 m"
+        );
+
+        let call_source = concat!(
+            "class Named {\r\n",
+            "    name: String\r\n",
+            "    method summary() -> String = self.name\r\n",
+            "}\r\n",
+            "object = Named {\r\n",
+            "    name = \"repeated\"\r\n",
+            "}\r\n",
+            "same = Named {\r\n",
+            "    name = \"same\"\r\n",
+            "}\r\n",
+            "bad_method = object.missing() // repeated missing\r\n",
+            "bad_object = ghost.summary()\r\n",
+            "bad_args = object.summary(\"\u{1f600}\") // repeated summary\r\n",
+            "same_call = same.same(\"same\")\r\n",
+        );
+        let call_report = check_source(
+            "class_method_call_spans.eng",
+            call_source,
+            &CheckOptions::default(),
+        );
+        assert_span(
+            &call_report,
+            call_source,
+            "E-CLASS-METHOD-CALL-001",
+            "unknown object",
+            "ghost",
+        );
+        assert_span(
+            &call_report,
+            call_source,
+            "E-CLASS-METHOD-CALL-002",
+            "no method",
+            "missing",
+        );
+        assert_span(
+            &call_report,
+            call_source,
+            "E-CLASS-METHOD-CALL-003",
+            "passes arguments",
+            "\"\u{1f600}\"",
+        );
+        assert_span(
+            &call_report,
+            call_source,
+            "E-CLASS-METHOD-CALL-002",
+            "method `same`",
+            "same",
+        );
+        assert_span(
+            &call_report,
+            call_source,
+            "E-CLASS-METHOD-CALL-003",
+            "`same.same`",
+            "\"same\"",
+        );
+
+        for report in [&class_report, &object_report, &call_report] {
+            assert!(report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code.starts_with("E-CLASS-"))
+                .all(|diagnostic| diagnostic.source_span.is_some()));
+        }
+    }
+
+    #[test]
     fn rejects_incompatible_port_connection_domains() {
         let report = check_source(
             "bad.eng",

@@ -149,9 +149,12 @@ simulation/solver corpus guard also requires every observed `E-SIM-*` and
 the target name, missing required options select the owning `simulate`/`solve`
 RHS, and malformed supplied options select their exact value. Their value quick
 fixes prefer that Problems range, while a missing single option is inserted into
-the attached `with` block or a newly created block. The global non-regression
-ceiling now permits at most 106 diagnostics that still need the older range
-inference path.
+the attached `with` block or a newly created block. Every `E-CLASS-*` diagnostic
+also has a compiler-owned range. Field defaults and object assignments select
+their value, invalid validation and method return declarations select their
+expression, missing fields select the object name, and method-call diagnostics
+select the receiver, method, or argument. The global non-regression ceiling now
+permits at most 98 diagnostics that still need the older range inference path.
 Older diagnostics retain source-aware inference: dimensionless arithmetic
 diagnostics highlight the offending `+` or `-`, schema fast-assignment
 diagnostics highlight `=`, and file mutation diagnostics target `move` or
@@ -428,6 +431,13 @@ Sampling declarations and distribution option names use compiler-owned binding
 and key spans. Their semantic token and Outline selection ranges therefore point
 to the exact declaration occurrence instead of searching the source line.
 
+Class method return types and explicit units use compiler-owned signature spans
+for quantity/unit tokens. Class, validation, method, object, and explicit
+object-field Outline selections use their declaration or expression spans;
+copy-with objects do not repeat inherited fields that would select the source
+object's lines. Evaluated object validation results remain in `validations`
+rather than becoming document-symbol children at the class rule's line.
+
 Command-style targets and clause names/values also use compiler-owned spans.
 Their identifiers and clause keywords stay inside the owning command expression,
 including repeated text and trailing comments.
@@ -474,6 +484,10 @@ selected option.
 
 Sampling bindings and distribution children use their exact compiler-owned name
 and option-key spans for Outline selection.
+
+Class and object symbols select their exact names. Their field and method
+children do the same, while a class validation child selects its rule
+expression.
 
 Command symbols select their target span. Assertion children select the exact
 comparison operator, with operand fallback for incomplete assertions, rather

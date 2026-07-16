@@ -534,6 +534,7 @@ pub struct ClassFieldInfo {
     pub canonical_unit: String,
     pub dimension: String,
     pub default_value: Option<String>,
+    pub default_value_span: Option<SourceSpan>,
     pub required: bool,
     pub status: String,
     pub line: usize,
@@ -542,6 +543,7 @@ pub struct ClassFieldInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClassValidationInfo {
     pub expression: String,
+    pub expression_span: SourceSpan,
     pub left: String,
     pub operator: String,
     pub right: String,
@@ -554,10 +556,13 @@ pub struct ClassMethodInfo {
     pub name: String,
     pub span: SourceSpan,
     pub return_type: String,
+    pub return_type_span: SourceSpan,
+    pub return_unit_span: Option<SourceSpan>,
     pub return_quantity_kind: String,
     pub return_display_unit: String,
     pub return_canonical_unit: String,
     pub expression: String,
+    pub expression_span: SourceSpan,
     pub status: String,
     pub line: usize,
 }
@@ -578,6 +583,7 @@ pub struct ClassObjectFieldInfo {
     pub name: String,
     pub span: SourceSpan,
     pub expression: String,
+    pub expression_span: SourceSpan,
     pub quantity_kind: String,
     pub display_unit: String,
     pub status: String,
@@ -7034,36 +7040,43 @@ fn function_call_semantic_type(
 
 fn validate_object_method_call_expression(
     expression: &str,
-    line: usize,
+    expression_span: SourceSpan,
     classes: &[ClassInfo],
     class_objects: &[ClassObjectInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<SemanticType> {
-    let call = parse_object_method_call(expression)?;
+    let call = parse_object_method_call(expression, expression_span)?;
     if !call.args.is_empty() {
-        diagnostics.push(Diagnostic::error(
-            "E-CLASS-METHOD-CALL-003",
-            line,
-            &format!(
-                "Method call `{}.{}` passes arguments, but method arguments are not supported yet.",
-                call.object_name, call.method_name
-            ),
-            Some("Use zero-argument metadata methods such as `building.summary()`."),
-        ));
+        let span = call.argument_span.unwrap_or(call.call_span);
+        diagnostics.push(
+            Diagnostic::error(
+                "E-CLASS-METHOD-CALL-003",
+                span.line,
+                &format!(
+                    "Method call `{}.{}` passes arguments, but method arguments are not supported yet.",
+                    call.object_name, call.method_name
+                ),
+                Some("Use zero-argument metadata methods such as `building.summary()`."),
+            )
+            .with_source_span(span),
+        );
     }
     let Some(object) = class_objects
         .iter()
         .find(|object| object.name == call.object_name)
     else {
-        diagnostics.push(Diagnostic::error(
-            "E-CLASS-METHOD-CALL-001",
-            line,
-            &format!(
-                "Method call references unknown object `{}`.",
-                call.object_name
-            ),
-            Some("Declare the object before calling a class method."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-CLASS-METHOD-CALL-001",
+                call.object_span.line,
+                &format!(
+                    "Method call references unknown object `{}`.",
+                    call.object_name
+                ),
+                Some("Declare the object before calling a class method."),
+            )
+            .with_source_span(call.object_span),
+        );
         return None;
     };
     let class_info = classes
@@ -7074,15 +7087,18 @@ fn validate_object_method_call_expression(
         .iter()
         .find(|method| method.name == call.method_name)
     else {
-        diagnostics.push(Diagnostic::error(
-            "E-CLASS-METHOD-CALL-002",
-            line,
-            &format!(
-                "Class `{}` has no method `{}`.",
-                class_info.name, call.method_name
-            ),
-            Some("Use a method declared by the object's class."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-CLASS-METHOD-CALL-002",
+                call.method_span.line,
+                &format!(
+                    "Class `{}` has no method `{}`.",
+                    class_info.name, call.method_name
+                ),
+                Some("Use a method declared by the object's class."),
+            )
+            .with_source_span(call.method_span),
+        );
         return None;
     };
     semantic_type(&method.return_quantity_kind, &method.return_display_unit)
@@ -7176,8 +7192,12 @@ struct FunctionCall {
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct ObjectMethodCall {
     object_name: String,
+    object_span: SourceSpan,
     method_name: String,
+    method_span: SourceSpan,
     args: Vec<String>,
+    argument_span: Option<SourceSpan>,
+    call_span: SourceSpan,
 }
 
 fn parse_function_call(expression: &str) -> Option<FunctionCall> {
@@ -7202,27 +7222,40 @@ fn parse_function_call(expression: &str) -> Option<FunctionCall> {
     })
 }
 
-fn parse_object_method_call(expression: &str) -> Option<ObjectMethodCall> {
-    let expression = strip_outer_parens(expression.trim());
+fn parse_object_method_call(
+    source_expression: &str,
+    expression_span: SourceSpan,
+) -> Option<ObjectMethodCall> {
+    let expression = strip_outer_parens(source_expression.trim());
+    let call_span = source_span_for_subslice(expression_span, source_expression, expression)?;
     let open = expression.find('(')?;
     if !expression.ends_with(')') {
         return None;
     }
     let receiver = expression[..open].trim();
     let (object_name, method_name) = receiver.split_once('.')?;
-    if !is_identifier(object_name.trim()) || !is_identifier(method_name.trim()) {
+    let object_name = object_name.trim();
+    let method_name = method_name.trim();
+    if !is_identifier(object_name) || !is_identifier(method_name) {
         return None;
     }
     let args_text = &expression[open + 1..expression.len() - 1];
-    let args = if args_text.trim().is_empty() {
+    let args_text = args_text.trim();
+    let args = if args_text.is_empty() {
         Vec::new()
     } else {
         split_top_level(args_text, &[','])
     };
     Some(ObjectMethodCall {
-        object_name: object_name.trim().to_owned(),
-        method_name: method_name.trim().to_owned(),
+        object_name: object_name.to_owned(),
+        object_span: source_span_for_subslice(expression_span, source_expression, object_name)?,
+        method_name: method_name.to_owned(),
+        method_span: source_span_for_subslice(expression_span, source_expression, method_name)?,
         args,
+        argument_span: (!args_text.is_empty())
+            .then(|| source_span_for_subslice(expression_span, source_expression, args_text))
+            .flatten(),
+        call_span,
     })
 }
 
@@ -7432,7 +7465,7 @@ fn analyze_class_field(
                     &field.name,
                     &expected.quantity_kind,
                     &actual.quantity_kind,
-                    field.line,
+                    field.default_value_span.unwrap_or(field.span),
                 ));
             }
         }
@@ -7449,6 +7482,7 @@ fn analyze_class_field(
         canonical_unit,
         dimension,
         default_value: field.default_value.clone(),
+        default_value_span: field.default_value_span,
         required: field.default_value.is_none(),
         status: "declared".to_owned(),
         line: field.line,
@@ -7460,24 +7494,29 @@ fn analyze_class_validation(
     class_info: &mut ClassInfo,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    let Some((left, operator, right)) = split_class_validation_expression(&validation.expression)
+    let Some((left, operator, right)) =
+        split_validation_expression(&validation.expression, validation.expression_span)
     else {
-        diagnostics.push(Diagnostic::error(
-            "E-CLASS-VALIDATION-001",
-            validation.line,
-            &format!(
-                "Class `{}` validation `{}` is not a supported comparison.",
-                class_info.name, validation.expression
-            ),
-            Some("Use a simple comparison such as `u_value > 0 W/K` or `name != \"\"`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-CLASS-VALIDATION-001",
+                validation.expression_span.line,
+                &format!(
+                    "Class `{}` validation `{}` is not a supported comparison.",
+                    class_info.name, validation.expression
+                ),
+                Some("Use a simple comparison such as `u_value > 0 W/K` or `name != \"\"`."),
+            )
+            .with_source_span(validation.expression_span),
+        );
         return;
     };
     class_info.validations.push(ClassValidationInfo {
         expression: validation.expression.clone(),
-        left,
+        expression_span: validation.expression_span,
+        left: left.value,
         operator,
-        right,
+        right: right.value,
         status: "declared".to_owned(),
         line: validation.line,
     });
@@ -7501,29 +7540,35 @@ fn analyze_class_method(
     let status = match actual {
         Some(actual) if class_field_types_compatible(&expected, &actual) => "typed",
         Some(actual) => {
-            diagnostics.push(Diagnostic::error(
-                "E-CLASS-METHOD-RETURN-001",
-                method.line,
-                &format!(
-                    "Class `{}` method `{}` returns `{}`, but declaration expects `{}`.",
-                    class_info.name, method.name, actual.quantity_kind, expected.quantity_kind
-                ),
-                Some("Adjust the method return type or return a compatible `self.<field>` value."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-CLASS-METHOD-RETURN-001",
+                    method.expression_span.line,
+                    &format!(
+                        "Class `{}` method `{}` returns `{}`, but declaration expects `{}`.",
+                        class_info.name, method.name, actual.quantity_kind, expected.quantity_kind
+                    ),
+                    Some("Adjust the method return type or return a compatible `self.<field>` value."),
+                )
+                .with_source_span(method.expression_span),
+            );
             "return_mismatch"
         }
         None => {
-            diagnostics.push(Diagnostic::error(
-                "E-CLASS-METHOD-SELF-001",
-                method.line,
-                &format!(
-                    "Class `{}` method `{}` cannot resolve `{}`.",
-                    class_info.name, method.name, method.expression
-                ),
-                Some(
-                    "The current method support accepts direct `self.<field>` return expressions.",
-                ),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-CLASS-METHOD-SELF-001",
+                    method.expression_span.line,
+                    &format!(
+                        "Class `{}` method `{}` cannot resolve `{}`.",
+                        class_info.name, method.name, method.expression
+                    ),
+                    Some(
+                        "The current method support accepts direct `self.<field>` return expressions.",
+                    ),
+                )
+                .with_source_span(method.expression_span),
+            );
             "unresolved_expression"
         }
     };
@@ -7531,10 +7576,13 @@ fn analyze_class_method(
         name: method.name.clone(),
         span: method.name_span,
         return_type: method.return_type.clone(),
+        return_type_span: method.return_type_span,
+        return_unit_span: method.return_unit_span,
         return_quantity_kind: method.return_type.clone(),
         return_display_unit,
         return_canonical_unit,
         expression: method.expression.clone(),
+        expression_span: method.expression_span,
         status: status.to_owned(),
         line: method.line,
     });
@@ -7566,15 +7614,18 @@ fn analyze_class_object_decl(
             ));
             return;
         }
-        diagnostics.push(Diagnostic::error(
-            "E-CLASS-OBJECT-001",
-            object.line,
-            &format!(
-                "Object `{}` references unknown class `{}`.",
-                object.name, object.class_name
-            ),
-            Some("Declare the class before constructing an object literal."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-CLASS-OBJECT-001",
+                object.class_name_span.line,
+                &format!(
+                    "Object `{}` references unknown class `{}`.",
+                    object.name, object.class_name
+                ),
+                Some("Declare the class before constructing an object literal."),
+            )
+            .with_source_span(object.class_name_span),
+        );
     }
     let quantity_kind = object_type_name(&object.class_name);
     typed_bindings.push(TypedBinding {
@@ -7637,15 +7688,18 @@ fn analyze_class_object_copy_decl(
         .find(|candidate| candidate.name == object.source_name)
         .cloned();
     let Some(source) = source else {
-        diagnostics.push(Diagnostic::error(
-            "E-CLASS-COPY-001",
-            object.line,
-            &format!(
-                "Copy-with object `{}` references unknown source object `{}`.",
-                object.name, object.source_name
-            ),
-            Some("Declare the source object before using copy-with syntax."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-CLASS-COPY-001",
+                object.source_name_span.line,
+                &format!(
+                    "Copy-with object `{}` references unknown source object `{}`.",
+                    object.name, object.source_name
+                ),
+                Some("Declare the source object before using copy-with syntax."),
+            )
+            .with_source_span(object.source_name_span),
+        );
         return;
     };
     let class_exists = classes
@@ -7713,30 +7767,36 @@ fn analyze_class_object_field(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let Some(owner_line) = field.owner_line else {
-        diagnostics.push(Diagnostic::error(
-            "E-CLASS-OBJECT-002",
-            field.line,
-            &format!(
-                "Object field `{}` is not attached to an object literal.",
-                field.name
-            ),
-            Some("Write object fields inside `name = ClassName { ... }`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-CLASS-OBJECT-002",
+                field.span.line,
+                &format!(
+                    "Object field `{}` is not attached to an object literal.",
+                    field.name
+                ),
+                Some("Write object fields inside `name = ClassName { ... }`."),
+            )
+            .with_source_span(field.span),
+        );
         return;
     };
     let Some(object_index) = class_objects
         .iter()
         .position(|object| object.line == owner_line)
     else {
-        diagnostics.push(Diagnostic::error(
-            "E-CLASS-OBJECT-002",
-            field.line,
-            &format!(
-                "Object field `{}` is not attached to an object literal.",
-                field.name
-            ),
-            Some("Write object fields inside `name = ClassName { ... }`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-CLASS-OBJECT-002",
+                field.span.line,
+                &format!(
+                    "Object field `{}` is not attached to an object literal.",
+                    field.name
+                ),
+                Some("Write object fields inside `name = ClassName { ... }`."),
+            )
+            .with_source_span(field.span),
+        );
         return;
     };
     let object_name = class_objects[object_index].name.clone();
@@ -7751,15 +7811,18 @@ fn analyze_class_object_field(
             .find(|item| item.name == field.name)
     });
     if expected_field.is_none() {
-        diagnostics.push(Diagnostic::error(
-            "E-CLASS-FIELD-UNKNOWN-001",
-            field.line,
-            &format!(
-                "Object `{}` sets unknown field `{}` for class `{}`.",
-                object_name, field.name, class_name
-            ),
-            Some("Use a field declared by the class or remove this object field."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-CLASS-FIELD-UNKNOWN-001",
+                field.span.line,
+                &format!(
+                    "Object `{}` sets unknown field `{}` for class `{}`.",
+                    object_name, field.name, class_name
+                ),
+                Some("Use a field declared by the class or remove this object field."),
+            )
+            .with_source_span(field.span),
+        );
     }
 
     let actual = class_field_expression_semantic_type(
@@ -7785,7 +7848,7 @@ fn analyze_class_object_field(
                     &field.name,
                     &expected_type.quantity_kind,
                     &actual.quantity_kind,
-                    field.line,
+                    field.expression_span,
                 ));
                 (
                     actual.quantity_kind,
@@ -7795,15 +7858,18 @@ fn analyze_class_object_field(
             }
         }
         (Some(expected), None) => {
-            diagnostics.push(Diagnostic::error(
-                "E-CLASS-FIELD-TYPE-001",
-                field.line,
-                &format!(
-                    "Cannot type-check field `{}` for class `{}`.",
-                    field.name, class_name
-                ),
-                Some("Use a typed binding, object, string literal, bool, or numeric literal with a compatible unit."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-CLASS-FIELD-TYPE-001",
+                    field.expression_span.line,
+                    &format!(
+                        "Cannot type-check field `{}` for class `{}`.",
+                        field.name, class_name
+                    ),
+                    Some("Use a typed binding, object, string literal, bool, or numeric literal with a compatible unit."),
+                )
+                .with_source_span(field.expression_span),
+            );
             let expected_type = class_field_expected_semantic_type(expected, classes);
             (
                 expected_type.quantity_kind,
@@ -7833,6 +7899,7 @@ fn analyze_class_object_field(
             name: field.name.clone(),
             span: field.span,
             expression: field.expression.clone(),
+            expression_span: field.expression_span,
             quantity_kind,
             display_unit,
             status,
@@ -7848,15 +7915,18 @@ fn validate_class_contracts(
     for class_info in classes {
         for field in &class_info.fields {
             if !class_field_type_is_known(&field.type_name, classes) {
-                diagnostics.push(Diagnostic::error(
-                    "E-CLASS-FIELD-TYPE-002",
-                    field.line,
-                    &format!(
-                        "Class `{}` field `{}` uses unknown type `{}`.",
-                        class_info.name, field.name, field.type_name
-                    ),
-                    Some("Use a known quantity/scalar type or another declared class name."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-CLASS-FIELD-TYPE-002",
+                        field.type_span.line,
+                        &format!(
+                            "Class `{}` field `{}` uses unknown type `{}`.",
+                            class_info.name, field.name, field.type_name
+                        ),
+                        Some("Use a known quantity/scalar type or another declared class name."),
+                    )
+                    .with_source_span(field.type_span),
+                );
             }
         }
     }
@@ -7874,15 +7944,20 @@ fn validate_class_contracts(
                 .iter()
                 .any(|object_field| object_field.name == field.name)
             {
-                diagnostics.push(Diagnostic::error(
-                    "E-CLASS-FIELD-MISSING-001",
-                    object.line,
-                    &format!(
-                        "Object `{}` is missing required field `{}` for class `{}`.",
-                        object.name, field.name, class_info.name
-                    ),
-                    Some("Provide the field in the object literal or add a class field default."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-CLASS-FIELD-MISSING-001",
+                        object.span.line,
+                        &format!(
+                            "Object `{}` is missing required field `{}` for class `{}`.",
+                            object.name, field.name, class_info.name
+                        ),
+                        Some(
+                            "Provide the field in the object literal or add a class field default.",
+                        ),
+                    )
+                    .with_source_span(object.span),
+                );
             }
         }
         evaluate_class_object_validations(class_info, object, diagnostics);
@@ -7897,18 +7972,38 @@ fn evaluate_class_object_validations(
     for validation in &class_info.validations {
         let result = evaluate_class_validation(class_info, object, validation);
         if result.status == "fail" {
-            diagnostics.push(Diagnostic::error(
-                "E-CLASS-VALIDATION-002",
-                object.line,
-                &format!(
-                    "Object `{}` violates class `{}` validation `{}`.",
-                    object.name, class_info.name, validation.expression
-                ),
-                Some("Adjust the object field values or the class validation rule."),
-            ));
+            let span = class_validation_failure_span(object, validation);
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-CLASS-VALIDATION-002",
+                    span.line,
+                    &format!(
+                        "Object `{}` violates class `{}` validation `{}`.",
+                        object.name, class_info.name, validation.expression
+                    ),
+                    Some("Adjust the object field values or the class validation rule."),
+                )
+                .with_source_span(span),
+            );
         }
         object.validations.push(result);
     }
+}
+
+fn class_validation_failure_span(
+    object: &ClassObjectInfo,
+    validation: &ClassValidationInfo,
+) -> SourceSpan {
+    [&validation.left, &validation.right]
+        .into_iter()
+        .find_map(|operand| {
+            object
+                .fields
+                .iter()
+                .find(|field| field.status != "copied" && field.name == operand.trim())
+        })
+        .map(|field| field.expression_span)
+        .unwrap_or(object.span)
 }
 
 fn evaluate_class_validation(
@@ -7991,19 +8086,6 @@ impl ClassValidationValue {
             Self::Bool(value) => value.to_string(),
         }
     }
-}
-
-fn split_class_validation_expression(expression: &str) -> Option<(String, String, String)> {
-    for operator in ["==", "!=", ">=", "<=", ">", "<"] {
-        if let Some((left, right)) = expression.split_once(operator) {
-            let left = left.trim();
-            let right = right.trim();
-            if !left.is_empty() && !right.is_empty() {
-                return Some((left.to_owned(), operator.to_owned(), right.to_owned()));
-            }
-        }
-    }
-    None
 }
 
 fn resolve_class_validation_value(
@@ -8230,16 +8312,17 @@ fn class_field_type_diagnostic(
     field_name: &str,
     expected: &str,
     actual: &str,
-    line: usize,
+    source_span: SourceSpan,
 ) -> Diagnostic {
     Diagnostic::error(
         "E-CLASS-FIELD-TYPE-001",
-        line,
+        source_span.line,
         &format!(
             "Class `{class_name}` field `{field_name}` expects `{expected}`, but got `{actual}`."
         ),
         Some("Use a compatible literal, typed binding, or object field value."),
     )
+    .with_source_span(source_span)
 }
 
 fn object_type_name(class_name: &str) -> String {
@@ -13308,7 +13391,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
     };
     let method_call_type = validate_object_method_call_expression(
         &binding.expression,
-        binding.line,
+        binding.expression_span,
         accum.classes,
         accum.class_objects,
         accum.diagnostics,

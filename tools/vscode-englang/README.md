@@ -355,6 +355,14 @@ Simulation and algebraic/component-solver Problems follow the same source-owned
 policy. Unknown targets underline the target name, missing required options
 underline the owning `simulate`/`solve` RHS, and malformed supplied options
 underline only their exact value, including CRLF and non-BMP source positions.
+Class and object Problems now follow that policy as well: defaults and object
+assignments underline their value, validation and method-return errors underline
+their expression, and method calls underline the receiver, method, or argument
+that failed. Class method return quantities and units receive independent
+semantic colors. Outline selects exact class, field, validation, method, object,
+and explicit object-field occurrences; inherited copy-with fields are not shown
+as links back to the source object, and evaluated object validation results stay
+in validation metadata rather than appearing as non-source Outline children.
 Command-style targets and clause names/values now use exact compiler-owned
 ranges for semantic colors, and command Outline entries select the target.
 Assertion Outline children select the comparison operator. Direct uncertainty

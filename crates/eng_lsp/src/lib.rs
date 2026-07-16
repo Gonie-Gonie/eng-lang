@@ -2990,6 +2990,19 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         }
         for method in &class_info.methods {
             builder.push_named_span(method.span, &method.name, "method", &["declaration"]);
+            builder.push_type_identifiers_within_span(
+                method.return_type_span,
+                &method.return_type,
+                &["quantity"],
+            );
+            if let Some(unit_span) = method.return_unit_span {
+                builder.push_atomic_named_span(
+                    unit_span,
+                    &method.return_display_unit,
+                    "type",
+                    &["unit"],
+                );
+            }
         }
     }
 
@@ -3011,11 +3024,12 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             }
             builder.push_keywords_on_line(object.line, &["with"], &["model"]);
         }
-        for field in &object.fields {
+        for field in object
+            .fields
+            .iter()
+            .filter(|field| field.status != "copied")
+        {
             builder.push_named_span(field.span, &field.name, "property", &["declaration"]);
-        }
-        for validation in &object.validations {
-            builder.push_keywords_on_line(validation.line, &["validate"], &["validation"]);
         }
     }
 
@@ -4536,28 +4550,28 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
             .fields
             .iter()
             .map(|field| {
-                make_document_symbol(
+                make_document_symbol_at_span(
                     &lines,
                     field.name.clone(),
                     format!("{} [{}]", field.quantity_kind, field.display_unit),
                     SYMBOL_KIND_PROPERTY,
-                    field.line,
+                    field.span,
                     Vec::new(),
                 )
             })
             .collect::<Vec<_>>();
         children.extend(class_info.validations.iter().map(|validation| {
-            make_document_symbol(
+            make_document_symbol_at_span(
                 &lines,
                 "validate".to_owned(),
                 validation.status.clone(),
                 SYMBOL_KIND_OPERATOR,
-                validation.line,
+                validation.expression_span,
                 Vec::new(),
             )
         }));
         children.extend(class_info.methods.iter().map(|method| {
-            make_document_symbol(
+            make_document_symbol_at_span(
                 &lines,
                 method.name.clone(),
                 format!(
@@ -4565,55 +4579,46 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
                     method.return_quantity_kind, method.return_display_unit
                 ),
                 SYMBOL_KIND_METHOD,
-                method.line,
+                method.span,
                 Vec::new(),
             )
         }));
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
             class_info.name.clone(),
             "class".to_owned(),
             SYMBOL_KIND_CLASS,
-            class_info.line,
+            class_info.span,
             children,
         );
     }
 
     for object in &program.class_objects {
-        let mut children = object
+        let children = object
             .fields
             .iter()
+            .filter(|field| field.status != "copied")
             .map(|field| {
-                make_document_symbol(
+                make_document_symbol_at_span(
                     &lines,
                     field.name.clone(),
                     format!("{} [{}]", field.quantity_kind, field.display_unit),
                     SYMBOL_KIND_PROPERTY,
-                    field.line,
+                    field.span,
                     Vec::new(),
                 )
             })
             .collect::<Vec<_>>();
-        children.extend(object.validations.iter().map(|validation| {
-            make_document_symbol(
-                &lines,
-                "validate".to_owned(),
-                validation.status.clone(),
-                SYMBOL_KIND_OPERATOR,
-                validation.line,
-                Vec::new(),
-            )
-        }));
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
             object.name.clone(),
             format!("{} object", object.class_name),
             SYMBOL_KIND_OBJECT,
-            object.line,
+            object.span,
             children,
         );
     }
@@ -12046,6 +12051,55 @@ mod tests {
     }
 
     #[test]
+    fn class_fixture_diagnostics_keep_compiler_owned_ranges() {
+        let repo_root = repo_root_for_tests();
+        let mut files = BTreeSet::new();
+        for relative in [
+            "examples",
+            "tests/diagnostics",
+            "tools/vscode-englang/test/grammar-fixtures",
+        ] {
+            files.extend(eng_files_under(&repo_root.join(relative)));
+        }
+
+        let mut observed = 0usize;
+        let mut missing = Vec::new();
+        for path in files {
+            let source = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            let report = check_source(&path, &source, &CheckOptions::default());
+            let lines = source_lines(&source);
+            for diagnostic in report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code.starts_with("E-CLASS-"))
+            {
+                observed += 1;
+                let line_index = line_index_from_one_based(&lines, diagnostic.line);
+                let line = lines.get(line_index).copied().unwrap_or_default();
+                if compiler_diagnostic_byte_range(line, diagnostic).is_none() {
+                    missing.push(format!(
+                        "{}:{} {}",
+                        path.strip_prefix(&repo_root).unwrap_or(&path).display(),
+                        diagnostic.line,
+                        diagnostic.code
+                    ));
+                }
+            }
+        }
+
+        assert!(
+            observed >= 8,
+            "class diagnostic corpus unexpectedly shrank to {observed} item(s)"
+        );
+        assert!(
+            missing.is_empty(),
+            "class diagnostics missing valid compiler ranges: {}",
+            missing.join(", ")
+        );
+    }
+
+    #[test]
     fn diagnostic_corpus_compiler_range_coverage_does_not_regress() {
         let repo_root = repo_root_for_tests();
         let mut files = BTreeSet::new();
@@ -12082,7 +12136,7 @@ mod tests {
             fallback.len()
         );
         assert!(
-            fallback.len() <= 106,
+            fallback.len() <= 98,
             "compiler-owned diagnostic range coverage regressed to {} fallback item(s): {}",
             fallback.len(),
             fallback.join(", ")
@@ -12739,6 +12793,108 @@ mod tests {
                 "declaration",
             );
         }
+    }
+
+    #[test]
+    fn class_editor_features_use_compiler_owned_member_spans() {
+        let source = concat!(
+            "note = \"\u{1f600} Settings value Length m\"\r\n",
+            "class Settings {\r\n",
+            "    value: Length [m] = 1 m\r\n",
+            "    validate { value > 0 m }\r\n",
+            "    method value() -> Length [m] = self.value // value Length m\r\n",
+            "}\r\n",
+            "settings = Settings {\r\n",
+            "    value = 2 m\r\n",
+            "}\r\n",
+            "settings_copy = settings with {\r\n",
+            "}\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("class_member_spans.eng"), source);
+        let method_line_index = source
+            .lines()
+            .position(|line| line.contains("method value"))
+            .expect("class method line");
+        let method_line = source.lines().nth(method_line_index).expect("method line");
+
+        for (label, prefix, modifier) in [("Length", "-> ", "quantity"), ("m", "[", "unit")] {
+            let byte_start = method_line
+                .find(prefix)
+                .and_then(|start| {
+                    method_line[start + prefix.len()..]
+                        .find(label)
+                        .map(|offset| start + prefix.len() + offset)
+                })
+                .unwrap_or_else(|| panic!("missing `{label}` after `{prefix}`"));
+            let start = utf16_len(&method_line[..byte_start]);
+            let length = utf16_len(label);
+            assert!(
+                snapshot.semantic_tokens.tokens.iter().any(|token| {
+                    token.line == method_line_index
+                        && token.start == start
+                        && token.length == length
+                        && token.token_type == "type"
+                        && token.modifiers.iter().any(|actual| actual == modifier)
+                }),
+                "class method `{label}` should be an exact `{modifier}` type token"
+            );
+        }
+
+        let class_symbol = snapshot
+            .document_symbols
+            .iter()
+            .find(|symbol| symbol.name == "Settings" && symbol.detail == "class")
+            .expect("class Outline symbol");
+        assert_eq!(class_symbol.selection_line, 1);
+        assert_eq!(class_symbol.selection_character, utf16_len("class "));
+
+        let field = class_symbol
+            .children
+            .iter()
+            .find(|symbol| symbol.name == "value" && symbol.kind == SYMBOL_KIND_PROPERTY)
+            .expect("class field Outline symbol");
+        assert_eq!(field.selection_line, 2);
+        assert_eq!(field.selection_character, utf16_len("    "));
+        let validation = class_symbol
+            .children
+            .iter()
+            .find(|symbol| symbol.name == "validate")
+            .expect("class validation Outline symbol");
+        assert_eq!(validation.selection_line, 3);
+        assert_eq!(validation.selection_character, utf16_len("    validate { "));
+        let method = class_symbol
+            .children
+            .iter()
+            .find(|symbol| symbol.name == "value" && symbol.kind == SYMBOL_KIND_METHOD)
+            .expect("class method Outline symbol");
+        assert_eq!(method.selection_line, 4);
+        assert_eq!(method.selection_character, utf16_len("    method "));
+
+        let settings = snapshot
+            .document_symbols
+            .iter()
+            .find(|symbol| symbol.name == "settings" && symbol.detail == "Settings object")
+            .expect("class object Outline symbol");
+        assert_eq!(settings.selection_line, 6);
+        assert_eq!(settings.selection_character, 0);
+        let object_field = settings
+            .children
+            .iter()
+            .find(|symbol| symbol.name == "value")
+            .expect("object field Outline symbol");
+        assert_eq!(object_field.selection_line, 7);
+        assert_eq!(object_field.selection_character, utf16_len("    "));
+
+        let copy = snapshot
+            .document_symbols
+            .iter()
+            .find(|symbol| symbol.name == "settings_copy" && symbol.detail == "Settings object")
+            .expect("copy-with Outline symbol");
+        assert!(
+            copy.children.is_empty(),
+            "evaluated validations and inherited fields are not source children of the copy"
+        );
+        assert_no_semantic_token_overlaps(&snapshot, "class_member_spans.eng");
     }
 
     #[test]
@@ -21529,6 +21685,98 @@ copy_missing = nope with {
             assert_no_semantic_token_on_line_with_empty_modifiers(
                 &snapshot, source, line, "with", "keyword",
             );
+        }
+    }
+
+    #[test]
+    fn class_diagnostics_use_exact_utf16_source_ranges() {
+        let source = concat!(
+            "prefix = \"\u{1f600}\"\r\n",
+            "class BadClass {\r\n",
+            "    distance: Length [m] = \"\u{1f600}\" // repeated \"\u{1f600}\"\r\n",
+            "    bad_type: MissingType\r\n",
+            "    name: String\r\n",
+            "    validate { name } // repeated name\r\n",
+            "    method bad() -> Length [m] = self.name // repeated self.name\r\n",
+            "}\r\n",
+            "wall = BadClass {\r\n",
+            "    name = \"wall\"\r\n",
+            "    extra = 1\r\n",
+            "}\r\n",
+            "class Limit {\r\n",
+            "    amount: Conductance [W/K]\r\n",
+            "    validate { amount > 0 W/K }\r\n",
+            "}\r\n",
+            "failed = Limit {\r\n",
+            "    amount = 0 W/K // repeated 0 W/K\r\n",
+            "}\r\n",
+            "empty_limit = Limit {\r\n",
+            "}\r\n",
+            "missing_class = MissingClass {\r\n",
+            "    value = 1\r\n",
+            "}\r\n",
+            "copy_missing = nope with {\r\n",
+            "    distance = 1 m\r\n",
+            "}\r\n",
+            "bad_call = wall.missing()\r\n",
+            "unknown_call = ghost.missing(\"\u{1f600}\") // repeated ghost missing \"\u{1f600}\"\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("class_diagnostic_utf16_ranges.eng"), source);
+        let assert_range = |code: &str, line_needle: &str, expected: &str| {
+            let (line_index, line) = source
+                .lines()
+                .enumerate()
+                .find(|(_, line)| line.contains(line_needle))
+                .unwrap_or_else(|| panic!("missing source line `{line_needle}`"));
+            let diagnostic = snapshot
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code && diagnostic.line == line_index + 1)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "missing {code} on `{line_needle}`: {:?}",
+                        snapshot.diagnostics
+                    )
+                });
+            let byte_start = line
+                .find(expected)
+                .unwrap_or_else(|| panic!("missing `{expected}` on `{line}`"));
+            assert_eq!(
+                diagnostic.start_character,
+                utf16_len(&line[..byte_start]),
+                "{code} start"
+            );
+            assert_eq!(
+                diagnostic.end_character,
+                utf16_len(&line[..byte_start + expected.len()]),
+                "{code} end"
+            );
+        };
+
+        for (code, line, expected) in [
+            (
+                "E-CLASS-FIELD-TYPE-001",
+                "distance: Length",
+                "\"\u{1f600}\"",
+            ),
+            ("E-CLASS-FIELD-TYPE-002", "bad_type:", "MissingType"),
+            ("E-CLASS-VALIDATION-001", "validate { name }", "name"),
+            ("E-CLASS-METHOD-RETURN-001", "method bad()", "self.name"),
+            ("E-CLASS-FIELD-UNKNOWN-001", "extra =", "extra"),
+            ("E-CLASS-VALIDATION-002", "amount = 0", "0 W/K"),
+            (
+                "E-CLASS-FIELD-MISSING-001",
+                "empty_limit = Limit",
+                "empty_limit",
+            ),
+            ("E-CLASS-OBJECT-001", "missing_class =", "MissingClass"),
+            ("E-CLASS-COPY-001", "copy_missing =", "nope"),
+            ("E-CLASS-OBJECT-002", "distance = 1", "distance"),
+            ("E-CLASS-METHOD-CALL-002", "bad_call =", "missing"),
+            ("E-CLASS-METHOD-CALL-003", "unknown_call =", "\"\u{1f600}\""),
+            ("E-CLASS-METHOD-CALL-001", "unknown_call =", "ghost"),
+        ] {
+            assert_range(code, line, expected);
         }
     }
 

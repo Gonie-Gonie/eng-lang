@@ -164,6 +164,16 @@ Duplicate, unresolved, dimension-mismatched, and side-effecting return
 diagnostics underline that expression. A missing-return diagnostic instead uses
 the function name because no expression exists.
 
+Class declarations retain exact field default, validation expression, method
+return type/unit, and method expression spans. Class object fields retain their
+value expression spans. Every `E-CLASS-*` diagnostic consumes one of these
+parser-owned ranges or an existing class/object/call name span: validation
+failures prefer the explicit object-field value involved in the rule, missing
+fields select the object name, and method-call errors select the receiver,
+method, or supplied argument that failed. Trailing comments are outside these
+ranges. The LSP reuses the same metadata for method quantity/unit colors and
+class/object Outline selections.
+
 ## Editor Payload
 
 `eng_lsp` maps the same `CheckReport` into editor-facing data:
