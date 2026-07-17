@@ -123,6 +123,11 @@ shaft_power = 10 kW // MechanicalPower
 power = 10 kW       // warning remains ambiguous
 ```
 
+This warning is based on a direct unit-bearing literal in the binding
+expression. Unit-looking text inside a string and units passed to a function
+call are not evidence for the call's return quantity, so they do not produce
+`W-QTY-AMBIG-001` for the receiving binding.
+
 ## Dimensionless Operations
 
 Addition and subtraction checks reject accidental mixing between physical and

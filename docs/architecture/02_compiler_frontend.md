@@ -77,6 +77,17 @@ changing a real keyword occurrence elsewhere.
 
 `FastBinding.expression_span` identifies the complete source RHS before later
 semantic normalization. Successful inferred declarations retain that range.
+Function-call parsing also retains byte ranges for the function name and every
+top-level argument relative to that RHS. `E-FN-CALL-001` and
+`E-FN-CALL-002` therefore select the called name, while argument type failures
+select the exact failing argument even when another copy of the same text
+appears in a string or trailing comment.
+
+Expression-type diagnostics follow the same source-owned policy.
+`W-QTY-AMBIG-001` selects the direct quantity literal's unit and does not infer
+a binding's result quantity from string contents or function arguments.
+`W-STATS-SUM-001` selects `sum`, and `E-DIM-ADD-*` selects the `+` or `-` that
+joins the incompatible terms.
 `SampleGenerationInfo` exposes exact binding and `sample <method>` expression
 spans, while each `SampleDistributionInfo` exposes its attached option key and
 value spans. Missing sampling options can therefore select the owning RHS, and

@@ -119,14 +119,14 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `meta.type.array-suffix.englang` | Array suffix type expressions such as `Bool[]` and `String[]`. |
 | `variable.parameter.type.englang` | Generic type arguments inside bracketed type expressions. |
 | `support.function.builtin.englang` | Error-tolerant fallback for incomplete or not-yet-classified builtin editor states; public helper fixtures should use a role-specific scope. |
-| `support.function.validation.englang` | Validation and data-quality compatibility helper calls such as `fill_missing(...)`; current authoring uses the `fill missing ...` workflow phrase. |
+| `support.function.validation.englang` | Validation and data-quality compatibility coloring for `fill_missing(...)`; this does not make it a public top-level call, and current authoring uses the `fill missing ...` workflow phrase. |
 | `support.function.deprecated.englang` | Deprecated helper calls such as `select_first_row(...)`, which should be migrated to `filter` plus `require_one`. |
 | `support.function.model.englang` | Model-training and model-summary helper calls such as `regression(...)`, `train_test_split(...)`, `regression_table(...)`, `train_regression(...)`, `mlp(...)`, `ann(...)`, `evaluate(...)`, `model_card(...)`, and `leakage_lint(...)`. |
 | `support.function.uncertain.englang` | Uncertainty helper calls such as `measured(...)`, `interval(...)`, `normal(...)`, `uniform(...)`, `distribution(...)`, `propagate(...)`, `ensemble(...)`, and `probability(...)`. |
-| `support.function.timeseries.englang` | TimeSeries/statistic helper calls such as `integrate(...)`, `mean(...)`, `min(...)`, `max(...)`, `median(...)`, `std(...)`, `sum(...)`, `time_weighted_mean(...)`, `duration_above(...)`, and `p90(...)`. |
+| `support.function.timeseries.englang` | TimeSeries/statistic calls such as `integrate(...)`, `mean(...)`, `min(...)`, `max(...)`, `median(...)`, `std(...)`, `sum(...)`, `time_weighted_mean(...)`, and `p90(...)`; `duration_above(...)` uses this color as a `summarize` statistic selector rather than a public top-level value call. |
 | `support.function.external-boundary.englang` | External boundary constructors/checks such as `file(...)`, `dir(...)`, `url(...)`, `env(...)`, `secret env(...)`, and `exists(...)`. |
 | `support.function.workflow-step.englang` | Workflow-step helper calls such as `apply(...)` and step values such as `run_case`. |
-| `support.function.solver.englang` | Solver helper calls such as `der(...)` and `delay(...)`. |
+| `support.function.solver.englang` | Solver-context calls: `der(...)` is an equation operator and `delay(...)` is a component behavior call, not a general top-level helper. |
 | `support.function.path.englang` | Path helper calls such as `join(...)`, `parent(...)`, `stem(...)`, and `extension(...)`. |
 | `support.function.temporal.englang` | Supported temporal helper calls such as `date(year, month, day)`. |
 | `support.namespace.module.englang` | Module namespaces such as `eng.table`. |
@@ -164,6 +164,11 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `markup.warning.englang` | Medium-risk fallback mapping. |
 
 Command-style workflow and review verbs such as `sample`, `filter`, `derive`, `require_one`, `integrate`, and `mean` use `keyword.control.*.englang`; model workflow phrases such as `predict ... using ...` and `train regression ...` use `keyword.control.model.englang`; model helper calls such as `regression(...)`, `train_test_split(...)`, `regression_table(...)`, `train_regression(...)`, `mlp(...)`, `ann(...)`, `evaluate(...)`, `model_card(...)`, and `leakage_lint(...)` use `support.function.model.englang`; uncertainty helper calls such as `measured(...)`, `interval(...)`, `normal(...)`, `uniform(...)`, `distribution(...)`, `propagate(...)`, `ensemble(...)`, and `probability(...)` use `support.function.uncertain.englang`; TimeSeries/statistic helper calls such as `integrate(...)`, `mean(...)`, `min(...)`, `max(...)`, `median(...)`, `std(...)`, `sum(...)`, `time_weighted_mean(...)`, `duration_above(...)`, `p90(...)`, and `p95(...)` use `support.function.timeseries.englang`; arbitrary `pNN(...)` names are not treated as implemented percentile helpers. `fill_missing(...)` uses `support.function.validation.englang` while current authoring uses the `fill missing ...` phrase; `select_first_row(...)` uses `support.function.deprecated.englang`; external boundary constructors/checks such as `file(...)`, `dir(...)`, `url(...)`, `env(...)`, `secret env(...)`, and `exists(...)` use `support.function.external-boundary.englang`; path helpers such as `join(...)`, `parent(...)`, `stem(...)`, and `extension(...)` use `support.function.path.englang`; `date(...)` uses `support.function.temporal.englang`; workflow-step helpers such as `apply(...)` and `run_case` use `support.function.workflow-step.englang`; solver helpers such as `der(...)` and `delay(...)` use `support.function.solver.englang`; TimeSeries quality verbs such as `fill`, `align`, and `resample` use validation-colored fallback scopes to match their phrase scopes. String interpolation and the native IDE lexical first paint consume the same compiler-owned builtin role groups before falling back to generic builtin coloring. `support.function.builtin.englang` remains only as an error-tolerant fallback for incomplete editor states, not as evidence that an additional public call-style API is implemented.
+
+These color roles are context classifications, not top-level API claims.
+`duration_above(...)` is a `summarize` statistic selector, `delay(...)` is
+component behavior syntax, and `fill_missing(...)` is compatibility-colored
+while public authoring uses `fill missing ...`.
 
 `#members` must appear before generic `args.*` and dotted-path fallbacks inside expression contexts so TextMate first-paint tokenization can split roots, dots, and member segments before broad property regexes match the whole path. Grammar smoke also requires begin/end workflow phrase scopes to include `#members`, so operand-oriented phrases cannot regress to uncolored dotted paths.
 
@@ -522,6 +527,14 @@ span. Repeating `method`, `kind`, or a source name elsewhere on the line cannot
 repaint the declaration or another argument. `E-UNC-SOURCE-*` and
 `E-UNC-ARGS-*` Problems ranges consume these compiler spans, including a whole
 nested value such as `coalesce(5 kW, 6 kW)`.
+
+Expression-type diagnostics also stay source-owned. Quantity ambiguity selects
+the direct literal unit and ignores unit-looking string contents or function
+arguments. HeatRate sum warnings select `sum`; dimensionless addition and
+subtraction select the joining operator; function-call lookup/arity failures
+select the called name; and argument type failures select the complete failing
+argument. The fixture guard requires all observed diagnostics in these families
+to retain a compiler range before UTF-16 conversion.
 
 Lexical numbers require identifier boundaries and consume a valid decimal
 exponent as part of the same token. Names and literals such as `p95`, `rk4`,

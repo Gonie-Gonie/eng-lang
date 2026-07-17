@@ -1,6 +1,6 @@
 use crate::ast::{FastBinding, SummaryDecl};
 use crate::semantic::TypedBinding;
-use crate::Diagnostic;
+use crate::{Diagnostic, SourceSpan};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AxisInfo {
@@ -113,12 +113,25 @@ pub fn heat_rate_sum_diagnostic(
         return None;
     }
 
-    Some(Diagnostic::warning(
-        "W-STATS-SUM-001",
-        binding.line,
-        "Summing HeatRate over Time does not produce Energy.",
-        Some("Use `integrate(<heat_rate>, over=Time)` to compute Energy."),
-    ))
+    let expression = binding.expression.as_str();
+    let trimmed = expression.trim_start();
+    let start = expression.len() - trimmed.len();
+    let sum_span = SourceSpan::new(
+        binding.expression_span.start + start,
+        binding.expression_span.start + start + "sum".len(),
+        binding.expression_span.line,
+        binding.expression_span.column + start,
+    );
+
+    Some(
+        Diagnostic::warning(
+            "W-STATS-SUM-001",
+            binding.line,
+            "Summing HeatRate over Time does not produce Energy.",
+            Some("Use `integrate(<heat_rate>, over=Time)` to compute Energy."),
+        )
+        .with_source_span(sum_span),
+    )
 }
 
 pub fn time_series_quantity(quantity_kind: &str) -> Option<(String, String)> {

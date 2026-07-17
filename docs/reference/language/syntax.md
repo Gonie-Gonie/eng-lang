@@ -1449,6 +1449,9 @@ p95
 duration_above(5 kW)
 ```
 
+Here `duration_above(...)` is a statistic selector inside `summarize`; it is not
+a general top-level value-returning call.
+
 Plot output under `eng run --save-artifacts` includes:
 
 ```text

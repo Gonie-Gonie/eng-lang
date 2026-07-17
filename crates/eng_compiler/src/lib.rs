@@ -9680,7 +9680,7 @@ mod tests {
             .expect("dimension diagnostic");
         assert_eq!(dim_add["line"].as_u64(), Some(1));
         assert_eq!(dim_add["source_span"]["line"].as_u64(), Some(1));
-        assert_eq!(dim_add["source_span"]["column"].as_u64(), Some(3));
+        assert_eq!(dim_add["source_span"]["column"].as_u64(), Some(13));
 
         let warnings = value["warning_list"].as_array().expect("warning array");
         let warning = warnings
@@ -9689,7 +9689,7 @@ mod tests {
             .expect("ambiguous quantity warning");
         assert_eq!(warning["line"].as_u64(), Some(2));
         assert_eq!(warning["source_span"]["line"].as_u64(), Some(2));
-        assert_eq!(warning["source_span"]["column"].as_u64(), Some(3));
+        assert_eq!(warning["source_span"]["column"].as_u64(), Some(13));
     }
 
     #[test]
@@ -15794,6 +15794,62 @@ write csv "outputs/q.csv", Q
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "W-STATS-SUM-001"));
+    }
+
+    #[test]
+    fn expression_type_diagnostics_preserve_exact_source_spans() {
+        let source = concat!(
+            "note = \"😀 kW calibrate\"\r\n",
+            "power = 10 kW\r\n",
+            "length = 1 m + 20\r\n",
+            "Q: HeatRate [kW] = 2 kW - 1\r\n",
+            "Q_series: TimeSeries[Time] of HeatRate [kW] = 1 kW\r\n",
+            "E_bad = sum(Q_series, over=Time)\r\n",
+            "call = calibrate(calibrate, 1 kW) // calibrate\r\n",
+            "fn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] = UA * dT\r\n",
+            "bad_call = heat_loss(1 m, missing_arg)\r\n",
+        );
+        let report = check_source(
+            "expression_diagnostic_spans.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        let diagnostic_text = |code: &str, line: usize| {
+            let diagnostic = report
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code && diagnostic.line == line)
+                .unwrap_or_else(|| {
+                    panic!("missing {code} on line {line}: {:?}", report.diagnostics)
+                });
+            let span = diagnostic
+                .source_span
+                .unwrap_or_else(|| panic!("{code} on line {line} should have a source span"));
+            source
+                .get(span.start..span.end)
+                .unwrap_or_else(|| panic!("invalid {code} source span: {span:?}"))
+        };
+
+        for (code, line, expected) in [
+            ("W-QTY-AMBIG-001", 2, "kW"),
+            ("E-DIM-ADD-001", 3, "+"),
+            ("E-DIM-ADD-002", 4, "-"),
+            ("W-STATS-SUM-001", 6, "sum"),
+            ("E-FN-CALL-001", 7, "calibrate"),
+            ("E-FN-CALL-004", 9, "1 m"),
+            ("E-FN-CALL-003", 9, "missing_arg"),
+        ] {
+            assert_eq!(diagnostic_text(code, line), expected);
+        }
+        assert_eq!(
+            report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == "W-QTY-AMBIG-001")
+                .count(),
+            1,
+            "string contents and function arguments must not imply a binding's return quantity"
+        );
     }
 
     #[test]

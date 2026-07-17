@@ -501,6 +501,12 @@ public completion labels. Static snippets remain
 only for larger examples whose prefixes do not duplicate generated completion
 labels.
 
+Role-specific first-paint coloring is error-tolerant and is not an API
+availability claim. In particular, `duration_above(...)` is a `summarize`
+statistic selector, `delay(...)` is component behavior syntax, and
+`fill_missing(...)` is compatibility-colored while public authoring uses
+`fill missing ...`.
+
 Format Document, Format Selection, and closing-brace on-type formatting use the
 current unsaved buffer, so VS Code and the command-line formatter share the
 compiler-owned formatting rules. On-type formatting replaces only the closing

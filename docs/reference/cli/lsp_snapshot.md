@@ -168,10 +168,14 @@ cascade into missing-column or missing-field diagnostics. Process commands, DB
 connections/tables, CSV export sources/fields, write formats/targets, print/log
 interpolation, and nested file operations likewise use parser-owned keyword or
 operand ranges. Their corpus guard requires all 18 observed diagnostics in
-these classes to retain a compiler range. The global non-regression ceiling
-permits at most 31 diagnostics to use the older range inference path.
-Older diagnostics retain source-aware inference: dimensionless arithmetic
-diagnostics highlight the offending `+` or `-`, schema fast-assignment
+these classes to retain a compiler range. Quantity ambiguity selects the direct
+literal unit, HeatRate sum warnings select `sum`, dimensionless arithmetic
+selects the offending `+` or `-`, and function-call failures select the called
+name or failing argument. Their fixture guard requires every observed
+`W-QTY-AMBIG-*`, `W-STATS-SUM-*`, `E-DIM-ADD-*`, and `E-FN-CALL-*` diagnostic
+to retain a compiler range. The global non-regression ceiling permits at most
+15 diagnostics to use the older range inference path.
+Older diagnostics retain source-aware inference: schema fast-assignment
 diagnostics highlight `=`, and file mutation diagnostics target `move` or
 `delete`. The final fallback searches backticked message/help text, then the
 first identifier or visible token on the line.

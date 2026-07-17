@@ -12583,6 +12583,60 @@ mod tests {
     }
 
     #[test]
+    fn expression_type_fixture_diagnostics_keep_compiler_owned_ranges() {
+        let repo_root = repo_root_for_tests();
+        let mut files = BTreeSet::new();
+        for relative in [
+            "examples",
+            "tests/diagnostics",
+            "tools/vscode-englang/test/grammar-fixtures",
+        ] {
+            files.extend(eng_files_under(&repo_root.join(relative)));
+        }
+
+        let is_target = |code: &str| {
+            matches!(code, "W-QTY-AMBIG-001" | "W-STATS-SUM-001")
+                || code.starts_with("E-DIM-ADD-")
+                || code.starts_with("E-FN-CALL-")
+        };
+        let mut observed = 0usize;
+        let mut missing = Vec::new();
+        for path in files {
+            let source = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            let report = check_source(&path, &source, &CheckOptions::default());
+            let lines = source_lines(&source);
+            for diagnostic in report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| is_target(&diagnostic.code))
+            {
+                observed += 1;
+                let line_index = line_index_from_one_based(&lines, diagnostic.line);
+                let line = lines.get(line_index).copied().unwrap_or_default();
+                if compiler_diagnostic_byte_range(line, diagnostic).is_none() {
+                    missing.push(format!(
+                        "{}:{} {}",
+                        path.strip_prefix(&repo_root).unwrap_or(&path).display(),
+                        diagnostic.line,
+                        diagnostic.code
+                    ));
+                }
+            }
+        }
+
+        assert!(
+            observed >= 12,
+            "expression-type diagnostic corpus unexpectedly shrank to {observed} item(s)"
+        );
+        assert!(
+            missing.is_empty(),
+            "expression-type diagnostics missing valid compiler ranges: {}",
+            missing.join(", ")
+        );
+    }
+
+    #[test]
     fn diagnostic_corpus_compiler_range_coverage_does_not_regress() {
         let repo_root = repo_root_for_tests();
         let mut files = BTreeSet::new();
@@ -12619,7 +12673,7 @@ mod tests {
             fallback.len()
         );
         assert!(
-            fallback.len() <= 31,
+            fallback.len() <= 15,
             "compiler-owned diagnostic range coverage regressed to {} fallback item(s): {}",
             fallback.len(),
             fallback.join(", ")
@@ -21447,6 +21501,62 @@ waiting = case_runs.waiting_count
                 "{code} end"
             );
         }
+    }
+
+    #[test]
+    fn expression_type_diagnostics_use_exact_utf16_source_ranges() {
+        let source = concat!(
+            "note = \"😀 kW calibrate\"\r\n",
+            "power = 10 kW // kW\r\n",
+            "length = 1 m + 20 // +\r\n",
+            "Q: HeatRate [kW] = 2 kW - 1\r\n",
+            "Q_series: TimeSeries[Time] of HeatRate [kW] = 1 kW\r\n",
+            "E_bad = sum(Q_series, over=Time) // sum\r\n",
+            "call = calibrate(calibrate, 1 kW) // calibrate\r\n",
+            "fn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] = UA * dT\r\n",
+            "bad_call = heat_loss(1 m, \"😀\" + missing_arg) // 1 m missing_arg\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("expression_diagnostic_utf16.eng"), source);
+        let lines = source.lines().collect::<Vec<_>>();
+
+        for (line_index, code, expected) in [
+            (1, "W-QTY-AMBIG-001", "kW"),
+            (2, "E-DIM-ADD-001", "+"),
+            (3, "E-DIM-ADD-002", "-"),
+            (5, "W-STATS-SUM-001", "sum"),
+            (6, "E-FN-CALL-001", "calibrate"),
+            (8, "E-FN-CALL-004", "1 m"),
+            (8, "E-FN-CALL-003", "\"😀\" + missing_arg"),
+        ] {
+            let diagnostic = snapshot
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.line == line_index + 1 && diagnostic.code == code)
+                .unwrap_or_else(|| panic!("missing {code}: {:?}", snapshot.diagnostics));
+            let line = lines[line_index];
+            let byte_start = line
+                .find(expected)
+                .unwrap_or_else(|| panic!("missing `{expected}` in `{line}`"));
+            assert_eq!(
+                diagnostic.start_character,
+                utf16_len(&line[..byte_start]),
+                "{code} start"
+            );
+            assert_eq!(
+                diagnostic.end_character,
+                utf16_len(&line[..byte_start + expected.len()]),
+                "{code} end"
+            );
+        }
+        assert_eq!(
+            snapshot
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == "W-QTY-AMBIG-001")
+                .count(),
+            1,
+            "string contents and function arguments must not trigger quantity ambiguity"
+        );
     }
 
     #[test]

@@ -30,6 +30,7 @@ use crate::units::{unit_derivation, unit_info_for_symbol, UnitDerivation};
 use crate::workflow::Workflow;
 use crate::{Diagnostic, InferredDeclaration};
 use std::collections::{HashMap, HashSet};
+use std::ops::Range;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SemanticType {
@@ -2183,11 +2184,7 @@ fn source_span_for_child_range(parent: SourceSpan, start: usize, end: usize) -> 
     )
 }
 
-fn source_span_for_subslice(
-    parent: SourceSpan,
-    parent_text: &str,
-    subslice: &str,
-) -> Option<SourceSpan> {
+fn byte_range_for_subslice(parent_text: &str, subslice: &str) -> Option<Range<usize>> {
     let start = (subslice.as_ptr() as usize).checked_sub(parent_text.as_ptr() as usize)?;
     let end = start.checked_add(subslice.len())?;
     if end > parent_text.len()
@@ -2196,7 +2193,16 @@ fn source_span_for_subslice(
     {
         return None;
     }
-    Some(source_span_for_child_range(parent, start, end))
+    Some(start..end)
+}
+
+fn source_span_for_subslice(
+    parent: SourceSpan,
+    parent_text: &str,
+    subslice: &str,
+) -> Option<SourceSpan> {
+    let range = byte_range_for_subslice(parent_text, subslice)?;
+    Some(source_span_for_child_range(parent, range.start, range.end))
 }
 
 fn split_validation_expression(
@@ -2538,6 +2544,7 @@ fn analyze_where_binding_scope(
         check_ambiguous_quantity(
             &binding.name,
             &binding.expression,
+            None,
             binding.line,
             diagnostics,
         );
@@ -7355,61 +7362,82 @@ fn validate_object_method_call_expression(
 
 fn validate_function_call_expression(
     expression: &str,
+    expression_span: SourceSpan,
     line: usize,
     typed_bindings: &[TypedBinding],
     functions: &[FunctionInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<SemanticType> {
     let call = parse_function_call(expression)?;
+    let name_span =
+        source_span_for_child_range(expression_span, call.name_range.start, call.name_range.end);
     let Some(function) = functions.iter().find(|function| function.name == call.name) else {
-        diagnostics.push(Diagnostic::error(
-            "E-FN-CALL-001",
-            line,
-            &format!("Function `{}` is not defined.", call.name),
-            Some("Define the function before use or import a file that defines it."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-FN-CALL-001",
+                line,
+                &format!("Function `{}` is not defined.", call.name),
+                Some("Define the function before use or import a file that defines it."),
+            )
+            .with_source_span(name_span),
+        );
         return None;
     };
     if call.args.len() != function.parameters.len() {
-        diagnostics.push(Diagnostic::error(
-            "E-FN-CALL-002",
-            line,
-            &format!(
-                "Function `{}` expects {} argument(s), but got {}.",
-                function.name,
-                function.parameters.len(),
-                call.args.len()
-            ),
-            Some("Pass one expression for each function parameter."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-FN-CALL-002",
+                line,
+                &format!(
+                    "Function `{}` expects {} argument(s), but got {}.",
+                    function.name,
+                    function.parameters.len(),
+                    call.args.len()
+                ),
+                Some("Pass one expression for each function parameter."),
+            )
+            .with_source_span(name_span),
+        );
         return semantic_type(
             &function.return_quantity_kind,
             &function.return_display_unit,
         );
     }
-    for (arg, parameter) in call.args.iter().zip(&function.parameters) {
+    for ((arg, arg_range), parameter) in call
+        .args
+        .iter()
+        .zip(&call.arg_ranges)
+        .zip(&function.parameters)
+    {
+        let arg_span = source_span_for_child_range(expression_span, arg_range.start, arg_range.end);
         let Some(actual_dimension) = expression_dimension_for_bindings(arg, typed_bindings) else {
-            diagnostics.push(Diagnostic::error(
-                "E-FN-CALL-003",
-                line,
-                &format!(
-                    "Argument `{arg}` for `{}` could not be type-checked.",
-                    function.name
-                ),
-                Some("Use a typed binding, a literal with units, or a compatible expression."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-FN-CALL-003",
+                    line,
+                    &format!(
+                        "Argument `{arg}` for `{}` could not be type-checked.",
+                        function.name
+                    ),
+                    Some("Use a typed binding, a literal with units, or a compatible expression."),
+                )
+                .with_source_span(arg_span),
+            );
             continue;
         };
         if !dimensions_compatible(&parameter.dimension, &actual_dimension) {
-            diagnostics.push(Diagnostic::error(
-                "E-FN-CALL-004",
-                line,
-                &format!(
-                    "Argument `{arg}` for `{}` has dimension {}, but parameter `{}` expects {}.",
-                    function.name, actual_dimension, parameter.name, parameter.dimension
-                ),
-                Some("Pass a quantity with a compatible unit and dimension."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-FN-CALL-004",
+                    line,
+                    &format!(
+                        "Argument `{arg}` for `{}` has dimension {}, but parameter `{}` expects {}.",
+                        function.name, actual_dimension, parameter.name, parameter.dimension
+                    ),
+                    Some("Pass a quantity with a compatible unit and dimension."),
+                )
+                .with_source_span(arg_span),
+            );
         }
     }
     semantic_type(
@@ -7435,7 +7463,9 @@ fn function_call_args_dimensionally_valid(
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct FunctionCall {
     name: String,
+    name_range: Range<usize>,
     args: Vec<String>,
+    arg_ranges: Vec<Range<usize>>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -7449,8 +7479,8 @@ struct ObjectMethodCall {
     call_span: SourceSpan,
 }
 
-fn parse_function_call(expression: &str) -> Option<FunctionCall> {
-    let expression = strip_outer_parens(expression.trim());
+fn parse_function_call(source_expression: &str) -> Option<FunctionCall> {
+    let expression = strip_outer_parens(source_expression.trim());
     let open = expression.find('(')?;
     if !expression.ends_with(')') {
         return None;
@@ -7460,14 +7490,20 @@ fn parse_function_call(expression: &str) -> Option<FunctionCall> {
         return None;
     }
     let args_text = &expression[open + 1..expression.len() - 1];
-    let args = if args_text.trim().is_empty() {
-        Vec::new()
+    let arg_slices = if args_text.trim().is_empty() {
+        Vec::<&str>::new()
     } else {
-        split_top_level(args_text, &[','])
+        split_top_level_slices(args_text, &[','])
     };
+    let arg_ranges = arg_slices
+        .iter()
+        .map(|arg| byte_range_for_subslice(source_expression, arg))
+        .collect::<Option<Vec<_>>>()?;
     Some(FunctionCall {
         name: name.to_owned(),
-        args,
+        name_range: byte_range_for_subslice(source_expression, name)?,
+        args: arg_slices.iter().map(|arg| (*arg).to_owned()).collect(),
+        arg_ranges,
     })
 }
 
@@ -12182,7 +12218,12 @@ fn analyze_explicit_decl(declaration: &ExplicitDecl, outputs: ExplicitAnalysisOu
     expected_types.push(expected_type_from_explicit_decl(declaration));
 
     if let Some(expression) = &declaration.expression {
-        check_dimensionless_operation(expression, declaration.line, diagnostics);
+        check_dimensionless_operation(
+            expression,
+            declaration.expression_span,
+            declaration.line,
+            diagnostics,
+        );
     }
 
     let display_unit = declaration
@@ -13876,10 +13917,16 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         return;
     }
 
-    check_dimensionless_operation(&binding.expression, binding.line, accum.diagnostics);
+    check_dimensionless_operation(
+        &binding.expression,
+        Some(binding.expression_span),
+        binding.line,
+        accum.diagnostics,
+    );
     check_ambiguous_quantity(
         &binding.name,
         &binding.expression,
+        Some(binding.expression_span),
         binding.line,
         accum.diagnostics,
     );
@@ -13911,6 +13958,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
     {
         validate_function_call_expression(
             &binding.expression,
+            binding.expression_span,
             binding.line,
             &available_bindings,
             accum.functions,
@@ -14060,12 +14108,22 @@ fn schema_fast_assignment_help(binding: &FastBinding) -> String {
 fn check_ambiguous_quantity(
     name: &str,
     expression: &str,
+    expression_span: Option<SourceSpan>,
     line: usize,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
+    if string_literal_content(expression).is_some() || parse_function_call(expression).is_some() {
+        return;
+    }
     let Some(unit) = first_unit_in_expression(expression) else {
         return;
     };
+    let Some(unit_range) = direct_quantity_unit_range(expression, &unit) else {
+        return;
+    };
+    let unit_span = expression_span.map(|expression_span| {
+        source_span_for_child_range(expression_span, unit_range.start, unit_range.end)
+    });
     let candidates = candidates_for_unit(&unit);
     if candidates.len() <= 1 {
         return;
@@ -14074,18 +14132,57 @@ fn check_ambiguous_quantity(
         return;
     }
 
-    diagnostics.push(Diagnostic::warning(
-        "W-QTY-AMBIG-001",
-        line,
-        &format!("`{name}` has unit {unit}, but quantity kind is ambiguous."),
-        Some(&format!(
-            "Candidate quantity kinds: {}. Add an explicit annotation.",
-            completion_labels(&candidates)
-        )),
+    diagnostics.push(with_optional_source_span(
+        Diagnostic::warning(
+            "W-QTY-AMBIG-001",
+            line,
+            &format!("`{name}` has unit {unit}, but quantity kind is ambiguous."),
+            Some(&format!(
+                "Candidate quantity kinds: {}. Add an explicit annotation.",
+                completion_labels(&candidates)
+            )),
+        ),
+        unit_span,
     ));
 }
 
-fn check_dimensionless_operation(expression: &str, line: usize, diagnostics: &mut Vec<Diagnostic>) {
+fn direct_quantity_unit_range(expression: &str, unit: &str) -> Option<Range<usize>> {
+    expression.match_indices(unit).find_map(|(start, matched)| {
+        let end = start + matched.len();
+        if !unit_occurrence_has_boundaries(expression, start, end, unit) {
+            return None;
+        }
+        let prefix = expression[..start].trim_end_matches(|character: char| {
+            matches!(character, '(' | '[' | '{' | ',' | ';' | '=')
+        });
+        let numeric = prefix
+            .split_whitespace()
+            .next_back()?
+            .trim_matches(|character: char| matches!(character, '(' | '[' | '{' | ',' | ';' | '='));
+        if parse_numeric_literal(numeric).is_none_or(|(_, unit)| unit.is_some()) {
+            return None;
+        }
+        Some(start..end)
+    })
+}
+
+fn unit_occurrence_has_boundaries(expression: &str, start: usize, end: usize, unit: &str) -> bool {
+    let unit_character =
+        |character: char| character.is_alphanumeric() || matches!(character, '_' | '/' | '^');
+    let before_is_unit_character = expression[..start]
+        .chars()
+        .next_back()
+        .is_some_and(unit_character);
+    let after_is_unit_character = expression[end..].chars().next().is_some_and(unit_character);
+    (unit == "%" || !before_is_unit_character) && !after_is_unit_character
+}
+
+fn check_dimensionless_operation(
+    expression: &str,
+    expression_span: Option<SourceSpan>,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
     let terms = additive_terms(expression);
 
     for pair in terms.windows(2) {
@@ -14102,7 +14199,16 @@ fn check_dimensionless_operation(expression: &str, line: usize, diagnostics: &mu
             continue;
         };
 
-        diagnostics.push(dimensionless_diagnostic(physical, line));
+        let operator_span =
+            expression_span
+                .zip(right.operator_index)
+                .map(|(expression_span, operator_index)| {
+                    source_span_for_child_range(expression_span, operator_index, operator_index + 1)
+                });
+        diagnostics.push(with_optional_source_span(
+            dimensionless_diagnostic(physical, line),
+            operator_span,
+        ));
         return;
     }
 }
@@ -14110,6 +14216,7 @@ fn check_dimensionless_operation(expression: &str, line: usize, diagnostics: &mu
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct AdditiveTerm {
     operator: Option<char>,
+    operator_index: Option<usize>,
     text: String,
 }
 
@@ -14124,6 +14231,7 @@ fn additive_terms(expression: &str) -> Vec<AdditiveTerm> {
     let mut terms = Vec::new();
     let mut start = 0usize;
     let mut operator = None;
+    let mut operator_index = None;
 
     for (index, character) in expression.char_indices() {
         if character != '+' && character != '-' {
@@ -14137,17 +14245,20 @@ fn additive_terms(expression: &str) -> Vec<AdditiveTerm> {
         if !text.is_empty() {
             terms.push(AdditiveTerm {
                 operator,
+                operator_index,
                 text: text.to_owned(),
             });
         }
         start = index + character.len_utf8();
         operator = Some(character);
+        operator_index = Some(index);
     }
 
     let text = expression[start..].trim();
     if !text.is_empty() {
         terms.push(AdditiveTerm {
             operator,
+            operator_index,
             text: text.to_owned(),
         });
     }
