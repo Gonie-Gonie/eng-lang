@@ -3207,16 +3207,20 @@ fn materialize_db_read_tables(
     result_dir: Option<&Path>,
 ) -> Vec<RuntimeTable> {
     report
-        .inferred_declarations
+        .semantic_program
+        .db_reads
         .iter()
-        .filter_map(|declaration| {
-            let read = eng_compiler::db_read_expression(&declaration.expression)?;
+        .filter_map(|read| {
+            let declaration = report
+                .inferred_declarations
+                .iter()
+                .find(|declaration| declaration.name == read.binding)?;
             let schema = report
                 .semantic_program
                 .schemas
                 .iter()
                 .find(|schema| schema.name == read.schema_name)?;
-            materialize_db_read_table(report, result_dir, declaration, &read, schema)
+            materialize_db_read_table(report, result_dir, declaration, read, schema)
         })
         .collect()
 }
@@ -3225,10 +3229,10 @@ fn materialize_db_read_table(
     report: &CheckReport,
     result_dir: Option<&Path>,
     declaration: &eng_compiler::InferredDeclaration,
-    read: &eng_compiler::DbReadExpression,
+    read: &eng_compiler::DbReadInfo,
     schema: &SchemaInfo,
 ) -> Option<RuntimeTable> {
-    let db_path = runtime_db_read_path(report, result_dir, &read.connection)?;
+    let db_path = runtime_db_read_path(report, result_dir, &read.target.connection)?;
     let connection = crate::sqlite_open_existing(&db_path).ok()?;
     let column_list = schema
         .columns
@@ -3239,7 +3243,7 @@ fn materialize_db_read_table(
     let sql = format!(
         "SELECT {} FROM {}",
         column_list,
-        crate::sqlite_quote_identifier(&read.table)
+        crate::sqlite_quote_identifier(&read.target.table)
     );
     let result = connection.query(&sql).ok()?;
     let headers = schema
@@ -3268,7 +3272,7 @@ fn materialize_db_read_table(
         schema_span: None,
         source_literal: declaration.expression.clone(),
         source_span: Some(declaration.expression_span),
-        source_value: read.table.clone(),
+        source_value: read.target.table.clone(),
         resolved_path: db_path.display().to_string(),
         source_hash: crate::sha256_file_if_exists(&db_path),
         headers,
@@ -3417,11 +3421,15 @@ fn materialize_sqlite_structured_reads(
     tables: &[RuntimeTable],
 ) -> Vec<RuntimeStructuredRead> {
     report
-        .inferred_declarations
+        .semantic_program
+        .db_reads
         .iter()
-        .filter_map(|declaration| {
-            let read = eng_compiler::db_read_expression(&declaration.expression)?;
-            let path = runtime_db_read_path(report, result_dir, &read.connection)?;
+        .filter_map(|read| {
+            let declaration = report
+                .inferred_declarations
+                .iter()
+                .find(|declaration| declaration.name == read.binding)?;
+            let path = runtime_db_read_path(report, result_dir, &read.target.connection)?;
             let table = tables.iter().find(|table| {
                 table.binding == declaration.name && table.schema_name == read.schema_name
             });
@@ -3446,7 +3454,7 @@ fn materialize_sqlite_structured_reads(
             if table.is_none() && path.exists() {
                 record.error = Some(format!(
                     "table `{}` could not be read as schema `{}`",
-                    read.table, read.schema_name
+                    read.target.table, read.schema_name
                 ));
             }
             Some(record)

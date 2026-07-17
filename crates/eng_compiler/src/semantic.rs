@@ -1,7 +1,7 @@
 use crate::ast::{
     ArgsFieldDecl, AssertDecl, AstItem, ClassFieldDecl, ClassMethodDecl, ClassObjectCopyDecl,
     ClassObjectDecl, ClassObjectFieldDecl, ClassValidationDecl, CommandClauseDecl,
-    CommandStyleDecl, ConnectDecl, ConstDecl, CsvExportDecl, CsvExportFieldDecl,
+    CommandStyleDecl, ConnectDecl, ConstDecl, CsvExportDecl, CsvExportFieldDecl, DbTableTargetDecl,
     DomainTypeParameterDecl, DomainVariableDecl, ExpectationDecl, ExplicitDecl, FastBinding,
     FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl, PortDecl,
     PrintDecl, ProcessRunDecl, ReturnDecl, StateSpaceTypeBlockDecl, StateSpaceTypeMemberDecl,
@@ -680,9 +680,11 @@ pub struct ArgsBlockInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FormatExpressionInfo {
     pub expression: String,
+    pub expression_span: Option<SourceSpan>,
     pub quantity_kind: String,
     pub display_unit: String,
     pub requested_unit: Option<String>,
+    pub requested_unit_span: Option<SourceSpan>,
     pub precision: Option<usize>,
     pub line: usize,
 }
@@ -690,7 +692,11 @@ pub struct FormatExpressionInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PrintInfo {
     pub level: String,
+    pub keyword_span: SourceSpan,
+    pub level_span: Option<SourceSpan>,
     pub template: String,
+    pub template_span: SourceSpan,
+    pub template_is_expression: bool,
     pub fields: Vec<FormatExpressionInfo>,
     pub line: usize,
 }
@@ -699,9 +705,14 @@ pub struct PrintInfo {
 pub struct CsvExportFieldInfo {
     pub name: String,
     pub expression: String,
+    pub expression_span: SourceSpan,
     pub quantity_kind: String,
     pub display_unit: String,
     pub requested_unit: Option<String>,
+    pub requested_unit_span: Option<SourceSpan>,
+    pub format_span: Option<SourceSpan>,
+    pub as_span: SourceSpan,
+    pub with_span: Option<SourceSpan>,
     pub precision: Option<usize>,
     pub line: usize,
 }
@@ -709,18 +720,39 @@ pub struct CsvExportFieldInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CsvExportInfo {
     pub source: String,
+    pub source_span: SourceSpan,
     pub format: String,
+    pub format_span: SourceSpan,
     pub path: String,
+    pub path_span: SourceSpan,
+    pub export_span: SourceSpan,
+    pub to_span: SourceSpan,
     pub fields: Vec<CsvExportFieldInfo>,
     pub line: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct WriteInfo {
-    pub format: String,
-    pub path: String,
+pub struct DbTableTargetInfo {
     pub expression: String,
     pub expression_span: SourceSpan,
+    pub connection: String,
+    pub connection_span: SourceSpan,
+    pub table: String,
+    pub table_method_span: SourceSpan,
+    pub table_span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WriteInfo {
+    pub format: String,
+    pub format_span: Option<SourceSpan>,
+    pub path: String,
+    pub path_span: Option<SourceSpan>,
+    pub db_target: Option<DbTableTargetInfo>,
+    pub expression: String,
+    pub expression_span: SourceSpan,
+    pub write_span: SourceSpan,
+    pub to_span: Option<SourceSpan>,
     pub quantity_kind: String,
     pub display_unit: String,
     pub line: usize,
@@ -734,17 +766,39 @@ pub struct DbReadExpression {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DbReadInfo {
+    pub binding: String,
+    pub binding_span: SourceSpan,
+    pub expression_span: SourceSpan,
+    pub read_span: SourceSpan,
+    pub sqlite_span: SourceSpan,
+    pub target: DbTableTargetInfo,
+    pub as_span: SourceSpan,
+    pub schema_name: String,
+    pub schema_span: SourceSpan,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FileOperationInfo {
     pub operation: String,
+    pub operation_span: SourceSpan,
     pub source: String,
+    pub source_span: SourceSpan,
     pub destination: Option<String>,
+    pub destination_span: Option<SourceSpan>,
+    pub to_span: Option<SourceSpan>,
     pub line: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProcessRunInfo {
     pub binding: String,
+    pub binding_span: SourceSpan,
     pub command: String,
+    pub command_span: Option<SourceSpan>,
+    pub run_span: SourceSpan,
+    pub command_keyword_span: SourceSpan,
     pub line: usize,
 }
 
@@ -940,6 +994,7 @@ pub struct SemanticProgram {
     pub prints: Vec<PrintInfo>,
     pub csv_exports: Vec<CsvExportInfo>,
     pub writes: Vec<WriteInfo>,
+    pub db_reads: Vec<DbReadInfo>,
     pub file_operations: Vec<FileOperationInfo>,
     pub process_runs: Vec<ProcessRunInfo>,
     pub tests: Vec<TestInfo>,
@@ -1015,6 +1070,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut csv_exports = Vec::new();
     let mut current_csv_export_index = None;
     let mut writes = Vec::new();
+    let mut db_reads = Vec::new();
     let mut file_operations = Vec::new();
     let mut process_runs = Vec::new();
     let mut tests = Vec::new();
@@ -1421,6 +1477,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     functions: &functions,
                     classes: &classes,
                     class_objects: &class_objects,
+                    db_reads: &mut db_reads,
                     timeseries_kernels: &mut timeseries_kernels,
                 };
                 analyze_fast_binding(binding, &mut accum);
@@ -1721,6 +1778,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             prints,
             csv_exports,
             writes,
+            db_reads,
             file_operations,
             process_runs,
             tests,
@@ -3352,6 +3410,7 @@ fn analyze_with_option(
                 &option.value,
                 option.line,
                 "E-WITH-UNIT-001",
+                Some(option.value_span),
                 diagnostics,
             );
         }
@@ -4063,20 +4122,27 @@ fn analyze_print_decl(
     if print.level != "print"
         && !matches!(print.level.as_str(), "debug" | "info" | "warn" | "error")
     {
-        diagnostics.push(Diagnostic::error(
-            "E-LOG-LEVEL-001",
-            print.line,
-            if print.level.is_empty() {
-                "`log` requires a level."
-            } else {
-                "Unsupported `log` level."
-            },
-            Some("Use `log debug \"...\"`, `log info \"...\"`, `log warn \"...\"`, or `log error \"...\"`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-LOG-LEVEL-001",
+                print.line,
+                if print.level.is_empty() {
+                    "`log` requires a level."
+                } else {
+                    "Unsupported `log` level."
+                },
+                Some("Use `log debug \"...\"`, `log info \"...\"`, `log warn \"...\"`, or `log error \"...\"`."),
+            )
+            .with_source_span(print.level_span.unwrap_or(print.span)),
+        );
     }
     let fields = analyze_format_fields(
         &print.template,
         print.line,
+        Some(FormatTemplateSource {
+            span: print.template_span,
+            template_offset: usize::from(print.template_is_expression),
+        }),
         typed_bindings,
         functions,
         PRINT_FORMAT_DIAGNOSTICS,
@@ -4084,7 +4150,11 @@ fn analyze_print_decl(
     );
     prints.push(PrintInfo {
         level: print.level.clone(),
+        keyword_span: print.span,
+        level_span: print.level_span,
         template: print.template.clone(),
+        template_span: print.template_span,
+        template_is_expression: print.template_is_expression,
         fields,
         line: print.line,
     });
@@ -4095,20 +4165,28 @@ fn analyze_csv_export_decl(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> CsvExportInfo {
     if export.source != "summary" {
-        diagnostics.push(Diagnostic::error(
-            "E-EXPORT-CSV-002",
-            export.line,
-            &format!(
-                "CSV export source `{}` is not supported in the current runtime.",
-                export.source
-            ),
-            Some("Use `export summary to csv join(args.output, \"summary.csv\") { ... }` or a quoted output path for scalar summary exports."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-EXPORT-CSV-002",
+                export.line,
+                &format!(
+                    "CSV export source `{}` is not supported in the current runtime.",
+                    export.source
+                ),
+                Some("Use `export summary to csv join(args.output, \"summary.csv\") { ... }` or a quoted output path for scalar summary exports."),
+            )
+            .with_source_span(export.source_span),
+        );
     }
     CsvExportInfo {
         source: export.source.clone(),
+        source_span: export.source_span,
         format: export.format.clone(),
+        format_span: export.format_span,
         path: export.path.clone(),
+        path_span: export.path_span,
+        export_span: export.span,
+        to_span: export.to_span,
         fields: Vec::new(),
         line: export.line,
     }
@@ -4127,6 +4205,7 @@ fn analyze_csv_export_field_decl(
                     &field.expression,
                     field.line,
                     "E-EXPORT-CSV-003",
+                    Some(field.expression_span),
                 ));
                 None
             },
@@ -4142,15 +4221,21 @@ fn analyze_csv_export_field_decl(
             unit,
             field.line,
             "E-EXPORT-CSV-004",
+            field.display_unit_span,
             diagnostics,
         );
     }
     Some(CsvExportFieldInfo {
         name: export_field_name(&field.expression),
         expression: field.expression.clone(),
+        expression_span: field.expression_span,
         quantity_kind: semantic_type.quantity_kind.clone(),
         display_unit: semantic_type.display_unit.clone(),
         requested_unit: field.display_unit.clone(),
+        requested_unit_span: field.display_unit_span,
+        format_span: field.format_span,
+        as_span: field.as_span,
+        with_span: field.with_span,
         precision,
         line: field.line,
     })
@@ -4163,24 +4248,30 @@ fn analyze_write_decl(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<WriteInfo> {
     if write.context != ParseContext::TopLevel {
-        diagnostics.push(Diagnostic::error(
-            "E-WRITE-001",
-            write.line,
-            "`write` is supported only in the top-level workflow.",
-            Some("Move the write statement to the root workflow so the output is reviewable."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-WRITE-001",
+                write.line,
+                "`write` is supported only in the top-level workflow.",
+                Some("Move the write statement to the root workflow so the output is reviewable."),
+            )
+            .with_source_span(write.span),
+        );
         return None;
     }
     if write.format == "db" {
         return analyze_db_write_decl(write, typed_bindings, diagnostics);
     }
     if !matches!(write.format.as_str(), "text" | "json" | "standard_text") {
-        diagnostics.push(Diagnostic::error(
-            "E-WRITE-002",
-            write.line,
-            &format!("Write format `{}` is not supported.", write.format),
-            Some("Use `write text`, `write json`, or `write standard_text`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-WRITE-002",
+                write.line,
+                &format!("Write format `{}` is not supported.", write.format),
+                Some("Use `write text`, `write json`, or `write standard_text`."),
+            )
+            .with_source_span(write.format_span.unwrap_or(write.span)),
+        );
         return None;
     }
     if write.format == "standard_text" {
@@ -4190,14 +4281,17 @@ fn analyze_write_decl(
             .find(|binding| binding.name == source)
             .map(|binding| binding.semantic_type.quantity_kind.as_str());
         if !source_type.is_some_and(is_standard_text_table_quantity_kind) {
-            diagnostics.push(Diagnostic::error(
-                "E-WRITE-STANDARD-TEXT-001",
-                write.line,
-                &format!("Standard text source `{source}` is not a typed table."),
-                Some(
-                    "Write a promoted, generated, derived, or joined table with `write standard_text <table>`.",
-                ),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-WRITE-STANDARD-TEXT-001",
+                    write.line,
+                    &format!("Standard text source `{source}` is not a typed table."),
+                    Some(
+                        "Write a promoted, generated, derived, or joined table with `write standard_text <table>`.",
+                    ),
+                )
+                .with_source_span(write.expression_span),
+            );
             return None;
         }
     }
@@ -4206,6 +4300,7 @@ fn analyze_write_decl(
             analyze_format_fields(
                 template,
                 write.line,
+                format_template_source_for_string(&write.expression, write.expression_span),
                 typed_bindings,
                 functions,
                 WRITE_TEXT_FORMAT_DIAGNOSTICS,
@@ -4219,14 +4314,20 @@ fn analyze_write_decl(
                 &write.expression,
                 write.line,
                 "E-WRITE-003",
+                Some(write.expression_span),
             ));
             None
         })?;
     Some(WriteInfo {
         format: write.format.clone(),
+        format_span: write.format_span,
         path: write.path.clone(),
+        path_span: write.path_span,
+        db_target: None,
         expression: write.expression.clone(),
         expression_span: write.expression_span,
+        write_span: write.span,
+        to_span: write.to_span,
         quantity_kind: semantic_type.quantity_kind,
         display_unit: semantic_type.display_unit,
         line: write.line,
@@ -4251,41 +4352,58 @@ fn analyze_db_write_decl(
         .find(|binding| binding.name == source)
         .map(|binding| binding.semantic_type.quantity_kind.as_str());
     if !source_type.is_some_and(is_materialized_table_quantity_kind) {
-        diagnostics.push(Diagnostic::error(
-            "E-DB-SCHEMA-MISMATCH",
-            write.line,
-            &format!("DB write source `{source}` is not a typed table."),
-            Some("Write a promoted, generated, or derived table to `db.table(\"name\")`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-DB-SCHEMA-MISMATCH",
+                write.line,
+                &format!("DB write source `{source}` is not a typed table."),
+                Some("Write a promoted, generated, or derived table to `db.table(\"name\")`."),
+            )
+            .with_source_span(write.expression_span),
+        );
         return None;
     }
-    let Some((connection, _table)) = db_table_target_expression(&write.path) else {
-        diagnostics.push(Diagnostic::error(
-            "E-DB-CONNECT",
-            write.line,
-            &format!("DB write target `{}` is not a SQLite table reference.", write.path),
-            Some("Use `write <table_binding> to db.table(\"table_name\")` after `db = open sqlite file(\"...\")`."),
-        ));
+    let Some(target) = write.db_target.as_ref() else {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-DB-CONNECT",
+                write.line,
+                &format!("DB write target `{}` is not a SQLite table reference.", write.path),
+                Some("Use `write <table_binding> to db.table(\"table_name\")` after `db = open sqlite file(\"...\")`."),
+            )
+            .with_source_span(write.path_span.unwrap_or(write.span)),
+        );
         return None;
     };
     let connection_type = typed_bindings
         .iter()
-        .find(|binding| binding.name == connection)
+        .find(|binding| binding.name == target.connection)
         .map(|binding| binding.semantic_type.quantity_kind.as_str());
     if connection_type != Some("DbConnection") {
-        diagnostics.push(Diagnostic::error(
-            "E-DB-CONNECT",
-            write.line,
-            &format!("DB connection `{connection}` is not a SQLite connection binding."),
-            Some("Declare it with `db = open sqlite file(\"outputs/results.sqlite\")`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-DB-CONNECT",
+                write.line,
+                &format!(
+                    "DB connection `{}` is not a SQLite connection binding.",
+                    target.connection
+                ),
+                Some("Declare it with `db = open sqlite file(\"outputs/results.sqlite\")`."),
+            )
+            .with_source_span(target.connection_span),
+        );
         return None;
     }
     Some(WriteInfo {
         format: "db".to_owned(),
+        format_span: write.format_span,
         path: write.path.clone(),
+        path_span: write.path_span,
+        db_target: Some(db_table_target_info(target)),
         expression: write.expression.clone(),
         expression_span: write.expression_span,
+        write_span: write.span,
+        to_span: write.to_span,
         quantity_kind: "DbWrite".to_owned(),
         display_unit: "sqlite".to_owned(),
         line: write.line,
@@ -4297,42 +4415,55 @@ fn analyze_file_operation_decl(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<FileOperationInfo> {
     if operation.context != ParseContext::TopLevel {
-        diagnostics.push(Diagnostic::error(
-            "E-FS-001",
-            operation.line,
-            "File operations are supported only in the top-level workflow.",
-            Some("Move the operation to the root workflow so the filesystem change is reviewable."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-FS-001",
+                operation.line,
+                "File operations are supported only in the top-level workflow.",
+                Some("Move the operation to the root workflow so the filesystem change is reviewable."),
+            )
+            .with_source_span(operation.span),
+        );
         return None;
     }
     if !matches!(
         operation.operation.as_str(),
         "copy" | "move" | "delete" | "mkdir"
     ) {
-        diagnostics.push(Diagnostic::error(
-            "E-FS-002",
-            operation.line,
-            &format!("File operation `{}` is not supported.", operation.operation),
-            Some("Use `copy`, `move`, `delete`, or `mkdir`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-FS-002",
+                operation.line,
+                &format!("File operation `{}` is not supported.", operation.operation),
+                Some("Use `copy`, `move`, `delete`, or `mkdir`."),
+            )
+            .with_source_span(operation.span),
+        );
         return None;
     }
     if matches!(operation.operation.as_str(), "copy" | "move") && operation.destination.is_none() {
-        diagnostics.push(Diagnostic::error(
-            "E-FS-003",
-            operation.line,
-            &format!("`{}` requires a destination path.", operation.operation),
-            Some(&format!(
-                "Write `{} <source> to <destination>`.",
-                operation.operation
-            )),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-FS-003",
+                operation.line,
+                &format!("`{}` requires a destination path.", operation.operation),
+                Some(&format!(
+                    "Write `{} <source> to <destination>`.",
+                    operation.operation
+                )),
+            )
+            .with_source_span(operation.source_span),
+        );
         return None;
     }
     Some(FileOperationInfo {
         operation: operation.operation.clone(),
+        operation_span: operation.span,
         source: operation.source.clone(),
+        source_span: operation.source_span,
         destination: operation.destination.clone(),
+        destination_span: operation.destination_span,
+        to_span: operation.to_span,
         line: operation.line,
     })
 }
@@ -4345,44 +4476,56 @@ fn analyze_process_run_decl(
     type_infos: &mut Vec<TypeInfo>,
 ) -> Option<ProcessRunInfo> {
     if process.context != ParseContext::TopLevel {
-        diagnostics.push(Diagnostic::error(
-            "E-PROCESS-001",
-            process.line,
-            "`run command` is supported only in the top-level workflow.",
-            Some("Move the process statement to the root workflow so it is reviewable."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-PROCESS-001",
+                process.line,
+                "`run command` is supported only in the top-level workflow.",
+                Some("Move the process statement to the root workflow so it is reviewable."),
+            )
+            .with_source_span(process.run_span),
+        );
         return None;
     }
     let Some(binding) = process.binding.as_ref().filter(|value| !value.is_empty()) else {
-        diagnostics.push(Diagnostic::error(
-            "E-PROCESS-BINDING-001",
-            process.line,
-            "`run command` must bind a ProcessResult.",
-            Some(
-                "Write `result = run command \"tool\"` so the exit code and output are reviewable.",
-            ),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-PROCESS-BINDING-001",
+                process.line,
+                "`run command` must bind a ProcessResult.",
+                Some(
+                    "Write `result = run command \"tool\"` so the exit code and output are reviewable.",
+                ),
+            )
+            .with_source_span(process.run_span),
+        );
         return None;
     };
     if process.command.trim().is_empty() {
-        diagnostics.push(Diagnostic::error(
-            "E-PROCESS-CMD-001",
-            process.line,
-            "`run command` requires a command string.",
-            Some("Write `result = run command \"tool\"` and pass arguments with `with { args = [...] }`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-PROCESS-CMD-001",
+                process.line,
+                "`run command` requires a command string.",
+                Some("Write `result = run command \"tool\"` and pass arguments with `with { args = [...] }`."),
+            )
+            .with_source_span(process.command_span.unwrap_or(process.command_keyword_span)),
+        );
         return None;
     }
     if typed_bindings
         .iter()
         .any(|existing| existing.name == *binding && existing.line != process.line)
     {
-        diagnostics.push(Diagnostic::error(
-            "E-PROCESS-BINDING-002",
-            process.line,
-            &format!("ProcessResult binding `{binding}` conflicts with an existing binding."),
-            Some("Use a unique result binding name for the process run."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-PROCESS-BINDING-002",
+                process.line,
+                &format!("ProcessResult binding `{binding}` conflicts with an existing binding."),
+                Some("Use a unique result binding name for the process run."),
+            )
+            .with_source_span(process.binding_span.unwrap_or(process.span)),
+        );
         return None;
     }
 
@@ -4394,14 +4537,14 @@ fn analyze_process_run_decl(
         name: binding.clone(),
         semantic_type: semantic_type.clone(),
         line: process.line,
-        span: process.span,
+        span: process.binding_span.unwrap_or(process.span),
     });
     hover_hints.push(HoverHint::inferred(
         binding.clone(),
         semantic_type.quantity_kind.clone(),
         semantic_type.display_unit.clone(),
         format!("run command \"{}\"", process.command),
-        process.span,
+        process.binding_span.unwrap_or(process.span),
     ));
     type_infos.push(TypeInfo {
         name: binding.clone(),
@@ -4411,11 +4554,15 @@ fn analyze_process_run_decl(
         dimension: "ExternalProcess".to_owned(),
         source: TypeInfoSource::Inferred,
         line: process.line,
-        span: process.span,
+        span: process.binding_span.unwrap_or(process.span),
     });
     Some(ProcessRunInfo {
         binding: binding.clone(),
+        binding_span: process.binding_span.unwrap_or(process.span),
         command: process.command.clone(),
+        command_span: process.command_span,
+        run_span: process.run_span,
+        command_keyword_span: process.command_keyword_span,
         line: process.line,
     })
 }
@@ -4681,28 +4828,34 @@ fn validate_file_operation_options(
         if matches!(operation.operation.as_str(), "move" | "delete")
             && !with_option_bool(with_blocks, operation.line, "confirm")
         {
-            diagnostics.push(Diagnostic::error(
-                "E-FS-CONFIRM-001",
-                operation.line,
-                &format!(
-                    "`{}` requires `with {{ confirm = true }}`.",
-                    operation.operation
-                ),
-                Some(
-                    "Attach an explicit confirmation block so the filesystem mutation is visible.",
-                ),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-FS-CONFIRM-001",
+                    operation.line,
+                    &format!(
+                        "`{}` requires `with {{ confirm = true }}`.",
+                        operation.operation
+                    ),
+                    Some(
+                        "Attach an explicit confirmation block so the filesystem mutation is visible.",
+                    ),
+                )
+                .with_source_span(operation.operation_span),
+            );
         }
         if operation.operation == "delete"
             && operation.source.trim_start().starts_with("dir(")
             && !with_option_bool(with_blocks, operation.line, "recursive")
         {
-            diagnostics.push(Diagnostic::error(
-                "E-FS-DELETE-001",
-                operation.line,
-                "`delete dir(...)` requires `with { recursive = true }`.",
-                Some("Delete directory trees only with both `recursive = true` and `confirm = true`."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-FS-DELETE-001",
+                    operation.line,
+                    "`delete dir(...)` requires `with { recursive = true }`.",
+                    Some("Delete directory trees only with both `recursive = true` and `confirm = true`."),
+                )
+                .with_source_span(operation.source_span),
+            );
         }
     }
 }
@@ -6486,14 +6639,17 @@ fn validate_write_options(
                     .any(|option| option.key == "output" && option.status == "accepted")
         });
         if !has_output {
-            diagnostics.push(Diagnostic::error(
-                "E-WRITE-STANDARD-TEXT-OUTPUT",
-                write.line,
-                "`write standard_text` needs an output path.",
-                Some(
-                    "Add `with { output = join(args.output, \"standard_weather_file.txt\") }` or write `write standard_text <table> to \"outputs/file.txt\"`.",
-                ),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-WRITE-STANDARD-TEXT-OUTPUT",
+                    write.line,
+                    "`write standard_text` needs an output path.",
+                    Some(
+                        "Add `with { output = join(args.output, \"standard_weather_file.txt\") }` or write `write standard_text <table> to \"outputs/file.txt\"`.",
+                    ),
+                )
+                .with_source_span(write.write_span),
+            );
         }
     }
 }
@@ -6539,6 +6695,7 @@ fn numeric_literal_with_optional_unit(expression: &str) -> Option<(f64, Option<S
 fn analyze_format_fields(
     template: &str,
     line: usize,
+    source: Option<FormatTemplateSource>,
     typed_bindings: &[TypedBinding],
     functions: &[FunctionInfo],
     context: FormatDiagnosticContext,
@@ -6549,7 +6706,7 @@ fn analyze_format_fields(
     while let Some(open) = template[cursor..].find('{') {
         let start = cursor + open;
         let Some(close_offset) = template[start + 1..].find('}') else {
-            diagnostics.push(Diagnostic::error(
+            let diagnostic = Diagnostic::error(
                 context.unterminated_code,
                 line,
                 &format!(
@@ -6557,23 +6714,46 @@ fn analyze_format_fields(
                     context.template_label
                 ),
                 Some("Close the interpolation with `}`."),
+            );
+            diagnostics.push(with_optional_source_span(
+                diagnostic,
+                source.and_then(|source| source.span_for_template_range(start, template.len())),
             ));
             break;
         };
         let close = start + 1 + close_offset;
-        let inside = template[start + 1..close].trim();
+        let raw_inside = &template[start + 1..close];
+        let inside = raw_inside.trim();
+        let inside_leading = raw_inside.len() - raw_inside.trim_start().len();
+        let inside_start = start + 1 + inside_leading;
         if inside.is_empty() {
-            diagnostics.push(Diagnostic::error(
+            let diagnostic = Diagnostic::error(
                 context.empty_code,
                 line,
                 &format!("{} is empty.", context.interpolation_label),
                 Some("Put an expression inside `{...}`."),
+            );
+            diagnostics.push(with_optional_source_span(
+                diagnostic,
+                source.and_then(|source| source.span_for_template_range(start, close + 1)),
             ));
             cursor = close + 1;
             continue;
         }
         let (expression, spec) = split_format_field(inside);
+        let expression_start =
+            inside_start + (expression.as_ptr() as usize).saturating_sub(inside.as_ptr() as usize);
+        let expression_span = source.and_then(|source| {
+            source.span_for_template_range(expression_start, expression_start + expression.len())
+        });
         let format_spec = parse_format_spec(spec.unwrap_or_default());
+        let requested_unit_span = format_spec.unit.as_deref().and_then(|unit| {
+            let spec = spec?;
+            let unit_start = (spec.as_ptr() as usize)
+                .checked_sub(template.as_ptr() as usize)?
+                .checked_add(spec.find(unit)?)?;
+            source?.span_for_template_range(unit_start, unit_start + unit.len())
+        });
         if let Some(semantic_type) =
             resolve_format_expression_type(expression, typed_bindings, functions)
         {
@@ -6584,14 +6764,17 @@ fn analyze_format_fields(
                     unit,
                     line,
                     context.unit_code,
+                    requested_unit_span,
                     diagnostics,
                 );
             }
             fields.push(FormatExpressionInfo {
                 expression: expression.to_owned(),
+                expression_span,
                 quantity_kind: semantic_type.quantity_kind,
                 display_unit: semantic_type.display_unit,
                 requested_unit: format_spec.unit,
+                requested_unit_span,
                 precision: format_spec.precision,
                 line,
             });
@@ -6600,11 +6783,54 @@ fn analyze_format_fields(
                 expression,
                 line,
                 context.unknown_code,
+                expression_span,
             ));
         }
         cursor = close + 1;
     }
     fields
+}
+
+#[derive(Clone, Copy)]
+struct FormatTemplateSource {
+    span: SourceSpan,
+    template_offset: usize,
+}
+
+impl FormatTemplateSource {
+    fn span_for_template_range(self, start: usize, end: usize) -> Option<SourceSpan> {
+        let start = start.checked_sub(self.template_offset)?;
+        let end = end.checked_sub(self.template_offset)?;
+        let source_length = self.span.end.checked_sub(self.span.start)?;
+        if start >= end || end > source_length {
+            return None;
+        }
+        Some(SourceSpan::new(
+            self.span.start + start,
+            self.span.start + end,
+            self.span.line,
+            self.span.column + start,
+        ))
+    }
+}
+
+fn format_template_source_for_string(
+    expression: &str,
+    expression_span: SourceSpan,
+) -> Option<FormatTemplateSource> {
+    let expression = expression.trim();
+    if !expression.starts_with('"') || !expression.ends_with('"') || expression.len() < 2 {
+        return None;
+    }
+    Some(FormatTemplateSource {
+        span: SourceSpan::new(
+            expression_span.start + 1,
+            expression_span.end.saturating_sub(1),
+            expression_span.line,
+            expression_span.column + 1,
+        ),
+        template_offset: 0,
+    })
 }
 
 #[derive(Clone, Copy)]
@@ -7374,25 +7600,32 @@ fn validate_requested_unit(
     unit: &str,
     line: usize,
     code: &str,
+    source_span: Option<SourceSpan>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     if !unit_is_supported(unit) {
-        diagnostics.push(Diagnostic::error(
-            code,
-            line,
-            &format!("Requested display unit `{unit}` is not supported."),
-            Some("Use a unit from the built-in unit registry, such as kW, kWh, degC, or kg/s."),
+        diagnostics.push(with_optional_source_span(
+            Diagnostic::error(
+                code,
+                line,
+                &format!("Requested display unit `{unit}` is not supported."),
+                Some("Use a unit from the built-in unit registry, such as kW, kWh, degC, or kg/s."),
+            ),
+            source_span,
         ));
         return;
     }
     if !unit_compatible_with_quantity(quantity_kind, unit) {
-        diagnostics.push(Diagnostic::error(
-            code,
-            line,
-            &format!(
-                "`{expression}` has quantity `{quantity_kind}` and cannot be displayed as `{unit}`."
+        diagnostics.push(with_optional_source_span(
+            Diagnostic::error(
+                code,
+                line,
+                &format!(
+                    "`{expression}` has quantity `{quantity_kind}` and cannot be displayed as `{unit}`."
+                ),
+                Some("Choose a display unit compatible with the expression quantity."),
             ),
-            Some("Choose a display unit compatible with the expression quantity."),
+            source_span,
         ));
     }
 }
@@ -7418,13 +7651,31 @@ fn scalar_quantity_kind(quantity_kind: &str) -> String {
         .unwrap_or_else(|| quantity_kind.to_owned())
 }
 
-fn unknown_format_expression_diagnostic(expression: &str, line: usize, code: &str) -> Diagnostic {
-    Diagnostic::error(
-        code,
-        line,
-        &format!("Cannot resolve formatted expression `{expression}`."),
-        Some("Bind the value first, or use a supported expression such as `args.input`, `table.rows`, or `mean(Q, axis=Time)`."),
+fn unknown_format_expression_diagnostic(
+    expression: &str,
+    line: usize,
+    code: &str,
+    source_span: Option<SourceSpan>,
+) -> Diagnostic {
+    with_optional_source_span(
+        Diagnostic::error(
+            code,
+            line,
+            &format!("Cannot resolve formatted expression `{expression}`."),
+            Some("Bind the value first, or use a supported expression such as `args.input`, `table.rows`, or `mean(Q, axis=Time)`."),
+        ),
+        source_span,
     )
+}
+
+fn with_optional_source_span(
+    diagnostic: Diagnostic,
+    source_span: Option<SourceSpan>,
+) -> Diagnostic {
+    match source_span {
+        Some(span) => diagnostic.with_source_span(span),
+        None => diagnostic,
+    }
 }
 
 fn export_field_name(expression: &str) -> String {
@@ -13675,9 +13926,15 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         accum.class_objects,
         accum.diagnostics,
     );
+    let db_read = db_read_info(binding);
+    if let Some(read) = &db_read {
+        accum.db_reads.push(read.clone());
+    }
     let db_read_type = analyze_db_read_expression_type(
         &binding.expression,
+        binding.expression_span,
         binding.line,
+        db_read.as_ref(),
         &available_bindings,
         accum.diagnostics,
     );
@@ -13776,6 +14033,7 @@ struct SemanticAccum<'a> {
     functions: &'a [FunctionInfo],
     classes: &'a [ClassInfo],
     class_objects: &'a [ClassObjectInfo],
+    db_reads: &'a mut Vec<DbReadInfo>,
     timeseries_kernels: &'a mut Vec<TimeSeriesKernelInfo>,
 }
 
@@ -14217,6 +14475,34 @@ fn is_simple_binding_name(value: &str) -> bool {
         && chars.all(|character| character.is_ascii_alphanumeric() || character == '_')
 }
 
+fn db_table_target_info(target: &DbTableTargetDecl) -> DbTableTargetInfo {
+    DbTableTargetInfo {
+        expression: target.expression.clone(),
+        expression_span: target.expression_span,
+        connection: target.connection.clone(),
+        connection_span: target.connection_span,
+        table: target.table.clone(),
+        table_method_span: target.table_method_span,
+        table_span: target.table_span,
+    }
+}
+
+fn db_read_info(binding: &FastBinding) -> Option<DbReadInfo> {
+    let read = binding.db_read.as_ref()?;
+    Some(DbReadInfo {
+        binding: binding.name.clone(),
+        binding_span: binding.span,
+        expression_span: binding.expression_span,
+        read_span: read.read_span,
+        sqlite_span: read.sqlite_span,
+        target: db_table_target_info(&read.target),
+        as_span: read.as_span,
+        schema_name: read.schema_name.clone(),
+        schema_span: read.schema_span,
+        line: binding.line,
+    })
+}
+
 fn db_connection_semantic_type(expression: &str) -> Option<SemanticType> {
     expression
         .trim()
@@ -14227,36 +14513,44 @@ fn db_connection_semantic_type(expression: &str) -> Option<SemanticType> {
 
 fn analyze_db_read_expression_type(
     expression: &str,
+    expression_span: SourceSpan,
     line: usize,
+    read: Option<&DbReadInfo>,
     typed_bindings: &[TypedBinding],
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<SemanticType> {
     if !expression.trim().starts_with("read sqlite ") {
         return None;
     }
-    let Some(read) = db_read_expression(expression) else {
-        diagnostics.push(Diagnostic::error(
-            "E-DB-READ-001",
-            line,
-            "SQLite reads must target a typed table reference.",
-            Some("Use `rows = read sqlite db.table(\"table_name\") as SchemaName`."),
-        ));
+    let Some(read) = read else {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-DB-READ-001",
+                line,
+                "SQLite reads must target a typed table reference.",
+                Some("Use `rows = read sqlite db.table(\"table_name\") as SchemaName`."),
+            )
+            .with_source_span(expression_span),
+        );
         return None;
     };
     let connection_type = typed_bindings
         .iter()
-        .find(|binding| binding.name == read.connection)
+        .find(|binding| binding.name == read.target.connection)
         .map(|binding| binding.semantic_type.quantity_kind.as_str());
     if connection_type != Some("DbConnection") {
-        diagnostics.push(Diagnostic::error(
-            "E-DB-CONNECT",
-            line,
-            &format!(
-                "DB connection `{}` is not a SQLite connection binding.",
-                read.connection
-            ),
-            Some("Declare it with `db = open sqlite file(\"outputs/results.sqlite\")`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-DB-CONNECT",
+                line,
+                &format!(
+                    "DB connection `{}` is not a SQLite connection binding.",
+                    read.target.connection
+                ),
+                Some("Declare it with `db = open sqlite file(\"outputs/results.sqlite\")`."),
+            )
+            .with_source_span(read.target.connection_span),
+        );
         return None;
     }
     semantic_type(&format!("Table[{}]", read.schema_name), "rows")

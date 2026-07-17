@@ -447,11 +447,21 @@ option values end at the final lexer token, excluding trailing `#` and `//`
 comments; inline block delimiters likewise come from brace tokens rather than
 brace characters inside strings or comments.
 
-Simple identifier sources in `write` statements use `WriteInfo.expression_span`
-as an authoritative semantic range. At that exact range, a lexical keyword
-fallback is replaced by one variable token carrying the binding role plus
-side-effect and DB context. The same spelling in a real grammar position, such
-as `records` in `promote json records`, remains a workflow keyword.
+Print/log templates, CSV export sources and fields, write sources and targets,
+DB read/write connection and table paths, file-operation operands, and process
+bindings/commands use their public compiler-owned side-effect spans. Their
+semantic roles are emitted only inside those ranges, including interpolation
+expressions, requested units, dotted receivers, and quoted path contents.
+Repeated text in a binding, string, or earlier operand cannot receive the later
+role.
+
+For a simple `write` source identifier, the lexical keyword fallback at
+`WriteInfo.expression_span` is replaced by one variable token carrying the
+binding role plus side-effect and DB context. The same spelling in a real
+grammar position, such as `records` in `promote json records`, remains a
+workflow keyword. DB reads and writes share parser-owned `DbTableTargetInfo`
+ranges with native runtime execution rather than rediscovering a connection or
+table from line text.
 
 Simple inferred aliases use the preserved fast-binding expression span, and ML
 model/table/input operands use their dedicated `MlInfo` spans. ML call options

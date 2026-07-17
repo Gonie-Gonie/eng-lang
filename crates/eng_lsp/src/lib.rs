@@ -4,10 +4,10 @@ use std::path::Path;
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, bundled_module_registry, check_source,
     check_source_with_import_overrides, classify_diagnostic_review_risk, classify_review_risk,
-    db_read_expression, read_only_io_expression, review_validation_records, CheckOptions,
-    CheckReport, ClassFieldInfo, CommandStyleInfo, Diagnostic, DomainTypeParameterInfo,
-    FileOperationInfo, FunctionInfo, ImportSourceOverrides, ReviewValidationRecord,
-    SemanticProgram, Severity, SourceSpan, WithBlockInfo, WithOptionInfo,
+    read_only_io_expression, review_validation_records, CheckOptions, CheckReport, ClassFieldInfo,
+    CommandStyleInfo, Diagnostic, DomainTypeParameterInfo, FileOperationInfo, FunctionInfo,
+    ImportSourceOverrides, ReviewValidationRecord, SemanticProgram, Severity, SourceSpan,
+    WithBlockInfo, WithOptionInfo, WriteInfo,
 };
 use serde_json::{json, Value};
 
@@ -3206,17 +3206,73 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for print in &program.prints {
-        builder.push_keywords_on_line(print.line, &["print", "log"], &["sideEffect"]);
+        let keyword = if print.level == "print" {
+            "print"
+        } else {
+            "log"
+        };
+        builder.push_named_span(print.keyword_span, keyword, "keyword", &["sideEffect"]);
+        if let Some(level_span) = print.level_span {
+            builder.push_named_span(level_span, &print.level, "enumMember", &["sideEffect"]);
+        }
+        for field in &print.fields {
+            if let Some(expression_span) = field.expression_span {
+                builder.push_preferred_identifier_path_span(
+                    expression_span,
+                    &field.expression,
+                    None,
+                    &["sideEffect"],
+                );
+            }
+            if let (Some(unit), Some(unit_span)) =
+                (&field.requested_unit, field.requested_unit_span)
+            {
+                builder.push_atomic_named_span(unit_span, unit, "type", &["unit"]);
+            }
+        }
     }
 
     for export in &program.csv_exports {
+        builder.push_named_span(export.export_span, "export", "keyword", &["sideEffect"]);
         if export.source != "summary" {
-            builder.push_on_line(export.line, &export.source, "variable", &["report"]);
+            builder.push_named_span(export.source_span, &export.source, "variable", &["report"]);
         }
-        add_csv_export_target_semantic_tokens(&mut builder, export.line, &export.path);
+        builder.push_named_span(export.to_span, "to", "keyword", &["sideEffect"]);
+        builder.push_named_span(
+            export.format_span,
+            &export.format,
+            "keyword",
+            &["sideEffect"],
+        );
+        builder.push_identifiers_within_span(
+            export.path_span,
+            &["file", "dir", "join"],
+            "function",
+            &["sideEffect"],
+        );
         for field in &export.fields {
-            builder.push_on_line(field.line, &field.name, "property", &["report"]);
-            builder.push_keywords_on_line(field.line, &["as", "with"], &["report"]);
+            if !builder.push_preferred_identifier_path_span(
+                field.expression_span,
+                &field.expression,
+                Some("property"),
+                &["report"],
+            ) {
+                builder.push_within_span(
+                    field.expression_span,
+                    &field.expression,
+                    "property",
+                    &["report"],
+                );
+            }
+            builder.push_named_span(field.as_span, "as", "keyword", &["report"]);
+            if let Some(with_span) = field.with_span {
+                builder.push_named_span(with_span, "with", "keyword", &["report"]);
+            }
+            if let (Some(unit), Some(unit_span)) =
+                (&field.requested_unit, field.requested_unit_span)
+            {
+                builder.push_atomic_named_span(unit_span, unit, "type", &["unit", "report"]);
+            }
         }
     }
 
@@ -3250,14 +3306,24 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                 builder.push_on_line(write.line, &write.expression, "variable", &source_modifiers);
             }
         }
-        builder.push_keywords_on_line(write.line, &["write"], &modifiers);
+        builder.push_named_span(write.write_span, "write", "keyword", &modifiers);
         if write.quantity_kind == "DbWrite" {
-            builder.push_on_line(write.line, "to", "keyword", &modifiers);
-            builder.push_on_line(write.line, "table", "method", &modifiers);
-        } else {
-            builder.push_on_line(write.line, &write.format, "keyword", &modifiers);
+            if let Some(to_span) = write.to_span {
+                builder.push_named_span(to_span, "to", "keyword", &modifiers);
+            }
+            if let Some(target) = &write.db_target {
+                builder.push_preferred_identifier_path_span(
+                    target.connection_span,
+                    &target.connection,
+                    None,
+                    &modifiers,
+                );
+                builder.push_named_span(target.table_method_span, "table", "method", &modifiers);
+            }
+        } else if let Some(format_span) = write.format_span {
+            builder.push_named_span(format_span, &write.format, "keyword", &modifiers);
         }
-        add_write_target_semantic_tokens(&mut builder, write.line, &write.format, &write.path);
+        add_write_target_semantic_tokens(&mut builder, write);
     }
 
     for declaration in &report.inferred_declarations {
@@ -3277,20 +3343,27 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         ) {
             continue;
         }
-        let Some(read) = db_read_expression(&declaration.expression) else {
-            continue;
-        };
+    }
+
+    for read in &program.db_reads {
         let modifiers = &["db", "external"];
-        builder.push_on_line(
-            declaration.line,
-            &declaration.name,
+        builder.push_named_span(
+            read.binding_span,
+            &read.binding,
             "variable",
             &["declaration", "db", "external"],
         );
-        builder.push_keywords_on_line(declaration.line, &["read", "sqlite", "as"], modifiers);
-        builder.push_identifier_path_on_line(declaration.line, &read.connection, modifiers);
-        builder.push_on_line(declaration.line, "table", "method", modifiers);
-        builder.push_on_line(declaration.line, &read.schema_name, "class", &[]);
+        builder.push_named_span(read.read_span, "read", "keyword", modifiers);
+        builder.push_named_span(read.sqlite_span, "sqlite", "keyword", modifiers);
+        builder.push_preferred_identifier_path_span(
+            read.target.connection_span,
+            &read.target.connection,
+            None,
+            modifiers,
+        );
+        builder.push_named_span(read.target.table_method_span, "table", "method", modifiers);
+        builder.push_named_span(read.as_span, "as", "keyword", modifiers);
+        builder.push_named_span(read.schema_span, &read.schema_name, "class", &[]);
     }
 
     for operation in &program.file_operations {
@@ -3298,15 +3371,22 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for process in &program.process_runs {
-        builder.push_on_line(
-            process.line,
+        builder.push_named_span(
+            process.binding_span,
             &process.binding,
             "variable",
             &["declaration", "external"],
         );
-        builder.push_keywords_on_line(
-            process.line,
-            &["run", "command"],
+        builder.push_named_span(
+            process.run_span,
+            "run",
+            "keyword",
+            &["sideEffect", "external"],
+        );
+        builder.push_named_span(
+            process.command_keyword_span,
+            "command",
+            "keyword",
             &["sideEffect", "external"],
         );
     }
@@ -4173,8 +4253,19 @@ fn add_review_risk_semantic_tokens(report: &CheckReport, builder: &mut SemanticT
             "reproducibility"
         };
         if let Some(modifier) = review_risk_modifier(classify_review_risk(category, "info").level) {
-            builder.push_on_line(process.line, &process.binding, "variable", &[modifier]);
-            builder.push_keywords_on_line(process.line, &["run", "command"], &[modifier]);
+            builder.push_named_span(
+                process.binding_span,
+                &process.binding,
+                "variable",
+                &[modifier],
+            );
+            builder.push_named_span(process.run_span, "run", "keyword", &[modifier]);
+            builder.push_named_span(
+                process.command_keyword_span,
+                "command",
+                "keyword",
+                &[modifier],
+            );
         }
     }
 
@@ -4183,9 +4274,15 @@ fn add_review_risk_semantic_tokens(report: &CheckReport, builder: &mut SemanticT
             review_risk_modifier(classify_review_risk("side_effect", "info").level)
         {
             if export.source != "summary" {
-                builder.push_on_line(export.line, &export.source, "variable", &[modifier]);
+                builder.push_named_span(
+                    export.source_span,
+                    &export.source,
+                    "variable",
+                    &[modifier],
+                );
             }
-            builder.push_keywords_on_line(export.line, &["export", "csv"], &[modifier]);
+            builder.push_named_span(export.export_span, "export", "keyword", &[modifier]);
+            builder.push_named_span(export.format_span, "csv", "keyword", &[modifier]);
         }
     }
 
@@ -4193,7 +4290,7 @@ fn add_review_risk_semantic_tokens(report: &CheckReport, builder: &mut SemanticT
         if let Some(modifier) =
             review_risk_modifier(classify_review_risk("side_effect", "info").level)
         {
-            builder.push_keywords_on_line(write.line, &["write"], &[modifier]);
+            builder.push_named_span(write.write_span, "write", "keyword", &[modifier]);
         }
     }
 
@@ -4201,9 +4298,10 @@ fn add_review_risk_semantic_tokens(report: &CheckReport, builder: &mut SemanticT
         if let Some(modifier) =
             review_risk_modifier(classify_review_risk("side_effect", "info").level)
         {
-            builder.push_keywords_on_line(
-                operation.line,
-                &[operation.operation.as_str()],
+            builder.push_named_span(
+                operation.operation_span,
+                &operation.operation,
+                "keyword",
                 &[modifier],
             );
         }
@@ -4856,37 +4954,37 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
             .fields
             .iter()
             .map(|field| {
-                make_document_symbol(
+                make_document_symbol_at_span(
                     &lines,
                     field.name.clone(),
                     format!("{} [{}]", field.quantity_kind, field.display_unit),
                     SYMBOL_KIND_PROPERTY,
-                    field.line,
+                    field.expression_span,
                     Vec::new(),
                 )
             })
             .collect::<Vec<_>>();
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
             export.source.clone(),
             format!("export {}", export.format),
             SYMBOL_KIND_OBJECT,
-            export.line,
+            export.source_span,
             children,
         );
     }
 
     for process in &program.process_runs {
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
             process.binding.clone(),
             "run command".to_owned(),
             SYMBOL_KIND_VARIABLE,
-            process.line,
+            process.binding_span,
             Vec::new(),
         );
     }
@@ -7773,14 +7871,29 @@ fn add_file_operation_semantic_tokens(
     operation: &FileOperationInfo,
 ) {
     let modifiers = &["sideEffect", "external"];
-    builder.push_keywords_on_line(operation.line, &[operation.operation.as_str()], modifiers);
-    if matches!(operation.operation.as_str(), "copy" | "move") {
-        builder.push_keywords_on_line(operation.line, &["to"], modifiers);
+    builder.push_named_span(
+        operation.operation_span,
+        &operation.operation,
+        "keyword",
+        modifiers,
+    );
+    if let Some(to_span) = operation.to_span {
+        builder.push_named_span(to_span, "to", "keyword", modifiers);
     }
-    let Some(line_index) = operation.line.checked_sub(1) else {
-        return;
-    };
-    builder.push_identifiers_on_line(line_index, &["file", "dir", "join"], "function", modifiers);
+    builder.push_identifiers_within_span(
+        operation.source_span,
+        &["file", "dir", "join"],
+        "function",
+        modifiers,
+    );
+    if let Some(destination_span) = operation.destination_span {
+        builder.push_identifiers_within_span(
+            destination_span,
+            &["file", "dir", "join"],
+            "function",
+            modifiers,
+        );
+    }
 }
 
 fn add_download_semantic_tokens(builder: &mut SemanticTokenBuilder<'_>, line: usize) {
@@ -7812,22 +7925,6 @@ fn add_http_request_semantic_tokens(
         return;
     };
     builder.push_identifiers_on_line(line_index, &["url"], "function", modifiers);
-}
-
-fn add_csv_export_target_semantic_tokens(
-    builder: &mut SemanticTokenBuilder<'_>,
-    line: usize,
-    path: &str,
-) {
-    let modifiers = &["sideEffect"];
-    builder.push_keywords_on_line(line, &["to", "csv"], modifiers);
-    if path.trim().is_empty() {
-        return;
-    }
-    let Some(line_index) = line.checked_sub(1) else {
-        return;
-    };
-    builder.push_identifiers_on_line(line_index, &["file", "dir", "join"], "function", modifiers);
 }
 
 fn add_open_sqlite_semantic_tokens(
@@ -7920,28 +8017,23 @@ fn add_promotion_source_semantic_tokens(
     }
 }
 
-fn add_write_target_semantic_tokens(
-    builder: &mut SemanticTokenBuilder<'_>,
-    line: usize,
-    format: &str,
-    path: &str,
-) {
-    if format == "db" || path.trim().is_empty() {
+fn add_write_target_semantic_tokens(builder: &mut SemanticTokenBuilder<'_>, write: &WriteInfo) {
+    if write.format == "db" || write.path.trim().is_empty() {
         return;
     }
-    let Some(line_index) = line.checked_sub(1) else {
+    let Some(path_span) = write.path_span else {
         return;
     };
-    if format == "standard_text" {
-        builder.push_identifiers_on_line(
-            line_index,
+    if write.format == "standard_text" {
+        builder.push_identifiers_within_span(
+            path_span,
             &["file", "dir", "join"],
             "function",
             &["sideEffect", "workflowStep"],
         );
     } else {
-        builder.push_identifiers_on_line(
-            line_index,
+        builder.push_identifiers_within_span(
+            path_span,
             &["file", "dir", "join"],
             "function",
             &["sideEffect"],
@@ -12433,6 +12525,64 @@ mod tests {
     }
 
     #[test]
+    fn side_effect_fixture_diagnostics_keep_compiler_owned_ranges() {
+        let repo_root = repo_root_for_tests();
+        let mut files = BTreeSet::new();
+        for relative in [
+            "examples",
+            "tests/diagnostics",
+            "tools/vscode-englang/test/grammar-fixtures",
+        ] {
+            files.extend(eng_files_under(&repo_root.join(relative)));
+        }
+
+        let is_target = |code: &str| {
+            code.starts_with("E-PROCESS-")
+                || code.starts_with("E-DB-")
+                || code.starts_with("E-EXPORT-CSV-")
+                || code.starts_with("E-WRITE-")
+                || code.starts_with("E-PRINT-")
+                || code.starts_with("E-LOG-")
+                || code.starts_with("E-FS-")
+        };
+        let mut observed = 0usize;
+        let mut missing = Vec::new();
+        for path in files {
+            let source = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            let report = check_source(&path, &source, &CheckOptions::default());
+            let lines = source_lines(&source);
+            for diagnostic in report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| is_target(&diagnostic.code))
+            {
+                observed += 1;
+                let line_index = line_index_from_one_based(&lines, diagnostic.line);
+                let line = lines.get(line_index).copied().unwrap_or_default();
+                if compiler_diagnostic_byte_range(line, diagnostic).is_none() {
+                    missing.push(format!(
+                        "{}:{} {}",
+                        path.strip_prefix(&repo_root).unwrap_or(&path).display(),
+                        diagnostic.line,
+                        diagnostic.code
+                    ));
+                }
+            }
+        }
+
+        assert!(
+            observed >= 18,
+            "side-effect diagnostic corpus unexpectedly shrank to {observed} item(s)"
+        );
+        assert!(
+            missing.is_empty(),
+            "side-effect diagnostics missing valid compiler ranges: {}",
+            missing.join(", ")
+        );
+    }
+
+    #[test]
     fn diagnostic_corpus_compiler_range_coverage_does_not_regress() {
         let repo_root = repo_root_for_tests();
         let mut files = BTreeSet::new();
@@ -12469,7 +12619,7 @@ mod tests {
             fallback.len()
         );
         assert!(
-            fallback.len() <= 49,
+            fallback.len() <= 31,
             "compiler-owned diagnostic range coverage regressed to {} fallback item(s): {}",
             fallback.len(),
             fallback.join(", ")
@@ -21257,6 +21407,139 @@ waiting = case_runs.waiting_count
             .diagnostics
             .iter()
             .all(|diagnostic| diagnostic.code != "E-SCHEMA-CSV-002"));
+    }
+
+    #[test]
+    fn side_effect_diagnostics_use_exact_utf16_source_ranges() {
+        let source = concat!(
+            "database = open sqlite file(\"outputs/db.sqlite\")\r\n",
+            "process_result = run command args.simulator\r\n",
+            "readback = read sqlite database.table(\"\u{1f600}-rows\") as MissingSchema // MissingSchema\r\n",
+            "write json \"\u{1f600}-out.json\", MissingValue // MissingValue\r\n",
+            "print \"\u{1f600} total = {MissingField}\" // MissingField\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("side_effect_diagnostic_utf16.eng"), source);
+        let lines = source.lines().collect::<Vec<_>>();
+
+        for (line_index, code, expected) in [
+            (1, "E-PROCESS-CMD-001", "args.simulator"),
+            (2, "E-DB-SCHEMA-MISMATCH", "MissingSchema"),
+            (3, "E-WRITE-003", "MissingValue"),
+            (4, "E-PRINT-FMT-004", "MissingField"),
+        ] {
+            let diagnostic = snapshot
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.line == line_index + 1 && diagnostic.code == code)
+                .unwrap_or_else(|| panic!("missing {code}: {:?}", snapshot.diagnostics));
+            let line = lines[line_index];
+            let byte_start = line
+                .find(expected)
+                .unwrap_or_else(|| panic!("missing `{expected}` in `{line}`"));
+            assert_eq!(
+                diagnostic.start_character,
+                utf16_len(&line[..byte_start]),
+                "{code} start"
+            );
+            assert_eq!(
+                diagnostic.end_character,
+                utf16_len(&line[..byte_start + expected.len()]),
+                "{code} end"
+            );
+        }
+    }
+
+    #[test]
+    fn side_effect_editor_features_use_compiler_owned_spans() {
+        let source = concat!(
+            "schema Row {\r\n",
+            "    value: Float\r\n",
+            "}\r\n",
+            "database = open sqlite file(\"outputs/db.sqlite\")\r\n",
+            "rows = promote csv \"missing.csv\" as Row\r\n",
+            "command = run command \"command\"\r\n",
+            "export summary to csv join(summary, \"summary.csv\") {\r\n",
+            "    args.summary as 1 with \".2\"\r\n",
+            "}\r\n",
+            "write rows to database.table(\"rows\")\r\n",
+            "table = read sqlite database.table(\"table\") as Row\r\n",
+            "move file(\"move\") to file(\"move\")\r\n",
+            "with { confirm = true }\r\n",
+            "print \"command = {command}\"\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("side_effect_editor_spans.eng"), source);
+        let lines = source.lines().collect::<Vec<_>>();
+        let token_at = |line_index: usize, byte_start: usize, label: &str, token_type: &str| {
+            snapshot.semantic_tokens.tokens.iter().find(|token| {
+                token.line == line_index
+                    && token.start == utf16_len(&lines[line_index][..byte_start])
+                    && token.length == utf16_len(label)
+                    && token.token_type == token_type
+            })
+        };
+
+        let process_line = lines[5];
+        let command_occurrences = process_line
+            .match_indices("command")
+            .map(|(start, _)| start)
+            .collect::<Vec<_>>();
+        let binding_token = token_at(5, command_occurrences[0], "command", "variable")
+            .expect("process binding token");
+        assert!(binding_token
+            .modifiers
+            .iter()
+            .any(|modifier| modifier == "declaration"));
+        let keyword_token = token_at(5, command_occurrences[1], "command", "keyword")
+            .expect("process command keyword token");
+        assert!(keyword_token
+            .modifiers
+            .iter()
+            .any(|modifier| modifier == "sideEffect"));
+
+        let read_line = lines[10];
+        let table_occurrences = read_line
+            .match_indices("table")
+            .map(|(start, _)| start)
+            .collect::<Vec<_>>();
+        assert!(token_at(10, table_occurrences[0], "table", "variable").is_some());
+        let table_method =
+            token_at(10, table_occurrences[1], "table", "method").expect("DB table method token");
+        assert!(table_method
+            .modifiers
+            .iter()
+            .any(|modifier| modifier == "db"));
+
+        let write_line = lines[9];
+        let rows_start = write_line.find("rows").expect("write source");
+        let rows_token =
+            token_at(9, rows_start, "rows", "variable").expect("write source variable token");
+        assert!(rows_token
+            .modifiers
+            .iter()
+            .any(|modifier| modifier == "sideEffect"));
+
+        assert_no_conflicting_semantic_token_types(
+            &snapshot,
+            source,
+            "side_effect_editor_spans.eng",
+        );
+        assert_no_semantic_token_overlaps(&snapshot, "side_effect_editor_spans.eng");
+
+        let process_symbol = snapshot
+            .document_symbols
+            .iter()
+            .find(|symbol| symbol.name == "command" && symbol.detail == "run command")
+            .expect("process Outline symbol");
+        assert_eq!(process_symbol.selection_line, 5);
+        assert_eq!(process_symbol.selection_character, 0);
+
+        let export_symbol = snapshot
+            .document_symbols
+            .iter()
+            .find(|symbol| symbol.name == "summary" && symbol.detail == "export csv")
+            .expect("export Outline symbol");
+        assert_eq!(export_symbol.selection_line, 6);
+        assert_eq!(export_symbol.selection_character, utf16_len("export "));
     }
 
     #[test]

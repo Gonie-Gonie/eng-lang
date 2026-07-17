@@ -164,9 +164,12 @@ expression, missing fields select the object name, and method-call diagnostics
 select the receiver, method, or argument. A dedicated promotion guard requires
 schema lookups to select the schema name and CSV/JSON/config source and
 validation failures to select the source operand. Unreadable sources do not
-cascade into missing-column or missing-field diagnostics. The global
-non-regression ceiling permits at most 49 diagnostics to use the older range
-inference path.
+cascade into missing-column or missing-field diagnostics. Process commands, DB
+connections/tables, CSV export sources/fields, write formats/targets, print/log
+interpolation, and nested file operations likewise use parser-owned keyword or
+operand ranges. Their corpus guard requires all 18 observed diagnostics in
+these classes to retain a compiler range. The global non-regression ceiling
+permits at most 31 diagnostics to use the older range inference path.
 Older diagnostics retain source-aware inference: dimensionless arithmetic
 diagnostics highlight the offending `+` or `-`, schema fast-assignment
 diagnostics highlight `=`, and file mutation diagnostics target `move` or
@@ -452,6 +455,13 @@ same line can therefore be a declaration variable, an external source path, and
 a schema class without overlapping semantic tokens. `file`/`dir`/`join` helpers
 are searched only inside the source span.
 
+Print/log templates, CSV export sources and fields, writes, DB reads, nested file
+operations, and process runs also use compiler-owned side-effect metadata.
+Keywords, source expressions, format/unit fragments, paths, connection/table
+segments, bindings, and commands are projected only from their exact ranges.
+The DB metadata consumed here is the same structured target consumed by native
+runtime execution, not an editor-only reconstruction.
+
 Sampling declarations and distribution option names use compiler-owned binding
 and key spans. Their semantic token and Outline selection ranges therefore point
 to the exact declaration occurrence instead of searching the source line.
@@ -512,6 +522,10 @@ and option-key spans for Outline selection.
 
 CSV, JSON-record, and config promotion symbols select their exact binding spans;
 their details retain the promoted schema name.
+
+CSV export and process symbols select their exact source or command-owned
+ranges. Export field children select the expression occurrence that owns the
+field, including repeated dotted paths and non-BMP text before the selection.
 
 Domain symbols select the declaration name; generic parameters, variables, and
 conservation children select their own source occurrences. Component ports,

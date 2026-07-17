@@ -2,14 +2,14 @@ use crate::ast::{
     ArgsDecl, ArgsFieldDecl, AssertDecl, AstItem, ClassDecl, ClassFieldDecl, ClassMethodDecl,
     ClassObjectCopyDecl, ClassObjectDecl, ClassObjectFieldDecl, ClassValidationDecl,
     CommandClauseDecl, CommandStyleDecl, ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl,
-    ConstraintDecl, CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainTypeParameterDecl,
-    DomainVariableDecl, EquationDecl, ExpectationDecl, ExpectationSuiteDecl, ExplicitDecl,
-    FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl,
-    MissingPolicyDecl, NetDownloadDecl, OnBlockDecl, OnPredicateDecl, PortDecl, PrintDecl,
-    ProcessRunDecl, PromotionDecl, PromotionKind, ReturnDecl, SchemaDecl, ScriptDecl,
-    StateSpaceTypeBlockDecl, StateSpaceTypeMemberDecl, StateSpaceVectorDecl, StructDecl,
-    SummaryDecl, SystemDecl, SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl,
-    WherePredicateDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
+    ConstraintDecl, CsvExportDecl, CsvExportFieldDecl, DbReadDecl, DbTableTargetDecl, DomainDecl,
+    DomainTypeParameterDecl, DomainVariableDecl, EquationDecl, ExpectationDecl,
+    ExpectationSuiteDecl, ExplicitDecl, FastBinding, FileOperationDecl, FunctionDecl,
+    FunctionParamDecl, GoldenDecl, ImportDecl, MissingPolicyDecl, NetDownloadDecl, OnBlockDecl,
+    OnPredicateDecl, PortDecl, PrintDecl, ProcessRunDecl, PromotionDecl, PromotionKind, ReturnDecl,
+    SchemaDecl, ScriptDecl, StateSpaceTypeBlockDecl, StateSpaceTypeMemberDecl,
+    StateSpaceVectorDecl, StructDecl, SummaryDecl, SystemDecl, SystemVariableDecl, TestDecl,
+    WhereBindingDecl, WhereBlockDecl, WherePredicateDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -2162,6 +2162,7 @@ fn parse_fast_binding(
         return None;
     }
     let promotion = parse_promotion_decl(tokens, line_text, line_start);
+    let db_read = parse_db_read_decl(tokens, line_text, line_start).map(Box::new);
     let command = parse_command_style_expression(
         &expression,
         expression_span,
@@ -2179,6 +2180,7 @@ fn parse_fast_binding(
             expression,
             expression_span,
             promotion,
+            db_read,
             line: first.span.line,
             span: first.span,
             context,
@@ -2278,17 +2280,106 @@ fn parse_promotion_decl(
     })
 }
 
+fn parse_db_read_decl(tokens: &[Token], line_text: &str, line_start: usize) -> Option<DbReadDecl> {
+    let expression_tokens = tokens.get(2..)?;
+    let read = expression_tokens.first()?;
+    let sqlite = expression_tokens.get(1)?;
+    if read.lexeme != "read" || sqlite.lexeme != "sqlite" {
+        return None;
+    }
+    let as_index = top_level_as_index(expression_tokens, 2)?;
+    let target_tokens = expression_tokens.get(2..as_index)?;
+    let target = parse_db_table_target_decl(target_tokens, line_text, line_start)?;
+    let as_token = expression_tokens.get(as_index)?;
+    let schema = expression_tokens.get(as_index + 1)?;
+    if as_index + 2 != expression_tokens.len() || !is_identifier_text(&schema.lexeme) {
+        return None;
+    }
+    Some(DbReadDecl {
+        read_span: read.span,
+        sqlite_span: sqlite.span,
+        target,
+        as_span: as_token.span,
+        schema_name: schema.lexeme.clone(),
+        schema_span: schema.span,
+    })
+}
+
+fn parse_db_table_target_decl(
+    tokens: &[Token],
+    line_text: &str,
+    line_start: usize,
+) -> Option<DbTableTargetDecl> {
+    if tokens.len() < 6 {
+        return None;
+    }
+    let table_index = tokens.len().checked_sub(4)?;
+    let dot_index = table_index.checked_sub(1)?;
+    let connection_tokens = tokens.get(..dot_index)?;
+    let dot = tokens.get(dot_index)?;
+    let table_method = tokens.get(table_index)?;
+    let lparen = tokens.get(table_index + 1)?;
+    let table_value = tokens.get(table_index + 2)?;
+    let rparen = tokens.get(table_index + 3)?;
+    if !matches!(dot.kind, TokenKind::Symbol(Symbol::Dot))
+        || table_method.lexeme != "table"
+        || !matches!(lparen.kind, TokenKind::Symbol(Symbol::LParen))
+        || !matches!(rparen.kind, TokenKind::Symbol(Symbol::RParen))
+    {
+        return None;
+    }
+    let TokenKind::StringLiteral(table) = &table_value.kind else {
+        return None;
+    };
+    let connection = identifier_path_from_tokens(connection_tokens)?;
+    let expression_span = span_covering_tokens(tokens.first()?, tokens.last()?);
+    Some(DbTableTargetDecl {
+        expression: source_text_for_span(line_text, line_start, expression_span)?.to_owned(),
+        expression_span,
+        connection,
+        connection_span: span_covering_tokens(
+            connection_tokens.first()?,
+            connection_tokens.last()?,
+        ),
+        table: table.clone(),
+        table_method_span: table_method.span,
+        table_span: string_literal_content_span(table_value),
+    })
+}
+
 fn top_level_as_index(tokens: &[Token], start: usize) -> Option<usize> {
+    top_level_keyword_index(tokens, start, Keyword::As)
+}
+
+fn top_level_keyword_index(tokens: &[Token], start: usize, keyword: Keyword) -> Option<usize> {
+    top_level_token_index(
+        tokens,
+        start,
+        |token| matches!(token.kind, TokenKind::Keyword(found) if found == keyword),
+    )
+}
+
+fn top_level_symbol_index(tokens: &[Token], start: usize, symbol: Symbol) -> Option<usize> {
+    top_level_token_index(
+        tokens,
+        start,
+        |token| matches!(token.kind, TokenKind::Symbol(found) if found == symbol),
+    )
+}
+
+fn top_level_token_index(
+    tokens: &[Token],
+    start: usize,
+    predicate: impl Fn(&Token) -> bool,
+) -> Option<usize> {
     let mut paren_depth = 0usize;
     let mut bracket_depth = 0usize;
     let mut brace_depth = 0usize;
     for (index, token) in tokens.iter().enumerate().skip(start) {
+        if paren_depth == 0 && bracket_depth == 0 && brace_depth == 0 && predicate(token) {
+            return Some(index);
+        }
         match token.kind {
-            TokenKind::Keyword(Keyword::As)
-                if paren_depth == 0 && bracket_depth == 0 && brace_depth == 0 =>
-            {
-                return Some(index);
-            }
             TokenKind::Symbol(Symbol::LParen) => paren_depth += 1,
             TokenKind::Symbol(Symbol::RParen) => paren_depth = paren_depth.saturating_sub(1),
             TokenKind::Symbol(Symbol::LBracket) => bracket_depth += 1,
@@ -2652,6 +2743,24 @@ fn source_span_for_line_range(line_anchor: SourceSpan, start: usize, end: usize)
         line_anchor.line,
         start + 1,
     )
+}
+
+fn source_text_for_span(line_text: &str, line_start: usize, span: SourceSpan) -> Option<&str> {
+    let start = span.start.checked_sub(line_start)?;
+    let end = span.end.checked_sub(line_start)?;
+    line_text.get(start..end)
+}
+
+fn source_parts_for_tokens(
+    tokens: &[Token],
+    line_text: &str,
+    line_start: usize,
+) -> Option<(String, SourceSpan)> {
+    let span = span_covering_tokens(tokens.first()?, tokens.last()?);
+    Some((
+        source_text_for_span(line_text, line_start, span)?.to_owned(),
+        span,
+    ))
 }
 
 fn source_span_for_parent_range(parent: SourceSpan, start: usize, end: usize) -> SourceSpan {
@@ -3260,17 +3369,40 @@ fn parse_summary_decl(tokens: &[Token], line_text: &str) -> Option<SummaryDecl> 
 
 fn parse_print_decl(tokens: &[Token], line_text: &str, context: ParseContext) -> Option<PrintDecl> {
     let first = tokens.first()?;
-    let (level, template) = match first.kind {
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let (level, level_span, template, template_span, template_is_expression) = match first.kind {
         TokenKind::Keyword(Keyword::Print) => {
-            let template = tokens
+            if let Some(token) = tokens
                 .iter()
                 .skip(1)
-                .find_map(|token| match &token.kind {
-                    TokenKind::StringLiteral(value) => Some(value.clone()),
-                    _ => None,
-                })
-                .or_else(|| print_expression_template(line_after_first_token(line_text, first)?))?;
-            ("print".to_owned(), template)
+                .find(|token| matches!(token.kind, TokenKind::StringLiteral(_)))
+            {
+                let TokenKind::StringLiteral(template) = &token.kind else {
+                    unreachable!("filtered string literal")
+                };
+                (
+                    "print".to_owned(),
+                    None,
+                    template.clone(),
+                    string_literal_content_span(token),
+                    false,
+                )
+            } else {
+                let expression_tokens = tokens.get(1..)?;
+                let template_span =
+                    span_covering_tokens(expression_tokens.first()?, expression_tokens.last()?);
+                let expression = source_text_for_span(line_text, line_start, template_span)?;
+                (
+                    "print".to_owned(),
+                    None,
+                    print_expression_template(expression)?,
+                    template_span,
+                    true,
+                )
+            }
         }
         TokenKind::Keyword(Keyword::Log) => {
             let level_token = tokens.get(1)?;
@@ -3285,31 +3417,33 @@ fn parse_print_decl(tokens: &[Token], line_text: &str, context: ParseContext) ->
             } else {
                 2
             };
-            let template =
-                tokens
-                    .iter()
-                    .skip(template_start)
-                    .find_map(|token| match &token.kind {
-                        TokenKind::StringLiteral(value) => Some(value.clone()),
-                        _ => None,
-                    })?;
-            (level, template)
+            let template_token = tokens
+                .iter()
+                .skip(template_start)
+                .find(|token| matches!(token.kind, TokenKind::StringLiteral(_)))?;
+            let TokenKind::StringLiteral(template) = &template_token.kind else {
+                unreachable!("filtered string literal")
+            };
+            (
+                level,
+                Some(level_token.span),
+                template.clone(),
+                string_literal_content_span(template_token),
+                false,
+            )
         }
         _ => return None,
     };
     Some(PrintDecl {
-        level: level.to_owned(),
+        level,
+        level_span,
         template,
+        template_span,
+        template_is_expression,
         line: first.span.line,
         span: first.span,
         context,
     })
-}
-
-fn line_after_first_token<'a>(line_text: &'a str, first: &Token) -> Option<&'a str> {
-    let trimmed = line_text.trim_start();
-    let rest = trimmed.get(first.lexeme.len()..)?.trim();
-    (!rest.is_empty()).then_some(rest)
 }
 
 fn print_expression_template(expression: &str) -> Option<String> {
@@ -3329,7 +3463,7 @@ fn parse_csv_export_decl(
     line_text: &str,
     context: ParseContext,
 ) -> Option<CsvExportDecl> {
-    let [first, second, third, fourth, fifth, ..] = tokens else {
+    let [first, second, third, fourth, ..] = tokens else {
         return None;
     };
     if !matches!(first.kind, TokenKind::Keyword(Keyword::Export)) {
@@ -3344,33 +3478,30 @@ fn parse_csv_export_decl(
     if !matches!(fourth.kind, TokenKind::Keyword(Keyword::Csv)) {
         return None;
     }
-    if matches!(fifth.kind, TokenKind::Symbol(Symbol::LBrace)) {
+    let path_end = top_level_symbol_index(tokens, 4, Symbol::LBrace).unwrap_or(tokens.len());
+    let path_tokens = tokens.get(4..path_end)?;
+    if path_tokens.is_empty() {
         return None;
     }
-    let path = csv_export_path_expression(line_text, source)?;
+    let path_span = span_covering_tokens(path_tokens.first()?, path_tokens.last()?);
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let path = source_text_for_span(line_text, line_start, path_span)?.to_owned();
 
     Some(CsvExportDecl {
         source: source.clone(),
+        source_span: second.span,
         format: "csv".to_owned(),
+        format_span: fourth.span,
         path,
+        path_span,
+        to_span: third.span,
         line: first.span.line,
         span: first.span,
         context,
     })
-}
-
-fn csv_export_path_expression(line_text: &str, source: &str) -> Option<String> {
-    let raw = line_text.trim();
-    let rest = raw.strip_prefix("export")?.trim_start();
-    let rest = rest.strip_prefix(source)?.trim_start();
-    let rest = rest.strip_prefix("to")?.trim_start();
-    let rest = rest.strip_prefix("csv")?.trim_start();
-    let path = split_once_top_level(rest, '{')
-        .map(|(path, _)| path)
-        .unwrap_or(rest)
-        .trim()
-        .trim_end_matches(',');
-    (!path.is_empty()).then(|| path.to_owned())
 }
 
 fn parse_csv_export_field_decl(
@@ -3388,27 +3519,62 @@ fn parse_csv_export_field_decl(
     ) {
         return None;
     }
-
-    let raw = line_text.trim().trim_end_matches(',');
-    let (expression, rest) = raw.split_once(" as ")?;
-    let (display_unit, format) = rest
-        .split_once(" with ")
-        .map(|(unit, format)| (unit.trim().to_owned(), extract_quoted(format)))
-        .unwrap_or_else(|| (rest.trim().to_owned(), None));
-    let expression = expression.trim();
-    if expression.is_empty() || display_unit.trim().is_empty() {
+    let content_end = tokens
+        .last()
+        .filter(|token| matches!(token.kind, TokenKind::Symbol(Symbol::Comma)))
+        .map_or(tokens.len(), |_| tokens.len().saturating_sub(1));
+    let content_tokens = tokens.get(..content_end)?;
+    let as_index = top_level_as_index(content_tokens, 0)?;
+    let with_index = top_level_keyword_index(content_tokens, as_index + 1, Keyword::With);
+    let expression_tokens = content_tokens.get(..as_index)?;
+    let unit_end = with_index.unwrap_or(content_tokens.len());
+    let unit_tokens = content_tokens.get(as_index + 1..unit_end)?;
+    if expression_tokens.is_empty() || unit_tokens.is_empty() {
         return None;
     }
-    let expression_span = source_span_for_subslice(first.span, line_text, expression)?;
-    let expression =
-        parse_command_style_expression(expression, expression_span, first.span, context, None)
-            .map(|command| command.canonical)
-            .unwrap_or_else(|| expression.to_owned());
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let expression_span =
+        span_covering_tokens(expression_tokens.first()?, expression_tokens.last()?);
+    let display_unit_span = span_covering_tokens(unit_tokens.first()?, unit_tokens.last()?);
+    let expression_source = source_text_for_span(line_text, line_start, expression_span)?;
+    let display_unit = source_text_for_span(line_text, line_start, display_unit_span)?.to_owned();
+    let expression = parse_command_style_expression(
+        expression_source,
+        expression_span,
+        first.span,
+        context,
+        None,
+    )
+    .map(|command| command.canonical)
+    .unwrap_or_else(|| expression_source.to_owned());
+    let (format, format_span, with_span) = if let Some(with_index) = with_index {
+        let format_tokens = content_tokens.get(with_index + 1..)?;
+        let format_span = (!format_tokens.is_empty()).then(|| {
+            span_covering_tokens(
+                format_tokens.first().expect("non-empty format tokens"),
+                format_tokens.last().expect("non-empty format tokens"),
+            )
+        });
+        let format = format_span.and_then(|span| {
+            source_text_for_span(line_text, line_start, span).and_then(extract_quoted)
+        });
+        (format, format_span, Some(content_tokens[with_index].span))
+    } else {
+        (None, None, None)
+    };
 
     Some(CsvExportFieldDecl {
         expression,
+        expression_span,
         display_unit: Some(display_unit),
+        display_unit_span: Some(display_unit_span),
         format,
+        format_span,
+        as_span: content_tokens[as_index].span,
+        with_span,
         line: first.span.line,
         span: first.span,
     })
@@ -3419,100 +3585,98 @@ fn parse_write_decl(tokens: &[Token], line_text: &str, context: ParseContext) ->
     if !matches!(first.kind, TokenKind::Keyword(Keyword::Write)) {
         return None;
     }
-    let raw = line_text.trim();
-    let rest = raw.strip_prefix("write ")?.trim();
-    if let Some((expression, target)) = rest.split_once(" to ") {
-        let expression = expression.trim();
-        let target = target.trim();
-        if !expression.is_empty() && db_table_target_expression(target).is_some() {
-            return Some(WriteDecl {
-                format: "db".to_owned(),
-                path: target.to_owned(),
-                expression: expression.to_owned(),
-                expression_span: source_span_for_subslice(first.span, line_text, expression)?,
-                line: first.span.line,
-                span: first.span,
-                context,
-            });
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let body = tokens.get(1..)?;
+    if let Some(to_index) = top_level_keyword_index(body, 0, Keyword::To) {
+        let expression_tokens = body.get(..to_index)?;
+        let target_tokens = body.get(to_index + 1..)?;
+        if !expression_tokens.is_empty() {
+            if let Some(db_target) =
+                parse_db_table_target_decl(target_tokens, line_text, line_start)
+            {
+                let (expression, expression_span) =
+                    source_parts_for_tokens(expression_tokens, line_text, line_start)?;
+                let path = db_target.expression.clone();
+                let path_span = db_target.expression_span;
+                return Some(WriteDecl {
+                    format: "db".to_owned(),
+                    format_span: None,
+                    path,
+                    path_span: Some(path_span),
+                    db_target: Some(db_target),
+                    expression,
+                    expression_span,
+                    to_span: Some(body[to_index].span),
+                    line: first.span.line,
+                    span: first.span,
+                    context,
+                });
+            }
         }
     }
-    let (format, rest) = rest.split_once(char::is_whitespace)?;
-    let format = format.trim();
+    let format_token = body.first()?;
+    let format = format_token.lexeme.as_str();
+    let rest = body.get(1..)?;
     if format == "standard_text" {
-        let rest = rest.trim();
-        let (path, expression) = if let Some((path, expression)) = split_once_top_level(rest, ',') {
-            (path.trim(), expression.trim())
-        } else if let Some((expression, path)) = rest.rsplit_once(" to ") {
-            (path.trim(), expression.trim())
-        } else {
-            ("", rest)
-        };
-        if expression.is_empty() {
-            return None;
-        }
+        let (path, path_span, expression, expression_span, to_span) =
+            if let Some(comma_index) = top_level_symbol_index(rest, 0, Symbol::Comma) {
+                let (path, path_span) =
+                    source_parts_for_tokens(rest.get(..comma_index)?, line_text, line_start)?;
+                let (expression, expression_span) =
+                    source_parts_for_tokens(rest.get(comma_index + 1..)?, line_text, line_start)?;
+                (path, Some(path_span), expression, expression_span, None)
+            } else if let Some(to_index) = top_level_keyword_index(rest, 0, Keyword::To) {
+                let (expression, expression_span) =
+                    source_parts_for_tokens(rest.get(..to_index)?, line_text, line_start)?;
+                let (path, path_span) =
+                    source_parts_for_tokens(rest.get(to_index + 1..)?, line_text, line_start)?;
+                (
+                    path,
+                    Some(path_span),
+                    expression,
+                    expression_span,
+                    Some(rest[to_index].span),
+                )
+            } else {
+                let (expression, expression_span) =
+                    source_parts_for_tokens(rest, line_text, line_start)?;
+                (String::new(), None, expression, expression_span, None)
+            };
         return Some(WriteDecl {
             format: format.to_owned(),
-            path: path.to_owned(),
-            expression: expression.to_owned(),
-            expression_span: source_span_for_subslice(first.span, line_text, expression)?,
+            format_span: Some(format_token.span),
+            path,
+            path_span,
+            db_target: None,
+            expression,
+            expression_span,
+            to_span,
             line: first.span.line,
             span: first.span,
             context,
         });
     }
-    let (path, expression) = split_once_top_level(rest.trim(), ',')?;
-    let path = path.trim();
-    let expression = expression.trim();
-    if path.is_empty() || expression.is_empty() {
-        return None;
-    }
+    let comma_index = top_level_symbol_index(rest, 0, Symbol::Comma)?;
+    let (path, path_span) =
+        source_parts_for_tokens(rest.get(..comma_index)?, line_text, line_start)?;
+    let (expression, expression_span) =
+        source_parts_for_tokens(rest.get(comma_index + 1..)?, line_text, line_start)?;
     Some(WriteDecl {
         format: format.to_owned(),
-        path: path.to_owned(),
-        expression: expression.to_owned(),
-        expression_span: source_span_for_subslice(first.span, line_text, expression)?,
+        format_span: Some(format_token.span),
+        path,
+        path_span: Some(path_span),
+        db_target: None,
+        expression,
+        expression_span,
+        to_span: None,
         line: first.span.line,
         span: first.span,
         context,
     })
-}
-
-fn split_once_top_level(text: &str, delimiter: char) -> Option<(&str, &str)> {
-    let mut depth = 0i32;
-    let mut in_string = false;
-    let mut escaped = false;
-    for (index, character) in text.char_indices() {
-        if in_string {
-            escaped = character == '\\' && !escaped;
-            if character == '"' && !escaped {
-                in_string = false;
-            }
-            if character != '\\' {
-                escaped = false;
-            }
-            continue;
-        }
-        match character {
-            '"' => in_string = true,
-            value if value == delimiter && depth == 0 => {
-                let next_index = index + value.len_utf8();
-                return Some((&text[..index], &text[next_index..]));
-            }
-            '(' | '[' | '{' => depth += 1,
-            ')' | ']' | '}' => depth -= 1,
-            _ => {}
-        }
-    }
-    None
-}
-
-fn db_table_target_expression(expression: &str) -> Option<(&str, &str)> {
-    let (connection, table_call) = expression.trim().split_once(".table(")?;
-    let table = table_call.trim().strip_suffix(')')?.trim();
-    if connection.trim().is_empty() || !table.starts_with('"') {
-        return None;
-    }
-    Some((connection.trim(), table))
 }
 
 fn parse_file_operation_decl(
@@ -3528,26 +3692,36 @@ fn parse_file_operation_decl(
         TokenKind::Keyword(Keyword::Mkdir) => "mkdir",
         _ => return None,
     };
-    let rest = line_text.trim().strip_prefix(operation)?.trim();
-    if rest.is_empty() {
-        return None;
-    }
-    let (source, destination) = if matches!(operation, "copy" | "move") {
-        let (source, destination) = split_file_operation_to(rest)?;
-        (
-            source.trim().to_owned(),
-            Some(destination.trim().to_owned()),
-        )
-    } else {
-        (rest.to_owned(), None)
-    };
-    if source.is_empty() || destination.as_deref().is_some_and(str::is_empty) {
-        return None;
-    }
+    let line_start = first
+        .span
+        .start
+        .checked_sub(first.span.column.checked_sub(1)?)?;
+    let body = tokens.get(1..)?;
+    let (source, source_span, destination, destination_span, to_span) =
+        if matches!(operation, "copy" | "move") {
+            let to_index = top_level_keyword_index(body, 0, Keyword::To)?;
+            let (source, source_span) =
+                source_parts_for_tokens(body.get(..to_index)?, line_text, line_start)?;
+            let (destination, destination_span) =
+                source_parts_for_tokens(body.get(to_index + 1..)?, line_text, line_start)?;
+            (
+                source,
+                source_span,
+                Some(destination),
+                Some(destination_span),
+                Some(body[to_index].span),
+            )
+        } else {
+            let (source, source_span) = source_parts_for_tokens(body, line_text, line_start)?;
+            (source, source_span, None, None, None)
+        };
     Some(FileOperationDecl {
         operation: operation.to_owned(),
         source,
+        source_span,
         destination,
+        destination_span,
+        to_span,
         line: first.span.line,
         span: first.span,
         context,
@@ -3649,20 +3823,32 @@ fn split_file_operation_to(rest: &str) -> Option<(&str, &str)> {
 
 fn parse_process_run_decl(
     tokens: &[Token],
-    line_text: &str,
+    _line_text: &str,
     context: ParseContext,
 ) -> Option<ProcessRunDecl> {
     let first = tokens.first()?;
-    let trimmed = line_text.trim();
-    let (binding, rhs) = if let Some((left, right)) = trimmed.split_once('=') {
-        (Some(left.trim().to_owned()), right.trim())
+    let (binding, binding_span, rhs_start) = if tokens
+        .get(1)
+        .is_some_and(|token| matches!(token.kind, TokenKind::Symbol(Symbol::Equal)))
+    {
+        (Some(fast_binding_name(first)?), Some(first.span), 2)
     } else {
-        (None, trimmed)
+        (None, None, 0)
     };
-    if !is_process_run_rhs(rhs) {
+    let rhs = tokens.get(rhs_start..)?;
+    let run = rhs.first()?;
+    let command_keyword = rhs.get(1)?;
+    if run.lexeme != "run" || command_keyword.lexeme != "command" {
         return None;
     }
-    let command = tokens
+    let command_tokens = rhs.get(2..)?;
+    let command_span = (!command_tokens.is_empty()).then(|| {
+        span_covering_tokens(
+            command_tokens.first().expect("non-empty command tokens"),
+            command_tokens.last().expect("non-empty command tokens"),
+        )
+    });
+    let command = command_tokens
         .iter()
         .find_map(|token| match &token.kind {
             TokenKind::StringLiteral(value) => Some(value.clone()),
@@ -3670,9 +3856,13 @@ fn parse_process_run_decl(
         })
         .unwrap_or_default();
     Some(ProcessRunDecl {
-        binding: binding.filter(|value| !value.is_empty()),
+        binding,
+        binding_span,
         command,
-        line: first.span.line,
+        command_span,
+        run_span: run.span,
+        command_keyword_span: command_keyword.span,
+        line: run.span.line,
         span: first.span,
         context,
     })

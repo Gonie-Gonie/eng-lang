@@ -5929,12 +5929,14 @@ fn execute_native_db_write(
     result_dir: &Path,
     write: &eng_compiler::WriteInfo,
 ) -> Result<(Vec<OutputArtifact>, DbManifestRecord), RuntimeError> {
-    let (connection_binding, table_name) = db_table_target_parts(&write.path).ok_or_else(|| {
+    let target = write.db_target.as_ref().ok_or_else(|| {
         invalid_input(&format!(
             "E-DB-CONNECT: invalid DB table target `{}`",
             write.path
         ))
     })?;
+    let connection_binding = target.connection.clone();
+    let table_name = target.table.clone();
     let db_path_text = db_connection_path_text(report, &connection_binding).ok_or_else(|| {
         invalid_input(&format!(
             "E-DB-CONNECT: cannot resolve SQLite connection `{connection_binding}`"
@@ -6050,16 +6052,6 @@ fn execute_native_db_write(
         "allowed",
     ));
     Ok((artifacts, record))
-}
-
-fn db_table_target_parts(expression: &str) -> Option<(String, String)> {
-    let (connection, table_call) = expression.trim().split_once(".table(")?;
-    let table = table_call.trim().strip_suffix(')')?.trim();
-    Some((
-        connection.trim().to_owned(),
-        strip_runtime_string_value(table),
-    ))
-    .filter(|(connection, table)| !connection.is_empty() && !table.is_empty())
 }
 
 fn db_connection_path_text(report: &CheckReport, binding: &str) -> Option<String> {

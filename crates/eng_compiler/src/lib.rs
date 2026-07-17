@@ -33,13 +33,13 @@ pub use ast::{
     ArgsDecl, ArgsFieldDecl, AssertDecl, AstItem, ClassDecl, ClassFieldDecl, ClassMethodDecl,
     ClassObjectCopyDecl, ClassObjectDecl, ClassObjectFieldDecl, ClassValidationDecl,
     CommandClauseDecl, CommandStyleDecl, ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl,
-    CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainVariableDecl, EquationDecl,
-    ExpectationDecl, ExpectationSuiteDecl, ExplicitDecl, FastBinding, FileOperationDecl,
-    FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl, NetDownloadDecl, OnBlockDecl,
-    OnPredicateDecl, PortDecl, PrintDecl, PromotionDecl, PromotionKind, ReturnDecl, SchemaDecl,
-    ScriptDecl, StateSpaceTypeBlockDecl, StateSpaceTypeMemberDecl, StructDecl, SystemDecl,
-    SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl, WherePredicateDecl,
-    WithBlockDecl, WithOptionDecl, WriteDecl,
+    CsvExportDecl, CsvExportFieldDecl, DbReadDecl, DbTableTargetDecl, DomainDecl,
+    DomainVariableDecl, EquationDecl, ExpectationDecl, ExpectationSuiteDecl, ExplicitDecl,
+    FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl,
+    NetDownloadDecl, OnBlockDecl, OnPredicateDecl, PortDecl, PrintDecl, PromotionDecl,
+    PromotionKind, ReturnDecl, SchemaDecl, ScriptDecl, StateSpaceTypeBlockDecl,
+    StateSpaceTypeMemberDecl, StructDecl, SystemDecl, SystemVariableDecl, TestDecl,
+    WhereBindingDecl, WhereBlockDecl, WherePredicateDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
@@ -77,16 +77,17 @@ pub use semantic::{
     ComponentInfo, ComponentJacobianSparsityInfo, ComponentLocalExpressionInfo,
     ComponentResidualDependencyInfo, ComponentResidualGraphInfo,
     ComponentResidualGraphResidualInfo, ComponentSolverPreviewInfo, ConnectionInfo,
-    ConservationInfo, ConstInfo, CsvExportFieldInfo, CsvExportInfo, DbReadExpression, DomainInfo,
-    DomainTypeParameterInfo, DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo,
-    EquationInfo, EquationIrInfo, ExpectationInfo, ExpectationSuiteInfo, FileOperationInfo,
-    FormatExpressionInfo, FunctionInfo, FunctionLocalInfo, FunctionParamInfo, GoldenInfo,
-    ImportInfo, JacobianSeedInfo, JacobianSparsityInfo, LinearOperatorEntryInfo,
-    LinearOperatorInfo, OdeRunnerInfo, PortInfo, PrintInfo, ProcessRunInfo, ResidualInfo,
-    SampleDistributionInfo, SampleGenerationInfo, SemanticProgram, SemanticType, SolverPlanInfo,
-    StateSpaceTypeBlockInfo, StateSpaceTypeMemberInfo, StateSpaceVectorInfo, SystemInfo,
-    SystemVariableInfo, TestInfo, TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo,
-    WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
+    ConservationInfo, ConstInfo, CsvExportFieldInfo, CsvExportInfo, DbReadExpression, DbReadInfo,
+    DbTableTargetInfo, DomainInfo, DomainTypeParameterInfo, DomainVariableInfo,
+    EnvironmentDependencyInfo, EquationDependencyInfo, EquationInfo, EquationIrInfo,
+    ExpectationInfo, ExpectationSuiteInfo, FileOperationInfo, FormatExpressionInfo, FunctionInfo,
+    FunctionLocalInfo, FunctionParamInfo, GoldenInfo, ImportInfo, JacobianSeedInfo,
+    JacobianSparsityInfo, LinearOperatorEntryInfo, LinearOperatorInfo, OdeRunnerInfo, PortInfo,
+    PrintInfo, ProcessRunInfo, ResidualInfo, SampleDistributionInfo, SampleGenerationInfo,
+    SemanticProgram, SemanticType, SolverPlanInfo, StateSpaceTypeBlockInfo,
+    StateSpaceTypeMemberInfo, StateSpaceVectorInfo, SystemInfo, SystemVariableInfo, TestInfo,
+    TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo, WhereBlockInfo, WithBlockInfo,
+    WithOptionInfo, WriteInfo,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -580,19 +581,28 @@ pub fn check_source_with_import_overrides(
 
 fn validate_db_read_schemas(semantic_output: &mut semantic::SemanticOutput) {
     let schemas = &semantic_output.semantic_program.schemas;
-    for declaration in &semantic_output.inferred_declarations {
-        let Some(read) = db_read_expression(&declaration.expression) else {
+    for read in &semantic_output.semantic_program.db_reads {
+        if !semantic_output
+            .inferred_declarations
+            .iter()
+            .any(|declaration| declaration.name == read.binding)
+        {
             continue;
-        };
+        }
         if schemas.iter().any(|schema| schema.name == read.schema_name) {
             continue;
         }
-        semantic_output.diagnostics.push(Diagnostic::error(
-            "E-DB-SCHEMA-MISMATCH",
-            declaration.line,
-            &format!("DB read schema `{}` is not declared.", read.schema_name),
-            Some("Declare a schema matching the selected SQLite columns before reading the table."),
-        ));
+        semantic_output.diagnostics.push(
+            Diagnostic::error(
+                "E-DB-SCHEMA-MISMATCH",
+                read.line,
+                &format!("DB read schema `{}` is not declared.", read.schema_name),
+                Some(
+                    "Declare a schema matching the selected SQLite columns before reading the table.",
+                ),
+            )
+            .with_source_span(read.schema_span),
+        );
     }
 }
 
@@ -17803,6 +17813,168 @@ schema SensorData {
         assert_eq!(span_text(records.records_span), "records");
         assert_eq!(span_text(records.source_span), "payload.records");
         assert_eq!(span_text(records.schema_span), "MissingRows");
+    }
+
+    #[test]
+    fn side_effect_diagnostics_and_metadata_preserve_exact_source_spans() {
+        let source = concat!(
+            "schema Row {\r\n",
+            "    value: Float\r\n",
+            "}\r\n",
+            "db = open sqlite file(\"outputs/db.sqlite\")\r\n",
+            "rows = promote csv \"missing.csv\" as Row\r\n",
+            "process_result = run command \"cmd\"\r\n",
+            "bad_process = run command args.simulator\r\n",
+            "write process_result to db.table(\"runs\")\r\n",
+            "write rows to db.table(\"rows\")\r\n",
+            "readback = read sqlite db.table(\"\u{1f600}-runs\") as MissingRow\r\n",
+            "export summary to csv file(\"summary.csv\") {\r\n",
+            "    args.energy_total as kWh with \".2\"\r\n",
+            "}\r\n",
+            "write text file(\"summary.txt\"), \"done\"\r\n",
+            "write json \"\u{1f600}-out.json\", E_coil\r\n",
+            "print \"\u{1f600} total = {Q_total: .2 kWh}\"\r\n",
+            "move file(\"source.txt\") to file(\"target.txt\")\r\n",
+        );
+        let report = check_source("side-effect-spans.eng", source, &CheckOptions::default());
+        let span_text = |span: SourceSpan| {
+            source
+                .get(span.start..span.end)
+                .unwrap_or_else(|| panic!("invalid source span: {span:?}"))
+        };
+        let diagnostic_text = |line: usize, code: &str| {
+            let diagnostic = report
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.line == line && diagnostic.code == code)
+                .unwrap_or_else(|| {
+                    panic!("missing {code} on line {line}: {:?}", report.diagnostics)
+                });
+            span_text(
+                diagnostic
+                    .source_span
+                    .expect("compiler-owned diagnostic span"),
+            )
+        };
+
+        assert_eq!(diagnostic_text(7, "E-PROCESS-CMD-001"), "args.simulator");
+        assert_eq!(diagnostic_text(8, "E-DB-SCHEMA-MISMATCH"), "process_result");
+        assert_eq!(diagnostic_text(10, "E-DB-SCHEMA-MISMATCH"), "MissingRow");
+        assert_eq!(diagnostic_text(12, "E-EXPORT-CSV-004"), "kWh");
+        assert_eq!(diagnostic_text(15, "E-WRITE-003"), "E_coil");
+        assert_eq!(diagnostic_text(16, "E-PRINT-FMT-004"), "Q_total");
+        assert_eq!(diagnostic_text(17, "E-FS-CONFIRM-001"), "move");
+
+        let process = report
+            .semantic_program
+            .process_runs
+            .iter()
+            .find(|process| process.binding == "process_result")
+            .expect("valid process metadata");
+        assert_eq!(span_text(process.binding_span), "process_result");
+        assert_eq!(span_text(process.run_span), "run");
+        assert_eq!(span_text(process.command_keyword_span), "command");
+        assert_eq!(
+            span_text(process.command_span.expect("command span")),
+            "\"cmd\""
+        );
+
+        let db_write = report
+            .semantic_program
+            .writes
+            .iter()
+            .find(|write| write.format == "db")
+            .expect("DB write metadata");
+        assert_eq!(span_text(db_write.write_span), "write");
+        assert_eq!(span_text(db_write.expression_span), "rows");
+        assert_eq!(span_text(db_write.to_span.expect("DB to span")), "to");
+        let db_target = db_write.db_target.as_ref().expect("DB target metadata");
+        assert_eq!(span_text(db_target.connection_span), "db");
+        assert_eq!(span_text(db_target.table_method_span), "table");
+        assert_eq!(span_text(db_target.table_span), "rows");
+
+        let read = report
+            .semantic_program
+            .db_reads
+            .iter()
+            .find(|read| read.binding == "readback")
+            .expect("DB read metadata");
+        assert_eq!(span_text(read.read_span), "read");
+        assert_eq!(span_text(read.sqlite_span), "sqlite");
+        assert_eq!(span_text(read.target.connection_span), "db");
+        assert_eq!(span_text(read.as_span), "as");
+        assert_eq!(span_text(read.schema_span), "MissingRow");
+
+        let export = report
+            .semantic_program
+            .csv_exports
+            .first()
+            .expect("CSV export metadata");
+        assert_eq!(span_text(export.export_span), "export");
+        assert_eq!(span_text(export.source_span), "summary");
+        assert_eq!(span_text(export.to_span), "to");
+        assert_eq!(span_text(export.format_span), "csv");
+        assert_eq!(span_text(export.path_span), "file(\"summary.csv\")");
+        let field = export.fields.first().expect("CSV field metadata");
+        assert_eq!(span_text(field.expression_span), "args.energy_total");
+        assert_eq!(span_text(field.as_span), "as");
+        assert_eq!(
+            span_text(field.requested_unit_span.expect("unit span")),
+            "kWh"
+        );
+        assert_eq!(span_text(field.with_span.expect("with span")), "with");
+
+        let text_write = report
+            .semantic_program
+            .writes
+            .iter()
+            .find(|write| write.format == "text")
+            .expect("text write metadata");
+        assert_eq!(
+            span_text(text_write.format_span.expect("format span")),
+            "text"
+        );
+        assert_eq!(
+            span_text(text_write.path_span.expect("path span")),
+            "file(\"summary.txt\")"
+        );
+        assert_eq!(span_text(text_write.expression_span), "\"done\"");
+
+        let operation = report
+            .semantic_program
+            .file_operations
+            .first()
+            .expect("file operation metadata");
+        assert_eq!(span_text(operation.operation_span), "move");
+        assert_eq!(span_text(operation.source_span), "file(\"source.txt\")");
+        assert_eq!(span_text(operation.to_span.expect("file to span")), "to");
+        assert_eq!(
+            span_text(operation.destination_span.expect("destination span")),
+            "file(\"target.txt\")"
+        );
+    }
+
+    #[test]
+    fn nested_file_operation_diagnostics_preserve_keyword_spans() {
+        let source = concat!(
+            "script LegacyScript\r\n",
+            "copy file(\"a\") to file(\"b\")\r\n",
+            "mkdir dir(\"out\")\r\n",
+            "move file(\"b\") to file(\"out/b\")\r\n",
+            "delete dir(\"out\")\r\n",
+        );
+        let report = check_source("nested-file-effects.eng", source, &CheckOptions::default());
+        for (line, expected) in [(2, "copy"), (3, "mkdir"), (4, "move"), (5, "delete")] {
+            let diagnostic = report
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.line == line && diagnostic.code == "E-FS-001")
+                .unwrap_or_else(|| panic!("missing E-FS-001 on line {line}"));
+            let span = diagnostic
+                .source_span
+                .expect("file operation diagnostic span");
+            assert_eq!(&source[span.start..span.end], expected);
+        }
     }
 
     #[test]

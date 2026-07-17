@@ -297,6 +297,7 @@
     "function.validation": "#FFD166",
     "variable.validation": "#E6B450",
     "property.validation": "#FFE082",
+    "type.report": "#D0B3FF",
     "keyword.report": "#C792EA",
     "function.report": "#D6A3FF",
     "variable.report": "#B388FF",

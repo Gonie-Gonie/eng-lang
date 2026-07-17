@@ -331,6 +331,7 @@ pub struct FastBinding {
     pub expression: String,
     pub expression_span: SourceSpan,
     pub promotion: Option<PromotionDecl>,
+    pub db_read: Option<Box<DbReadDecl>>,
     pub line: usize,
     pub span: SourceSpan,
     pub context: ParseContext,
@@ -362,7 +363,10 @@ pub struct SummaryDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PrintDecl {
     pub level: String,
+    pub level_span: Option<SourceSpan>,
     pub template: String,
+    pub template_span: SourceSpan,
+    pub template_is_expression: bool,
     pub line: usize,
     pub span: SourceSpan,
     pub context: ParseContext,
@@ -371,8 +375,12 @@ pub struct PrintDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CsvExportDecl {
     pub source: String,
+    pub source_span: SourceSpan,
     pub format: String,
+    pub format_span: SourceSpan,
     pub path: String,
+    pub path_span: SourceSpan,
+    pub to_span: SourceSpan,
     pub line: usize,
     pub span: SourceSpan,
     pub context: ParseContext,
@@ -381,18 +389,48 @@ pub struct CsvExportDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CsvExportFieldDecl {
     pub expression: String,
+    pub expression_span: SourceSpan,
     pub display_unit: Option<String>,
+    pub display_unit_span: Option<SourceSpan>,
     pub format: Option<String>,
+    pub format_span: Option<SourceSpan>,
+    pub as_span: SourceSpan,
+    pub with_span: Option<SourceSpan>,
     pub line: usize,
     pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct WriteDecl {
-    pub format: String,
-    pub path: String,
+pub struct DbTableTargetDecl {
     pub expression: String,
     pub expression_span: SourceSpan,
+    pub connection: String,
+    pub connection_span: SourceSpan,
+    pub table: String,
+    pub table_method_span: SourceSpan,
+    pub table_span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DbReadDecl {
+    pub read_span: SourceSpan,
+    pub sqlite_span: SourceSpan,
+    pub target: DbTableTargetDecl,
+    pub as_span: SourceSpan,
+    pub schema_name: String,
+    pub schema_span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WriteDecl {
+    pub format: String,
+    pub format_span: Option<SourceSpan>,
+    pub path: String,
+    pub path_span: Option<SourceSpan>,
+    pub db_target: Option<DbTableTargetDecl>,
+    pub expression: String,
+    pub expression_span: SourceSpan,
+    pub to_span: Option<SourceSpan>,
     pub line: usize,
     pub span: SourceSpan,
     pub context: ParseContext,
@@ -402,7 +440,10 @@ pub struct WriteDecl {
 pub struct FileOperationDecl {
     pub operation: String,
     pub source: String,
+    pub source_span: SourceSpan,
     pub destination: Option<String>,
+    pub destination_span: Option<SourceSpan>,
+    pub to_span: Option<SourceSpan>,
     pub line: usize,
     pub span: SourceSpan,
     pub context: ParseContext,
@@ -422,7 +463,11 @@ pub struct NetDownloadDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProcessRunDecl {
     pub binding: Option<String>,
+    pub binding_span: Option<SourceSpan>,
     pub command: String,
+    pub command_span: Option<SourceSpan>,
+    pub run_span: SourceSpan,
+    pub command_keyword_span: SourceSpan,
     pub line: usize,
     pub span: SourceSpan,
     pub context: ParseContext,

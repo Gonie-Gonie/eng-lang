@@ -337,7 +337,12 @@ compiler ranges for semantic colors and Outline selection. Repeated names in
 and schema roles. Promotion schema/source Problems underline the schema name or
 complete source operand, and unreadable CSV/JSON/config inputs do not emit
 secondary missing-column or missing-field Problems. The diagnostic corpus
-fallback ceiling is 49.
+fallback ceiling is 31.
+Print/log interpolation, CSV export fields, writes, DB reads/writes, nested file
+operations, and process runs now use token-parsed compiler ranges for Problems,
+semantic colors, and Outline selection. DB connection/table roles come from the
+same structured metadata consumed by native runtime execution, so repeated text
+and spacing variation cannot redirect an underline or semantic role.
 Invalid network URL Problems underline the complete request/download URL operand.
 Declared URL aliases are resolved before validation; unsupplied runtime
 `args.*` URLs do not create malformed-URL false positives, and trailing comments

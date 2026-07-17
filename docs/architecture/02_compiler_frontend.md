@@ -59,11 +59,21 @@ Semantic metadata retains the parser-owned `where`/`with` keyword anchors in
 and `value_span`. Semantic highlighting and outline selection consume those
 ranges directly, including inline blocks with repeated words in earlier options.
 
-`WriteDecl.expression_span` identifies the exact source expression after the
-selected write path/format syntax, and `WriteInfo.expression_span` carries it
-through the public semantic model. Editor projection can therefore classify a
-simple write-source identifier from its compiler role even when its spelling is
-also a workflow keyword, without changing a real keyword occurrence elsewhere.
+Side-effect declarations retain token-owned structure instead of requiring a
+consumer to search or reparse their normalized expression text. `PrintDecl`,
+`CsvExportDecl`, `WriteDecl`, `FileOperationDecl`, and `ProcessRunDecl` preserve
+their operation keywords, operands, formats, paths, separators, and optional
+interpolation fields. `DbTableTargetDecl` separates a DB connection path from
+the quoted table name, and `FastBinding.db_read` records the corresponding
+`read sqlite <connection>.table("...")` source structure before normalization.
+
+The public `PrintInfo`, `CsvExportInfo`, `WriteInfo`, `FileOperationInfo`,
+`ProcessRunInfo`, and `DbReadInfo` records carry those exact ranges through
+semantic analysis. Diagnostics, semantic highlighting, Outline selection, and
+native runtime DB reads/writes therefore consume one compiler-owned target and
+source identity. A simple write-source identifier can still be classified from
+its compiler role even when its spelling is also a workflow keyword, without
+changing a real keyword occurrence elsewhere.
 
 `FastBinding.expression_span` identifies the complete source RHS before later
 semantic normalization. Successful inferred declarations retain that range.
@@ -121,8 +131,8 @@ semantic_program.schemas
 semantic_program.state_space_type_blocks / state_space_vectors / linear_operators
 semantic_program.table_transforms
 semantic_program.net_requests / net_downloads / cache_records
-semantic_program.sample/case generations / render templates / uncertainty / model / db records
-semantic_program.reports / plots / writes / side-effect records
+semantic_program.sample/case generations / render templates / uncertainty / model / db reads
+semantic_program.reports / plots / writes / side-effect records / db records
 ```
 
 Supported deprecated or invalid syntax, such as `:=`, `struct Args`, and

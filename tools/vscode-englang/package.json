@@ -384,6 +384,10 @@
             "keyword.control.report.englang",
             "variable.parameter.property.englang"
           ],
+          "type.report": [
+            "support.type.englang",
+            "keyword.control.report.englang"
+          ],
           "parameter.solver": [
             "keyword.control.solver.englang",
             "entity.name.function.solver.englang",

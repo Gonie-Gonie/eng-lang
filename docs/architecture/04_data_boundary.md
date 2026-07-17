@@ -132,6 +132,21 @@ When a source cannot be opened or parsed, the compiler reports that boundary
 failure without also reporting required columns or fields as missing from an
 empty synthetic payload.
 
+## Database Targets
+
+SQLite reads and writes use parser-owned `DbTableTargetDecl` metadata rather
+than treating `<connection>.table("<name>")` as an opaque string. Semantic
+analysis publishes the resolved connection path, table name, and exact source
+ranges through `DbReadInfo` and `WriteInfo`. Connection and schema diagnostics
+therefore select the failing connection or table occurrence even when the same
+text appears earlier on the line.
+
+The native runtime consumes these structured read/write targets directly when
+materializing tables or applying writes. It does not reconstruct a DB target by
+splitting normalized expression text. The legacy expression helper remains a
+compatibility parser for external callers, not the canonical compiler-to-runtime
+boundary.
+
 ## Artifacts
 
 `review.json` includes:
