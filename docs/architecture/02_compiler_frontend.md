@@ -31,6 +31,15 @@ The CLI, LSP, VS Code extension, and native IDE all rely on these spans so that
 Problems ranges, underlines, hover locations, and highlight inspection rows point
 at the same source text.
 
+Every public `AstItem` exposes `primary_span()`, an exhaustive parser-owned
+anchor across all item variants. The primary span is intentionally not named a
+full node extent: depending on the grammar item it identifies the declaration
+keyword, declared name, operand, or complete scoped option. Variant records
+retain the narrower name, type, unit, expression, key, and value spans used by
+semantic analysis and editor tooling. A parser corpus gate checks that every
+primary span is a non-empty UTF-8 byte range with exact line, byte-column, and
+root/import source ownership.
+
 `Diagnostic::source_span` remains optional in the serialized type for
 diagnostics that have no source occurrence, but it is authoritative whenever a
 check reports source code: review JSON uses its starting column and the LSP

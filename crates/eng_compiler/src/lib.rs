@@ -8838,6 +8838,107 @@ mod tests {
     }
 
     #[test]
+    fn ast_primary_spans_are_valid_across_source_corpus() {
+        fn eng_files_under(root: &Path) -> Vec<PathBuf> {
+            fn visit(directory: &Path, files: &mut Vec<PathBuf>) {
+                let mut entries = fs::read_dir(directory)
+                    .unwrap_or_else(|error| {
+                        panic!("failed to read {}: {error}", directory.display())
+                    })
+                    .map(|entry| entry.expect("directory entry should be readable").path())
+                    .collect::<Vec<_>>();
+                entries.sort();
+                for path in entries {
+                    if path.is_dir() {
+                        visit(&path, files);
+                    } else if path.extension().is_some_and(|extension| extension == "eng") {
+                        files.push(path);
+                    }
+                }
+            }
+
+            let mut files = Vec::new();
+            visit(root, &mut files);
+            files
+        }
+
+        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(Path::parent)
+            .expect("eng_compiler crate should live under crates/eng_compiler");
+        let mut files = Vec::new();
+        for relative in [
+            "examples",
+            "tests/diagnostics",
+            "tools/vscode-englang/test/grammar-fixtures",
+        ] {
+            files.extend(eng_files_under(&repo_root.join(relative)));
+        }
+
+        let source_count = files.len();
+        let mut item_count = 0usize;
+        let mut invalid = Vec::new();
+        for path in files {
+            let source = fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            for item in parse_source(&source).items {
+                item_count += 1;
+                let span = item.primary_span();
+                let Some(text) = source.get(span.start..span.end) else {
+                    invalid.push(format!(
+                        "{}: invalid byte range {}..{}",
+                        path.strip_prefix(repo_root).unwrap_or(&path).display(),
+                        span.start,
+                        span.end
+                    ));
+                    continue;
+                };
+                let prefix = &source[..span.start];
+                let expected_line = prefix.bytes().filter(|byte| *byte == b'\n').count() + 1;
+                let line_start = prefix.rfind('\n').map_or(0, |index| index + 1);
+                let expected_column = span.start - line_start + 1;
+                if !span.is_root_source()
+                    || text.trim().is_empty()
+                    || span.line != expected_line
+                    || span.column != expected_column
+                {
+                    invalid.push(format!(
+                        "{}: {:?} points to {text:?}; expected root {expected_line}:{expected_column}",
+                        path.strip_prefix(repo_root).unwrap_or(&path).display(),
+                        span
+                    ));
+                }
+            }
+        }
+
+        assert!(
+            source_count >= 150,
+            "AST source-span corpus unexpectedly shrank to {source_count} file(s)"
+        );
+        assert!(
+            item_count >= 1_000,
+            "AST source-span corpus unexpectedly shrank to {item_count} item(s)"
+        );
+        assert!(
+            invalid.is_empty(),
+            "AST primary spans must be non-empty, root-owned byte ranges with exact line/column metadata:\n{}",
+            invalid.join("\n")
+        );
+
+        let imported = parser::parse_source_in_source(
+            "const imported: Ratio [1] = 1\n",
+            SourceSpan::ROOT_SOURCE_ID + 1,
+        );
+        assert!(
+            imported
+                .items
+                .iter()
+                .all(|item| !item.primary_span().is_root_source()),
+            "AST primary spans must preserve imported source ownership"
+        );
+    }
+
+    #[test]
     fn typed_bindings_preserve_exact_declaration_name_spans() {
         let source = concat!(
             "const BASE: HeatRate [kW] = 5 kW\r\n",
