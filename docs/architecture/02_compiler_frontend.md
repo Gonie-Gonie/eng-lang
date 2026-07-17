@@ -44,11 +44,14 @@ CRLF line endings.
 
 Static file imports are lexed and parsed with a stable nonzero `source_id`
 derived from their resolved path. Every child range preserves its parent's
-identity through parsing and semantic lowering. Current-document Outline
-generation therefore rejects import-owned ranges instead of applying another
-file's byte offsets to the active buffer; cross-file definition/reference
-features resolve those files separately. Other editor consumers can use the same
-identity as they adopt explicit cross-file routing.
+identity through parsing and semantic lowering. Current-document diagnostics,
+semantic declaration overlays, structural token classification, and Outline
+generation reject import-owned ranges instead of applying another file's byte
+offsets to the active buffer. Imported definitions remain available to
+completion, reference, definition, and name-resolved hover features, which
+route those files separately. Anonymous line-hover fallback considers only
+root-owned metadata. Review validation spans likewise distinguish a root object
+location from an imported class-rule location.
 
 ## Lexer And Parser
 
@@ -252,6 +255,7 @@ class/object Outline selections.
 
 ```text
 diagnostics
+validation records with source origin
 hover items
 completion items
 semantic tokens
@@ -264,7 +268,9 @@ generated editor metadata
 The VS Code extension and native IDE consume this shared payload. The generated
 TextMate grammar, completion catalog, semantic legend, and syntax catalog are
 rebuilt from compiler/LSP metadata so first-paint highlighting and live semantic
-highlighting stay aligned.
+highlighting stay aligned. Snapshot hover and review-span JSON exposes
+`source_origin` as `root` or `import`; consumers must not project an imported
+line/column pair onto the checked root buffer.
 
 ## Boundaries
 

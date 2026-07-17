@@ -612,6 +612,7 @@ pub struct ClassObjectFieldInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClassObjectValidationInfo {
     pub expression: String,
+    pub rule_span: SourceSpan,
     pub left: String,
     pub operator: String,
     pub right: String,
@@ -8419,6 +8420,7 @@ fn evaluate_class_validation(
     };
     ClassObjectValidationInfo {
         expression: validation.expression.clone(),
+        rule_span: validation.expression_span,
         left: validation.left.clone(),
         operator: validation.operator.clone(),
         right: validation.right.clone(),

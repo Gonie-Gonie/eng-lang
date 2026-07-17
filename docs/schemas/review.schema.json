@@ -657,7 +657,8 @@
       "required": ["line", "column"],
       "properties": {
         "line": { "type": "integer", "minimum": 1 },
-        "column": { "type": "integer", "minimum": 1 }
+        "column": { "type": "integer", "minimum": 1 },
+        "source_origin": { "enum": ["root", "import"] }
       }
     },
     "reviewSideEffect": {

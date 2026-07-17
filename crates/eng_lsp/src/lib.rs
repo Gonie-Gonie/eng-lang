@@ -50,10 +50,17 @@ pub struct LspHover {
     pub name: String,
     pub kind: String,
     pub line: usize,
+    pub source_id: usize,
     pub detail: String,
     pub quantity_kind: String,
     pub display_unit: String,
     pub status: Option<String>,
+}
+
+impl LspHover {
+    pub fn is_root_source(&self) -> bool {
+        self.source_id == SourceSpan::ROOT_SOURCE_ID
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1237,6 +1244,7 @@ pub fn snapshot_from_report_with_source(report: &CheckReport, source: Option<&st
         diagnostics: report
             .diagnostics
             .iter()
+            .filter(|diagnostic| diagnostic_belongs_to_root_source(diagnostic))
             .map(|diagnostic| lsp_diagnostic(diagnostic, source))
             .collect(),
         validations: review_validation_records(report),
@@ -1248,6 +1256,12 @@ pub fn snapshot_from_report_with_source(report: &CheckReport, source: Option<&st
             .unwrap_or_default(),
         folding_ranges: source.map(folding_ranges).unwrap_or_default(),
     }
+}
+
+fn diagnostic_belongs_to_root_source(diagnostic: &Diagnostic) -> bool {
+    diagnostic
+        .source_span
+        .is_none_or(SourceSpan::is_root_source)
 }
 
 fn lsp_diagnostic(diagnostic: &Diagnostic, source: Option<&str>) -> LspDiagnostic {
@@ -1280,7 +1294,7 @@ fn diagnostic_character_range(diagnostic: &Diagnostic, source: Option<&str>) -> 
 
 fn compiler_diagnostic_byte_range(line: &str, diagnostic: &Diagnostic) -> Option<(usize, usize)> {
     let source_span = diagnostic.source_span?;
-    if source_span.line != diagnostic.line {
+    if !source_span.is_root_source() || source_span.line != diagnostic.line {
         return None;
     }
     let start = source_span.column.checked_sub(1)?;
@@ -2316,6 +2330,9 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for constant in &program.consts {
+        if !constant.span.is_root_source() {
+            continue;
+        }
         builder.push_named_span(
             constant.span,
             &constant.name,
@@ -2333,7 +2350,9 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for binding in &program.typed_bindings {
-        if is_structural_non_variable_declaration(program, binding.line, &binding.name) {
+        if !binding.span.is_root_source()
+            || is_structural_non_variable_declaration(program, binding.line, &binding.name)
+        {
             continue;
         }
         let mut modifiers = semantic_modifiers_for_quantity(&binding.semantic_type.quantity_kind);
@@ -2342,7 +2361,9 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for hover in &program.hover_hints {
-        if is_structural_non_variable_declaration(program, hover.line, &hover.name) {
+        if !hover.span.is_root_source()
+            || is_structural_non_variable_declaration(program, hover.line, &hover.name)
+        {
             continue;
         }
         let mut modifiers = semantic_modifiers_for_quantity(&hover.quantity_kind);
@@ -2354,6 +2375,9 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for function in &program.functions {
+        if !function.span.is_root_source() {
+            continue;
+        }
         builder.push_named_span(
             function.span,
             &function.name,
@@ -2396,6 +2420,9 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     add_function_scoped_symbol_semantic_tokens(&program.functions, &mut builder);
 
     for schema in &program.schemas {
+        if !schema.span.is_root_source() {
+            continue;
+        }
         builder.push_named_span(schema.span, &schema.name, "class", &["declaration"]);
         for column in &schema.columns {
             builder.push_named_span(column.span, &column.name, "property", &["declaration"]);
@@ -2631,6 +2658,9 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for binding in &program.typed_bindings {
+        if !binding.span.is_root_source() {
+            continue;
+        }
         if binding.semantic_type.quantity_kind.starts_with("Table[")
             || binding
                 .semantic_type
@@ -2916,6 +2946,9 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for system in &program.systems {
+        if !system.span.is_root_source() {
+            continue;
+        }
         builder.push_named_span(system.span, &system.name, "class", &["declaration"]);
         for variable in &system.variables {
             if program.state_space_type_blocks.iter().any(|block| {
@@ -2970,6 +3003,9 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for block in &program.state_space_type_blocks {
+        if !block.span.is_root_source() {
+            continue;
+        }
         builder.push_named_span(
             block.span,
             &block.name,
@@ -2995,6 +3031,9 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for vector in &program.state_space_vectors {
+        if !vector.span.is_root_source() {
+            continue;
+        }
         let modifiers = match vector.role.as_str() {
             "states" => ["declaration", "state"].as_slice(),
             "inputs" => ["declaration", "input"].as_slice(),
@@ -3008,6 +3047,9 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for operator in &program.linear_operators {
+        if !operator.type_span.is_root_source() {
+            continue;
+        }
         builder.push_all_type_identifiers_within_span(
             operator.type_span,
             &operator.declared_type,
@@ -3016,6 +3058,9 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for domain in &program.domains {
+        if !domain.span.is_root_source() {
+            continue;
+        }
         builder.push_named_span(domain.span, &domain.name, "interface", &["declaration"]);
         for parameter in &domain.type_parameters {
             builder.push_named_span(parameter.kind_span, &parameter.kind, "type", &["model"]);
@@ -3055,6 +3100,9 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for component in &program.component_templates {
+        if !component.span.is_root_source() {
+            continue;
+        }
         builder.push_named_span(component.span, &component.name, "class", &["declaration"]);
         for port in &component.ports {
             builder.push_named_span(port.span, &port.name, "property", &["declaration"]);
@@ -3109,10 +3157,16 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         }
     }
     for component in &program.component_instances {
+        if !component.span.is_root_source() {
+            continue;
+        }
         builder.push_named_span(component.span, &component.name, "class", &["declaration"]);
     }
 
     for connection in &program.connections {
+        if !connection.left_span.is_root_source() || !connection.right_span.is_root_source() {
+            continue;
+        }
         for (span, endpoint) in [
             (connection.left_span, connection.left.as_str()),
             (connection.right_span, connection.right.as_str()),
@@ -3137,6 +3191,9 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for class_info in &program.classes {
+        if !class_info.span.is_root_source() {
+            continue;
+        }
         builder.push_named_span(class_info.span, &class_info.name, "class", &["declaration"]);
         for field in &class_info.fields {
             builder.push_named_span(field.span, &field.name, "property", &["declaration"]);
@@ -4101,6 +4158,9 @@ fn add_function_scoped_symbol_semantic_tokens(
     builder: &mut SemanticTokenBuilder<'_>,
 ) {
     for function in functions {
+        if !function.span.is_root_source() {
+            continue;
+        }
         let Some(start_line) = function.line.checked_sub(1) else {
             continue;
         };
@@ -4224,11 +4284,9 @@ fn is_net_with_block(program: &SemanticProgram, owner_line: Option<usize>) -> bo
 fn add_review_risk_semantic_tokens(report: &CheckReport, builder: &mut SemanticTokenBuilder<'_>) {
     let program = &report.semantic_program;
 
-    for diagnostic in report
-        .diagnostics
-        .iter()
-        .filter(|diagnostic| diagnostic.severity == Severity::Warning)
-    {
+    for diagnostic in report.diagnostics.iter().filter(|diagnostic| {
+        diagnostic.severity == Severity::Warning && diagnostic_belongs_to_root_source(diagnostic)
+    }) {
         if line_has_structural_declaration(program, diagnostic.line) {
             continue;
         }
@@ -4241,6 +4299,9 @@ fn add_review_risk_semantic_tokens(report: &CheckReport, builder: &mut SemanticT
     }
 
     for schema in &program.schemas {
+        if !schema.span.is_root_source() {
+            continue;
+        }
         for policy in &schema.missing_policies {
             if let Some(modifier) =
                 review_risk_modifier(classify_review_risk("data_quality", "info").level)
@@ -4365,7 +4426,7 @@ fn add_review_risk_semantic_tokens(report: &CheckReport, builder: &mut SemanticT
         if let Some(modifier) =
             review_risk_modifier(classify_review_risk("solver_or_numeric", "info").level)
         {
-            builder.push_on_line(assembly.line, &assembly.name, "class", &[modifier]);
+            builder.push_named_span(assembly.span, &assembly.name, "class", &[modifier]);
         }
     }
 }
@@ -5433,80 +5494,89 @@ fn is_structural_non_variable_declaration(
     name: &str,
 ) -> bool {
     program.schemas.iter().any(|schema| {
-        schema
-            .columns
-            .iter()
-            .any(|column| column.line == line && column.name == name)
+        schema.span.is_root_source()
+            && schema
+                .columns
+                .iter()
+                .any(|column| column.line == line && column.name == name)
     }) || program.state_space_type_blocks.iter().any(|block| {
-        block
-            .members
-            .iter()
-            .any(|member| member.line == line && member.name == name)
+        block.span.is_root_source()
+            && block
+                .members
+                .iter()
+                .any(|member| member.line == line && member.name == name)
     }) || program.systems.iter().any(|system| {
-        system.variables.iter().any(|variable| {
-            variable.line == line && variable.name == name && variable.role == "parameter"
-        })
+        system.span.is_root_source()
+            && system.variables.iter().any(|variable| {
+                variable.line == line && variable.name == name && variable.role == "parameter"
+            })
     }) || program.domains.iter().any(|domain| {
-        domain
-            .variables
-            .iter()
-            .any(|variable| variable.line == line && variable.name == name)
+        domain.span.is_root_source()
+            && domain
+                .variables
+                .iter()
+                .any(|variable| variable.line == line && variable.name == name)
     }) || program.component_symbols().any(|component| {
-        component
-            .ports
-            .iter()
-            .any(|port| port.line == line && port.name == name)
-            || component
-                .parameters
+        component.span.is_root_source()
+            && (component
+                .ports
                 .iter()
-                .any(|parameter| parameter.line == line && parameter.name == name)
-            || component
-                .inputs
-                .iter()
-                .any(|input| input.line == line && input.name == name)
+                .any(|port| port.line == line && port.name == name)
+                || component
+                    .parameters
+                    .iter()
+                    .any(|parameter| parameter.line == line && parameter.name == name)
+                || component
+                    .inputs
+                    .iter()
+                    .any(|input| input.line == line && input.name == name))
     }) || program.classes.iter().any(|class_info| {
-        class_info
-            .fields
-            .iter()
-            .any(|field| field.line == line && field.name == name)
+        class_info.span.is_root_source()
+            && class_info
+                .fields
+                .iter()
+                .any(|field| field.line == line && field.name == name)
     }) || program.class_objects.iter().any(|object| {
-        object
-            .fields
-            .iter()
-            .any(|field| field.line == line && field.name == name)
+        object.span.is_root_source()
+            && object
+                .fields
+                .iter()
+                .any(|field| field.line == line && field.name == name)
     }) || program.args_blocks.iter().any(|args_block| {
-        args_block
-            .fields
-            .iter()
-            .any(|field| field.line == line && field.name == name)
+        args_block.span.is_root_source()
+            && args_block
+                .fields
+                .iter()
+                .any(|field| field.line == line && field.name == name)
     })
 }
 
 fn line_has_structural_declaration(program: &SemanticProgram, line: usize) -> bool {
     program.schemas.iter().any(|schema| {
-        schema.line == line
-            || schema.columns.iter().any(|column| column.line == line)
-            || schema
-                .constraints
-                .iter()
-                .any(|constraint| constraint.line == line)
-            || schema
-                .missing_policies
-                .iter()
-                .any(|policy| policy.line == line)
-    }) || program
-        .state_space_type_blocks
-        .iter()
-        .any(|block| block.line == line || block.members.iter().any(|member| member.line == line))
-        || program.systems.iter().any(|system| {
-            system.line == line
+        schema.span.is_root_source()
+            && (schema.line == line
+                || schema.columns.iter().any(|column| column.line == line)
+                || schema
+                    .constraints
+                    .iter()
+                    .any(|constraint| constraint.line == line)
+                || schema
+                    .missing_policies
+                    .iter()
+                    .any(|policy| policy.line == line))
+    }) || program.state_space_type_blocks.iter().any(|block| {
+        block.span.is_root_source()
+            && (block.line == line || block.members.iter().any(|member| member.line == line))
+    }) || program.systems.iter().any(|system| {
+        system.span.is_root_source()
+            && (system.line == line
                 || system
                     .variables
                     .iter()
-                    .any(|variable| variable.line == line)
-        })
-        || program.domains.iter().any(|domain| {
-            domain.line == line
+                    .any(|variable| variable.line == line))
+    }) || program.domains.iter().any(|domain| {
+        domain.span.is_root_source()
+            && (domain.line == line
                 || domain
                     .variables
                     .iter()
@@ -5514,10 +5584,10 @@ fn line_has_structural_declaration(program: &SemanticProgram, line: usize) -> bo
                 || domain
                     .conservations
                     .iter()
-                    .any(|conservation| conservation.line == line)
-        })
-        || program.component_symbols().any(|component| {
-            component.line == line
+                    .any(|conservation| conservation.line == line))
+    }) || program.component_symbols().any(|component| {
+        component.span.is_root_source()
+            && (component.line == line
                 || component.ports.iter().any(|port| port.line == line)
                 || component
                     .parameters
@@ -5527,28 +5597,28 @@ fn line_has_structural_declaration(program: &SemanticProgram, line: usize) -> bo
                 || component
                     .local_expressions
                     .iter()
-                    .any(|local| local.line == line)
-        })
-        || program.classes.iter().any(|class_info| {
-            class_info.line == line
+                    .any(|local| local.line == line))
+    }) || program.classes.iter().any(|class_info| {
+        class_info.span.is_root_source()
+            && (class_info.line == line
                 || class_info.fields.iter().any(|field| field.line == line)
                 || class_info
                     .validations
                     .iter()
                     .any(|validation| validation.line == line)
-                || class_info.methods.iter().any(|method| method.line == line)
-        })
-        || program.class_objects.iter().any(|object| {
-            object.line == line
+                || class_info.methods.iter().any(|method| method.line == line))
+    }) || program.class_objects.iter().any(|object| {
+        object.span.is_root_source()
+            && (object.line == line
                 || object.fields.iter().any(|field| field.line == line)
                 || object
                     .validations
                     .iter()
-                    .any(|validation| validation.line == line)
-        })
-        || program.args_blocks.iter().any(|args_block| {
-            args_block.line == line || args_block.fields.iter().any(|field| field.line == line)
-        })
+                    .any(|validation| validation.line == line))
+    }) || program.args_blocks.iter().any(|args_block| {
+        args_block.span.is_root_source()
+            && (args_block.line == line || args_block.fields.iter().any(|field| field.line == line))
+    })
 }
 
 fn promotion_source_format_keywords(source_format: &str) -> &'static [&'static str] {
@@ -6451,7 +6521,7 @@ impl<'a> SemanticTokenBuilder<'a> {
         token_type: &str,
         modifiers: &[&str],
     ) {
-        if label.trim().is_empty() {
+        if !span.is_root_source() || label.trim().is_empty() {
             return;
         }
         let Some(line_index) = span.line.checked_sub(1) else {
@@ -6512,6 +6582,9 @@ impl<'a> SemanticTokenBuilder<'a> {
         modifiers: &[&str],
         modify_all_identifiers: bool,
     ) {
+        if !span.is_root_source() {
+            return;
+        }
         let identifier_labels = |value: &str| {
             value
                 .split(|character: char| !(character.is_ascii_alphanumeric() || character == '_'))
@@ -6587,6 +6660,9 @@ impl<'a> SemanticTokenBuilder<'a> {
         token_type: &str,
         modifiers: &[&str],
     ) {
+        if !span.is_root_source() {
+            return;
+        }
         let Some(line_index) = span.line.checked_sub(1) else {
             return;
         };
@@ -6618,6 +6694,9 @@ impl<'a> SemanticTokenBuilder<'a> {
         token_type: &str,
         modifiers: &[&str],
     ) {
+        if !span.is_root_source() {
+            return;
+        }
         let Some(line_index) = span.line.checked_sub(1) else {
             return;
         };
@@ -6650,6 +6729,9 @@ impl<'a> SemanticTokenBuilder<'a> {
         token_type: &str,
         modifiers: &[&str],
     ) {
+        if !span.is_root_source() {
+            return;
+        }
         let Some(line_index) = span.line.checked_sub(1) else {
             return;
         };
@@ -6818,6 +6900,11 @@ impl<'a> SemanticTokenBuilder<'a> {
         terminal_token_type: Option<&str>,
         modifiers: &[&str],
     ) -> bool {
+        // A compiler span from another file is authoritative. Treat it as
+        // handled so callers never fall back to searching the active line.
+        if !span.is_root_source() {
+            return true;
+        }
         let path = path.trim();
         if !is_simple_identifier_path(path) {
             return false;
@@ -6994,6 +7081,9 @@ impl<'a> SemanticTokenBuilder<'a> {
         token_type: &str,
         modifiers: &[&str],
     ) {
+        if !span.is_root_source() {
+            return;
+        }
         let Some(line_index) = span.line.checked_sub(1) else {
             return;
         };
@@ -9060,6 +9150,7 @@ pub fn hover_json(hover: &LspHover) -> Value {
         "name": hover.name,
         "kind": hover.kind,
         "line": hover.line,
+        "source_origin": if hover.is_root_source() { "root" } else { "import" },
         "quantity_kind": hover.quantity_kind,
         "display_unit": hover.display_unit,
         "status": hover.status,
@@ -9281,6 +9372,7 @@ fn push_member_field_hovers(
                     name: line[access_start..field_end].to_owned(),
                     kind: kind.to_owned(),
                     line: line_index + 1,
+                    source_id: SourceSpan::ROOT_SOURCE_ID,
                     detail: format!("{detail}; member of {receiver_quantity_kind}"),
                     quantity_kind: public_member_field_quantity_kind(field).to_owned(),
                     display_unit: "-".to_owned(),
@@ -9334,6 +9426,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             name: hover.name.clone(),
             kind: "variable".to_owned(),
             line: hover.line,
+            source_id: hover.span.source_id,
             detail: hover.detail.clone(),
             quantity_kind: hover.quantity_kind.clone(),
             display_unit: hover.display_unit.clone(),
@@ -9347,6 +9440,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             name: block.name.clone(),
             kind: "state_space_type".to_owned(),
             line: block.line,
+            source_id: block.span.source_id,
             detail: format!("{role} vector type with {} member(s)", block.members.len()),
             quantity_kind: format!(
                 "{}[{}]",
@@ -9362,6 +9456,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 name: format!("{}.{}", block.name, member.name),
                 kind: "state_space_member".to_owned(),
                 line: member.line,
+                source_id: member.span.source_id,
                 detail: format!(
                     "{role} member {}: {} [{}] in {}",
                     member.name, member.type_name, display_unit, block.name
@@ -9378,6 +9473,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             name: domain.name.clone(),
             kind: "domain".to_owned(),
             line: domain.line,
+            source_id: domain.span.source_id,
             detail: format!(
                 "{}, {} variable(s), {} conservation contract(s), package {}, version {}",
                 domain_signature(&domain.name, &domain.type_parameters),
@@ -9395,6 +9491,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 name: format!("{}.{}", domain.name, variable.name),
                 kind: "domain_variable".to_owned(),
                 line: variable.line,
+                source_id: variable.span.source_id,
                 detail: format!(
                     "{} variable in domain {}; canonical unit {}; dimension {}",
                     variable.role, domain.name, variable.canonical_unit, variable.dimension
@@ -9409,6 +9506,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 name: format!("{}.conservation", domain.name),
                 kind: "domain_conservation".to_owned(),
                 line: conservation.line,
+                source_id: conservation.span.source_id,
                 detail: conservation.text.clone(),
                 quantity_kind: "conservation".to_owned(),
                 display_unit: "-".to_owned(),
@@ -9433,6 +9531,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             name: component.name.clone(),
             kind: "component".to_owned(),
             line: component.line,
+            source_id: component.span.source_id,
             detail,
             quantity_kind: "component".to_owned(),
             display_unit: "-".to_owned(),
@@ -9443,6 +9542,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 name: format!("{}.{}", component.name, port.name),
                 kind: "component_port".to_owned(),
                 line: port.line,
+                source_id: port.span.source_id,
                 detail: format!(
                     "port {} on component {}; {}",
                     port.name,
@@ -9461,6 +9561,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             name: format!("{} -> {}", connection.left, connection.right),
             kind: "connection".to_owned(),
             line: connection.line,
+            source_id: connection.left_span.source_id,
             detail: format!(
                 "connects {} to {} in domain {}",
                 connection.left, connection.right, connection.domain
@@ -9476,6 +9577,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             name: assembly.name.clone(),
             kind: "component_assembly".to_owned(),
             line: assembly.line,
+            source_id: assembly.span.source_id,
             detail: format!(
                 "{} connection set(s), {} generated equation(s), {} unknown(s), balance {}",
                 assembly.connection_sets.len(),
@@ -9492,6 +9594,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 name: connection_set.name.clone(),
                 kind: "connection_set".to_owned(),
                 line: connection_set.line,
+                source_id: assembly.span.source_id,
                 detail: format!(
                     "{} port(s) in domain {}: {}",
                     connection_set.ports.len(),
@@ -9508,6 +9611,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 name: equation.name.clone(),
                 kind: "assembly_equation".to_owned(),
                 line: equation.line,
+                source_id: assembly.span.source_id,
                 detail: format!(
                     "{}; residual {}; dependencies {}",
                     equation.expression,
@@ -9526,6 +9630,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             name: function.name.clone(),
             kind: "function".to_owned(),
             line: function.line,
+            source_id: function.span.source_id,
             detail: function_signature_detail(function),
             quantity_kind: function.return_quantity_kind.clone(),
             display_unit: function.return_display_unit.clone(),
@@ -9536,6 +9641,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 name: format!("{}.{}", function.name, local.name),
                 kind: "function_local".to_owned(),
                 line: local.line,
+                source_id: local.span.source_id,
                 detail: format!(
                     "local `{}` in function `{}` = {}",
                     local.name, function.name, local.expression
@@ -9553,6 +9659,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 name: format!("where.{}", binding.name),
                 kind: "where_local".to_owned(),
                 line: binding.line,
+                source_id: binding.span.source_id,
                 detail: format!(
                     "where local `{}` = {}; owner line {}; status {}",
                     binding.name,
@@ -9575,6 +9682,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             name: class_info.name.clone(),
             kind: "class".to_owned(),
             line: class_info.line,
+            source_id: class_info.span.source_id,
             detail: format!("class with {} field(s)", class_info.fields.len()),
             quantity_kind: "class".to_owned(),
             display_unit: "-".to_owned(),
@@ -9585,6 +9693,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 name: format!("{}.{}", class_info.name, field.name),
                 kind: "class_field".to_owned(),
                 line: field.line,
+                source_id: field.span.source_id,
                 detail: format!(
                     "field {}: {} [{}], {}",
                     field.name,
@@ -9602,6 +9711,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 name: format!("{}.validate", class_info.name),
                 kind: "class_validation".to_owned(),
                 line: validation.line,
+                source_id: validation.expression_span.source_id,
                 detail: format!("validates {}", validation.expression),
                 quantity_kind: "Bool".to_owned(),
                 display_unit: "1".to_owned(),
@@ -9613,6 +9723,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 name: format!("{}.{}()", class_info.name, method.name),
                 kind: "class_method".to_owned(),
                 line: method.line,
+                source_id: method.span.source_id,
                 detail: format!("method {}() -> {}", method.name, method.return_type),
                 quantity_kind: method.return_quantity_kind.clone(),
                 display_unit: method.return_display_unit.clone(),
@@ -9626,6 +9737,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             name: object.name.clone(),
             kind: "class_object".to_owned(),
             line: object.line,
+            source_id: object.span.source_id,
             detail: format!(
                 "{} object with {} explicit field(s)",
                 object.class_name,
@@ -9640,6 +9752,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 name: format!("{}.{}", object.name, field.name),
                 kind: "object_field".to_owned(),
                 line: field.line,
+                source_id: field.span.source_id,
                 detail: format!("{} = {}", field.name, field.expression),
                 quantity_kind: field.quantity_kind.clone(),
                 display_unit: field.display_unit.clone(),
@@ -9651,6 +9764,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 name: format!("{}.validate", object.name),
                 kind: "object_validation".to_owned(),
                 line: validation.line,
+                source_id: object.span.source_id,
                 detail: format!("{} => {}", validation.expression, validation.status),
                 quantity_kind: "Bool".to_owned(),
                 display_unit: validation.unit.clone(),
@@ -9870,6 +9984,7 @@ fn semantic_role_hover(
         name,
         kind: kind.to_owned(),
         line,
+        source_id: SourceSpan::ROOT_SOURCE_ID,
         detail,
         quantity_kind,
         display_unit,
@@ -15126,7 +15241,10 @@ print "done"
             .join("official")
             .join("07_functions_imports")
             .join("main.eng");
-        let source = std::fs::read_to_string(&path).expect("function import example source");
+        let source = std::fs::read_to_string(&path)
+            .expect("function import example source")
+            .replace('\n', "\r\n")
+            .replace("\"wall\"", "\"😀wall\"");
         let snapshot = snapshot_for_source(&path, &source);
         let mut symbols = Vec::new();
         flatten_document_symbols(&snapshot.document_symbols, &mut symbols);
@@ -15143,6 +15261,129 @@ print "done"
                 "import-owned definition leaked into current-document Outline: {imported}"
             );
         }
+    }
+
+    #[test]
+    fn imported_source_ranges_do_not_repaint_or_diagnose_the_root_buffer() {
+        let path = repo_root_for_tests()
+            .join("examples")
+            .join("official")
+            .join("07_functions_imports")
+            .join("main.eng");
+        let imported_path = path
+            .parent()
+            .expect("example directory")
+            .join("thermal.eng");
+        let source = std::fs::read_to_string(&path)
+            .expect("function import example source")
+            .replace('\n', "\r\n")
+            .replace("\"wall\"", "\"😀wall\"");
+        let imported_source = concat!(
+            "# imported definitions\n",
+            "\n",
+            "# imported offsets intentionally overlap root declarations\n",
+            "class label {\n",
+            "    validate { 1 > 0 }\n",
+            "}\n",
+            "const UA_wall_default: Conductance [W/K] = 150 W/K\n",
+            "\n",
+            "fn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] {\n",
+            "    return UA\n",
+            "}\n",
+        );
+        let mut overrides = ImportSourceOverrides::new();
+        overrides
+            .insert(&imported_path, imported_source)
+            .expect("import override");
+        let report = check_source_with_import_overrides(
+            &path,
+            &source,
+            &overrides,
+            &CheckOptions::default(),
+        );
+        let imported_diagnostic = report
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-FN-RETURN-004")
+            .expect("imported function return diagnostic");
+        assert!(!imported_diagnostic
+            .source_span
+            .expect("imported diagnostic span")
+            .is_root_source());
+
+        let snapshot = snapshot_from_report_with_source(&report, Some(&source));
+        assert!(
+            snapshot
+                .diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.code != "E-FN-RETURN-004"),
+            "import-owned diagnostic leaked into the root document"
+        );
+
+        for (line, name) in [(6, "UA_wall_default"), (8, "heat_loss")] {
+            let matching = snapshot
+                .semantic_tokens
+                .tokens
+                .iter()
+                .filter(|token| {
+                    token.line == line && semantic_token_source_text(&source, token) == Some(name)
+                })
+                .collect::<Vec<_>>();
+            assert!(!matching.is_empty(), "missing root reference token {name}");
+            assert!(
+                matching.iter().all(|token| {
+                    !semantic_token_has_modifier(token, "declaration")
+                        && !semantic_token_has_modifier(token, "definition")
+                }),
+                "import declaration modifiers repainted root reference {name}: {matching:?}"
+            );
+        }
+
+        let label_tokens = snapshot
+            .semantic_tokens
+            .tokens
+            .iter()
+            .filter(|token| {
+                token.line == 3 && semantic_token_source_text(&source, token) == Some("label")
+            })
+            .collect::<Vec<_>>();
+        assert!(label_tokens
+            .iter()
+            .any(|token| token.token_type == "parameter"));
+        assert!(
+            label_tokens.iter().all(|token| token.token_type != "class"),
+            "imported class repainted root args field: {label_tokens:?}"
+        );
+
+        for name in ["label", "UA_wall_default", "heat_loss"] {
+            let hover = snapshot
+                .hovers
+                .iter()
+                .find(|hover| hover.name == name)
+                .unwrap_or_else(|| panic!("missing imported hover metadata for {name}"));
+            assert!(
+                !hover.is_root_source(),
+                "imported hover was mislabeled as root-owned: {hover:?}"
+            );
+            assert_eq!(hover_json(hover)["source_origin"], "import");
+        }
+        let root_hover = snapshot
+            .hovers
+            .iter()
+            .find(|hover| hover.name == "Q_wall")
+            .expect("root Q_wall hover");
+        assert!(root_hover.is_root_source());
+        assert_eq!(hover_json(root_hover)["source_origin"], "root");
+        let imported_validation = snapshot
+            .validations
+            .iter()
+            .find(|validation| validation.kind == "class_validation")
+            .expect("imported class validation metadata");
+        assert!(!imported_validation.source_span.is_root_source());
+        assert_eq!(
+            imported_validation.to_json_value()["source_span"]["source_origin"],
+            "import"
+        );
     }
 
     #[test]

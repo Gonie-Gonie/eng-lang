@@ -6822,7 +6822,7 @@ fn hover_for_request(request: &Value, documents: &Documents) -> Option<eng_lsp::
         return Some(hover.clone());
     }
     let line = line_zero_based + 1;
-    snapshot.hovers.into_iter().find(|hover| hover.line == line)
+    root_hover_on_line(&snapshot.hovers, line).cloned()
 }
 
 fn hover_for_semantic_token_position<'a>(
@@ -6849,7 +6849,8 @@ fn hover_for_semantic_token_position<'a>(
         if let Some(hover) = snapshot
             .hovers
             .iter()
-            .find(|hover| hover.line == line + 1 && hover.name == text)
+            .filter(|hover| hover.line == line + 1 && hover.name == text)
+            .min_by_key(|hover| !hover.is_root_source())
         {
             return Some(hover);
         }
@@ -8265,8 +8266,16 @@ fn hover_for_symbol<'a>(
     hovers: &'a [eng_lsp::LspHover],
     symbol: &str,
 ) -> Option<&'a eng_lsp::LspHover> {
-    hover_for_symbol_role(hovers, symbol, None, false)
-        .or_else(|| hover_for_symbol_role(hovers, symbol, None, true))
+    hover_for_symbol_role(hovers, symbol, None, false, Some(true))
+        .or_else(|| hover_for_symbol_role(hovers, symbol, None, false, Some(false)))
+        .or_else(|| hover_for_symbol_role(hovers, symbol, None, true, Some(true)))
+        .or_else(|| hover_for_symbol_role(hovers, symbol, None, true, Some(false)))
+}
+
+fn root_hover_on_line(hovers: &[eng_lsp::LspHover], line: usize) -> Option<&eng_lsp::LspHover> {
+    hovers
+        .iter()
+        .find(|hover| hover.is_root_source() && hover.line == line)
 }
 
 fn hover_for_symbol_on_line<'a>(
@@ -8274,10 +8283,14 @@ fn hover_for_symbol_on_line<'a>(
     symbol: &str,
     line: usize,
 ) -> Option<&'a eng_lsp::LspHover> {
-    hover_for_symbol_role(hovers, symbol, Some(line), false)
-        .or_else(|| hover_for_symbol_role(hovers, symbol, None, false))
-        .or_else(|| hover_for_symbol_role(hovers, symbol, Some(line), true))
-        .or_else(|| hover_for_symbol_role(hovers, symbol, None, true))
+    hover_for_symbol_role(hovers, symbol, Some(line), false, Some(true))
+        .or_else(|| hover_for_symbol_role(hovers, symbol, None, false, Some(true)))
+        .or_else(|| hover_for_symbol_role(hovers, symbol, Some(line), false, Some(false)))
+        .or_else(|| hover_for_symbol_role(hovers, symbol, None, false, Some(false)))
+        .or_else(|| hover_for_symbol_role(hovers, symbol, Some(line), true, Some(true)))
+        .or_else(|| hover_for_symbol_role(hovers, symbol, None, true, Some(true)))
+        .or_else(|| hover_for_symbol_role(hovers, symbol, Some(line), true, Some(false)))
+        .or_else(|| hover_for_symbol_role(hovers, symbol, None, true, Some(false)))
 }
 
 fn hover_for_symbol_role<'a>(
@@ -8285,17 +8298,20 @@ fn hover_for_symbol_role<'a>(
     symbol: &str,
     line: Option<usize>,
     semantic_role_fallback: bool,
+    root_source: Option<bool>,
 ) -> Option<&'a eng_lsp::LspHover> {
     let symbol_label = symbol.rsplit('.').next().unwrap_or(symbol);
     hovers
         .iter()
         .filter(|hover| line.is_none_or(|line| hover.line == line))
+        .filter(|hover| root_source.is_none_or(|root| hover.is_root_source() == root))
         .filter(|hover| semantic_role_hover_kind(&hover.kind) == semantic_role_fallback)
         .find(|hover| hover.name == symbol)
         .or_else(|| {
             hovers
                 .iter()
                 .filter(|hover| line.is_none_or(|line| hover.line == line))
+                .filter(|hover| root_source.is_none_or(|root| hover.is_root_source() == root))
                 .filter(|hover| semantic_role_hover_kind(&hover.kind) == semantic_role_fallback)
                 .find(|hover| {
                     hover
@@ -9226,6 +9242,7 @@ mod tests {
             name: name.to_owned(),
             kind: kind.to_owned(),
             line,
+            source_id: eng_compiler::SourceSpan::ROOT_SOURCE_ID,
             detail: kind.to_owned(),
             quantity_kind: String::new(),
             display_unit: "-".to_owned(),
@@ -9248,6 +9265,31 @@ mod tests {
             hover_for_symbol_on_line(&hovers, "degC", 7).map(|hover| hover.kind.as_str()),
             Some("unit")
         );
+
+        let mut imported = hover("ImportedOnly", "function", 29);
+        imported.source_id = 1;
+        assert!(root_hover_on_line(&[imported.clone()], 29).is_none());
+        assert_eq!(
+            hover_for_symbol_on_line(&[imported], "ImportedOnly", 29)
+                .map(|hover| hover.kind.as_str()),
+            Some("function")
+        );
+        assert_eq!(
+            root_hover_on_line(&hovers, 29).map(|hover| hover.name.as_str()),
+            Some("Q_for_energy")
+        );
+
+        let mut imported_shared = hover("shared", "class", 7);
+        imported_shared.source_id = 1;
+        let root_shared = hover("shared", "parameter", 7);
+        let shared_hovers = [imported_shared, root_shared];
+        let selected = hover_for_symbol_on_line(&shared_hovers, "shared", 7)
+            .expect("root-owned same-name hover");
+        assert!(selected.is_root_source());
+        assert_eq!(selected.kind, "parameter");
+        assert!(hover_for_symbol(&shared_hovers, "shared")
+            .expect("root-owned symbol hover")
+            .is_root_source());
     }
 
     #[test]

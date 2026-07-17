@@ -596,7 +596,10 @@ editor snapshots: `kind`, `target`, `expression`, `evaluation_phase`, `status`,
 `pending_runtime`; class rules are `declared`; evaluated class-object rules are
 `pass`, `fail`, or `unresolved`. Object results include class, operand, observed
 value, and unit fields when available. Their `source_span` points to the object
-declaration while `rule_source_span` retains the class rule location. The root
+declaration while `rule_source_span` retains the class rule location. Both span
+objects emit `source_origin` as `root` or `import`; a root object validated by
+an imported class therefore keeps those two locations distinct instead of
+reinterpreting the imported rule line in the root file. The root
 `validation_count` is the exact number of records in `validations`.
 
 The quick CLI view is:

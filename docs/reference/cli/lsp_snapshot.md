@@ -75,7 +75,12 @@ rules use `declared`; class-object rows use `pass`, `fail`, or `unresolved` and
 include observed values when available. Object rows point `source_span` at the
 object declaration and preserve the class rule location in `rule_source_span`.
 This distinction lets editors show evaluated results without presenting a rule
-declaration as though it had passed for every object.
+declaration as though it had passed for every object. Each span also emits
+`source_origin` as `root` or `import`. A root object using an imported class can
+therefore have a root `source_span` and an import `rule_source_span`; clients
+must not navigate an import-owned line/column pair inside the checked root
+buffer. Imported class-rule rows remain available as program-level validation
+metadata with the same explicit origin.
 
 ## Static Editor Metadata
 
@@ -180,6 +185,10 @@ run-case `results` map produces one diagnostic on its owner expression rather
 than duplicate messages. The global 153-file corpus gate requires zero uses of
 the older range-inference path. That inference code remains only as a defensive
 compatibility path for diagnostics outside the checked compiler corpus.
+Diagnostics owned by an imported file are not published against the checked
+root document. They are reported when that imported document is checked as its
+own LSP text document, preventing valid imported byte offsets from underlining
+unrelated root text.
 
 Severity follows LSP numeric severity:
 
@@ -231,6 +240,7 @@ metadata:
   "name": "Q_coil",
   "kind": "variable",
   "line": 28,
+  "source_origin": "root",
   "quantity_kind": "TimeSeries[Time] of HeatRate",
   "display_unit": "W",
   "status": null,
@@ -243,6 +253,11 @@ metadata:
 
 `line` is one-based because it mirrors compiler metadata. LSP responses convert
 request positions from zero-based LSP coordinates before matching hover lines.
+`source_origin` is `root` or `import`. Imported symbol metadata remains in the
+snapshot so name-resolved hover and cross-file navigation can describe imported
+definitions. Root-owned structured metadata wins when a root declaration and an
+imported definition share a name; anonymous same-line fallback accepts only
+root-owned hover entries.
 `quantity_kind` and `display_unit` are included for editor clients that want to
 render compact metadata without parsing the markdown body. A semantic-role
 hover that does not describe a physical quantity leaves `quantity_kind` empty;
@@ -309,8 +324,11 @@ parameter names/types/units, function return types/units, schema columns,
 state-space type blocks and members, system variables and state vectors, domain
 variables, component ports, parameters, inputs and locals, class fields and
 methods, args fields, and class object bindings and fields use parser-owned
-source ranges. Same-line text search remains a compatibility fallback for symbol
-kinds whose exact ranges have not yet migrated.
+source ranges. Every compiler-span helper rejects import-owned ranges before
+using offsets or attempting a guarded line fallback. Imported definitions still
+participate in symbol resolution, so references written in the root document
+retain the correct function/type/readonly role without receiving imported
+declaration or definition modifiers.
 
 Domain generic kinds and named parameters are emitted from their own spans.
 Domain variables and component parameters/inputs also emit quantity and explicit

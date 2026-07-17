@@ -198,13 +198,19 @@ impl ReviewFallbackRecord {
 pub struct ReviewSourceSpan {
     pub line: usize,
     pub column: usize,
+    pub source_id: usize,
 }
 
 impl ReviewSourceSpan {
+    pub fn is_root_source(self) -> bool {
+        self.source_id == SourceSpan::ROOT_SOURCE_ID
+    }
+
     fn to_json_value(self) -> serde_json::Value {
         serde_json::json!({
             "line": self.line,
-            "column": self.column
+            "column": self.column,
+            "source_origin": if self.is_root_source() { "root" } else { "import" }
         })
     }
 }
@@ -7357,7 +7363,7 @@ pub fn review_validation_records(report: &CheckReport) -> Vec<ReviewValidationRe
             right_value: None,
             unit: None,
             line: command.line,
-            source_span: review_source_span(report, command.line),
+            source_span: review_source_span(report, command.target_span, command.line),
             rule_source_span: None,
         });
     }
@@ -7378,7 +7384,11 @@ pub fn review_validation_records(report: &CheckReport) -> Vec<ReviewValidationRe
                 right_value: None,
                 unit: None,
                 line: validation.line,
-                source_span: review_source_span(report, validation.line),
+                source_span: review_source_span(
+                    report,
+                    Some(validation.expression_span),
+                    validation.line,
+                ),
                 rule_source_span: None,
             });
         }
@@ -7400,18 +7410,35 @@ pub fn review_validation_records(report: &CheckReport) -> Vec<ReviewValidationRe
                 right_value: validation.right_value.clone(),
                 unit: Some(validation.unit.clone()),
                 line: object.line,
-                source_span: review_source_span(report, object.line),
-                rule_source_span: Some(review_source_span(report, validation.line)),
+                source_span: review_source_span(report, Some(object.span), object.line),
+                rule_source_span: Some(review_source_span(
+                    report,
+                    Some(validation.rule_span),
+                    validation.line,
+                )),
             });
         }
     }
     records
 }
 
-fn review_source_span(report: &CheckReport, line: usize) -> ReviewSourceSpan {
+fn review_source_span(
+    report: &CheckReport,
+    compiler_span: Option<SourceSpan>,
+    fallback_line: usize,
+) -> ReviewSourceSpan {
+    let source_id = compiler_span
+        .map(|span| span.source_id)
+        .unwrap_or(SourceSpan::ROOT_SOURCE_ID);
+    let line = compiler_span.map(|span| span.line).unwrap_or(fallback_line);
     ReviewSourceSpan {
         line,
-        column: source_span_column(&report.source_lines, line),
+        column: if source_id == SourceSpan::ROOT_SOURCE_ID {
+            source_span_column(&report.source_lines, line)
+        } else {
+            compiler_span.map(|span| span.column).unwrap_or(1)
+        },
+        source_id,
     }
 }
 
@@ -16144,6 +16171,70 @@ write csv "outputs/q.csv", Q
             .consts
             .iter()
             .any(|constant| constant.name == "OPEN_MODULE_GAIN"));
+        fs::remove_dir_all(&root).expect("temp dir cleanup");
+    }
+
+    #[test]
+    fn review_validation_spans_preserve_imported_rule_ownership() {
+        let root = std::env::temp_dir().join(format!(
+            "englang-imported-review-validation-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("temp dir");
+        let rules_path = root.join("rules.eng");
+        let main_path = root.join("main.eng");
+        fs::write(&rules_path, "# disk placeholder\n").expect("rules source");
+        let main_source = concat!(
+            "use \"rules.eng\"\r\n",
+            "\r\n",
+            "note = \"😀 imported rule\"\r\n",
+            "item = ImportedRule {\r\n",
+            "}\r\n",
+        );
+        fs::write(&main_path, main_source).expect("main source");
+        let mut overrides = ImportSourceOverrides::new();
+        overrides
+            .insert(
+                &rules_path,
+                concat!("class ImportedRule {\n", "    validate { 1 > 0 }\n", "}\n",),
+            )
+            .expect("rules override");
+
+        let report = check_source_with_import_overrides(
+            &main_path,
+            main_source,
+            &overrides,
+            &CheckOptions::default(),
+        );
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let records = review_validation_records(&report);
+        let class_rule = records
+            .iter()
+            .find(|record| record.kind == "class_validation")
+            .expect("imported class validation");
+        assert!(!class_rule.source_span.is_root_source());
+        assert_eq!(class_rule.source_span.line, 2);
+        assert_eq!(
+            class_rule.to_json_value()["source_span"]["source_origin"],
+            "import"
+        );
+
+        let object_result = records
+            .iter()
+            .find(|record| record.kind == "class_object_validation")
+            .expect("root object validation");
+        assert!(object_result.source_span.is_root_source());
+        assert_eq!(object_result.source_span.line, 4);
+        let rule_span = object_result
+            .rule_source_span
+            .expect("imported class rule span");
+        assert!(!rule_span.is_root_source());
+        assert_eq!(rule_span.source_id, class_rule.source_span.source_id);
+        let object_json = object_result.to_json_value();
+        assert_eq!(object_json["source_span"]["source_origin"], "root");
+        assert_eq!(object_json["rule_source_span"]["source_origin"], "import");
+
         fs::remove_dir_all(&root).expect("temp dir cleanup");
     }
 
