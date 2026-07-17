@@ -99,6 +99,15 @@ pub struct Token {
 }
 
 pub fn lex_line(line_number: usize, line_start: usize, text: &str) -> Vec<Token> {
+    lex_line_in_source(SourceSpan::ROOT_SOURCE_ID, line_number, line_start, text)
+}
+
+pub(crate) fn lex_line_in_source(
+    source_id: usize,
+    line_number: usize,
+    line_start: usize,
+    text: &str,
+) -> Vec<Token> {
     let chars: Vec<(usize, char)> = text.char_indices().collect();
     let mut tokens = Vec::new();
     let mut cursor = 0usize;
@@ -144,6 +153,7 @@ pub fn lex_line(line_number: usize, line_start: usize, text: &str) -> Vec<Token>
                 &chars,
                 start,
                 cursor,
+                source_id,
             ));
             continue;
         }
@@ -170,6 +180,7 @@ pub fn lex_line(line_number: usize, line_start: usize, text: &str) -> Vec<Token>
                 &chars,
                 start,
                 cursor,
+                source_id,
             ));
             continue;
         }
@@ -195,6 +206,7 @@ pub fn lex_line(line_number: usize, line_start: usize, text: &str) -> Vec<Token>
                 &chars,
                 start,
                 cursor,
+                source_id,
             ));
             continue;
         }
@@ -264,6 +276,7 @@ pub fn lex_line(line_number: usize, line_start: usize, text: &str) -> Vec<Token>
             &chars,
             start,
             cursor,
+            source_id,
         ));
     }
 
@@ -299,6 +312,7 @@ fn token(
     chars: &[(usize, char)],
     _start: usize,
     end: usize,
+    source_id: usize,
 ) -> Token {
     let byte_end = chars
         .get(end)
@@ -307,7 +321,8 @@ fn token(
     Token {
         kind,
         lexeme,
-        span: SourceSpan::new(
+        span: SourceSpan::new_in_source(
+            source_id,
             line_start + byte_index,
             line_start + byte_end,
             line_number,

@@ -477,6 +477,7 @@ pub struct ProcessRunDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TestDecl {
     pub name: String,
+    pub name_span: Option<SourceSpan>,
     pub line: usize,
     pub span: SourceSpan,
     pub context: ParseContext,
@@ -500,6 +501,7 @@ pub struct AssertDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GoldenDecl {
     pub artifact: String,
+    pub artifact_span: Option<SourceSpan>,
     pub expected: String,
     pub line: usize,
     pub span: SourceSpan,

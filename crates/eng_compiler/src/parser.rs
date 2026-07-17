@@ -11,7 +11,7 @@ use crate::ast::{
     StateSpaceVectorDecl, StructDecl, SummaryDecl, SystemDecl, SystemVariableDecl, TestDecl,
     WhereBindingDecl, WhereBlockDecl, WherePredicateDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
 };
-use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
+use crate::lexer::{lex_line, lex_line_in_source, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -223,6 +223,10 @@ impl ParsedProgram {
 }
 
 pub fn parse_source(source: &str) -> ParsedProgram {
+    parse_source_in_source(source, SourceSpan::ROOT_SOURCE_ID)
+}
+
+pub(crate) fn parse_source_in_source(source: &str, source_id: usize) -> ParsedProgram {
     let mut parsed_lines = Vec::new();
     let mut items = Vec::new();
     let mut schema_depth = 0i32;
@@ -254,7 +258,16 @@ pub fn parse_source(source: &str) -> ParsedProgram {
     let mut last_attachable_line = None;
 
     for source_line in source_lines(source) {
-        let tokens = lex_line(source_line.line, source_line.start, &source_line.text);
+        let tokens = if source_id == SourceSpan::ROOT_SOURCE_ID {
+            lex_line(source_line.line, source_line.start, &source_line.text)
+        } else {
+            lex_line_in_source(
+                source_id,
+                source_line.line,
+                source_line.start,
+                &source_line.text,
+            )
+        };
         let context = if equation_depth > 0 {
             ParseContext::Equation
         } else if export_depth > 0 {
@@ -912,7 +925,8 @@ fn parse_import_decl(tokens: &[Token]) -> Option<ImportDecl> {
     let target_end = target_tokens.last()?.span;
     (!target.is_empty()).then(|| ImportDecl {
         target,
-        target_span: SourceSpan::new(
+        target_span: SourceSpan::new_in_source(
+            target_start.source_id,
             target_start.start,
             target_end.end,
             target_start.line,
@@ -928,7 +942,8 @@ fn string_literal_content_span(token: &Token) -> SourceSpan {
     let leading_quote = usize::from(token.lexeme.starts_with('"'));
     let trailing_quote =
         usize::from(token.lexeme.len() > leading_quote && token.lexeme.ends_with('"'));
-    SourceSpan::new(
+    SourceSpan::new_in_source(
+        token.span.source_id,
         token.span.start + leading_quote,
         token.span.end.saturating_sub(trailing_quote),
         token.span.line,
@@ -2409,7 +2424,8 @@ fn identifier_path_from_tokens(tokens: &[Token]) -> Option<String> {
 }
 
 fn span_covering_tokens(first: &Token, last: &Token) -> SourceSpan {
-    SourceSpan::new(
+    SourceSpan::new_in_source(
+        first.span.source_id,
         first.span.start,
         last.span.end,
         first.span.line,
@@ -2738,7 +2754,8 @@ fn source_span_for_line_range(line_anchor: SourceSpan, start: usize, end: usize)
     let line_start = line_anchor
         .start
         .saturating_sub(line_anchor.column.saturating_sub(1));
-    SourceSpan::new(
+    SourceSpan::new_in_source(
+        line_anchor.source_id,
         line_start + start,
         line_start + end,
         line_anchor.line,
@@ -2765,7 +2782,8 @@ fn source_parts_for_tokens(
 }
 
 fn source_span_for_parent_range(parent: SourceSpan, start: usize, end: usize) -> SourceSpan {
-    SourceSpan::new(
+    SourceSpan::new_in_source(
+        parent.source_id,
         parent.start + start,
         parent.start + end,
         parent.line,
@@ -3882,17 +3900,20 @@ fn parse_test_decl(tokens: &[Token], context: ParseContext) -> Option<TestDecl> 
     if !matches!(first.kind, TokenKind::Keyword(Keyword::Test)) {
         return None;
     }
-    let name = tokens
+    let (name, name_span) = tokens
         .iter()
         .skip(1)
         .find_map(|token| match &token.kind {
-            TokenKind::StringLiteral(value) => Some(value.clone()),
-            TokenKind::Identifier(value) => Some(value.clone()),
+            TokenKind::StringLiteral(value) => {
+                Some((value.clone(), Some(string_literal_content_span(token))))
+            }
+            TokenKind::Identifier(value) => Some((value.clone(), Some(token.span))),
             _ => None,
         })
-        .unwrap_or_default();
+        .unwrap_or_else(|| (String::new(), None));
     Some(TestDecl {
         name,
+        name_span,
         line: first.span.line,
         span: first.span,
         context,
@@ -3995,19 +4016,22 @@ fn parse_golden_decl(
     if !matches!(first.kind, TokenKind::Keyword(Keyword::Golden)) {
         return None;
     }
-    let artifact = tokens
+    let (artifact, artifact_span) = tokens
         .iter()
         .find_map(|token| match &token.kind {
-            TokenKind::StringLiteral(value) => Some(value.clone()),
+            TokenKind::StringLiteral(value) => {
+                Some((value.clone(), Some(string_literal_content_span(token))))
+            }
             _ => None,
         })
-        .unwrap_or_default();
+        .unwrap_or_else(|| (String::new(), None));
     let expected = line_text
         .split_once(" matches ")
         .map(|(_, expected)| expected.trim().to_owned())
         .unwrap_or_default();
     Some(GoldenDecl {
         artifact,
+        artifact_span,
         expected,
         line: first.span.line,
         span: first.span,

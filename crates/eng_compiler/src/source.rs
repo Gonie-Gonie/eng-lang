@@ -4,16 +4,34 @@ pub struct SourceSpan {
     pub end: usize,
     pub line: usize,
     pub column: usize,
+    pub source_id: usize,
 }
 
 impl SourceSpan {
+    pub const ROOT_SOURCE_ID: usize = 0;
+
     pub fn new(start: usize, end: usize, line: usize, column: usize) -> Self {
+        Self::new_in_source(Self::ROOT_SOURCE_ID, start, end, line, column)
+    }
+
+    pub fn new_in_source(
+        source_id: usize,
+        start: usize,
+        end: usize,
+        line: usize,
+        column: usize,
+    ) -> Self {
         Self {
             start,
             end,
             line,
             column,
+            source_id,
         }
+    }
+
+    pub fn is_root_source(self) -> bool {
+        self.source_id == Self::ROOT_SOURCE_ID
     }
 }
 

@@ -1086,7 +1086,8 @@ fn subslice_span(parent_text: &str, parent_span: SourceSpan, value: &str) -> Opt
     {
         return None;
     }
-    Some(SourceSpan::new(
+    Some(SourceSpan::new_in_source(
+        parent_span.source_id,
         parent_span.start.checked_add(start)?,
         parent_span.start.checked_add(end)?,
         parent_span.line,
@@ -1131,7 +1132,8 @@ fn identifier_occurrence_span(binding: &FastBinding, identifier: &str) -> Option
         if before.is_none_or(|character| !is_identifier_character(character))
             && after.is_none_or(|character| !is_identifier_character(character))
         {
-            return Some(SourceSpan::new(
+            return Some(SourceSpan::new_in_source(
+                binding.expression_span.source_id,
                 binding.expression_span.start.checked_add(start)?,
                 binding.expression_span.start.checked_add(end)?,
                 binding.expression_span.line,

@@ -859,7 +859,8 @@ fn identifier_path_occurrence_span(
             && after.is_none_or(|character| !is_identifier_path_character(character));
         if is_boundary {
             if matched == occurrence {
-                return Some(SourceSpan::new(
+                return Some(SourceSpan::new_in_source(
+                    binding.expression_span.source_id,
                     binding.expression_span.start + start,
                     binding.expression_span.start + end,
                     binding.expression_span.line,
@@ -1021,7 +1022,8 @@ fn subslice_span(parent_text: &str, parent_span: SourceSpan, value: &str) -> Opt
     {
         return None;
     }
-    Some(SourceSpan::new(
+    Some(SourceSpan::new_in_source(
+        parent_span.source_id,
         parent_span.start.checked_add(start)?,
         parent_span.start.checked_add(end)?,
         parent_span.line,

@@ -505,6 +505,19 @@ whole-path/segment overlaps.
 kinds, source ranges, selection ranges, details, and children. It is intended
 for outlines and breadcrumbs.
 
+Every emitted symbol stores explicit UTF-16 selection start and end coordinates
+from its compiler `SourceSpan`. The end is not inferred from the displayed
+symbol name, which may be synthetic or longer than the selected source token.
+The active path no longer searches a source line for a same-spelled name.
+Schema/state-space/table/network/assembly/args/test/golden/expectation,
+`where`/`with`, and typed-binding symbols all use compiler-owned spans.
+
+Only spans owned by the checked root source are emitted. Definitions imported
+from another file remain available to definition/reference features but do not
+appear at unrelated ranges in the current document Outline. A recursive corpus
+gate checks every Outline symbol across examples, diagnostic fixtures, and
+grammar fixtures for a nonempty UTF-16 selection contained by its symbol range.
+
 Import target and const name selection ranges come from compiler-owned spans,
 including CRLF sources and targets containing non-BMP characters. Const type
 and explicit unit ranges use the same spans as semantic highlighting, and
@@ -527,6 +540,12 @@ and option-key spans for Outline selection.
 
 CSV, JSON-record, and config promotion symbols select their exact binding spans;
 their details retain the promoted schema name.
+
+Table-transform and bound HTTP-request symbols likewise select their exact
+binding spans. Args containers select `args`, while fields select their declared
+names. Test containers and golden children select string content without quote
+delimiters; expectation suites select `expect` and expectation children select
+their first subject token.
 
 CSV export and process symbols select their exact source or command-owned
 ranges. Export field children select the expression occurrence that owns the

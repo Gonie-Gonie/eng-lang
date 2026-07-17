@@ -686,7 +686,8 @@ fn resolve_file_imports(
                 }
             },
         };
-        let imported = parser::parse_source(source.as_ref());
+        let imported =
+            parser::parse_source_in_source(source.as_ref(), import_source_id(&import_path));
         if imported_has_args_block(&imported) {
             diagnostics.push(
                 Diagnostic::warning(
@@ -720,6 +721,20 @@ fn resolve_file_imports(
         visited.remove(&import_path);
     }
     imported_items
+}
+
+fn import_source_id(path: &Path) -> usize {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in path.as_os_str().to_string_lossy().as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    let source_id = hash as usize;
+    if source_id == SourceSpan::ROOT_SOURCE_ID {
+        SourceSpan::ROOT_SOURCE_ID + 1
+    } else {
+        source_id
+    }
 }
 
 fn handle_stdlib_module_import(import: &ImportDecl, diagnostics: &mut Vec<Diagnostic>) -> bool {
@@ -9613,24 +9628,22 @@ mod tests {
 
     #[test]
     fn records_args_block_metadata() {
-        let report = check_source(
-            "ok.eng",
-            "args {\n    case_name: String = \"baseline\"\n}\n\nL = 1 m\n",
-            &CheckOptions::default(),
-        );
+        let source = "args {\n    case_name: String = \"baseline\"\n}\n\nL = 1 m\n";
+        let report = check_source("ok.eng", source, &CheckOptions::default());
 
         assert!(!report.has_errors());
         assert_eq!(report.syntax_summary.args_blocks, 1);
         assert_eq!(report.syntax_summary.structs, 0);
-        assert_eq!(report.semantic_program.args_blocks[0].name, "Args");
+        let args = &report.semantic_program.args_blocks[0];
+        assert_eq!(args.name, "Args");
+        assert_eq!(&source[args.span.start..args.span.end], "args");
+        assert_eq!(args.fields[0].name, "case_name");
         assert_eq!(
-            report.semantic_program.args_blocks[0].fields[0].name,
+            &source[args.fields[0].span.start..args.fields[0].span.end],
             "case_name"
         );
         assert_eq!(
-            report.semantic_program.args_blocks[0].fields[0]
-                .default_value
-                .as_deref(),
+            args.fields[0].default_value.as_deref(),
             Some("\"baseline\"")
         );
 
@@ -13140,18 +13153,25 @@ write csv "outputs/q.csv", Q
 
     #[test]
     fn records_test_assert_and_golden_metadata() {
-        let report = check_source(
-            "test.eng",
-            "Q = 10 kW\nexport summary to csv \"summary.csv\" {\n    Q as kW with \".1\"\n}\n\ntest \"summary values\" {\n    assert Q == 10 kW within 0.01 kW\n    golden \"summary.csv\" matches file(\"golden/summary.csv\")\n}\n",
-            &CheckOptions::default(),
-        );
+        let source = "Q = 10 kW\nexport summary to csv \"summary.csv\" {\n    Q as kW with \".1\"\n}\n\ntest \"summary values\" {\n    assert Q == 10 kW within 0.01 kW\n    golden \"summary.csv\" matches file(\"golden/summary.csv\")\n}\n";
+        let report = check_source("test.eng", source, &CheckOptions::default());
 
         assert!(!report.has_errors());
         assert_eq!(report.syntax_summary.tests, 1);
         assert_eq!(report.semantic_program.tests.len(), 1);
-        assert_eq!(report.semantic_program.tests[0].name, "summary values");
-        assert_eq!(report.semantic_program.tests[0].assertions.len(), 1);
-        assert_eq!(report.semantic_program.tests[0].goldens.len(), 1);
+        let test = &report.semantic_program.tests[0];
+        assert_eq!(test.name, "summary values");
+        assert_eq!(&source[test.span.start..test.span.end], "summary values");
+        assert_eq!(test.assertions.len(), 1);
+        assert_eq!(
+            &source[test.assertions[0].span.start..test.assertions[0].span.end],
+            "assert"
+        );
+        assert_eq!(test.goldens.len(), 1);
+        assert_eq!(
+            &source[test.goldens[0].span.start..test.goldens[0].span.end],
+            "summary.csv"
+        );
         let review = review_json(&report);
         assert!(review.contains("\"tests\""));
         assert!(review.contains("\"goldens\""));
@@ -14030,9 +14050,18 @@ write csv "outputs/q.csv", Q
         let suite = &report.semantic_program.expectation_suites[0];
         assert_eq!(suite.binding, "weather.expectations");
         assert_eq!(suite.target, "weather");
+        assert_eq!(&source[suite.span.start..suite.span.end], "expect");
         assert_eq!(suite.expectations[0].kind, "continuous");
         assert_eq!(suite.expectations[0].subject, "time");
+        assert_eq!(
+            &source[suite.expectations[0].span.start..suite.expectations[0].span.end],
+            "time"
+        );
         assert_eq!(suite.expectations[1].kind, "between");
+        assert_eq!(
+            &source[suite.expectations[1].span.start..suite.expectations[1].span.end],
+            "dry_bulb"
+        );
         let review = review_json(&report);
         assert!(review.contains("\"expectation_suites\""));
         assert!(review.contains("\"binding\": \"weather.expectations\""));
@@ -16027,12 +16056,24 @@ write csv "outputs/q.csv", Q
         assert_eq!(report.semantic_program.consts.len(), 1);
         assert_eq!(report.semantic_program.functions.len(), 1);
         assert_eq!(report.semantic_program.functions[0].locals.len(), 2);
+        assert!(!report.semantic_program.consts[0].span.is_root_source());
+        let imported_function = &report.semantic_program.functions[0];
+        assert!(!imported_function.span.is_root_source());
+        assert!(imported_function
+            .parameters
+            .iter()
+            .all(|parameter| !parameter.span.is_root_source()));
+        assert!(imported_function
+            .locals
+            .iter()
+            .all(|local| !local.span.is_root_source()));
         let q_wall = report
             .semantic_program
             .typed_bindings
             .iter()
             .find(|binding| binding.name == "Q_wall")
             .expect("Q_wall binding");
+        assert!(q_wall.span.is_root_source());
         assert_eq!(q_wall.semantic_type.quantity_kind, "HeatRate");
         assert_eq!(
             report.semantic_program.functions[0].status,
@@ -16975,6 +17016,15 @@ schema SensorData {
         assert_eq!(require_one.operation, "require_one");
         assert_eq!(require_one.source_table, "candidates");
         assert_eq!(require_one.schema_name.as_deref(), Some("StationMap"));
+        let source = fs::read_to_string(&source_path).expect("table transform source");
+        assert_eq!(
+            &source[filter.binding_span.start..filter.binding_span.end],
+            "candidates"
+        );
+        assert_eq!(
+            &source[require_one.binding_span.start..require_one.binding_span.end],
+            "station"
+        );
 
         let review = review_json(&report);
         assert!(review.contains("\"table_transforms\""));
@@ -18895,6 +18945,11 @@ schema SensorData {
         assert_eq!(report.semantic_program.net_downloads.len(), 1);
         assert_eq!(report.semantic_program.cache_records.len(), 2);
         let request = &report.semantic_program.net_requests[0];
+        let source = fs::read_to_string(&source_path).expect("network boundary source");
+        assert_eq!(
+            &source[request.binding_span.start..request.binding_span.end],
+            "response"
+        );
         assert_eq!(request.method, "GET");
         assert_eq!(request.url_literal, "args.api_url");
         assert_eq!(request.url_value, "https://api.example.org/hourly");

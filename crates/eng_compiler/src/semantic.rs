@@ -675,6 +675,7 @@ pub struct EnvironmentDependencyInfo {
 pub struct ArgsBlockInfo {
     pub name: String,
     pub fields: Vec<ArgsFieldInfo>,
+    pub span: SourceSpan,
     pub line: usize,
 }
 
@@ -813,6 +814,7 @@ pub struct AssertInfo {
     pub right_span: Option<SourceSpan>,
     pub tolerance: Option<String>,
     pub tolerance_span: Option<SourceSpan>,
+    pub span: SourceSpan,
     pub line: usize,
 }
 
@@ -820,6 +822,7 @@ pub struct AssertInfo {
 pub struct GoldenInfo {
     pub artifact: String,
     pub expected: String,
+    pub span: SourceSpan,
     pub line: usize,
 }
 
@@ -828,6 +831,7 @@ pub struct TestInfo {
     pub name: String,
     pub assertions: Vec<AssertInfo>,
     pub goldens: Vec<GoldenInfo>,
+    pub span: SourceSpan,
     pub line: usize,
 }
 
@@ -859,6 +863,7 @@ pub struct ExpectationInfo {
     pub kind: String,
     pub subject: String,
     pub status: String,
+    pub span: SourceSpan,
     pub line: usize,
 }
 
@@ -868,6 +873,7 @@ pub struct ExpectationSuiteInfo {
     pub target: String,
     pub expectations: Vec<ExpectationInfo>,
     pub status: String,
+    pub span: SourceSpan,
     pub line: usize,
 }
 
@@ -1293,6 +1299,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 args_blocks.push(ArgsBlockInfo {
                     name: args_decl.name.clone(),
                     fields: Vec::new(),
+                    span: args_decl.span,
                     line: args_decl.span.line,
                 });
                 current_args_block_index = Some(args_blocks.len() - 1);
@@ -1639,6 +1646,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     target: suite.target.clone(),
                     expectations: Vec::new(),
                     status: "recorded".to_owned(),
+                    span: suite.span,
                     line: suite.line,
                 });
                 current_expectation_suite_index = Some(expectation_suites.len() - 1);
@@ -1846,6 +1854,7 @@ fn expectation_info(expectation: &ExpectationDecl, target: &str) -> ExpectationI
         kind,
         subject,
         status: "recorded".to_owned(),
+        span: expectation.span,
         line: expectation.line,
     }
 }
@@ -2185,7 +2194,8 @@ fn trimmed_byte_range(text: &str, start: usize, end: usize) -> Option<(usize, us
 }
 
 fn source_span_for_child_range(parent: SourceSpan, start: usize, end: usize) -> SourceSpan {
-    SourceSpan::new(
+    SourceSpan::new_in_source(
+        parent.source_id,
         parent.start + start,
         parent.start + end,
         parent.line,
@@ -4618,6 +4628,7 @@ fn analyze_test_decl(test: &TestDecl, diagnostics: &mut Vec<Diagnostic>) -> Opti
         name: test.name.clone(),
         assertions: Vec::new(),
         goldens: Vec::new(),
+        span: test.name_span.unwrap_or(test.span),
         line: test.line,
     })
 }
@@ -4769,6 +4780,7 @@ fn analyze_assert_decl(
             right_span: assertion.right_span,
             tolerance: assertion.tolerance.clone(),
             tolerance_span: assertion.tolerance_span,
+            span: assertion.span,
             line: assertion.line,
         });
     }
@@ -4832,6 +4844,7 @@ fn analyze_golden_decl(
         test.goldens.push(GoldenInfo {
             artifact: golden.artifact.clone(),
             expected: golden.expected.clone(),
+            span: golden.artifact_span.unwrap_or(golden.span),
             line: golden.line,
         });
     }
@@ -6854,7 +6867,8 @@ impl FormatTemplateSource {
         if start >= end || end > source_length {
             return None;
         }
-        Some(SourceSpan::new(
+        Some(SourceSpan::new_in_source(
+            self.span.source_id,
             self.span.start + start,
             self.span.start + end,
             self.span.line,
@@ -6872,7 +6886,8 @@ fn format_template_source_for_string(
         return None;
     }
     Some(FormatTemplateSource {
-        span: SourceSpan::new(
+        span: SourceSpan::new_in_source(
+            expression_span.source_id,
             expression_span.start + 1,
             expression_span.end.saturating_sub(1),
             expression_span.line,
@@ -9578,12 +9593,19 @@ fn component_equation_left_span(equation: &crate::ast::EquationDecl) -> SourceSp
 
 fn source_span_covering(left: SourceSpan, right: SourceSpan) -> SourceSpan {
     debug_assert_eq!(left.line, right.line);
+    debug_assert_eq!(left.source_id, right.source_id);
     let (start, column) = if left.start <= right.start {
         (left.start, left.column)
     } else {
         (right.start, right.column)
     };
-    SourceSpan::new(start, left.end.max(right.end), left.line, column)
+    SourceSpan::new_in_source(
+        left.source_id,
+        start,
+        left.end.max(right.end),
+        left.line,
+        column,
+    )
 }
 
 fn component_equation_target_span(
@@ -12575,7 +12597,8 @@ fn nested_type_source_span(
         + declared_type
             .get(nested_search_start..)?
             .find(nested_type)?;
-    Some(SourceSpan::new(
+    Some(SourceSpan::new_in_source(
+        type_span.source_id,
         type_span.start + nested_start,
         type_span.start + nested_start + nested_type.len(),
         type_span.line,

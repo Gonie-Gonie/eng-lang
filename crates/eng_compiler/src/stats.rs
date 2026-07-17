@@ -116,7 +116,8 @@ pub fn heat_rate_sum_diagnostic(
     let expression = binding.expression.as_str();
     let trimmed = expression.trim_start();
     let start = expression.len() - trimmed.len();
-    let sum_span = SourceSpan::new(
+    let sum_span = SourceSpan::new_in_source(
+        binding.expression_span.source_id,
         binding.expression_span.start + start,
         binding.expression_span.start + start + "sum".len(),
         binding.expression_span.line,

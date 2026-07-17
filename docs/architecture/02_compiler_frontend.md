@@ -24,6 +24,7 @@ start   source byte offset
 end     source byte offset
 line    1-based line number
 column  1-based column number
+source_id  compiler-owned source identity; 0 is the checked root buffer
 ```
 
 The CLI, LSP, VS Code extension, and native IDE all rely on these spans so that
@@ -40,6 +41,14 @@ text-inference count is zero. `with` options preserve separate whole-option,
 key, and value spans so option diagnostics do not need to search the source line
 by wording. Line starts are counted from the original bytes, including two-byte
 CRLF line endings.
+
+Static file imports are lexed and parsed with a stable nonzero `source_id`
+derived from their resolved path. Every child range preserves its parent's
+identity through parsing and semantic lowering. Current-document Outline
+generation therefore rejects import-owned ranges instead of applying another
+file's byte offsets to the active buffer; cross-file definition/reference
+features resolve those files separately. Other editor consumers can use the same
+identity as they adopt explicit cross-file routing.
 
 ## Lexer And Parser
 
@@ -111,6 +120,15 @@ command semantic roles, and command/assert Outline selections can therefore
 use parser-owned occurrences even when the same text appears in a binding,
 string, or trailing comment.
 
+Outline containers also retain their own parser anchors. `ArgsBlockInfo.span`
+and `AssertInfo.span` identify their exact keywords. `TestInfo.span` and
+`GoldenInfo.span` identify unquoted declared string content, while
+`ExpectationSuiteInfo.span` and `ExpectationInfo.span` identify the `expect`
+keyword and first subject token. Assertions select `operator_span` first and
+fall back through operand spans to the `assert` keyword.
+`TableTransformInfo.binding_span` and `NetRequestInfo.binding_span` preserve the
+exact result binding rather than only its line number.
+
 `MlInfo` separately retains exact binding, source-model/table, and
 prediction-input spans. It also exposes the complete ML expression, unified
 inline/attached `with` arguments through `MlArgumentInfo.key_span` and
@@ -147,6 +165,12 @@ semantic_program.net_requests / net_downloads / cache_records
 semantic_program.sample/case generations / render templates / uncertainty / model / db reads
 semantic_program.reports / plots / writes / side-effect records / db records
 ```
+
+Table transforms and bound HTTP requests expose their declaration binding spans
+alongside normalized operation metadata. Args, test/assert/golden, and
+expectation records expose declaration/container spans. These fields are public
+semantic contracts consumed directly by Outline generation and regression
+tests, not editor-only reconstructed offsets.
 
 Supported deprecated or invalid syntax, such as `:=`, `struct Args`, and
 `script` execution roots, is reported through source-ranged diagnostics instead

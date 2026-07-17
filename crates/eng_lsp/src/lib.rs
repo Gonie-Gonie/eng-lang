@@ -88,6 +88,8 @@ pub struct LspDocumentSymbol {
     pub end_character: usize,
     pub selection_line: usize,
     pub selection_character: usize,
+    pub selection_end_line: usize,
+    pub selection_end_character: usize,
     pub children: Vec<LspDocumentSymbol>,
 }
 
@@ -2246,7 +2248,6 @@ pub fn document_symbols_lsp_json(symbols: &[LspDocumentSymbol]) -> Value {
 }
 
 pub fn document_symbol_json(symbol: &LspDocumentSymbol) -> Value {
-    let selection_end = symbol.selection_character + utf16_len(&symbol.name);
     json!({
         "name": symbol.name,
         "detail": symbol.detail,
@@ -2257,7 +2258,10 @@ pub fn document_symbol_json(symbol: &LspDocumentSymbol) -> Value {
         },
         "selectionRange": {
             "start": { "line": symbol.selection_line, "character": symbol.selection_character },
-            "end": { "line": symbol.selection_line, "character": selection_end }
+            "end": {
+                "line": symbol.selection_end_line,
+                "character": symbol.selection_end_character
+            }
         },
         "children": symbol.children.iter().map(document_symbol_json).collect::<Vec<_>>(),
     })
@@ -4481,7 +4485,7 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
             .columns
             .iter()
             .map(|column| {
-                make_document_symbol(
+                make_document_symbol_at_span(
                     &lines,
                     column.name.clone(),
                     match &column.unit {
@@ -4489,19 +4493,19 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
                         None => column.type_name.clone(),
                     },
                     SYMBOL_KIND_PROPERTY,
-                    column.line,
+                    column.span,
                     Vec::new(),
                 )
             })
             .collect::<Vec<_>>();
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
             schema.name.clone(),
             "schema".to_owned(),
             SYMBOL_KIND_STRUCT,
-            schema.line,
+            schema.span,
             children,
         );
     }
@@ -4512,7 +4516,7 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
             .members
             .iter()
             .map(|member| {
-                make_document_symbol(
+                make_document_symbol_at_span(
                     &lines,
                     member.name.clone(),
                     match &member.unit {
@@ -4520,19 +4524,19 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
                         None => format!("{role} {}", member.type_name),
                     },
                     SYMBOL_KIND_PROPERTY,
-                    member.line,
+                    member.span,
                     Vec::new(),
                 )
             })
             .collect::<Vec<_>>();
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
             block.name.clone(),
             format!("{role} vector type"),
             SYMBOL_KIND_STRUCT,
-            block.line,
+            block.span,
             children,
         );
     }
@@ -4543,56 +4547,36 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
         } else {
             format!("csv as {}", promotion.schema_name)
         };
-        if let Some(span) = promotion.binding_span {
-            push_document_symbol_at_span(
-                &mut symbols,
-                &mut seen,
-                &lines,
-                promotion.binding.clone(),
-                detail,
-                SYMBOL_KIND_VARIABLE,
-                span,
-                Vec::new(),
-            );
-        } else {
-            push_document_symbol(
-                &mut symbols,
-                &mut seen,
-                &lines,
-                promotion.binding.clone(),
-                detail,
-                SYMBOL_KIND_VARIABLE,
-                promotion.line,
-                Vec::new(),
-            );
-        }
+        let Some(span) = promotion.binding_span else {
+            continue;
+        };
+        push_document_symbol_at_span(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            promotion.binding.clone(),
+            detail,
+            SYMBOL_KIND_VARIABLE,
+            span,
+            Vec::new(),
+        );
     }
 
     for promotion in &program.config_promotions {
         let detail = format!("config as {}", promotion.schema_name);
-        if let Some(span) = promotion.binding_span {
-            push_document_symbol_at_span(
-                &mut symbols,
-                &mut seen,
-                &lines,
-                promotion.binding.clone(),
-                detail,
-                SYMBOL_KIND_VARIABLE,
-                span,
-                Vec::new(),
-            );
-        } else {
-            push_document_symbol(
-                &mut symbols,
-                &mut seen,
-                &lines,
-                promotion.binding.clone(),
-                detail,
-                SYMBOL_KIND_VARIABLE,
-                promotion.line,
-                Vec::new(),
-            );
-        }
+        let Some(span) = promotion.binding_span else {
+            continue;
+        };
+        push_document_symbol_at_span(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            promotion.binding.clone(),
+            detail,
+            SYMBOL_KIND_VARIABLE,
+            span,
+            Vec::new(),
+        );
     }
 
     for sample in &program.sample_generations {
@@ -4626,27 +4610,27 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
     }
 
     for transform in &program.table_transforms {
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
             transform.binding.clone(),
             "table transform".to_owned(),
             SYMBOL_KIND_VARIABLE,
-            transform.line,
+            transform.binding_span,
             Vec::new(),
         );
     }
 
     for request in &program.net_requests {
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
             request.binding.clone(),
             format!("http {}", http_request_method_keyword(&request.method)),
             SYMBOL_KIND_VARIABLE,
-            request.line,
+            request.binding_span,
             Vec::new(),
         );
     }
@@ -4832,14 +4816,14 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
     }
 
     for assembly in &program.component_assemblies {
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
             assembly.name.clone(),
             format!("assembly {}", assembly.status),
             SYMBOL_KIND_OBJECT,
-            assembly.line,
+            assembly.span,
             Vec::new(),
         );
     }
@@ -4927,24 +4911,24 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
             .fields
             .iter()
             .map(|field| {
-                make_document_symbol(
+                make_document_symbol_at_span(
                     &lines,
                     field.name.clone(),
                     field.type_name.clone(),
                     SYMBOL_KIND_TYPE_PARAMETER,
-                    field.line,
+                    field.span,
                     Vec::new(),
                 )
             })
             .collect::<Vec<_>>();
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
             args_block.name.clone(),
             "args".to_owned(),
             SYMBOL_KIND_STRUCT,
-            args_block.line,
+            args_block.span,
             children,
         );
     }
@@ -4997,49 +4981,36 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
                 let span = assert
                     .operator_span
                     .or(assert.left_span)
-                    .or(assert.right_span);
-                span.map_or_else(
-                    || {
-                        make_document_symbol(
-                            &lines,
-                            "assert".to_owned(),
-                            format!("{} {} {}", assert.left, assert.operator, assert.right),
-                            SYMBOL_KIND_OPERATOR,
-                            assert.line,
-                            Vec::new(),
-                        )
-                    },
-                    |span| {
-                        make_document_symbol_at_span(
-                            &lines,
-                            "assert".to_owned(),
-                            format!("{} {} {}", assert.left, assert.operator, assert.right),
-                            SYMBOL_KIND_OPERATOR,
-                            span,
-                            Vec::new(),
-                        )
-                    },
+                    .or(assert.right_span)
+                    .unwrap_or(assert.span);
+                make_document_symbol_at_span(
+                    &lines,
+                    "assert".to_owned(),
+                    format!("{} {} {}", assert.left, assert.operator, assert.right),
+                    SYMBOL_KIND_OPERATOR,
+                    span,
+                    Vec::new(),
                 )
             })
             .collect::<Vec<_>>();
         children.extend(test.goldens.iter().map(|golden| {
-            make_document_symbol(
+            make_document_symbol_at_span(
                 &lines,
                 golden.artifact.clone(),
                 "golden".to_owned(),
                 SYMBOL_KIND_KEY,
-                golden.line,
+                golden.span,
                 Vec::new(),
             )
         }));
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
             test.name.clone(),
             "test".to_owned(),
             SYMBOL_KIND_FUNCTION,
-            test.line,
+            test.span,
             children,
         );
     }
@@ -5062,24 +5033,24 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
             .expectations
             .iter()
             .map(|expectation| {
-                make_document_symbol(
+                make_document_symbol_at_span(
                     &lines,
                     expectation.subject.clone(),
                     expectation.kind.clone(),
                     SYMBOL_KIND_KEY,
-                    expectation.line,
+                    expectation.span,
                     Vec::new(),
                 )
             })
             .collect::<Vec<_>>();
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
             suite.binding.clone(),
             format!("expect {}", suite.target),
             SYMBOL_KIND_OBJECT,
-            suite.line,
+            suite.span,
             children,
         );
     }
@@ -5099,14 +5070,14 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
                 )
             })
             .collect::<Vec<_>>();
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
             format!("where {}", block.line),
             "where".to_owned(),
             SYMBOL_KIND_OBJECT,
-            block.line,
+            block.span,
             children,
         );
     }
@@ -5126,21 +5097,21 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
                 )
             })
             .collect::<Vec<_>>();
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
             format!("with {}", block.line),
             "with".to_owned(),
             SYMBOL_KIND_OBJECT,
-            block.line,
+            block.span,
             children,
         );
     }
 
     mark_document_symbols_seen(&symbols, &mut seen);
     for binding in &program.typed_bindings {
-        push_document_symbol(
+        push_document_symbol_at_span(
             &mut symbols,
             &mut seen,
             &lines,
@@ -5150,7 +5121,7 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
                 binding.semantic_type.quantity_kind, binding.semantic_type.display_unit
             ),
             SYMBOL_KIND_VARIABLE,
-            binding.line,
+            binding.span,
             Vec::new(),
         );
     }
@@ -5194,25 +5165,6 @@ fn folding_ranges(source: &str) -> Vec<LspFoldingRange> {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn push_document_symbol(
-    symbols: &mut Vec<LspDocumentSymbol>,
-    seen: &mut BTreeSet<(usize, String)>,
-    lines: &[&str],
-    name: String,
-    detail: String,
-    kind: u8,
-    line: usize,
-    children: Vec<LspDocumentSymbol>,
-) {
-    if line == 0 || !seen.insert((line, name.clone())) {
-        return;
-    }
-    symbols.push(make_document_symbol(
-        lines, name, detail, kind, line, children,
-    ));
-}
-
-#[allow(clippy::too_many_arguments)]
 fn push_document_symbol_at_span(
     symbols: &mut Vec<LspDocumentSymbol>,
     seen: &mut BTreeSet<(usize, String)>,
@@ -5223,7 +5175,7 @@ fn push_document_symbol_at_span(
     span: SourceSpan,
     children: Vec<LspDocumentSymbol>,
 ) {
-    if span.line == 0 || !seen.insert((span.line, name.clone())) {
+    if !span.is_root_source() || span.line == 0 || !seen.insert((span.line, name.clone())) {
         return;
     }
     let symbol = make_document_symbol_at_span(lines, name, detail, kind, span, children);
@@ -5256,6 +5208,8 @@ fn make_document_symbol_at_span(
     {
         symbol.selection_line = line;
         symbol.selection_character = utf16_len(&lines[line][..byte_start]);
+        symbol.selection_end_line = line;
+        symbol.selection_end_character = utf16_len(&lines[line][..byte_end]);
     }
     symbol
 }
@@ -5278,7 +5232,6 @@ fn make_document_symbol(
     sort_document_symbols(&mut children);
     let line = line_index_from_one_based(lines, line_one_based);
     let character = first_non_whitespace_utf16(lines[line]);
-    let selection_character = symbol_start_utf16(lines[line], &name).unwrap_or(character);
     let mut end_line = block_end_line(lines, line).unwrap_or(line);
     for child in &children {
         if child.end_line > end_line {
@@ -5296,7 +5249,9 @@ fn make_document_symbol(
         end_line,
         end_character,
         selection_line: line,
-        selection_character,
+        selection_character: character,
+        selection_end_line: line,
+        selection_end_character: character,
         children,
     }
 }
@@ -5331,31 +5286,6 @@ fn first_non_whitespace_utf16(line: &str) -> usize {
         .find(|(_, character)| !character.is_whitespace())
         .map(|(byte_index, _)| utf16_len(&line[..byte_index]))
         .unwrap_or(0)
-}
-
-fn symbol_start_utf16(line: &str, name: &str) -> Option<usize> {
-    let byte_index = find_symbol_start(line, name)?;
-    Some(utf16_len(&line[..byte_index]))
-}
-
-fn find_symbol_start(line: &str, name: &str) -> Option<usize> {
-    if name.is_empty() {
-        return None;
-    }
-    let requires_identifier_boundary = name.as_bytes().iter().all(|byte| is_ident_byte(*byte));
-    let mut search_start = 0usize;
-    while search_start <= line.len() {
-        let Some(offset) = line[search_start..].find(name) else {
-            break;
-        };
-        let start = search_start + offset;
-        let end = start + name.len();
-        if !requires_identifier_boundary || is_identifier_boundary(line, start, end) {
-            return Some(start);
-        }
-        search_start = end;
-    }
-    None
 }
 
 fn block_end_line(lines: &[&str], start_line: usize) -> Option<usize> {
@@ -8309,7 +8239,8 @@ fn source_span_for_subslice(
     {
         return None;
     }
-    Some(SourceSpan::new(
+    Some(SourceSpan::new_in_source(
+        parent.source_id,
         parent.start + start,
         parent.start + end,
         parent.line,
@@ -12045,6 +11976,29 @@ mod tests {
         files
     }
 
+    fn flatten_document_symbols<'a>(
+        symbols: &'a [LspDocumentSymbol],
+        flattened: &mut Vec<&'a LspDocumentSymbol>,
+    ) {
+        for symbol in symbols {
+            flattened.push(symbol);
+            flatten_document_symbols(&symbol.children, flattened);
+        }
+    }
+
+    fn document_symbol_selection_text<'a>(
+        source: &'a str,
+        symbol: &LspDocumentSymbol,
+    ) -> Option<&'a str> {
+        if symbol.selection_line != symbol.selection_end_line {
+            return None;
+        }
+        let line = source.lines().nth(symbol.selection_line)?;
+        let start = utf16_offset_to_byte(line, symbol.selection_character)?;
+        let end = utf16_offset_to_byte(line, symbol.selection_end_character)?;
+        (start < end).then(|| &line[start..end])
+    }
+
     #[test]
     fn assembly_and_port_fixture_diagnostics_keep_compiler_owned_ranges() {
         let repo_root = repo_root_for_tests();
@@ -14988,11 +14942,20 @@ print "done"
             command_symbol.selection_character,
             utf16_len(&command_line[..target_start])
         );
+        assert_eq!(command_symbol.selection_end_line, 2);
+        assert_eq!(
+            command_symbol.selection_end_character,
+            utf16_len(&command_line[..target_start]) + utf16_len("Q")
+        );
         let test_symbol = snapshot
             .document_symbols
             .iter()
             .find(|symbol| symbol.name == "operator")
             .expect("test document symbol");
+        assert_eq!(
+            document_symbol_selection_text(source, test_symbol),
+            Some("operator")
+        );
         let assert_symbol = test_symbol
             .children
             .iter()
@@ -15004,7 +14967,182 @@ print "done"
             assert_symbol.selection_character,
             utf16_len(&assert_line[..assert_line.find('>').expect("assert operator")])
         );
+        assert_eq!(assert_symbol.selection_end_line, 4);
+        assert_eq!(
+            assert_symbol.selection_end_character,
+            assert_symbol.selection_character + utf16_len(">")
+        );
+        assert_eq!(
+            document_symbol_selection_text(source, assert_symbol),
+            Some(">")
+        );
         assert_no_semantic_token_overlaps(&snapshot, "command_source_spans.eng");
+    }
+
+    #[test]
+    fn outline_symbols_preserve_exact_utf16_selection_ends_for_synthetic_names() {
+        let source = concat!(
+            "note = \"\u{1f600} repeated rows filtered response\"\r\n",
+            "schema Repeated {\r\n",
+            "    repeated: String\r\n",
+            "}\r\n",
+            "args {\r\n",
+            "    repeated: String = \"\u{1f600} repeated\"\r\n",
+            "}\r\n",
+            "rows = promote csv \"missing.csv\" as Repeated\r\n",
+            "filtered = filter rows\r\n",
+            "where {\r\n",
+            "    repeated == \"repeated\"\r\n",
+            "}\r\n",
+            "response = http get url(\"https://example.org/repeated\")\r\n",
+            "with {\r\n",
+            "    retry = 1\r\n",
+            "}\r\n",
+            "test \"\u{1f600} repeated\" {\r\n",
+            "    assert \"\u{1f600} repeated\" == \"\u{1f600} repeated\"\r\n",
+            "    golden \"repeated.csv\" matches file(\"repeated.csv\")\r\n",
+            "}\r\n",
+            "expect response {\r\n",
+            "    repeated is unique\r\n",
+            "}\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("outline_exact_spans.eng"), source);
+        let mut symbols = Vec::new();
+        flatten_document_symbols(&snapshot.document_symbols, &mut symbols);
+
+        for (name, detail, expected) in [
+            ("Repeated", "schema", "Repeated"),
+            ("Args", "args", "args"),
+            ("rows", "csv as Repeated", "rows"),
+            ("filtered", "table transform", "filtered"),
+            ("response", "http get", "response"),
+            ("\u{1f600} repeated", "test", "\u{1f600} repeated"),
+            (
+                "assert",
+                "\"\u{1f600} repeated\" == \"\u{1f600} repeated\"",
+                "==",
+            ),
+            ("repeated.csv", "golden", "repeated.csv"),
+            ("response.expectations", "expect response", "expect"),
+            ("repeated", "constraint", "repeated"),
+        ] {
+            let symbol = symbols
+                .iter()
+                .copied()
+                .find(|symbol| symbol.name == name && symbol.detail == detail)
+                .unwrap_or_else(|| panic!("missing Outline symbol {name:?} ({detail})"));
+            assert_eq!(
+                document_symbol_selection_text(source, symbol),
+                Some(expected),
+                "wrong selection for {name:?} ({detail})"
+            );
+        }
+
+        for detail in ["where", "with"] {
+            let symbol = symbols
+                .iter()
+                .copied()
+                .find(|symbol| symbol.detail == detail)
+                .unwrap_or_else(|| panic!("missing synthetic {detail} Outline symbol"));
+            assert_eq!(document_symbol_selection_text(source, symbol), Some(detail));
+        }
+
+        let assertion = symbols
+            .iter()
+            .copied()
+            .find(|symbol| symbol.name == "assert")
+            .expect("assert Outline symbol");
+        let assertion_json = document_symbol_json(assertion);
+        assert_eq!(
+            assertion_json["selectionRange"]["end"]["line"].as_u64(),
+            Some(assertion.selection_end_line as u64)
+        );
+        assert_eq!(
+            assertion_json["selectionRange"]["end"]["character"].as_u64(),
+            Some(assertion.selection_end_character as u64)
+        );
+    }
+
+    #[test]
+    fn outline_selection_ranges_are_valid_across_source_corpus() {
+        let repo_root = repo_root_for_tests();
+        let mut files = BTreeSet::new();
+        for relative in [
+            "examples",
+            "tests/diagnostics",
+            "tools/vscode-englang/test/grammar-fixtures",
+        ] {
+            files.extend(eng_files_under(&repo_root.join(relative)));
+        }
+        let source_count = files.len();
+        let mut symbol_count = 0usize;
+        let mut invalid = Vec::new();
+
+        for path in files {
+            let source = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            let snapshot = snapshot_for_source(&path, &source);
+            let mut symbols = Vec::new();
+            flatten_document_symbols(&snapshot.document_symbols, &mut symbols);
+            for symbol in symbols {
+                symbol_count += 1;
+                let range_start = (symbol.line, symbol.character);
+                let range_end = (symbol.end_line, symbol.end_character);
+                let selection_start = (symbol.selection_line, symbol.selection_character);
+                let selection_end = (symbol.selection_end_line, symbol.selection_end_character);
+                if document_symbol_selection_text(&source, symbol).is_none()
+                    || range_start > selection_start
+                    || selection_start >= selection_end
+                    || selection_end > range_end
+                {
+                    invalid.push(format!(
+                        "{}: {} range={range_start:?}..{range_end:?} selection={selection_start:?}..{selection_end:?}",
+                        path.strip_prefix(&repo_root).unwrap_or(&path).display(),
+                        symbol.name
+                    ));
+                }
+            }
+        }
+
+        assert!(
+            source_count >= 130,
+            "Outline source corpus unexpectedly shrank to {source_count} file(s)"
+        );
+        assert!(
+            symbol_count >= 500,
+            "Outline source corpus unexpectedly shrank to {symbol_count} symbol(s)"
+        );
+        assert!(
+            invalid.is_empty(),
+            "Outline selections must be non-empty UTF-16 ranges inside their symbol ranges:\n{}",
+            invalid.join("\n")
+        );
+    }
+
+    #[test]
+    fn outline_excludes_definitions_owned_by_imported_sources() {
+        let path = repo_root_for_tests()
+            .join("examples")
+            .join("official")
+            .join("07_functions_imports")
+            .join("main.eng");
+        let source = std::fs::read_to_string(&path).expect("function import example source");
+        let snapshot = snapshot_for_source(&path, &source);
+        let mut symbols = Vec::new();
+        flatten_document_symbols(&snapshot.document_symbols, &mut symbols);
+
+        for local in ["thermal.eng", "Args", "UA_wall", "dT_wall", "Q_wall"] {
+            assert!(
+                symbols.iter().any(|symbol| symbol.name == local),
+                "missing source-local Outline symbol {local}"
+            );
+        }
+        for imported in ["UA_wall_default", "heat_loss", "UA", "dT", "dT_local"] {
+            assert!(
+                symbols.iter().all(|symbol| symbol.name != imported),
+                "import-owned definition leaked into current-document Outline: {imported}"
+            );
+        }
     }
 
     #[test]

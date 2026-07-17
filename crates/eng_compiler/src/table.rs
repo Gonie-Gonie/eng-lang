@@ -1,7 +1,7 @@
 use crate::ast::{AstItem, FastBinding};
 use crate::parser::ParsedProgram;
 use crate::semantic::SemanticProgram;
-use crate::{Diagnostic, SchemaColumn};
+use crate::{Diagnostic, SchemaColumn, SourceSpan};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TablePredicateInfo {
@@ -51,6 +51,7 @@ pub struct TableDerivedColumnInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TableTransformInfo {
     pub binding: String,
+    pub binding_span: SourceSpan,
     pub operation: String,
     pub source_table: String,
     pub secondary_table: Option<String>,
@@ -90,6 +91,7 @@ pub fn analyze_table_transforms(
             );
             analysis.transforms.push(TableTransformInfo {
                 binding: binding.name.clone(),
+                binding_span: binding.span,
                 operation: "filter".to_owned(),
                 schema_name: schema_name_for_table(program, &source_table),
                 source_table,
@@ -114,6 +116,7 @@ pub fn analyze_table_transforms(
             let schema_name = schema_name_for_source(program, &analysis.transforms, &source_table);
             analysis.transforms.push(TableTransformInfo {
                 binding: binding.name.clone(),
+                binding_span: binding.span,
                 operation: "select".to_owned(),
                 schema_name,
                 source_table,
@@ -138,6 +141,7 @@ pub fn analyze_table_transforms(
             let schema_name = schema_name_for_source(program, &analysis.transforms, &source_table);
             analysis.transforms.push(TableTransformInfo {
                 binding: binding.name.clone(),
+                binding_span: binding.span,
                 operation: "sort".to_owned(),
                 schema_name,
                 source_table,
@@ -165,6 +169,7 @@ pub fn analyze_table_transforms(
             let schema_name = schema_name_for_source(program, &analysis.transforms, &source_table);
             analysis.transforms.push(TableTransformInfo {
                 binding: binding.name.clone(),
+                binding_span: binding.span,
                 operation: "derive".to_owned(),
                 schema_name,
                 source_table,
@@ -187,6 +192,7 @@ pub fn analyze_table_transforms(
             });
             analysis.transforms.push(TableTransformInfo {
                 binding: binding.name.clone(),
+                binding_span: binding.span,
                 operation: "require_one".to_owned(),
                 schema_name,
                 source_table,
@@ -218,6 +224,7 @@ pub fn analyze_table_transforms(
                 .map(|(left, right)| format!("{left}+{right}"));
             analysis.transforms.push(TableTransformInfo {
                 binding: binding.name.clone(),
+                binding_span: binding.span,
                 operation: "join".to_owned(),
                 source_table: left_table,
                 secondary_table: Some(right_table),

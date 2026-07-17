@@ -39,6 +39,7 @@ pub struct NetHeaderParam {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NetRequestInfo {
     pub binding: String,
+    pub binding_span: SourceSpan,
     pub method: String,
     pub url_literal: String,
     pub url_value: String,
@@ -118,6 +119,7 @@ pub fn analyze_net_boundaries(
                 let options = net_options_for_owner(program, binding.line);
                 let boundary = build_request(
                     &binding.name,
+                    binding.span,
                     &request.method,
                     &request.url_literal,
                     NetBuildContext {
@@ -236,7 +238,8 @@ fn source_span_for_parent_range(
     if start >= end || end > parent_len {
         return None;
     }
-    Some(SourceSpan::new(
+    Some(SourceSpan::new_in_source(
+        parent.source_id,
         parent.start.checked_add(start)?,
         parent.start.checked_add(end)?,
         parent.line,
@@ -252,6 +255,7 @@ fn http_method_label(label: &str) -> Option<&'static str> {
 
 fn build_request(
     binding: &str,
+    binding_span: SourceSpan,
     method: &str,
     url_literal: &str,
     context: NetBuildContext<'_>,
@@ -293,6 +297,7 @@ fn build_request(
         .or_else(|| offline_response_read.as_ref().map(|_| 200));
     NetRequestInfo {
         binding: binding.to_owned(),
+        binding_span,
         method: method.to_owned(),
         url_literal: url_literal.to_owned(),
         url_value,
