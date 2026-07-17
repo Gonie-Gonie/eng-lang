@@ -1,4 +1,4 @@
-use crate::ast::AstItem;
+use crate::ast::{AstItem, FastBinding};
 use crate::parser::ParsedProgram;
 use crate::semantic::SemanticProgram;
 use crate::{Diagnostic, SchemaColumn};
@@ -204,7 +204,7 @@ pub fn analyze_table_transforms(
                 parsed,
                 program,
                 &analysis.transforms,
-                binding.line,
+                binding,
                 &left_table,
                 &right_table,
                 &mut analysis.diagnostics,
@@ -492,7 +492,7 @@ fn join_keys_for_owner(
     parsed: &ParsedProgram,
     program: &SemanticProgram,
     transforms: &[TableTransformInfo],
-    owner_line: usize,
+    binding: &FastBinding,
     left_table: &str,
     right_table: &str,
     diagnostics: &mut Vec<Diagnostic>,
@@ -501,7 +501,7 @@ fn join_keys_for_owner(
         .items
         .iter()
         .filter_map(|item| match item {
-            AstItem::OnPredicate(predicate) if predicate.owner_line == Some(owner_line) => {
+            AstItem::OnPredicate(predicate) if predicate.owner_line == Some(binding.line) => {
                 Some(predicate)
             }
             _ => None,
@@ -518,12 +518,17 @@ fn join_keys_for_owner(
         .collect::<Vec<_>>();
 
     if keys.is_empty() {
-        diagnostics.push(Diagnostic::error(
-            "E-TABLE-JOIN-KEY-MISMATCH",
-            owner_line,
-            &format!("Join `{left_table}` with `{right_table}` requires at least one `on` key."),
-            Some("Attach an `on { left.column == right.column }` block to the join."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-TABLE-JOIN-KEY-MISMATCH",
+                binding.line,
+                &format!(
+                    "Join `{left_table}` with `{right_table}` requires at least one `on` key."
+                ),
+                Some("Attach an `on { left.column == right.column }` block to the join."),
+            )
+            .with_source_span(binding.expression_span),
+        );
     }
 
     for key in &keys {

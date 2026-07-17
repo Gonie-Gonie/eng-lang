@@ -536,6 +536,16 @@ select the called name; and argument type failures select the complete failing
 argument. The fixture guard requires all observed diagnostics in these families
 to retain a compiler range before UTF-16 conversion.
 
+The remaining structural/workflow diagnostics follow the same policy.
+Derivative duplicates select the repeated `der(...)` call, legacy
+`select_first_row` warnings select the call name, missing join policy selects the
+join expression, and run-case source/option/results errors select the source,
+option key, or owner expression. Deprecated root/test/assert/golden diagnostics
+select their declaration keyword or header, while implicit TimeSeries fill
+warnings select the fill expression. Missing run-case results emit one Problems
+entry. The global 153-file diagnostic audit rejects any range that would need
+LSP text inference; its fallback count is zero.
+
 Lexical numbers require identifier boundaries and consume a valid decimal
 exponent as part of the same token. Names and literals such as `p95`, `rk4`,
 `expected_sha256`, and `case_001` therefore do not acquire nested number colors.

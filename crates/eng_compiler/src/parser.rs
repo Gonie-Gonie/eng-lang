@@ -1164,6 +1164,7 @@ fn parse_struct_decl(tokens: &[Token]) -> Option<StructDecl> {
     };
     Some(StructDecl {
         name: name.clone(),
+        name_span: second.span,
         span: first.span,
     })
 }

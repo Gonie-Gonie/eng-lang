@@ -81,6 +81,7 @@ pub struct ReturnDecl {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StructDecl {
     pub name: String,
+    pub name_span: SourceSpan,
     pub span: SourceSpan,
 }
 

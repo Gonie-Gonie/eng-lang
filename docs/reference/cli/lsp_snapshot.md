@@ -116,12 +116,10 @@ Diagnostics are shaped like LSP diagnostics:
 ```
 
 `line` is zero-based. `character` uses LSP UTF-16 offsets. A compiler-owned
-`Diagnostic::source_span` is the first choice and is converted from source-byte
-coordinates to UTF-16. This currently covers precise `with` option key/value
-ranges used by selected network, process, sampling, and uncertainty checks. It
-also covers typed state-space vector type arguments and initial values, legacy
-vector member lists, linear-operator type or matrix expressions, and unknown
-function parameter or return types. Function return diagnostics use the exact
+`Diagnostic::source_span` is authoritative and is converted from source-byte
+coordinates to UTF-16. This covers precise `with` option key/value ranges,
+typed state-space arguments, workflow expressions, declarations, operators,
+function calls, and source operands. Function return diagnostics use the exact
 block or inline return expression; missing-return diagnostics use the function
 name because there is no expression. Component assembly balance and
 algebraic-loop diagnostics use the first source component name as their stable
@@ -173,12 +171,15 @@ literal unit, HeatRate sum warnings select `sum`, dimensionless arithmetic
 selects the offending `+` or `-`, and function-call failures select the called
 name or failing argument. Their fixture guard requires every observed
 `W-QTY-AMBIG-*`, `W-STATS-SUM-*`, `E-DIM-ADD-*`, and `E-FN-CALL-*` diagnostic
-to retain a compiler range. The global non-regression ceiling permits at most
-15 diagnostics to use the older range inference path.
-Older diagnostics retain source-aware inference: schema fast-assignment
-diagnostics highlight `=`, and file mutation diagnostics target `move` or
-`delete`. The final fallback searches backticked message/help text, then the
-first identifier or visible token on the line.
+to retain a compiler range. Derivative duplicates select `der(<state>)`; legacy
+row selection selects `select_first_row`; missing table-join policy selects the
+join expression; run-case source and option errors select the source or option
+key; deprecated root/test declarations select their source keyword/header; and
+implicit TimeSeries fill warnings select the fill expression. A missing
+run-case `results` map produces one diagnostic on its owner expression rather
+than duplicate messages. The global 153-file corpus gate requires zero uses of
+the older range-inference path. That inference code remains only as a defensive
+compatibility path for diagnostics outside the checked compiler corpus.
 
 Severity follows LSP numeric severity:
 

@@ -4,7 +4,7 @@ use crate::ast::AstItem;
 use crate::lexer::{Symbol, TokenKind};
 use crate::parser::ParsedProgram;
 use crate::semantic::{SemanticProgram, WithOptionInfo};
-use crate::{Diagnostic, InferredDeclaration};
+use crate::{Diagnostic, InferredDeclaration, SourceSpan};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CaseRunOutputInfo {
@@ -54,6 +54,8 @@ pub fn analyze_case_runs(
             continue;
         }
 
+        let owner_span = binding.expression_span;
+        let source_span = case_run_source_span(program, binding.line).unwrap_or(owner_span);
         let mut status = "declared".to_owned();
         let source_type = program
             .typed_bindings
@@ -61,14 +63,17 @@ pub fn analyze_case_runs(
             .find(|candidate| candidate.name == source_table)
             .map(|candidate| candidate.semantic_type.quantity_kind.as_str());
         if !matches!(source_type, Some("Table[Case]") | Some("Table[CaseOutput]")) {
-            analysis.diagnostics.push(Diagnostic::error(
-                "E-CASE-RUN-SOURCE",
-                binding.line,
-                &format!(
-                    "`apply run_case` requires a Case or CaseOutput table, but `{source_table}` is not one."
-                ),
-                Some("Use the result of `materialize cases ...` or `apply case_input_template over ...`."),
-            ));
+            analysis.diagnostics.push(
+                Diagnostic::error(
+                    "E-CASE-RUN-SOURCE",
+                    binding.line,
+                    &format!(
+                        "`apply run_case` requires a Case or CaseOutput table, but `{source_table}` is not one."
+                    ),
+                    Some("Use the result of `materialize cases ...` or `apply case_input_template over ...`."),
+                )
+                .with_source_span(source_span),
+            );
             status = "invalid_source".to_owned();
         }
 
@@ -78,16 +83,25 @@ pub fn analyze_case_runs(
             &options,
             result_range,
             binding.line,
+            owner_span,
             &mut analysis.diagnostics,
             &mut status,
         );
         let mut outputs = case_run_outputs(parsed, &options, result_range);
-        validate_case_run_outputs(
-            &mut outputs,
-            binding.line,
-            &mut analysis.diagnostics,
-            &mut status,
-        );
+        if result_range.is_some() {
+            let results_span = options
+                .iter()
+                .find(|option| option.key == "results")
+                .map(|option| option.value_span)
+                .unwrap_or(owner_span);
+            validate_case_run_outputs(
+                &mut outputs,
+                binding.line,
+                results_span,
+                &mut analysis.diagnostics,
+                &mut status,
+            );
+        }
 
         let on_error = option_text(&options, "on_error").unwrap_or_else(|| "fail".to_owned());
         if !matches!(on_error.as_str(), "fail" | "continue") {
@@ -144,12 +158,17 @@ pub fn analyze_case_runs(
             .iter()
             .all(|declaration| declaration.name != source_table)
         {
-            analysis.diagnostics.push(Diagnostic::error(
-                "E-CASE-RUN-SOURCE",
-                binding.line,
-                &format!("Run-case source `{source_table}` is not a prior materialized binding."),
-                Some("Declare the case table before applying `run_case`."),
-            ));
+            analysis.diagnostics.push(
+                Diagnostic::error(
+                    "E-CASE-RUN-SOURCE",
+                    binding.line,
+                    &format!(
+                        "Run-case source `{source_table}` is not a prior materialized binding."
+                    ),
+                    Some("Declare the case table before applying `run_case`."),
+                )
+                .with_source_span(source_span),
+            );
             status = "missing_source".to_owned();
         }
 
@@ -179,6 +198,17 @@ fn options_for_owner(program: &SemanticProgram, owner_line: usize) -> Vec<WithOp
         .flat_map(|block| block.options.iter().cloned())
         .filter(|option| option.status == "accepted")
         .collect()
+}
+
+fn case_run_source_span(program: &SemanticProgram, owner_line: usize) -> Option<SourceSpan> {
+    program
+        .command_styles
+        .iter()
+        .find(|command| command.line == owner_line && command.verb == "apply")?
+        .clauses
+        .iter()
+        .find(|clause| clause.name == "over")
+        .map(|clause| clause.value_span)
 }
 
 fn result_map_range(parsed: &ParsedProgram, options: &[WithOptionInfo]) -> Option<(usize, usize)> {
@@ -216,6 +246,7 @@ fn validate_top_level_options(
     options: &[WithOptionInfo],
     result_range: Option<(usize, usize)>,
     owner_line: usize,
+    owner_span: SourceSpan,
     diagnostics: &mut Vec<Diagnostic>,
     status: &mut String,
 ) {
@@ -226,21 +257,27 @@ fn validate_top_level_options(
         if case_run_control_option(&option.key) {
             continue;
         }
-        diagnostics.push(Diagnostic::error(
-            "E-CASE-RUN-OPTION",
-            option.line,
-            &format!("Unknown run-case option `{}`.", option.key),
-            Some("Put calculated output fields inside `results = { ... }`; keep scheduler policy options at the top level."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-CASE-RUN-OPTION",
+                option.line,
+                &format!("Unknown run-case option `{}`.", option.key),
+                Some("Put calculated output fields inside `results = { ... }`; keep scheduler policy options at the top level."),
+            )
+            .with_source_span(option.key_span),
+        );
         *status = "invalid_option".to_owned();
     }
     if result_range.is_none() {
-        diagnostics.push(Diagnostic::error(
-            "E-CASE-RUN-RESULTS-MISSING",
-            owner_line,
-            "`apply run_case` requires a `results = { ... }` map.",
-            Some("Declare one or more native result expressions, for example `results = { annual_energy = load * hours }`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-CASE-RUN-RESULTS-MISSING",
+                owner_line,
+                "`apply run_case` requires a `results = { ... }` map.",
+                Some("Declare one or more native result expressions, for example `results = { annual_energy = load * hours }`."),
+            )
+            .with_source_span(owner_span),
+        );
         *status = "missing_results".to_owned();
     }
 }
@@ -270,16 +307,20 @@ fn case_run_outputs(
 fn validate_case_run_outputs(
     outputs: &mut [CaseRunOutputInfo],
     owner_line: usize,
+    owner_span: SourceSpan,
     diagnostics: &mut Vec<Diagnostic>,
     run_status: &mut String,
 ) {
     if outputs.is_empty() {
-        diagnostics.push(Diagnostic::error(
-            "E-CASE-RUN-RESULTS-MISSING",
-            owner_line,
-            "Run-case `results` must declare at least one calculated output.",
-            Some("Add `name = expression` entries inside the `results` map."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-CASE-RUN-RESULTS-MISSING",
+                owner_line,
+                "Run-case `results` must declare at least one calculated output.",
+                Some("Add `name = expression` entries inside the `results` map."),
+            )
+            .with_source_span(owner_span),
+        );
         *run_status = "missing_results".to_owned();
         return;
     }

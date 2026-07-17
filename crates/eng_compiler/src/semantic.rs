@@ -1276,12 +1276,18 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             }
             AstItem::Struct(struct_decl) => {
                 current_args_block_index = None;
-                diagnostics.push(Diagnostic::error(
-                    "E-STRUCT-ARGS-001",
-                    struct_decl.span.line,
-                    "`struct Args` is no longer supported for execution arguments.",
-                    Some("Use `args { ... }` as the only root argument declaration syntax."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-STRUCT-ARGS-001",
+                        struct_decl.span.line,
+                        "`struct Args` is no longer supported for execution arguments.",
+                        Some("Use `args { ... }` as the only root argument declaration syntax."),
+                    )
+                    .with_source_span(source_span_covering(
+                        struct_decl.span,
+                        struct_decl.name_span,
+                    )),
+                );
             }
             AstItem::Args(args_decl) => {
                 args_blocks.push(ArgsBlockInfo {
@@ -1375,12 +1381,15 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 }
             }
             AstItem::Script(script) => {
-                diagnostics.push(Diagnostic::error(
-                    "E-SCRIPT-001",
-                    script.span.line,
-                    "`script` blocks are no longer supported as execution roots.",
-                    Some("Move the body to top-level statements and use `args { ... }` for CLI arguments."),
-                ));
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SCRIPT-001",
+                        script.span.line,
+                        "`script` blocks are no longer supported as execution roots.",
+                        Some("Move the body to top-level statements and use `args { ... }` for CLI arguments."),
+                    )
+                    .with_source_span(script.span),
+                );
             }
             AstItem::ExplicitDecl(declaration) => {
                 if declaration.context != ParseContext::Function {
@@ -2837,12 +2846,15 @@ fn validate_timeseries_fill_commands(
             .iter_mut()
             .find(|block| block.owner_line == Some(command.line))
         else {
-            diagnostics.push(Diagnostic::warning(
-                "W-TIMESERIES-FILL-METHOD-IMPLICIT",
-                command.line,
-                "`fill missing` has no value-filling method; runtime will only record the policy.",
-                Some("Add `with { method = interpolate }` to materialize a filled TimeSeries, or `method = record_only` to acknowledge metadata-only behavior."),
-            ));
+            diagnostics.push(
+                Diagnostic::warning(
+                    "W-TIMESERIES-FILL-METHOD-IMPLICIT",
+                    command.line,
+                    "`fill missing` has no value-filling method; runtime will only record the policy.",
+                    Some("Add `with { method = interpolate }` to materialize a filled TimeSeries, or `method = record_only` to acknowledge metadata-only behavior."),
+                )
+                .with_source_span(command.expression_span),
+            );
             continue;
         };
 
@@ -2925,12 +2937,15 @@ fn validate_timeseries_fill_commands(
         }
 
         if !explicit_method {
-            diagnostics.push(Diagnostic::warning(
-                "W-TIMESERIES-FILL-METHOD-IMPLICIT",
-                command.line,
-                "`fill missing` has no value-filling method; runtime will only record the policy.",
-                Some("Add `method = interpolate` to materialize a filled TimeSeries, or `method = record_only` to acknowledge metadata-only behavior."),
-            ));
+            diagnostics.push(
+                Diagnostic::warning(
+                    "W-TIMESERIES-FILL-METHOD-IMPLICIT",
+                    command.line,
+                    "`fill missing` has no value-filling method; runtime will only record the policy.",
+                    Some("Add `method = interpolate` to materialize a filled TimeSeries, or `method = record_only` to acknowledge metadata-only behavior."),
+                )
+                .with_source_span(command.expression_span),
+            );
         } else if interpolates && command.owner.as_deref().is_none_or(str::is_empty) {
             diagnostics.push(Diagnostic::error(
                 "E-TIMESERIES-FILL-BINDING",
@@ -4576,21 +4591,27 @@ fn analyze_process_run_decl(
 
 fn analyze_test_decl(test: &TestDecl, diagnostics: &mut Vec<Diagnostic>) -> Option<TestInfo> {
     if test.context != ParseContext::TopLevel {
-        diagnostics.push(Diagnostic::error(
-            "E-TEST-001",
-            test.line,
-            "`test` blocks are supported only at top level.",
-            Some("Move the test block to the root workflow so it can inspect public results."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-TEST-001",
+                test.line,
+                "`test` blocks are supported only at top level.",
+                Some("Move the test block to the root workflow so it can inspect public results."),
+            )
+            .with_source_span(test.span),
+        );
         return None;
     }
     if test.name.trim().is_empty() {
-        diagnostics.push(Diagnostic::error(
-            "E-TEST-NAME-001",
-            test.line,
-            "`test` requires a name.",
-            Some("Write `test \"name\" { ... }`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-TEST-NAME-001",
+                test.line,
+                "`test` requires a name.",
+                Some("Write `test \"name\" { ... }`."),
+            )
+            .with_source_span(test.span),
+        );
         return None;
     }
     Some(TestInfo {
@@ -4610,30 +4631,39 @@ fn analyze_assert_decl(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     if assertion.context != ParseContext::Test {
-        diagnostics.push(Diagnostic::error(
-            "E-ASSERT-001",
-            assertion.line,
-            "`assert` is supported only inside a `test` block.",
-            Some("Wrap assertions in `test \"name\" { ... }`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-ASSERT-001",
+                assertion.line,
+                "`assert` is supported only inside a `test` block.",
+                Some("Wrap assertions in `test \"name\" { ... }`."),
+            )
+            .with_source_span(assertion.span),
+        );
         return;
     }
     let Some(test_index) = current_test_index else {
-        diagnostics.push(Diagnostic::error(
-            "E-ASSERT-001",
-            assertion.line,
-            "`assert` is not attached to a test block.",
-            Some("Place the assertion inside `test \"name\" { ... }`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-ASSERT-001",
+                assertion.line,
+                "`assert` is not attached to a test block.",
+                Some("Place the assertion inside `test \"name\" { ... }`."),
+            )
+            .with_source_span(assertion.span),
+        );
         return;
     };
     if assertion.left.is_empty() || assertion.operator.is_empty() || assertion.right.is_empty() {
-        diagnostics.push(Diagnostic::error(
-            "E-ASSERT-002",
-            assertion.line,
-            "`assert` requires `left operator right`.",
-            Some("Write forms such as `assert E_coil > 0 kWh` or `assert E_coil == 1.2 kWh within 0.1 kWh`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-ASSERT-002",
+                assertion.line,
+                "`assert` requires `left operator right`.",
+                Some("Write forms such as `assert E_coil > 0 kWh` or `assert E_coil == 1.2 kWh within 0.1 kWh`."),
+            )
+            .with_source_span(assertion.span),
+        );
         return;
     }
     let left_expression = ValidationExpression {
@@ -4751,39 +4781,51 @@ fn analyze_golden_decl(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     if golden.context != ParseContext::Test {
-        diagnostics.push(Diagnostic::error(
-            "E-GOLDEN-001",
-            golden.line,
-            "`golden` is supported only inside a `test` block.",
-            Some("Wrap golden checks in `test \"name\" { ... }`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-GOLDEN-001",
+                golden.line,
+                "`golden` is supported only inside a `test` block.",
+                Some("Wrap golden checks in `test \"name\" { ... }`."),
+            )
+            .with_source_span(golden.span),
+        );
         return;
     }
     let Some(test_index) = current_test_index else {
-        diagnostics.push(Diagnostic::error(
-            "E-GOLDEN-001",
-            golden.line,
-            "`golden` is not attached to a test block.",
-            Some("Place the golden check inside `test \"name\" { ... }`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-GOLDEN-001",
+                golden.line,
+                "`golden` is not attached to a test block.",
+                Some("Place the golden check inside `test \"name\" { ... }`."),
+            )
+            .with_source_span(golden.span),
+        );
         return;
     };
     if golden.artifact.trim().is_empty() || golden.expected.trim().is_empty() {
-        diagnostics.push(Diagnostic::error(
-            "E-GOLDEN-002",
-            golden.line,
-            "`golden` requires an artifact path and expected path.",
-            Some("Write `golden \"summary.csv\" matches file(\"golden/summary.csv\")`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-GOLDEN-002",
+                golden.line,
+                "`golden` requires an artifact path and expected path.",
+                Some("Write `golden \"summary.csv\" matches file(\"golden/summary.csv\")`."),
+            )
+            .with_source_span(golden.span),
+        );
         return;
     }
     if !is_golden_expected_file_path(&golden.expected) {
-        diagnostics.push(Diagnostic::error(
-            "E-GOLDEN-002",
-            golden.line,
-            "`golden` expected path must use `file(\"...\")`.",
-            Some("Wrap the expected path as `file(\"golden/summary.csv\")`."),
-        ));
+        diagnostics.push(
+            Diagnostic::error(
+                "E-GOLDEN-002",
+                golden.line,
+                "`golden` expected path must use `file(\"...\")`.",
+                Some("Wrap the expected path as `file(\"golden/summary.csv\")`."),
+            )
+            .with_source_span(golden.span),
+        );
         return;
     }
     if let Some(test) = tests.get_mut(test_index) {
@@ -12926,18 +12968,32 @@ fn validate_system_derivative_equations(systems: &[SystemInfo], diagnostics: &mu
                 continue;
             }
             for duplicate in equations.iter().skip(1) {
-                diagnostics.push(Diagnostic::error(
-                    "E-SYS-DER-DUPLICATE",
-                    duplicate.line,
-                    &format!(
-                        "State `{}` in system `{}` has multiple derivative equations.",
-                        state.name, system.name
-                    ),
-                    Some(&format!(
-                        "Keep one RHS equation for `der({})` and combine sources on the right-hand side.",
-                        state.name
-                    )),
-                ));
+                let derivative = format!("der({})", state.name);
+                let derivative_span = duplicate
+                    .left
+                    .find(&derivative)
+                    .map(|start| {
+                        source_span_for_child_range(
+                            duplicate.left_span,
+                            start,
+                            start + derivative.len(),
+                        )
+                    })
+                    .unwrap_or(duplicate.left_span);
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-SYS-DER-DUPLICATE",
+                        duplicate.line,
+                        &format!(
+                            "State `{}` in system `{}` has multiple derivative equations.",
+                            state.name, system.name
+                        ),
+                        Some(&format!(
+                            "Keep one RHS equation for `{derivative}` and combine sources on the right-hand side."
+                        )),
+                    )
+                    .with_source_span(derivative_span),
+                );
             }
         }
     }
@@ -13639,19 +13695,22 @@ fn warn_http_response_status_field_usage(
 }
 fn warn_legacy_select_first_row_usage(program: &ParsedProgram, diagnostics: &mut Vec<Diagnostic>) {
     for line in &program.lines {
-        let has_call = line.tokens.windows(2).any(|tokens| {
-            matches!(&tokens[0].kind, TokenKind::Identifier(name) if name == "select_first_row")
-                && matches!(tokens[1].kind, TokenKind::Symbol(Symbol::LParen))
-        });
-        if !has_call {
+        let Some(call_span) = line.tokens.windows(2).find_map(|tokens| {
+            (matches!(&tokens[0].kind, TokenKind::Identifier(name) if name == "select_first_row")
+                && matches!(tokens[1].kind, TokenKind::Symbol(Symbol::LParen)))
+            .then_some(tokens[0].span)
+        }) else {
             continue;
-        }
-        diagnostics.push(Diagnostic::warning(
-            "W-TABLE-LEGACY-SELECT-FIRST-ROW",
-            line.line,
-            "`select_first_row` is a legacy row-selection helper.",
-            Some("Use `filter <table>` with `where { ... }`, then `row = require_one filtered` and access `row.column`."),
-        ));
+        };
+        diagnostics.push(
+            Diagnostic::warning(
+                "W-TABLE-LEGACY-SELECT-FIRST-ROW",
+                line.line,
+                "`select_first_row` is a legacy row-selection helper.",
+                Some("Use `filter <table>` with `where { ... }`, then `row = require_one filtered` and access `row.column`."),
+            )
+            .with_source_span(call_span),
+        );
     }
 }
 

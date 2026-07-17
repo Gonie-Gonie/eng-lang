@@ -12673,8 +12673,8 @@ mod tests {
             fallback.len()
         );
         assert!(
-            fallback.len() <= 15,
-            "compiler-owned diagnostic range coverage regressed to {} fallback item(s): {}",
+            fallback.is_empty(),
+            "compiler-owned diagnostic ranges must cover the corpus; inferred {} fallback item(s): {}",
             fallback.len(),
             fallback.join(", ")
         );
@@ -15309,6 +15309,40 @@ print "done"
                 utf16_len(&line[..value_start + expected.len()])
             );
         }
+    }
+
+    #[test]
+    fn run_case_option_diagnostics_convert_compiler_spans_after_utf16_text() {
+        let source = concat!(
+            "designs = sample grid\r\n",
+            "with { count = 1; density = uniform(1, 2) }\r\n",
+            "case_results = apply run_case over designs\r\n",
+            "with { note = \"😀\"; step = run_case }\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("run_case_utf16_ranges.eng"), source);
+        let diagnostic = snapshot
+            .diagnostics
+            .iter()
+            .find(|diagnostic| {
+                diagnostic.code == "E-CASE-RUN-OPTION" && diagnostic.message.contains("`step`")
+            })
+            .unwrap_or_else(|| {
+                panic!(
+                    "missing run-case step diagnostic: {:?}",
+                    snapshot.diagnostics
+                )
+            });
+        let line = source
+            .lines()
+            .nth(diagnostic.line - 1)
+            .expect("diagnostic source line");
+        let step_start = line.find("step =").expect("step option");
+
+        assert_eq!(diagnostic.start_character, utf16_len(&line[..step_start]));
+        assert_eq!(
+            diagnostic.end_character,
+            utf16_len(&line[..step_start + "step".len()])
+        );
     }
 
     #[test]

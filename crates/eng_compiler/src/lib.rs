@@ -10104,6 +10104,103 @@ mod tests {
     }
 
     #[test]
+    fn remaining_diagnostic_families_preserve_exact_source_spans() {
+        let derivative = concat!(
+            "system DuplicateThermal {\n",
+            "    parameter C: HeatCapacity = 500 kJ/K\n",
+            "    state T: AbsoluteTemperature = 22 degC\n",
+            "    input Q_a: HeatRate = 0 W\n",
+            "    input Q_b: HeatRate = 0 W\n",
+            "    equation {\n",
+            "        C * der(T) eq Q_a\n",
+            "        C * der(T) eq Q_b\n",
+            "    }\n",
+            "}\n",
+        );
+        let legacy_root = concat!(
+            "script LegacyScript\n",
+            "struct LegacyArgs\n",
+            "test \"legacy check\" {\n",
+            "assert 1 > 0\n",
+            "golden \"summary.csv\" matches file(\"golden/summary.csv\")\n",
+            "}\n",
+        );
+        let cases = [
+            (derivative, "E-SYS-DER-DUPLICATE", "der(T)"),
+            (
+                "selected = select_first_row(designs, return_column=\"density\")\n",
+                "W-TABLE-LEGACY-SELECT-FIRST-ROW",
+                "select_first_row",
+            ),
+            (legacy_root, "E-SCRIPT-001", "script"),
+            (legacy_root, "E-STRUCT-ARGS-001", "struct LegacyArgs"),
+            (legacy_root, "E-TEST-001", "test"),
+            (legacy_root, "E-ASSERT-001", "assert"),
+            (legacy_root, "E-GOLDEN-001", "golden"),
+            (
+                "filled_zone = fill missing measured.T_zone\n",
+                "W-TIMESERIES-FILL-METHOD-IMPLICIT",
+                "fill missing measured.T_zone",
+            ),
+            (
+                "joined_designs = join designs with predictions\n",
+                "E-TABLE-JOIN-KEY-MISMATCH",
+                "join designs with predictions",
+            ),
+        ];
+
+        for (source, code, expected) in cases {
+            let report = check_source("diagnostic_span.eng", source, &CheckOptions::default());
+            let diagnostic = report
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code)
+                .unwrap_or_else(|| panic!("missing {code}: {:?}", report.diagnostics));
+            let span = diagnostic
+                .source_span
+                .unwrap_or_else(|| panic!("{code} must expose a compiler-owned source span"));
+            assert_eq!(&source[span.start..span.end], expected, "{code}");
+        }
+    }
+
+    #[test]
+    fn run_case_missing_contract_diagnostics_are_precise_and_not_duplicated() {
+        let source = concat!(
+            "designs = sample grid\n",
+            "with { count = 1; density = uniform(1, 2) }\n",
+            "case_results = apply run_case over designs\n",
+            "with { step = run_case }\n",
+        );
+        let report = check_source("run_case_ranges.eng", source, &CheckOptions::default());
+        let diagnostic_text = |code: &str| {
+            let diagnostic = report
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code)
+                .unwrap_or_else(|| panic!("missing {code}: {:?}", report.diagnostics));
+            let span = diagnostic
+                .source_span
+                .unwrap_or_else(|| panic!("{code} must expose a compiler-owned source span"));
+            &source[span.start..span.end]
+        };
+
+        assert_eq!(diagnostic_text("E-CASE-RUN-SOURCE"), "designs");
+        assert_eq!(diagnostic_text("E-CASE-RUN-OPTION"), "step");
+        assert_eq!(
+            diagnostic_text("E-CASE-RUN-RESULTS-MISSING"),
+            "apply run_case over designs"
+        );
+        assert_eq!(
+            report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == "E-CASE-RUN-RESULTS-MISSING")
+                .count(),
+            1
+        );
+    }
+
+    #[test]
     fn path_helpers_typecheck_and_record_exists_provenance() {
         let root = std::env::temp_dir().join("englang-path-helper-test");
         let _ = fs::remove_dir_all(&root);

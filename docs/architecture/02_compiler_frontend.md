@@ -30,14 +30,16 @@ The CLI, LSP, VS Code extension, and native IDE all rely on these spans so that
 Problems ranges, underlines, hover locations, and highlight inspection rows point
 at the same source text.
 
-`Diagnostic::source_span` is optional while older checks are migrated. When it
-is present, it is authoritative: review JSON uses its starting column and the
-LSP converts its byte column and byte length to UTF-16 editor coordinates.
-Checks without a compiler-owned range still use the documented LSP range
-inference path. `with` options preserve separate whole-option, key, and value
-spans so option diagnostics do not need to search the source line by wording.
-Line starts are counted from the original bytes, including two-byte CRLF line
-endings.
+`Diagnostic::source_span` remains optional in the serialized type for
+diagnostics that have no source occurrence, but it is authoritative whenever a
+check reports source code: review JSON uses its starting column and the LSP
+converts its byte column and byte length to UTF-16 editor coordinates. A corpus
+gate requires every diagnostic emitted by the 153 example, diagnostic, and
+grammar-fixture files to provide this compiler-owned range; the current LSP
+text-inference count is zero. `with` options preserve separate whole-option,
+key, and value spans so option diagnostics do not need to search the source line
+by wording. Line starts are counted from the original bytes, including two-byte
+CRLF line endings.
 
 ## Lexer And Parser
 
