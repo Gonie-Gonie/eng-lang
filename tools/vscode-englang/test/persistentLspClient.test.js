@@ -66,13 +66,18 @@ const originalLoad = Module._load;
 let EngSemanticTokensProvider;
 let PersistentLspClient;
 let createPersistentLspRequests;
+let incrementalContentChange;
 try {
   Module._load = function loadWithVscodeMock(request, parent, isMain) {
     if (request === "vscode") return vscodeMock;
     return originalLoad.call(this, request, parent, isMain);
   };
   ({ EngSemanticTokensProvider } = require("../semanticTokensProvider"));
-  ({ PersistentLspClient, createPersistentLspRequests } = require("../persistentLspClient"));
+  ({
+    PersistentLspClient,
+    createPersistentLspRequests,
+    incrementalContentChange
+  } = require("../persistentLspClient"));
 } finally {
   Module._load = originalLoad;
 }
@@ -132,7 +137,8 @@ class FakeLspServer {
         this.respond(message.id, {
           capabilities: {
             experimental: { englangSnapshotProvider: true },
-            semanticTokensProvider: { full: { delta: true }, range: true }
+            semanticTokensProvider: { full: { delta: true }, range: true },
+            textDocumentSync: { openClose: true, change: 2, save: { includeText: true } }
           }
         }, true);
         break;
@@ -232,7 +238,52 @@ function wait(milliseconds = 0) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+function incrementalChangeFixtures() {
+  assert.deepStrictEqual(
+    incrementalContentChange("value = 1", "value = 2"),
+    {
+      range: {
+        start: { line: 0, character: 8 },
+        end: { line: 0, character: 9 }
+      },
+      text: "2"
+    }
+  );
+  assert.deepStrictEqual(
+    incrementalContentChange('value = "😀" + 20\r\n', 'value = "😀" + 25\r\n'),
+    {
+      range: {
+        start: { line: 0, character: 16 },
+        end: { line: 0, character: 17 }
+      },
+      text: "5"
+    }
+  );
+  assert.deepStrictEqual(
+    incrementalContentChange("a = 1\r\nb = 2\r\n", "a = 1\r\nb = 20\r\n"),
+    {
+      range: {
+        start: { line: 1, character: 5 },
+        end: { line: 1, character: 5 }
+      },
+      text: "0"
+    }
+  );
+  assert.deepStrictEqual(incrementalContentChange("a\r\n", "a\n"), { text: "a\n" });
+  assert.deepStrictEqual(
+    incrementalContentChange("unchanged", "unchanged"),
+    {
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: 0, character: 0 }
+      },
+      text: ""
+    }
+  );
+}
+
 async function main() {
+  incrementalChangeFixtures();
   const document = {
     fileName: "C:\\workspace\\main.eng",
     isDirty: true,
@@ -324,7 +375,23 @@ async function main() {
   await client.changeDocument(document);
   const change = servers[0].messages.find((message) => message.method === "textDocument/didChange");
   assert.strictEqual(change.params.textDocument.version, 2);
-  assert.deepStrictEqual(change.params.contentChanges, [{ text: "value = 2" }]);
+  assert.deepStrictEqual(change.params.contentChanges, [{
+    range: {
+      start: { line: 0, character: 8 },
+      end: { line: 0, character: 9 }
+    },
+    text: "2"
+  }]);
+
+  client.serverCapabilities.textDocumentSync.change = 1;
+  document.version = 3;
+  document.text = "value = 3";
+  await client.changeDocument(document);
+  const fullChange = servers[0].messages
+    .filter((message) => message.method === "textDocument/didChange")
+    .at(-1);
+  assert.deepStrictEqual(fullChange.params.contentChanges, [{ text: "value = 3" }]);
+  client.serverCapabilities.textDocumentSync.change = 2;
 
   await client.saveDocument(document);
   assert.ok(servers[0].messages.some((message) => message.method === "textDocument/didSave"));

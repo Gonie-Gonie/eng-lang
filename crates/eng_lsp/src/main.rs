@@ -1415,7 +1415,7 @@ fn run_lsp() -> io::Result<()> {
                             "capabilities": {
                                 "textDocumentSync": {
                                     "openClose": true,
-                                    "change": 1,
+                                    "change": 2,
                                     "save": { "includeText": true }
                                 },
                                 "hoverProvider": true,
@@ -8932,6 +8932,78 @@ fn utf16_len(value: &str) -> usize {
     value.encode_utf16().count()
 }
 
+fn strict_utf16_character_to_byte(line_text: &str, character: usize) -> Option<usize> {
+    let mut units = 0usize;
+    for (byte_index, ch) in line_text.char_indices() {
+        if units == character {
+            return Some(byte_index);
+        }
+        if units > character {
+            return None;
+        }
+        units += ch.len_utf16();
+    }
+    (units == character).then_some(line_text.len())
+}
+
+fn lsp_position_to_byte_offset(text: &str, line: usize, character: usize) -> Option<usize> {
+    let mut line_start = 0usize;
+    for _ in 0..line {
+        let newline = text.get(line_start..)?.find('\n')?;
+        line_start = line_start.checked_add(newline + 1)?;
+    }
+
+    let remaining = text.get(line_start..)?;
+    let line_end = remaining
+        .find('\n')
+        .map_or(text.len(), |newline| line_start + newline);
+    let content_end = if line_end > 0 && text.as_bytes().get(line_end - 1) == Some(&b'\r') {
+        line_end - 1
+    } else {
+        line_end
+    };
+    let line_text = text.get(line_start..content_end)?;
+    strict_utf16_character_to_byte(line_text, character)
+        .and_then(|byte| line_start.checked_add(byte))
+}
+
+fn content_change_position(change: &Value, endpoint: &str) -> Option<(usize, usize)> {
+    let position = change.get("range")?.get(endpoint)?;
+    let line = position
+        .get("line")?
+        .as_u64()
+        .and_then(|value| usize::try_from(value).ok())?;
+    let character = position
+        .get("character")?
+        .as_u64()
+        .and_then(|value| usize::try_from(value).ok())?;
+    Some((line, character))
+}
+
+fn apply_document_content_changes(current: &str, changes: &[Value]) -> Option<String> {
+    if changes.is_empty() {
+        return None;
+    }
+    let mut text = current.to_owned();
+    for change in changes {
+        let replacement = change.get("text")?.as_str()?;
+        if change.get("range").is_none() {
+            text.clear();
+            text.push_str(replacement);
+            continue;
+        }
+        let (start_line, start_character) = content_change_position(change, "start")?;
+        let (end_line, end_character) = content_change_position(change, "end")?;
+        let start = lsp_position_to_byte_offset(&text, start_line, start_character)?;
+        let end = lsp_position_to_byte_offset(&text, end_line, end_character)?;
+        if start > end {
+            return None;
+        }
+        text.replace_range(start..end, replacement);
+    }
+    Some(text)
+}
+
 fn document_state_from_notification(
     request: &Value,
     documents: &Documents,
@@ -8942,31 +9014,28 @@ fn document_state_from_notification(
     }
     let version = document_version_from_request(request)
         .or_else(|| documents.get(&uri).and_then(|state| state.version));
-    if let Some(text) = request
-        .pointer("/params/textDocument/text")
-        .and_then(Value::as_str)
-    {
-        return Some((uri, DocumentState::new(text.to_owned(), version)));
-    }
-    if let Some(text) = request
-        .pointer("/params/contentChanges")
-        .and_then(Value::as_array)
-        .and_then(|changes| {
-            changes
-                .iter()
-                .rev()
-                .find_map(|change| change.get("text").and_then(Value::as_str))
-        })
-    {
-        return Some((uri, DocumentState::new(text.to_owned(), version)));
-    }
-    if let Some(state) = documents.get(&uri) {
-        return Some((uri, DocumentState::new(state.text.clone(), version)));
-    }
-    let path = path_from_uri(&uri)?;
-    std::fs::read_to_string(path)
-        .ok()
-        .map(|text| (uri, DocumentState::new(text, version)))
+    let method = request.get("method").and_then(Value::as_str).unwrap_or("");
+    let text = match method {
+        "textDocument/didOpen" => request
+            .pointer("/params/textDocument/text")
+            .and_then(Value::as_str)?
+            .to_owned(),
+        "textDocument/didChange" => {
+            let current = documents.get(&uri)?;
+            let changes = request
+                .pointer("/params/contentChanges")
+                .and_then(Value::as_array)?;
+            apply_document_content_changes(&current.text, changes)?
+        }
+        "textDocument/didSave" => request
+            .pointer("/params/text")
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .or_else(|| documents.get(&uri).map(|state| state.text.clone()))
+            .or_else(|| path_from_uri(&uri).and_then(|path| std::fs::read_to_string(path).ok()))?,
+        _ => return None,
+    };
+    Some((uri, DocumentState::new(text, version)))
 }
 
 fn stale_document_notification(request: &Value, current: Option<&DocumentState>) -> bool {
@@ -9563,6 +9632,107 @@ mod tests {
         let (_, changed) = document_state_from_notification(&changed, &documents).unwrap();
         assert_eq!(changed.text, "value = 3\n");
         assert_eq!(changed.version, Some(3));
+    }
+
+    #[test]
+    fn incremental_document_changes_apply_in_order_with_utf16_ranges() {
+        let uri = "file:///C:/workspace/incremental.eng";
+        let source = "name = \"😀\"\r\nvalue = 2\r\n";
+        let mut documents = Documents::new();
+        documents.insert(
+            uri.to_owned(),
+            DocumentState::new(source.to_owned(), Some(1)),
+        );
+
+        let request = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 2 },
+                "contentChanges": [
+                    {
+                        "range": {
+                            "start": { "line": 0, "character": 8 },
+                            "end": { "line": 0, "character": 10 }
+                        },
+                        "text": "ok"
+                    },
+                    {
+                        "range": {
+                            "start": { "line": 1, "character": 0 },
+                            "end": { "line": 1, "character": 5 }
+                        },
+                        "text": "result"
+                    },
+                    {
+                        "range": {
+                            "start": { "line": 1, "character": 10 },
+                            "end": { "line": 1, "character": 10 }
+                        },
+                        "text": " kW"
+                    }
+                ]
+            }
+        });
+        let (_, changed) = document_state_from_notification(&request, &documents).unwrap();
+        assert_eq!(changed.text, "name = \"ok\"\r\nresult = 2 kW\r\n");
+        assert_eq!(changed.version, Some(2));
+
+        let full_then_incremental = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 3 },
+                "contentChanges": [
+                    { "text": "x = 1\n" },
+                    {
+                        "range": {
+                            "start": { "line": 0, "character": 4 },
+                            "end": { "line": 0, "character": 5 }
+                        },
+                        "text": "2"
+                    }
+                ]
+            }
+        });
+        let (_, changed) =
+            document_state_from_notification(&full_then_incremental, &documents).unwrap();
+        assert_eq!(changed.text, "x = 2\n");
+    }
+
+    #[test]
+    fn invalid_incremental_ranges_do_not_replace_the_open_buffer() {
+        let uri = "file:///C:/workspace/invalid-incremental.eng";
+        let source = "name = \"😀\"\r\nvalue = 2\r\n";
+        let mut documents = Documents::new();
+        documents.insert(
+            uri.to_owned(),
+            DocumentState::new(source.to_owned(), Some(1)),
+        );
+
+        for range in [
+            json!({
+                "start": { "line": 0, "character": 9 },
+                "end": { "line": 0, "character": 9 }
+            }),
+            json!({
+                "start": { "line": 9, "character": 0 },
+                "end": { "line": 9, "character": 0 }
+            }),
+            json!({
+                "start": { "line": 1, "character": 1 },
+                "end": { "line": 0, "character": 1 }
+            }),
+        ] {
+            let request = json!({
+                "method": "textDocument/didChange",
+                "params": {
+                    "textDocument": { "uri": uri, "version": 2 },
+                    "contentChanges": [{ "range": range, "text": "invalid" }]
+                }
+            });
+            assert!(document_state_from_notification(&request, &documents).is_none());
+            assert_eq!(documents[uri].text, source);
+            assert_eq!(documents[uri].version, Some(1));
+        }
     }
 
     #[test]

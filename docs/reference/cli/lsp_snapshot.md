@@ -617,8 +617,9 @@ Use the stdio LSP server for:
 
 Start the persistent server with `eng-lsp --stdio` (a no-argument invocation is
 also accepted). The VS Code extension initializes one process with every open
-workspace folder, sends full-text `didOpen`/`didChange`/`didSave`/`didClose`
-notifications, consumes versioned `publishDiagnostics`, and sends
+workspace folder, sends full-text `didOpen`/`didSave`, incremental UTF-16 range
+`didChange`, and `didClose` notifications, consumes versioned
+`publishDiagnostics`, and sends
 `$/cancelRequest` when VS Code cancels a provider request. Semantic highlighting
 uses `textDocument/semanticTokens/full` directly. The extension-only
 `englang/snapshot` request returns `eng-lsp-snapshot-v1` review and decoration
@@ -705,10 +706,16 @@ at most 128 documents, 4 MiB per document, and 16 MiB of document source in
 total, inside a 100 MiB serialized payload limit. Editor clients must discard
 the result if the participating document set, dirty state, or version changes
 while the subprocess is running. Persistent LSP clients provide open document
-versions through `didOpen` and `didChange`; editor snapshots and position
-requests resolve imports from that full open-document set, and a document
-change republishes diagnostics for open dependents. `didClose` removes that
-buffer override, clears its diagnostics, and rechecks open dependents against
-the remaining open buffers and saved files.
+versions through `didOpen` and ordered incremental `didChange` events; editor
+snapshots and position requests resolve imports from that full open-document
+set, and a document change republishes diagnostics for open dependents.
+`didClose` removes that buffer override, clears its diagnostics, and rechecks
+open dependents against the remaining open buffers and saved files.
+
+The incremental protocol mirror reduces editor-to-server transfer size and
+applies multiple changes in order without splitting UTF-16 surrogate pairs or
+CRLF boundaries. It does not yet make compiler parsing or semantic analysis
+incremental: after the diagnostics debounce, the current compiler still builds
+a complete `CheckReport` for the affected root and open dependents.
 
 This JSON contract is not a replacement for full LSP editor validation.

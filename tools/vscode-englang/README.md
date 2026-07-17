@@ -13,8 +13,9 @@ embedding compiler logic in JavaScript.
 - optional live editor diagnostics, hover, completion, document/workspace
   symbols, semantic same-symbol highlights, and folding from the current
   unsaved buffer plus every modified open EngLang import in the workspace
-- one persistent `eng-lsp --stdio` session for document sync, versioned live
-  diagnostics, cancellable editor requests, and direct protocol semantic tokens
+- one persistent `eng-lsp --stdio` session with incremental UTF-16 document
+  sync, versioned live diagnostics, cancellable editor requests, and direct
+  protocol semantic tokens
 - debounced diagnostics for unsaved buffers after a short typing pause,
   including open dependent EngLang files when an imported buffer changes
 - debounced role-aware color refresh and stale decoration clearing across open

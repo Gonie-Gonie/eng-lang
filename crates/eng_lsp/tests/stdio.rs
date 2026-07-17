@@ -826,7 +826,6 @@ fn stdio_document_cache_tracks_versions_for_diagnostics() {
     }
     let uri = file_uri(&source_path);
     let bad_source = "Q := 2 kW\n";
-    let fixed_source = "Q = 2 kW\n";
 
     let mut child = Command::new(server)
         .stdin(Stdio::piped())
@@ -858,7 +857,7 @@ fn stdio_document_cache_tracks_versions_for_diagnostics() {
     );
     assert_eq!(
         initialize["result"]["capabilities"]["textDocumentSync"]["change"],
-        1
+        2
     );
     assert_eq!(
         initialize["result"]["capabilities"]["textDocumentSync"]["save"]["includeText"],
@@ -897,7 +896,13 @@ fn stdio_document_cache_tracks_versions_for_diagnostics() {
                     "version": 2
                 },
                 "contentChanges": [
-                    { "text": "Q := 3 kW\n" }
+                    {
+                        "range": {
+                            "start": { "line": 0, "character": 5 },
+                            "end": { "line": 0, "character": 6 }
+                        },
+                        "text": "3"
+                    }
                 ]
             }
         }),
@@ -913,7 +918,13 @@ fn stdio_document_cache_tracks_versions_for_diagnostics() {
                     "version": 3
                 },
                 "contentChanges": [
-                    { "text": fixed_source }
+                    {
+                        "range": {
+                            "start": { "line": 0, "character": 2 },
+                            "end": { "line": 0, "character": 4 }
+                        },
+                        "text": "="
+                    }
                 ]
             }
         }),

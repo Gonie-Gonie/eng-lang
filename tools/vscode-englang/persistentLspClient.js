@@ -327,9 +327,10 @@ class PersistentLspClient {
       return;
     }
     this.syncedDocuments.set(uri, { text, version });
+    const incremental = textDocumentSyncKind(this.serverCapabilities) === 2;
     this.sendNotification("textDocument/didChange", {
       textDocument: { uri, version },
-      contentChanges: [{ text }]
+      contentChanges: [incremental ? incrementalContentChange(current.text, text) : { text }]
     }, { allowStarting: true });
   }
 
@@ -930,6 +931,96 @@ function lspPosition(position) {
   };
 }
 
+function textDocumentSyncKind(serverCapabilities) {
+  const synchronization = serverCapabilities?.textDocumentSync;
+  if (Number.isInteger(synchronization)) {
+    return synchronization;
+  }
+  return Number.isInteger(synchronization?.change) ? synchronization.change : undefined;
+}
+
+function textPositionAt(text, offset) {
+  const boundedOffset = Math.max(0, Math.min(Number(offset) || 0, text.length));
+  let line = 0;
+  let lineStart = 0;
+  for (let index = 0; index < boundedOffset; index += 1) {
+    if (text.charCodeAt(index) === 10) {
+      line += 1;
+      lineStart = index + 1;
+    }
+  }
+  return { line, character: boundedOffset - lineStart };
+}
+
+function previousCodePointStart(text, end) {
+  let start = end - 1;
+  const unit = text.charCodeAt(start);
+  if (unit >= 0xDC00 && unit <= 0xDFFF && start > 0) {
+    const previous = text.charCodeAt(start - 1);
+    if (previous >= 0xD800 && previous <= 0xDBFF) {
+      start -= 1;
+    }
+  }
+  return start;
+}
+
+function splitsCrLf(text, offset) {
+  return offset > 0
+    && offset < text.length
+    && text.charCodeAt(offset - 1) === 13
+    && text.charCodeAt(offset) === 10;
+}
+
+function incrementalContentChange(previousText, nextText) {
+  if (previousText === nextText) {
+    const origin = { line: 0, character: 0 };
+    return { range: { start: origin, end: origin }, text: "" };
+  }
+
+  let start = 0;
+  const prefixLimit = Math.min(previousText.length, nextText.length);
+  while (start < prefixLimit) {
+    const previousPoint = previousText.codePointAt(start);
+    if (previousPoint !== nextText.codePointAt(start)) {
+      break;
+    }
+    start += previousPoint > 0xFFFF ? 2 : 1;
+  }
+
+  let previousEnd = previousText.length;
+  let nextEnd = nextText.length;
+  while (previousEnd > start && nextEnd > start) {
+    const previousStart = previousCodePointStart(previousText, previousEnd);
+    const nextStart = previousCodePointStart(nextText, nextEnd);
+    if (
+      previousStart < start
+      || nextStart < start
+      || previousText.slice(previousStart, previousEnd) !== nextText.slice(nextStart, nextEnd)
+    ) {
+      break;
+    }
+    previousEnd = previousStart;
+    nextEnd = nextStart;
+  }
+
+  if (
+    splitsCrLf(previousText, start)
+    || splitsCrLf(nextText, start)
+    || splitsCrLf(previousText, previousEnd)
+    || splitsCrLf(nextText, nextEnd)
+  ) {
+    return { text: nextText };
+  }
+
+  return {
+    range: {
+      start: textPositionAt(previousText, start),
+      end: textPositionAt(previousText, previousEnd)
+    },
+    text: nextText.slice(start, nextEnd)
+  };
+}
+
 function lspRange(range) {
   return {
     start: lspPosition(range?.start),
@@ -978,6 +1069,7 @@ module.exports = {
   LspResponseError,
   PersistentLspClient,
   createPersistentLspRequests,
+  incrementalContentChange,
   lspDiagnostic,
   lspFormattingOptions,
   lspPosition,
