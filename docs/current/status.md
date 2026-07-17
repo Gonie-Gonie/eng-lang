@@ -122,6 +122,8 @@ review material. It is not a broad solver claim.
   and side-effect artifact panels.
 - Packaged editor-tooling binary plus an internal persistent VS Code stdio
   client for document sync, diagnostics, semantic tokens, and editor requests.
+  Exact-source editor requests share one compiler report and lazy snapshot;
+  source changes invalidate the document and recursive open import dependents.
   This is not yet a public cross-release protocol compatibility commitment.
 
 ## Supported But Narrow Main Behavior

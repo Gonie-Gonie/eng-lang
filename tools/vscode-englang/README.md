@@ -16,6 +16,9 @@ embedding compiler logic in JavaScript.
 - one persistent `eng-lsp --stdio` session with incremental UTF-16 document
   sync, versioned live diagnostics, cancellable editor requests, and direct
   protocol semantic tokens
+- exact-source compiler report reuse across completion, diagnostics, hover,
+  semantic tokens, navigation, and review decorations, with lazy snapshot
+  projection and recursive open-import invalidation
 - debounced diagnostics for unsaved buffers after a short typing pause,
   including open dependent EngLang files when an imported buffer changes
 - debounced role-aware color refresh and stale decoration clearing across open
@@ -217,6 +220,11 @@ definition, formatting, static-import-aware references, semantic rename, and
 quick fixes. The extension-only `englang/snapshot` request carries review and
 decoration metadata over the same session. Short-lived compiler endpoints remain
 only as a compatibility fallback for an older or unavailable configured server.
+For an unchanged open source, the server reuses one compiler report and builds
+the shared editor snapshot only when a snapshot-backed feature first needs it.
+Changing an open import invalidates that file and its recursive open dependents,
+while unrelated document analyses remain cached. This does not yet perform
+partial parse or semantic recomputation inside a changed document.
 The client keeps all modified open EngLang documents synchronized in that session. Static
 imports resolve open text before disk, so a changed declaration or import does
 not require a save. Saved workspace files are included only when their static

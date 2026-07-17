@@ -9,16 +9,17 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use eng_compiler::{
-    bundled_module_registry, format_source, parse_source, AstItem, ImportSourceOverrides,
-    ParseContext,
+    bundled_module_registry, check_source_with_import_overrides, format_source, parse_source,
+    AstItem, CheckOptions, CheckReport, ImportSourceOverrides, ParseContext,
 };
 use eng_lsp::{
-    completion_items_for_path_position, completion_items_for_source_position,
+    completion_items_at, completion_items_for_path_position, completion_items_for_source_position,
     completion_items_for_source_position_with_import_overrides, completion_json, diagnostic_json,
     document_symbols_lsp_json, editor_metadata_json, editor_syntax_catalog_json,
     folding_ranges_lsp_json, hover_json, semantic_legend, semantic_tokens_lsp_data,
     semantic_tokens_lsp_json, snapshot_for_path, snapshot_for_source,
-    snapshot_for_source_with_import_overrides, workflow_option_label_exists, LSP_SNAPSHOT_FORMAT,
+    snapshot_for_source_with_import_overrides, snapshot_from_report_with_source,
+    workflow_option_label_exists, LSP_SNAPSHOT_FORMAT,
 };
 use serde_json::{json, Value};
 
@@ -1055,18 +1056,125 @@ fn import_source_overrides_from_documents(documents: &Documents) -> ImportSource
 }
 
 #[derive(Clone, Debug)]
+struct CachedDocumentAnalysis {
+    source: String,
+    report: Arc<CheckReport>,
+    snapshot: Option<Arc<eng_lsp::LspSnapshot>>,
+}
+
+#[derive(Debug, Default)]
+struct DocumentAnalysisCache {
+    analysis: Option<CachedDocumentAnalysis>,
+    hits: usize,
+    misses: usize,
+}
+
+#[derive(Clone, Debug)]
 struct DocumentState {
     text: String,
     version: Option<i64>,
+    analysis_cache: Arc<Mutex<DocumentAnalysisCache>>,
 }
 
 impl DocumentState {
     fn new(text: String, version: Option<i64>) -> Self {
-        Self { text, version }
+        Self {
+            text,
+            version,
+            analysis_cache: Arc::new(Mutex::new(DocumentAnalysisCache::default())),
+        }
+    }
+
+    fn updated(text: String, version: Option<i64>, previous: Option<&Self>) -> Self {
+        if let Some(previous) = previous.filter(|previous| previous.text == text) {
+            return Self {
+                text,
+                version,
+                analysis_cache: Arc::clone(&previous.analysis_cache),
+            };
+        }
+        Self::new(text, version)
+    }
+
+    fn cached_analysis(&self, source: &str) -> Option<CachedDocumentAnalysis> {
+        let mut cache = self
+            .analysis_cache
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let analysis = cache
+            .analysis
+            .as_ref()
+            .filter(|analysis| analysis.source == source)
+            .cloned();
+        if analysis.is_some() {
+            cache.hits += 1;
+        } else {
+            cache.misses += 1;
+        }
+        analysis
+    }
+
+    fn store_analysis(&self, analysis: &CachedDocumentAnalysis) {
+        let mut cache = self
+            .analysis_cache
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        cache.analysis = Some(analysis.clone());
+    }
+
+    fn store_snapshot(
+        &self,
+        source: &str,
+        report: &Arc<CheckReport>,
+        snapshot: &eng_lsp::LspSnapshot,
+    ) {
+        let mut cache = self
+            .analysis_cache
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let Some(analysis) = cache
+            .analysis
+            .as_mut()
+            .filter(|analysis| analysis.source == source && Arc::ptr_eq(&analysis.report, report))
+        else {
+            return;
+        };
+        analysis.snapshot = Some(Arc::new(snapshot.clone()));
+    }
+
+    fn invalidate_analysis(&self) {
+        let mut cache = self
+            .analysis_cache
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        cache.analysis = None;
+    }
+
+    #[cfg(test)]
+    fn analysis_cache_stats(&self) -> (usize, usize, bool, bool) {
+        let cache = self
+            .analysis_cache
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        (
+            cache.hits,
+            cache.misses,
+            cache.analysis.is_some(),
+            cache
+                .analysis
+                .as_ref()
+                .is_some_and(|analysis| analysis.snapshot.is_some()),
+        )
     }
 }
 
 type Documents = HashMap<String, DocumentState>;
+
+fn invalidate_document_analyses<'a>(states: impl IntoIterator<Item = &'a DocumentState>) {
+    for state in states {
+        state.invalidate_analysis();
+    }
+}
 
 const DEFAULT_PERSISTENT_DIAGNOSTICS_DEBOUNCE_MS: u64 = 150;
 const MAX_PERSISTENT_DIAGNOSTICS_DEBOUNCE_MS: u64 = 5_000;
@@ -1468,8 +1576,14 @@ fn run_lsp() -> io::Result<()> {
             "$/cancelRequest" => {}
             "textDocument/didOpen" | "textDocument/didChange" | "textDocument/didSave" => {
                 if let Some((uri, state)) = document_state_from_notification(&request, &documents) {
+                    let source_changed = documents
+                        .get(&uri)
+                        .is_none_or(|previous| previous.text != state.text);
                     documents.insert(uri.clone(), state.clone());
                     let affected = diagnostic_documents_after_change(&uri, &documents);
+                    if source_changed {
+                        invalidate_document_analyses(affected.iter().map(|(_, state)| state));
+                    }
                     if method == "textDocument/didChange" {
                         pending_diagnostics.schedule(
                             affected.into_iter().map(|(open_uri, _)| open_uri),
@@ -1489,6 +1603,7 @@ fn run_lsp() -> io::Result<()> {
                         .into_iter()
                         .filter(|(open_uri, _)| open_uri != &uri)
                         .collect::<Vec<_>>();
+                    invalidate_document_analyses(dependents.iter().map(|(_, state)| state));
                     pending_diagnostics.cancel(&uri);
                     documents.remove(&uri);
                     semantic_token_cache.remove_document(&uri);
@@ -1500,6 +1615,7 @@ fn run_lsp() -> io::Result<()> {
                 }
             }
             "workspace/didChangeWatchedFiles" => {
+                invalidate_document_analyses(documents.values());
                 semantic_token_cache = SemanticTokenCache::default();
                 let open_documents = documents
                     .iter()
@@ -6525,8 +6641,46 @@ fn snapshot_for_open_documents(
     source: &str,
     documents: &Documents,
 ) -> eng_lsp::LspSnapshot {
+    let analysis = analysis_for_open_documents(path, source, documents);
+    if let Some(snapshot) = analysis.snapshot {
+        return (*snapshot).clone();
+    }
+    let snapshot = snapshot_from_report_with_source(&analysis.report, Some(source));
+    if let Some((_, state)) =
+        workspace_document_for_path(documents, path).filter(|(_, state)| state.text == source)
+    {
+        state.store_snapshot(source, &analysis.report, &snapshot);
+    }
+    snapshot
+}
+
+fn analysis_for_open_documents(
+    path: &Path,
+    source: &str,
+    documents: &Documents,
+) -> CachedDocumentAnalysis {
+    let open_document = workspace_document_for_path(documents, path)
+        .map(|(_, state)| state)
+        .filter(|state| state.text == source);
+    if let Some(analysis) = open_document.and_then(|state| state.cached_analysis(source)) {
+        return analysis;
+    }
     let import_overrides = import_source_overrides_from_documents(documents);
-    snapshot_for_source_with_import_overrides(path, source, &import_overrides)
+    let report = Arc::new(check_source_with_import_overrides(
+        path,
+        source,
+        &import_overrides,
+        &CheckOptions::default(),
+    ));
+    let analysis = CachedDocumentAnalysis {
+        source: source.to_owned(),
+        report,
+        snapshot: None,
+    };
+    if let Some(state) = open_document {
+        state.store_analysis(&analysis);
+    }
+    analysis
 }
 
 const MAX_WORKSPACE_INDEX_FILES: usize = 500;
@@ -6813,14 +6967,8 @@ fn completions_for_request(request: &Value, documents: &Documents) -> Vec<eng_ls
         .and_then(Value::as_u64)
         .unwrap_or(0) as usize;
     if let Some(text) = document_text_for_uri(uri, documents) {
-        let import_overrides = import_source_overrides_from_documents(documents);
-        return completion_items_for_source_position_with_import_overrides(
-            &path,
-            &text,
-            line,
-            character,
-            &import_overrides,
-        );
+        let analysis = analysis_for_open_documents(&path, &text, documents);
+        return completion_items_at(&analysis.report, &text, line, character);
     }
     completion_items_for_path_position(&path, line, character).unwrap_or_default()
 }
@@ -9035,7 +9183,8 @@ fn document_state_from_notification(
             .or_else(|| path_from_uri(&uri).and_then(|path| std::fs::read_to_string(path).ok()))?,
         _ => return None,
     };
-    Some((uri, DocumentState::new(text, version)))
+    let state = DocumentState::updated(text, version, documents.get(&uri));
+    Some((uri, state))
 }
 
 fn stale_document_notification(request: &Value, current: Option<&DocumentState>) -> bool {
@@ -9736,6 +9885,66 @@ mod tests {
     }
 
     #[test]
+    fn open_document_analysis_snapshot_is_reused_until_invalidated() {
+        let root = std::env::temp_dir().join(format!(
+            "eng_lsp_document_analysis_cache_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("analysis cache fixture should be created");
+        let path = root.join("current.eng");
+        let source = "value = 2 kW\n";
+        std::fs::write(&path, source).expect("analysis cache source should be written");
+        let path = path
+            .canonicalize()
+            .expect("analysis cache source should exist");
+        let uri = file_uri_from_path(&path);
+        let mut documents = Documents::new();
+        documents.insert(uri.clone(), DocumentState::new(source.to_owned(), Some(1)));
+
+        let completion_request = json!({
+            "params": {
+                "textDocument": { "uri": uri },
+                "position": { "line": 0, "character": 5 }
+            }
+        });
+        let completions = completions_for_request(&completion_request, &documents);
+        assert!(!completions.is_empty());
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 1, true, false),
+            "completion should cache the compiler report without eager snapshot projection"
+        );
+        let first = snapshot_for_open_documents(&path, source, &documents);
+        let second = snapshot_for_open_documents(&path, source, &documents);
+        assert_eq!(first, second);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (2, 1, true, true),
+            "snapshot requests should reuse the completion compiler report and projection"
+        );
+
+        let save = json!({
+            "method": "textDocument/didSave",
+            "params": { "textDocument": { "uri": uri } }
+        });
+        let (saved_uri, saved_state) =
+            document_state_from_notification(&save, &documents).expect("saved document state");
+        assert_eq!(saved_state.analysis_cache_stats(), (2, 1, true, true));
+        documents.insert(saved_uri, saved_state);
+        let after_save = snapshot_for_open_documents(&path, source, &documents);
+        assert_eq!(first, after_save);
+        assert_eq!(documents[&uri].analysis_cache_stats(), (3, 1, true, true));
+
+        invalidate_document_analyses(documents.values());
+        assert_eq!(documents[&uri].analysis_cache_stats(), (3, 1, false, false));
+        let rebuilt = snapshot_for_open_documents(&path, source, &documents);
+        assert_eq!(first, rebuilt);
+        assert_eq!(documents[&uri].analysis_cache_stats(), (3, 2, true, true));
+        std::fs::remove_dir_all(&root).expect("analysis cache fixture should be removed");
+    }
+
+    #[test]
     fn changed_import_republishes_only_recursive_open_dependents() {
         let root = std::env::temp_dir().join(format!(
             "eng_lsp_open_import_diagnostics_{}",
@@ -9767,6 +9976,25 @@ mod tests {
         let current_uri = file_uri_from_path(&current_path.canonicalize().unwrap());
         let unrelated_uri = file_uri_from_path(&unrelated_path.canonicalize().unwrap());
 
+        for (uri, path) in [
+            (&bridge_uri, &bridge_path),
+            (&current_uri, &current_path),
+            (&unrelated_uri, &unrelated_path),
+        ] {
+            let source = documents
+                .get(uri)
+                .expect("open analysis document")
+                .text
+                .clone();
+            let first = snapshot_for_open_documents(path, &source, &documents);
+            let second = snapshot_for_open_documents(path, &source, &documents);
+            assert_eq!(first, second);
+            assert_eq!(
+                documents.get(uri).unwrap().analysis_cache_stats(),
+                (1, 1, true, true)
+            );
+        }
+
         let affected = diagnostic_documents_after_change(&module_uri, &documents);
         let affected_uris = affected
             .iter()
@@ -9777,6 +10005,33 @@ mod tests {
         assert!(affected_uris.contains(&current_uri.as_str()));
         assert!(!affected_uris.contains(&unrelated_uri.as_str()));
         assert_eq!(affected_uris.last().copied(), Some(module_uri.as_str()));
+
+        invalidate_document_analyses(affected.iter().map(|(_, state)| state));
+        assert_eq!(
+            documents[&bridge_uri].analysis_cache_stats(),
+            (1, 1, false, false)
+        );
+        assert_eq!(
+            documents[&current_uri].analysis_cache_stats(),
+            (1, 1, false, false)
+        );
+        assert_eq!(
+            documents[&unrelated_uri].analysis_cache_stats(),
+            (1, 1, true, true)
+        );
+
+        let current_source = documents[&current_uri].text.clone();
+        let unrelated_source = documents[&unrelated_uri].text.clone();
+        let _ = snapshot_for_open_documents(&current_path, &current_source, &documents);
+        let _ = snapshot_for_open_documents(&unrelated_path, &unrelated_source, &documents);
+        assert_eq!(
+            documents[&current_uri].analysis_cache_stats(),
+            (1, 2, true, true)
+        );
+        assert_eq!(
+            documents[&unrelated_uri].analysis_cache_stats(),
+            (2, 1, true, true)
+        );
         std::fs::remove_dir_all(&root).expect("diagnostic fixture should be removed");
     }
 
@@ -9820,6 +10075,11 @@ mod tests {
             .iter()
             .any(|diagnostic| diagnostic.code == "E-FN-CALL-001"));
 
+        let dependents = diagnostic_documents_after_change(&module_uri, &documents)
+            .into_iter()
+            .filter(|(uri, _)| uri != &module_uri)
+            .collect::<Vec<_>>();
+        invalidate_document_analyses(dependents.iter().map(|(_, state)| state));
         documents.remove(&module_uri);
         let disk_snapshot = snapshot_for_open_documents(&current_path, current_source, &documents);
         assert!(disk_snapshot

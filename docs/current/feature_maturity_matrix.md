@@ -231,14 +231,15 @@ separate.
 - Public package: `Internal`
 - Main status: `Internal`
 - Evidence: `eng-lsp.exe` smoke/editor-request checks, a versioned persistent
-  document cache with debounced diagnostics, a VS Code persistent stdio client
-  with document sync and direct protocol semantic tokens, request-ID-scoped protocol
+  document cache with debounced diagnostics, exact-source `CheckReport` reuse,
+  lazy shared editor snapshots, recursive import-dependent invalidation, a VS Code
+  persistent stdio client with document sync and direct protocol semantic tokens, request-ID-scoped protocol
   cancellation with cooperative workspace scan interruption, compiler-owned
   declaration and explicit Outline selection ranges, import-source isolation
   across diagnostics/semantic overlays/hover fallback, source-origin-aware
   validation records, stdio tests, and optional VS Code source.
 - Not included: a stable public compatibility guarantee across EngLang releases
-  or incremental parsing.
+  or partial parse/semantic recomputation inside a changed document.
 - Next cleanup action: keep the implemented persistent service tested while its
   public maturity remains explicit.
 
