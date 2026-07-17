@@ -24,6 +24,13 @@ use serde_json::{json, Value};
 
 fn main() -> std::process::ExitCode {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
+    if args.first().map(String::as_str) == Some("--stdio") {
+        if args.len() != 1 {
+            eprintln!("usage: eng-lsp --stdio");
+            return std::process::ExitCode::from(2);
+        }
+        return command_stdio();
+    }
     if args.first().map(String::as_str) == Some("--smoke") {
         return command_smoke();
     }
@@ -130,6 +137,10 @@ fn main() -> std::process::ExitCode {
         return command_workspace_symbols(args.get(1), args.get(2));
     }
 
+    command_stdio()
+}
+
+fn command_stdio() -> std::process::ExitCode {
     match run_lsp() {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(error) => {
@@ -1431,6 +1442,9 @@ fn run_lsp() -> io::Result<()> {
                                     },
                                     "full": { "delta": true },
                                     "range": true
+                                },
+                                "experimental": {
+                                    "englangSnapshotProvider": true
                                 }
                             },
                             "serverInfo": {
@@ -1483,6 +1497,17 @@ fn run_lsp() -> io::Result<()> {
                         pending_diagnostics.cancel(&open_uri);
                         publish_diagnostics(&mut output, &open_uri, &open_state, &documents)?;
                     }
+                }
+            }
+            "workspace/didChangeWatchedFiles" => {
+                semantic_token_cache = SemanticTokenCache::default();
+                let open_documents = documents
+                    .iter()
+                    .map(|(uri, state)| (uri.clone(), state.clone()))
+                    .collect::<Vec<_>>();
+                for (uri, state) in open_documents {
+                    pending_diagnostics.cancel(&uri);
+                    publish_diagnostics(&mut output, &uri, &state, &documents)?;
                 }
             }
             "textDocument/completion" => {
@@ -1656,6 +1681,16 @@ fn run_lsp() -> io::Result<()> {
                 write_request_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": ranges }),
+                    cancellation.as_ref(),
+                )?;
+            }
+            "englang/snapshot" => {
+                let snapshot = snapshot_for_request(&request, &documents)
+                    .map(|snapshot| eng_lsp::snapshot_json(&snapshot))
+                    .unwrap_or(Value::Null);
+                write_request_response(
+                    &mut output,
+                    json!({ "jsonrpc": "2.0", "id": id, "result": snapshot }),
                     cancellation.as_ref(),
                 )?;
             }

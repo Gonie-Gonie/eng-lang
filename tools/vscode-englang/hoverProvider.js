@@ -3,6 +3,7 @@ const {
   definitionNameCandidates,
   identifierPathRangeAt
 } = require("./lspNavigation");
+const { vscodeRangeFromLsp } = require("./lspRanges");
 
 const HOVER_KIND_LABELS = Object.freeze({
   variable: "Variable",
@@ -52,6 +53,7 @@ class EngHoverProvider {
   constructor(context, options = {}) {
     this.context = context;
     this.isEngDocument = options.isEngDocument ?? (() => true);
+    this.hoverForPosition = options.hoverForPosition;
     this.snapshotDocumentSource = options.snapshotDocumentSource;
     this.cachedSnapshotForDocument = options.cachedSnapshotForDocument ?? (() => undefined);
     this.cacheSnapshotForDocument = options.cacheSnapshotForDocument ?? (() => undefined);
@@ -62,6 +64,18 @@ class EngHoverProvider {
       return undefined;
     }
     const documentVersion = document.version;
+    const protocolHover = await this.hoverForPosition?.(
+      document,
+      position,
+      cancellationToken
+    );
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return undefined;
+    }
+    if (protocolHover !== undefined) {
+      return hoverFromLsp(document, position, protocolHover);
+    }
+
     const liveSnapshot = await this.snapshotDocumentSource?.(document, this.context, cancellationToken);
     if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
       return undefined;
@@ -73,6 +87,15 @@ class EngHoverProvider {
     this.cacheSnapshotForDocument(document, snapshot);
     return hoverFromSnapshot(document, position, snapshot);
   }
+}
+
+function hoverFromLsp(document, position, payload) {
+  if (!payload) {
+    return undefined;
+  }
+  const range = vscodeRangeFromLsp(payload.range) ?? hoverRangeAtPosition(document, position);
+  const word = range ? document.getText(range) : "";
+  return hoverFromPayload(payload, word, range);
 }
 
 function hoverFromSnapshot(document, position, snapshot) {
@@ -282,6 +305,7 @@ module.exports = {
   findHoverForWord,
   semanticRoleHoverKind,
   hoverKindLabel,
+  hoverFromLsp,
   hoverStatusLabel,
   hoverFromSnapshot,
   semanticHoverAtPosition,

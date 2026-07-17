@@ -21,6 +21,7 @@ class EngDiagnosticsController {
     this.isEngDocument = options.isEngDocument ?? (() => true);
     this.clearSnapshotCache = options.clearSnapshotCache ?? (() => undefined);
     this.diagnosticsRuntime = options.diagnosticsRuntime;
+    this.persistentDiagnostics = options.persistentDiagnostics === true;
     this.diagnosticsRuntimeLabel = options.diagnosticsRuntimeLabel ?? ((runtimeMode) => runtimeMode);
     this.findLspRuntime = options.findLspRuntime;
     this.findRuntime = options.findRuntime;
@@ -45,6 +46,9 @@ class EngDiagnosticsController {
     if (!this.isEngDocument(document)) {
       return;
     }
+    if (this.persistentDiagnostics && this.diagnosticsRuntime?.(document) === "lsp-snapshot") {
+      return;
+    }
     const config = vscode.workspace.getConfiguration("englang", document.uri);
     if (!config.get("lintOnSave", true) || document.isDirty) {
       return;
@@ -60,6 +64,9 @@ class EngDiagnosticsController {
     this.clearSnapshotCache(document);
     this.invalidateDocumentCheck(document);
     if (this.diagnosticsRuntime?.(document) !== "lsp-snapshot") {
+      return;
+    }
+    if (this.persistentDiagnostics) {
       return;
     }
     const config = vscode.workspace.getConfiguration("englang", document.uri);
@@ -142,6 +149,9 @@ class EngDiagnosticsController {
     const config = vscode.workspace.getConfiguration("englang", document.uri);
     const runtimeMode = this.diagnosticsRuntime?.(document);
     if (runtimeMode === "lsp-snapshot") {
+      if (this.persistentDiagnostics) {
+        return undefined;
+      }
       const setting = document.isDirty ? "lintOnChange" : "lintOnSave";
       return config.get(setting, true) ? "source" : undefined;
     }
@@ -292,6 +302,9 @@ class EngDiagnosticsController {
   }
 
   checkDocument(document) {
+    if (this.persistentDiagnostics && this.diagnosticsRuntime?.(document) === "lsp-snapshot") {
+      return this.checkDocumentSource(document);
+    }
     const checkRevision = this.beginDocumentCheck(document);
     const runtimeMode = this.diagnosticsRuntime(document);
     const runtime = runtimeMode === "lsp-snapshot"
@@ -459,6 +472,58 @@ class EngDiagnosticsController {
     const errors = review.diagnostics?.filter((item) => severityName(item.severity) === "error").length ?? 0;
     const warnings = review.diagnostics?.filter((item) => severityName(item.severity) === "warning").length ?? 0;
     this.appendLine(`diagnostics (${diagnosticSource(runtimeLabel)}): ${errors} error(s), ${warnings} warning(s)`);
+  }
+
+  applyPublishedDiagnostics(document, params) {
+    if (
+      !document
+      || !this.isEngDocument(document)
+      || this.diagnosticsRuntime?.(document) !== "lsp-snapshot"
+      || !Array.isArray(params?.diagnostics)
+    ) {
+      return false;
+    }
+    if (Number.isInteger(params.version) && params.version !== document.version) {
+      this.appendLine(
+        `Ignored stale live diagnostics for ${document.uri.fsPath}: server version ${params.version}, editor version ${document.version}`
+      );
+      return false;
+    }
+    const config = vscode.workspace.getConfiguration("englang", document.uri);
+    const enabled = document.isDirty
+      ? config.get("lintOnChange", true)
+      : config.get("lintOnSave", true);
+    if (!enabled) {
+      return false;
+    }
+
+    this.clearPendingCheck(document);
+    this.invalidateDocumentCheck(document);
+    const converted = toDiagnostics(document, { diagnostics: params.diagnostics }, {
+      source: diagnosticSource("live editor")
+    });
+    this.diagnostics.set(document.uri, converted);
+    const errors = params.diagnostics.filter((item) => severityName(item.severity) === "error").length;
+    const warnings = params.diagnostics.filter((item) => severityName(item.severity) === "warning").length;
+    this.appendLine(`diagnostics (eng/live): ${errors} error(s), ${warnings} warning(s)`);
+    return true;
+  }
+
+  applyReviewSnapshot(document, review, documentVersion = document?.version) {
+    if (
+      !document
+      || !this.isEngDocument(document)
+      || document.version !== documentVersion
+      || this.diagnosticsRuntime?.(document) !== "lsp-snapshot"
+      || review?.format !== "eng-lsp-snapshot-v1"
+    ) {
+      return false;
+    }
+    this.cacheReview(document, review);
+    this.updateReviewRiskDecorations(document, review);
+    this.updateReviewValidationDecorations(document, review);
+    this.updateSemanticSymbolDecorations(document, review);
+    return true;
   }
 
   applyUnavailableSnapshotDiagnostic(document, runtimeLabel = "editor", failure = undefined) {
@@ -1260,6 +1325,14 @@ function diagnosticCodeTarget(code) {
 }
 
 function diagnosticTags(item) {
+  const protocolTags = Array.isArray(item?.tags) ? item.tags : [];
+  const tags = new Set();
+  if (protocolTags.includes(1)) {
+    tags.add(vscode.DiagnosticTag.Unnecessary);
+  }
+  if (protocolTags.includes(2)) {
+    tags.add(vscode.DiagnosticTag.Deprecated);
+  }
   const code = diagnosticCodeValue(item) ?? "";
   const message = String(item?.message ?? "").toLowerCase();
   if (
@@ -1269,9 +1342,9 @@ function diagnosticTags(item) {
     message.includes("legacy") ||
     message.includes("deprecated")
   ) {
-    return [vscode.DiagnosticTag.Deprecated];
+    tags.add(vscode.DiagnosticTag.Deprecated);
   }
-  return [];
+  return Array.from(tags);
 }
 
 function diagnosticsFailureDetail(details = {}) {
@@ -1341,6 +1414,9 @@ function severityName(severity) {
   if (severity === 2 || severity === "warning") {
     return "warning";
   }
+  if (severity === 4 || severity === "hint") {
+    return "hint";
+  }
   return "info";
 }
 
@@ -1351,6 +1427,9 @@ function toVscodeSeverity(severity) {
   }
   if (name === "warning") {
     return vscode.DiagnosticSeverity.Warning;
+  }
+  if (name === "hint") {
+    return vscode.DiagnosticSeverity.Hint ?? vscode.DiagnosticSeverity.Information;
   }
   return vscode.DiagnosticSeverity.Information;
 }

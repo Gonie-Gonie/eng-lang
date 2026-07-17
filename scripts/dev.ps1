@@ -3801,6 +3801,7 @@ function Assert-VscodeExtensionContract {
     $LspNavigationPath = Join-Path $ExtensionRoot "lspNavigation.js"
     $LspRangesPath = Join-Path $ExtensionRoot "lspRanges.js"
     $LspRequestsPath = Join-Path $ExtensionRoot "lspRequests.js"
+    $PersistentLspClientPath = Join-Path $ExtensionRoot "persistentLspClient.js"
     $LspSemanticTokensPath = Join-Path $ExtensionRoot "lspSemanticTokens.js"
     $ArtifactRegistryPath = Join-Path $ExtensionRoot "artifactRegistry.js"
     $EditorMetadataLoaderPath = Join-Path $ExtensionRoot "editorMetadata.js"
@@ -3819,6 +3820,7 @@ function Assert-VscodeExtensionContract {
     $EditorRequestRaceTestPath = Join-Path $ExtensionRoot "test\editorRequestRace.test.js"
     $RenameTestPath = Join-Path $ExtensionRoot "test\rename.test.js"
     $WorkspaceSymbolsTestPath = Join-Path $ExtensionRoot "test\workspaceSymbols.test.js"
+    $PersistentLspClientTestPath = Join-Path $ExtensionRoot "test\persistentLspClient.test.js"
     $SemanticModifierBitsetTestPath = Join-Path $ExtensionRoot "test\semanticModifierBitset.test.js"
     $TextMateExampleCoverageTestPath = Join-Path $ExtensionRoot "test\textmateExampleCoverage.test.js"
     $SnippetsPath = Join-Path $ExtensionRoot "snippets\eng.json"
@@ -3898,6 +3900,9 @@ function Assert-VscodeExtensionContract {
     if (-not (Test-Path $LspRequestsPath)) {
         throw "missing VS Code LSP request bridge at $LspRequestsPath"
     }
+    if (-not (Test-Path $PersistentLspClientPath)) {
+        throw "missing VS Code persistent LSP client at $PersistentLspClientPath"
+    }
     if (-not (Test-Path $LspSemanticTokensPath)) {
         throw "missing VS Code LSP semantic token bridge at $LspSemanticTokensPath"
     }
@@ -3951,6 +3956,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $WorkspaceSymbolsTestPath)) {
         throw "missing VS Code unsaved workspace symbol smoke at $WorkspaceSymbolsTestPath"
+    }
+    if (-not (Test-Path $PersistentLspClientTestPath)) {
+        throw "missing VS Code persistent LSP client smoke at $PersistentLspClientTestPath"
     }
     if (-not (Test-Path $SemanticModifierBitsetTestPath)) {
         throw "missing VS Code semantic modifier bitset smoke at $SemanticModifierBitsetTestPath"
@@ -4946,12 +4954,12 @@ function Assert-VscodeExtensionContract {
         }
     }
     foreach ($RequiredVscodeRaceSafetyWording in @(
-        "Checks are ordered per document",
-        "slower earlier request cannot replace",
+        "Live diagnostics are versioned per document",
+        "a slower earlier result cannot",
         "newer Problems",
-        "Starting a newer file check stops the older subprocess",
-        "cancelled color-refresh caller does not interrupt another caller",
-        "same current-revision analysis"
+        "server coalesces pending checks",
+        "request cancellation interrupts only",
+        "shared language-server session"
     )) {
         if (-not $VscodeReadmeSource.Contains($RequiredVscodeRaceSafetyWording)) {
             throw "VS Code README missing live-analysis race safety wording $RequiredVscodeRaceSafetyWording"
@@ -4974,6 +4982,7 @@ function Assert-VscodeExtensionContract {
     $LspNavigationSource = Get-Content -LiteralPath $LspNavigationPath -Raw
     $LspRangesSource = Get-Content -LiteralPath $LspRangesPath -Raw
     $LspRequestsSource = Get-Content -LiteralPath $LspRequestsPath -Raw
+    $PersistentLspClientSource = Get-Content -LiteralPath $PersistentLspClientPath -Raw
     $LspSemanticTokensSource = Get-Content -LiteralPath $LspSemanticTokensPath -Raw
     $ArtifactRegistrySource = Get-Content -LiteralPath $ArtifactRegistryPath -Raw
     $EditorMetadataLoaderSource = Get-Content -LiteralPath $EditorMetadataLoaderPath -Raw
@@ -4983,6 +4992,7 @@ function Assert-VscodeExtensionContract {
     $ReviewPanelRendererSource = Get-Content -LiteralPath $ReviewPanelRendererPath -Raw
     $CodeActionsTestSource = Get-Content -LiteralPath $CodeActionsTestPath -Raw
     $EditorRequestRaceTestSource = Get-Content -LiteralPath $EditorRequestRaceTestPath -Raw
+    $PersistentLspClientTestSource = Get-Content -LiteralPath $PersistentLspClientTestPath -Raw
     $DiagnosticsSource = $ExtensionSource + "`n" + $DiagnosticsProviderSource
     foreach ($RequiredStatusBarToken in @(
         "createStatusBarItem",
@@ -5069,6 +5079,40 @@ function Assert-VscodeExtensionContract {
     }
     if ($ExtensionSource.Contains("function findRuntime") -or $ExtensionSource.Contains("function findLspRuntime") -or $ExtensionSource.Contains("function findLspRuntimeForRoot") -or $ExtensionSource.Contains("function workspaceRoot") -or $ExtensionSource.Contains("function currentWorkspaceRoot") -or $ExtensionSource.Contains("function engConfig")) {
         throw "VS Code extension must keep runtime discovery helpers in runtimeDiscovery.js"
+    }
+    $PersistentClientSourceCombined = $ExtensionSource + "`n" + $PersistentLspClientSource + "`n" + $PersistentLspClientTestSource + "`n" + $SemanticTokensProviderSource + "`n" + $LspSemanticTokensSource
+    foreach ($RequiredPersistentClientToken in @(
+        'require("./persistentLspClient")',
+        "new PersistentLspClient(context",
+        "createPersistentLspRequests",
+        'this.spawn(runtime, ["--stdio"]',
+        'Content-Length: ${body.length}',
+        'sendRequest("initialize"',
+        'sendNotification("initialized"',
+        '"textDocument/didOpen"',
+        '"textDocument/didChange"',
+        '"textDocument/didSave"',
+        '"textDocument/didClose"',
+        '"workspace/didChangeWatchedFiles"',
+        '"textDocument/publishDiagnostics"',
+        '"$/cancelRequest"',
+        'sendRequest("shutdown"',
+        'sendNotification("exit"',
+        '"englang/snapshot"',
+        '"textDocument/semanticTokens/full"',
+        "semanticTokensForDocument",
+        "semanticTokensFromLsp",
+        "clientStatus",
+        "protocol_semantic_tokens",
+        "snapshotFallbacks",
+        'assert.strictEqual(spawnCalls.length, 2)'
+    )) {
+        if (-not $PersistentClientSourceCombined.Contains($RequiredPersistentClientToken)) {
+            throw "VS Code persistent language client contract missing token $RequiredPersistentClientToken"
+        }
+    }
+    if ($PersistentLspClientSource.Contains("execFile(")) {
+        throw "VS Code persistent language client must not launch a process per editor request"
     }
     $CommandSourceCombined = $ExtensionSource + "`n" + $CommandHandlersSource
     $RegisteredCommands = @([regex]::Matches($ExtensionSource, 'registerCommand\("([^"]+)"') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
@@ -5219,8 +5263,8 @@ function Assert-VscodeExtensionContract {
         "live_editor: liveEditorTool",
         "eng: checkAndRunTool",
         "eng_lsp: liveEditorTool",
-        'request_model: "on-demand live editor checks"',
-        "long_running_language_server: false",
+        'request_model: "persistent stdio JSON-RPC session"',
+        "long_running_language_server: true",
         'live_buffer_tool: "live_editor"',
         'file_check_tool: "check_and_run"'
     )) {
@@ -5562,9 +5606,10 @@ function Assert-VscodeExtensionContract {
     }
     foreach ($RequiredDiskImportRefreshToken in @(
         'vscode.workspace.createFileSystemWatcher("**/*.eng")',
-        "engSourceWatcher.onDidCreate(refreshWorkspaceAfterClosedEngSourceChange)",
-        "engSourceWatcher.onDidChange(refreshWorkspaceAfterClosedEngSourceChange)",
-        "engSourceWatcher.onDidDelete(refreshWorkspaceAfterClosedEngSourceChange)",
+        "engSourceWatcher.onDidCreate((uri) => refreshWorkspaceAfterClosedEngSourceChange(uri, 1))",
+        "engSourceWatcher.onDidChange((uri) => refreshWorkspaceAfterClosedEngSourceChange(uri, 2))",
+        "engSourceWatcher.onDidDelete((uri) => refreshWorkspaceAfterClosedEngSourceChange(uri, 3))",
+        "languageClient.watchedFileChanged(uri, changeType)",
         "isWorkspaceEngSourceUri(uri)",
         "refreshWorkspaceAfterEngSourceSave(document)",
         "diagnosticController.scheduleWorkspaceFileChangedChecks(document)",
@@ -5973,7 +6018,7 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains("syntaxCatalog: editorMetadata.syntaxCatalog")) {
         throw "VS Code extension must pass generated syntax catalog metadata into command handlers"
     }
-    if (-not $ExtensionSource.Contains('require("./semanticTokensProvider")') -or -not $SemanticTokensProviderSource.Contains("EngSemanticTokensProvider") -or -not $SemanticTokensProviderSource.Contains("snapshotDocumentSource")) {
+    if (-not $ExtensionSource.Contains('require("./semanticTokensProvider")') -or -not $SemanticTokensProviderSource.Contains("EngSemanticTokensProvider") -or -not $SemanticTokensProviderSource.Contains("semanticTokensForDocument") -or -not $SemanticTokensProviderSource.Contains("semanticTokensFromLsp") -or -not $SemanticTokensProviderSource.Contains("snapshotDocumentSource")) {
         throw "VS Code extension must load semantic token provider orchestration from semanticTokensProvider.js"
     }
     if (-not $SemanticTokensProviderSource.Contains("onDidChangeSemanticTokens") -or -not $SemanticTokensProviderSource.Contains("refresh()") -or -not $SemanticTokensProviderSource.Contains("_onDidChangeSemanticTokens.fire()")) {
@@ -6001,7 +6046,7 @@ function Assert-VscodeExtensionContract {
     if ($DecorationsSource.Contains("planned workflow surface") -or $DecorationsSource.Contains("bundled stdlib boundary")) {
         throw "VS Code planned/internal symbol hover wording should not use stale implementation-surface wording"
     }
-    if (-not $SemanticProviderSource.Contains('require("./lspSemanticTokens")') -or -not $LspSemanticTokensSource.Contains("semanticTokensFromSnapshot") -or -not $LspSemanticTokensSource.Contains("semanticTokenRange") -or -not $LspSemanticTokensSource.Contains("semanticTokenDebugSample") -or -not $LspSemanticTokensSource.Contains("semanticTokenSelectors") -or -not $LspSemanticTokensSource.Contains("semanticTokenFallbackScopes") -or -not $LspSemanticTokensSource.Contains("semanticTokenUnmappedSelectors")) {
+    if (-not $SemanticProviderSource.Contains('require("./lspSemanticTokens")') -or -not $LspSemanticTokensSource.Contains("semanticTokensFromLsp") -or -not $LspSemanticTokensSource.Contains("semanticTokensFromSnapshot") -or -not $LspSemanticTokensSource.Contains("semanticTokenRange") -or -not $LspSemanticTokensSource.Contains("semanticTokenDebugSample") -or -not $LspSemanticTokensSource.Contains("semanticTokenSelectors") -or -not $LspSemanticTokensSource.Contains("semanticTokenFallbackScopes") -or -not $LspSemanticTokensSource.Contains("semanticTokenUnmappedSelectors")) {
         throw "VS Code extension must share LSP semantic token conversion through lspSemanticTokens.js"
     }
     if ($ExtensionSource.Contains("class EngSemanticTokensProvider") -or $ExtensionSource.Contains("function semanticTokensFromSnapshot") -or $ExtensionSource.Contains("function semanticModifierBits") -or $ExtensionSource.Contains("function semanticTokenDebugSample")) {
@@ -7117,6 +7162,7 @@ function Assert-VscodeExtensionContract {
         $LspNavigationPath,
         $LspRangesPath,
         $LspRequestsPath,
+        $PersistentLspClientPath,
         $LspSemanticTokensPath,
         $ArtifactRegistryPath,
         $EditorMetadataLoaderPath,
@@ -7135,6 +7181,7 @@ function Assert-VscodeExtensionContract {
         $EditorRequestRaceTestPath,
         $RenameTestPath,
         $WorkspaceSymbolsTestPath,
+        $PersistentLspClientTestPath,
         $SemanticModifierBitsetTestPath,
         $TextMateExampleCoverageTestPath
     )
@@ -7150,6 +7197,7 @@ function Assert-VscodeExtensionContract {
     Invoke-JavaScriptProgram -Path $EditorRequestRaceTestPath -Label "VS Code editor request race smoke"
     Invoke-JavaScriptProgram -Path $RenameTestPath -Label "VS Code semantic rename smoke"
     Invoke-JavaScriptProgram -Path $WorkspaceSymbolsTestPath -Label "VS Code unsaved workspace symbol smoke"
+    Invoke-JavaScriptProgram -Path $PersistentLspClientTestPath -Label "VS Code persistent LSP client smoke"
     Invoke-JavaScriptProgram -Path $SemanticModifierBitsetTestPath -Label "VS Code semantic modifier bitset smoke"
     Invoke-JavaScriptProgram -Path $TextMateExampleCoverageTestPath -Label "VS Code TextMate example coverage smoke"
 
@@ -8262,7 +8310,10 @@ function Invoke-LspCheck {
         '"openClose": true',
         '"save": { "includeText": true }',
         '"method": "textDocument/publishDiagnostics"',
-        'params.insert("version".to_owned(), json!(version))'
+        'params.insert("version".to_owned(), json!(version))',
+        '"workspace/didChangeWatchedFiles"',
+        '"englang/snapshot"',
+        '"englangSnapshotProvider": true'
     )) {
         if (-not $LspCliSource.Contains($RequiredPersistentLspToken)) {
             throw "eng-lsp CLI missing persistent document/version diagnostics token $RequiredPersistentLspToken"
@@ -9456,8 +9507,14 @@ function Invoke-PackageSmoke {
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\lspRequests.js"))) {
             throw "portable package did not include VS Code LSP request bridge"
         }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\persistentLspClient.js"))) {
+            throw "portable package did not include VS Code persistent LSP client"
+        }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\lspSemanticTokens.js"))) {
             throw "portable package did not include VS Code LSP semantic token bridge"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\test\persistentLspClient.test.js"))) {
+            throw "portable package did not include VS Code persistent LSP client smoke"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\artifactRegistry.js"))) {
             throw "portable package did not include VS Code artifact registry"

@@ -3,6 +3,7 @@ const {
   definitionLocationFromSnapshotSymbols,
   definitionNameCandidates,
   documentHighlightsFromLsp,
+  documentSymbolsFromLsp,
   documentSymbolsFromSnapshot,
   prepareRenameFromLsp,
   referenceLocationsFromLsp,
@@ -14,6 +15,7 @@ class EngDocumentSymbolProvider {
   constructor(context, options = {}) {
     this.context = context;
     this.isEngDocument = options.isEngDocument ?? (() => true);
+    this.documentSymbolsForDocument = options.documentSymbolsForDocument;
     this.snapshotDocumentSource = options.snapshotDocumentSource;
     this.cacheSnapshotForDocument = options.cacheSnapshotForDocument ?? (() => undefined);
   }
@@ -23,6 +25,17 @@ class EngDocumentSymbolProvider {
       return [];
     }
     const documentVersion = document.version;
+    const protocolSymbols = await this.documentSymbolsForDocument?.(
+      document,
+      cancellationToken
+    );
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return [];
+    }
+    if (protocolSymbols !== undefined) {
+      return documentSymbolsFromLsp(protocolSymbols);
+    }
+
     const snapshot = await this.snapshotDocumentSource?.(document, this.context, cancellationToken);
     if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
       return [];
@@ -80,7 +93,7 @@ class EngDefinitionProvider {
       document.uri,
       this.appendOutputLine
     );
-    if (liveDefinition) {
+    if (liveDefinition || liveDefinitionPayload !== undefined) {
       return liveDefinition;
     }
 

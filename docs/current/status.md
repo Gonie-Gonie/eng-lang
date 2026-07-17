@@ -120,8 +120,9 @@ review material. It is not a broad solver claim.
   inspectors, checked-code role-aware highlight overlay, module registry
   browser, table transform inspector rows, PlotSpec viewing, report opening,
   and side-effect artifact panels.
-- Packaged editor-tooling binary for internal smoke checks and metadata JSON.
-  It is not a stable long-running editor protocol contract.
+- Packaged editor-tooling binary plus an internal persistent VS Code stdio
+  client for document sync, diagnostics, semantic tokens, and editor requests.
+  This is not yet a public cross-release protocol compatibility commitment.
 
 ## Supported But Narrow Main Behavior
 
@@ -220,7 +221,7 @@ is not mistaken for public module support.
 - Broad nonlinear/DAE/adaptive/component solving beyond the documented narrow
   paths.
 - Production multi-domain component simulation and pressure-drop packages.
-- Stable long-running editor protocol contract.
+- Stable public cross-release editor protocol compatibility commitment.
 - Native JIT/AOT code generation and measured speedups.
 - Broader network/download auth policy, broad filesystem mutation, and full
   process sandboxing.
@@ -235,7 +236,7 @@ is not mistaken for public module support.
 | `eng_runtime` | Runtime execution, VM, CSV/data policies, `.engres` output |
 | `eng_report` | PlotSpec/SVG/report/review rendering and artifact schemas |
 | `eng_ide` | Portable native IDE and package smoke UI checks |
-| `eng_lsp` | Internal editor tooling, smoke checks, and metadata JSON |
+| `eng_lsp` | Internal persistent editor service, compatibility CLI endpoints, smoke checks, and metadata JSON |
 
 Future crate splitting should be documented as planned work, not assumed as the
 current architecture.

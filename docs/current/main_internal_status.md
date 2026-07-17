@@ -14,7 +14,7 @@ implemented and tested without being part of the published release assets.
 | State-space | Typed-block fixed-step workflows and additional internal runtime fixtures exist. | Use only for the documented narrow scope. |
 | Domain/component | Component metadata, residual assembly, constrained Thermal and Thermal/Fluid paths, report/review/IDE artifacts, and diagnostics exist. | Not production multi-domain simulation. |
 | JIT/AOT | Kernel planning, interpreter kernel IR, `jit-plan`, `jit-bench`, and benchmark catalog coverage exist. | No native speedup claim. |
-| LSP/VS Code | Smoke/editor-request tooling and optional VS Code source exist. | Not a stable long-running editor protocol contract. |
+| LSP/VS Code | Persistent stdio document sync, diagnostics, cancellable editor requests, direct protocol semantic tokens, compatibility CLI endpoints, and optional VS Code source exist. | Implemented internal editor service, without a public cross-release compatibility guarantee. |
 | Uncertainty | Deterministic samples, diagnostics, propagation metadata, and histogram artifacts exist. | Internal track. |
 | Data-driven modeling | Train/test, metrics, model specs/cards, prediction manifests, parity/residual plots, and diagnostics exist. | Internal track. |
 | Class/domain objects | Typed fields/defaults, object literals, validation, metadata methods, copy-with, IDE/LSP metadata, and report artifacts exist. | Narrow supported authoring surface, not runtime object dispatch. |

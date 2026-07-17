@@ -121,6 +121,10 @@ fn stdio_server_round_trips_core_lsp_requests() {
         initialize["result"]["capabilities"]["semanticTokensProvider"]["range"],
         true
     );
+    assert_eq!(
+        initialize["result"]["capabilities"]["experimental"]["englangSnapshotProvider"],
+        true
+    );
     let semantic_token_modifiers = initialize["result"]["capabilities"]["semanticTokensProvider"]
         ["legend"]["tokenModifiers"]
         .as_array()
@@ -160,6 +164,39 @@ fn stdio_server_round_trips_core_lsp_requests() {
     assert_eq!(published["method"], "textDocument/publishDiagnostics");
     assert_eq!(published["params"]["uri"], uri);
     assert!(published["params"]["diagnostics"].as_array().is_some());
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 101,
+            "method": "englang/snapshot",
+            "params": { "textDocument": { "uri": uri } }
+        }),
+    );
+    let snapshot = read_message(&mut stdout);
+    assert_eq!(snapshot["id"], 101);
+    assert_eq!(snapshot["result"]["format"], "eng-lsp-snapshot-v1");
+    assert!(snapshot["result"]["semantic_tokens"]["tokens"]
+        .as_array()
+        .is_some_and(|tokens| !tokens.is_empty()));
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "workspace/didChangeWatchedFiles",
+            "params": {
+                "changes": [{ "uri": uri, "type": 2 }]
+            }
+        }),
+    );
+    let watched_file_diagnostics = read_message(&mut stdout);
+    assert_eq!(
+        watched_file_diagnostics["method"],
+        "textDocument/publishDiagnostics"
+    );
+    assert_eq!(watched_file_diagnostics["params"]["uri"], uri);
 
     write_message(
         &mut stdin,

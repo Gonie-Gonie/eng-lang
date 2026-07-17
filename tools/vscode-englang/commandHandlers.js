@@ -1343,10 +1343,17 @@ function createCommandHandlers(options = {}) {
     const highlightingSummary = highlightingStatusSummary(semanticHighlighting, scopeMapStatus);
     const nativeWorkflowProbe = toolingStatusNativeWorkflowProbe(document);
     const localPackageStatus = toolingStatusLocalPackageStatus(context, document);
+    const persistentClientStatus = lspRequests?.clientStatus?.() ?? {
+      state: "unavailable",
+      runtime: null,
+      protocol_semantic_tokens: false,
+      snapshot_provider: false
+    };
     return {
       summary: {
         check_and_run_tool: toolStatusSummary(checkAndRunTool, "saved-file checks and program runs"),
         live_editor_tool: toolStatusSummary(liveEditorTool, "live editor checks"),
+        language_client: `Persistent language client state: ${persistentClientStatus.state}.`,
         diagnostics: diagnosticsSummary,
         role_aware_colors: roleAwareColorSummary,
         highlighting: highlightingSummary,
@@ -1377,12 +1384,17 @@ function createCommandHandlers(options = {}) {
         eng_lsp: liveEditorTool
       },
       editor_client: {
-        request_model: "on-demand live editor checks",
-        long_running_language_server: false,
+        request_model: "persistent stdio JSON-RPC session",
+        long_running_language_server: true,
+        connection_state: persistentClientStatus.state,
+        connected: persistentClientStatus.state === "running",
+        process_path: persistentClientStatus.runtime,
+        protocol_semantic_tokens: persistentClientStatus.protocol_semantic_tokens,
+        snapshot_provider: persistentClientStatus.snapshot_provider,
         live_buffer_tool: "live_editor",
         file_check_tool: "check_and_run",
         highlighting_model: "First-pass syntax colors plus checked-code role-aware colors",
-        status_note: "Live editor features read the current buffer for hover, completion, symbols, highlights, formatting, quick fixes, and live Problems updates."
+        status_note: "One persistent eng-lsp process synchronizes open buffers and serves hover, completion, navigation, symbols, protocol semantic tokens, formatting, quick fixes, and live Problems updates."
       },
       features: {
         problems: {
@@ -1414,7 +1426,7 @@ function createCommandHandlers(options = {}) {
           enabled: semanticHighlighting,
           summary: roleAwareColorSummary,
           tool: "live_editor",
-          request_model: "on-demand live editor checks",
+          request_model: "persistent protocol semantic tokens",
           fallback_scope_status: scopeMapStatus.status,
           scope_map_entry_count: scopeMapStatus.selector_count
         },
@@ -1431,7 +1443,7 @@ function createCommandHandlers(options = {}) {
         semantic_tokens: {
           enabled: semanticHighlighting,
           source: "live_editor",
-          request_model: "on-demand live editor checks",
+          request_model: "textDocument/semanticTokens/full over persistent stdio",
           token_type_count: semanticTokenTypes.length,
           token_modifier_count: semanticTokenModifiers.length
         },
@@ -2509,7 +2521,7 @@ function createCommandHandlers(options = {}) {
     return {
       enabled: true,
       tool,
-      request_model: "on-demand live editor checks"
+      request_model: "persistent stdio JSON-RPC session"
     };
   }
 

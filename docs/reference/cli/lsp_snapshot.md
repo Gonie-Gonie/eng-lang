@@ -615,6 +615,19 @@ Use the stdio LSP server for:
 - same-symbol document highlights and static-import-aware Find All References
 - safe current-file and static-import-aware workspace rename
 
+Start the persistent server with `eng-lsp --stdio` (a no-argument invocation is
+also accepted). The VS Code extension initializes one process with every open
+workspace folder, sends full-text `didOpen`/`didChange`/`didSave`/`didClose`
+notifications, consumes versioned `publishDiagnostics`, and sends
+`$/cancelRequest` when VS Code cancels a provider request. Semantic highlighting
+uses `textDocument/semanticTokens/full` directly. The extension-only
+`englang/snapshot` request returns `eng-lsp-snapshot-v1` review and decoration
+metadata for an already-open document over the same stdio connection; it is
+advertised as `capabilities.experimental.englangSnapshotProvider`. A
+`workspace/didChangeWatchedFiles` notification invalidates semantic-token
+history and republishes diagnostics so closed imported files changed on disk do
+not leave open dependents stale.
+
 `textDocument/references` always analyzes the current unsaved document and
 honors `context.includeDeclaration`. For an importable `const`, function,
 schema, class, system, state-space vector type, domain, or component, it also
@@ -659,7 +672,7 @@ The equivalent single-buffer live-analysis compatibility forms are
 `--completion-stdin <file.eng> <line> <character>`. Both read only the selected
 buffer from stdin and resolve imports from disk.
 
-On-demand editor clients with multiple modified buffers use the workspace forms:
+Compatibility clients with multiple modified buffers use the workspace forms:
 
 ```text
 --workspace-snapshot-stdin <workspace-root> <file.eng>

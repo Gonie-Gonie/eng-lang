@@ -3,6 +3,10 @@ const { createArtifactOpeners } = require("./artifactOpeners");
 const { createCommandHandlers } = require("./commandHandlers");
 const { createDecorationController } = require("./decorations");
 const { createLspRequests } = require("./lspRequests");
+const {
+  PersistentLspClient,
+  createPersistentLspRequests
+} = require("./persistentLspClient");
 const { EngCompletionProvider } = require("./completionProvider");
 const { EngDiagnosticsController } = require("./diagnosticsProvider");
 const { EngCodeActionProvider } = require("./codeActionProvider");
@@ -40,6 +44,7 @@ let output;
 let artifactOpeners;
 let decorationController;
 let lspRequests;
+let languageClient;
 let commandHandlers;
 
 const editorMetadata = loadEditorMetadata(__dirname);
@@ -67,11 +72,25 @@ const semanticLegend = createSemanticLegend(
 function activate(context) {
   output = vscode.window.createOutputChannel("EngLang");
   artifactOpeners = createArtifactOpeners({ currentWorkspaceRoot, workspaceRoot });
-  lspRequests = createLspRequests({
+  const compatibilityLspRequests = createLspRequests({
     isEngDocument,
     findLspRuntime,
     findLspRuntimeForRoot,
     workspaceRoot,
+    appendOutputLine
+  });
+  languageClient = new PersistentLspClient(context, {
+    isEngDocument,
+    findLspRuntime,
+    findLspRuntimeForRoot,
+    workspaceRoot,
+    appendOutputLine,
+    semanticTokenTypes: SEMANTIC_TOKEN_TYPES,
+    semanticTokenModifiers: SEMANTIC_TOKEN_MODIFIERS
+  });
+  lspRequests = createPersistentLspRequests({
+    client: languageClient,
+    fallback: compatibilityLspRequests,
     appendOutputLine
   });
   decorationController = createDecorationController({
@@ -130,6 +149,7 @@ function activate(context) {
     isEngDocument,
     clearSnapshotCache: lspRequests.clearSnapshotCache,
     diagnosticsRuntime,
+    persistentDiagnostics: true,
     diagnosticsRuntimeLabel,
     findLspRuntime,
     findRuntime,
@@ -144,6 +164,7 @@ function activate(context) {
   });
   const semanticTokensProvider = new EngSemanticTokensProvider(context, {
     isEngDocument,
+    semanticTokensForDocument: lspRequests.semanticTokensForDocument,
     snapshotDocumentSource: lspRequests.snapshotDocumentSource,
     cacheSnapshotForDocument: (document, snapshot) => reviewCache.set(document.uri.fsPath, snapshot),
     updateReviewValidationDecorations: decorationController.updateReviewValidationDecorations,
@@ -154,9 +175,44 @@ function activate(context) {
   });
   const formattingProvider = new EngFormattingProvider(context, {
     isEngDocument,
-    formatDocumentSource: lspRequests.formatDocumentSource
+    formatDocumentSource: lspRequests.formatDocumentSource,
+    formattingEditsForDocument: lspRequests.formattingEditsForDocument,
+    rangeFormattingEditsForDocument: lspRequests.rangeFormattingEditsForDocument
   });
   const engSourceWatcher = vscode.workspace.createFileSystemWatcher("**/*.eng");
+  const diagnosticsSubscription = languageClient.onDiagnostics((params) => {
+    void applyPublishedLanguageServerDiagnostics(params);
+  });
+
+  async function applyPublishedLanguageServerDiagnostics(params) {
+    const document = documentForLanguageServerUri(params?.uri);
+    if (!document || !diagnosticController.applyPublishedDiagnostics(document, params)) {
+      return;
+    }
+    const documentVersion = document.version;
+    try {
+      const review = await lspRequests.snapshotDocumentSource(document, context);
+      diagnosticController.applyReviewSnapshot(document, review, documentVersion);
+    } catch (error) {
+      appendOutputLine(`Unable to refresh EngLang review decorations: ${error.message}`);
+    }
+  }
+
+  function documentForLanguageServerUri(uriText) {
+    if (typeof uriText !== "string") {
+      return undefined;
+    }
+    return (vscode.workspace.textDocuments ?? []).find((document) => (
+      document.uri.toString() === uriText || document.uri.toString(true) === uriText
+    ));
+  }
+
+  function runLanguageClientOperation(label, operation) {
+    Promise.resolve(operation).catch((error) => {
+      appendOutputLine(`EngLang language client ${label} failed: ${error.message}`);
+    });
+  }
+
   function refreshActiveDiagnosticsForSettings(reason = "diagnostics settings changed") {
     const document = vscode.window.activeTextEditor?.document;
     if (!document || !isEngDocument(document)) {
@@ -273,7 +329,7 @@ function activate(context) {
     diagnosticController.scheduleWorkspaceFileChangedChecks(document);
   }
 
-  function refreshWorkspaceAfterClosedEngSourceChange(uri) {
+  function refreshWorkspaceAfterClosedEngSourceChange(uri, changeType = 2) {
     if (!isWorkspaceEngSourceUri(uri)) {
       return;
     }
@@ -283,6 +339,10 @@ function activate(context) {
     if (openDocument) {
       return;
     }
+    runLanguageClientOperation(
+      "watched-file notification",
+      languageClient.watchedFileChanged(uri, changeType)
+    );
     refreshWorkspaceAfterEngSourceSave({
       fileName: uri.fsPath,
       languageId: LANGUAGE_ID,
@@ -328,29 +388,34 @@ function activate(context) {
     diagnosticsStatusBar,
     diagnosticController,
     semanticTokensProvider,
-    engSourceWatcher
+    engSourceWatcher,
+    languageClient,
+    diagnosticsSubscription
   );
   context.subscriptions.push(...decorationController.disposables);
 
   context.subscriptions.push(
     vscode.workspace.onDidOpenTextDocument((document) => {
+      runLanguageClientOperation("document open", languageClient.openDocument(document));
       diagnosticController.maybeCheck(document);
       updateDiagnosticsStatusBarForDocument(document);
     }),
     vscode.workspace.onDidChangeTextDocument((event) => {
+      runLanguageClientOperation("document change", languageClient.changeDocument(event.document));
       clearCachedWorkspaceEditorSnapshots(event.document);
       semanticTokensProvider.scheduleRefresh();
       diagnosticController.scheduleWorkspaceChangedChecks(event.document);
       updateDiagnosticsStatusBarForDocument(event.document);
     }),
     vscode.workspace.onDidSaveTextDocument((document) => {
+      runLanguageClientOperation("document save", languageClient.saveDocument(document));
       refreshWorkspaceAfterEngSourceSave(document);
       diagnosticController.maybeCheck(document);
       updateDiagnosticsStatusBarForDocument(document);
     }),
-    engSourceWatcher.onDidCreate(refreshWorkspaceAfterClosedEngSourceChange),
-    engSourceWatcher.onDidChange(refreshWorkspaceAfterClosedEngSourceChange),
-    engSourceWatcher.onDidDelete(refreshWorkspaceAfterClosedEngSourceChange),
+    engSourceWatcher.onDidCreate((uri) => refreshWorkspaceAfterClosedEngSourceChange(uri, 1)),
+    engSourceWatcher.onDidChange((uri) => refreshWorkspaceAfterClosedEngSourceChange(uri, 2)),
+    engSourceWatcher.onDidDelete((uri) => refreshWorkspaceAfterClosedEngSourceChange(uri, 3)),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (
         event.affectsConfiguration("englang.diagnosticsMode") ||
@@ -359,6 +424,15 @@ function activate(context) {
         event.affectsConfiguration("englang.liveDiagnosticsDelayMs")
       ) {
         refreshActiveDiagnosticsForSettings("diagnostics configuration changed");
+      }
+      if (
+        event.affectsConfiguration("englang.lspPath")
+        || event.affectsConfiguration("englang.liveDiagnosticsDelayMs")
+      ) {
+        runLanguageClientOperation(
+          "configuration restart",
+          languageClient.restart(vscode.window.activeTextEditor?.document)
+        );
       }
       if (event.affectsConfiguration("englang.reviewRiskDecorations.enabled")) {
         decorationController.refreshVisibleReviewRiskDecorations();
@@ -378,7 +452,14 @@ function activate(context) {
       }
       updateDiagnosticsStatusBar();
     }),
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      runLanguageClientOperation(
+        "workspace-folder restart",
+        languageClient.restart(vscode.window.activeTextEditor?.document)
+      );
+    }),
     vscode.workspace.onDidCloseTextDocument((document) => {
+      runLanguageClientOperation("document close", languageClient.closeDocument(document));
       diagnosticController.clearPendingCheck(document);
       diagnosticController.invalidateDocumentCheck(document);
       lspRequests.clearSnapshotCache(document);
@@ -451,6 +532,7 @@ function activate(context) {
       LANGUAGE_ID,
       new EngHoverProvider(context, {
         isEngDocument,
+        hoverForPosition: lspRequests.hoverForPosition,
         snapshotDocumentSource: lspRequests.snapshotDocumentSource,
         cachedSnapshotForDocument: (document) => reviewCache.get(document.uri.fsPath),
         cacheSnapshotForDocument: (document, snapshot) => reviewCache.set(document.uri.fsPath, snapshot)
@@ -489,6 +571,7 @@ function activate(context) {
       LANGUAGE_ID,
       new EngDocumentSymbolProvider(context, {
         isEngDocument,
+        documentSymbolsForDocument: lspRequests.documentSymbolsForDocument,
         snapshotDocumentSource: lspRequests.snapshotDocumentSource,
         cacheSnapshotForDocument: (document, snapshot) => reviewCache.set(document.uri.fsPath, snapshot)
       })
@@ -538,6 +621,7 @@ function activate(context) {
       LANGUAGE_ID,
       new EngFoldingRangeProvider(context, {
         isEngDocument,
+        foldingRangesForDocument: lspRequests.foldingRangesForDocument,
         snapshotDocumentSource: lspRequests.snapshotDocumentSource,
         cacheSnapshotForDocument: (document, snapshot) => reviewCache.set(document.uri.fsPath, snapshot)
       })
@@ -558,6 +642,7 @@ function activate(context) {
     vscode.languages.registerCodeActionsProvider(
       LANGUAGE_ID,
       new EngCodeActionProvider(context, {
+        codeActionsForDocumentRange: lspRequests.codeActionsForDocumentRange,
         codeActionsForDocumentSource: lspRequests.codeActionsForDocumentSource,
         appendOutputLine
       }),
@@ -570,10 +655,15 @@ function activate(context) {
   for (const document of vscode.workspace.textDocuments) {
     diagnosticController.maybeCheck(document);
   }
+  const startupDocument = vscode.window.activeTextEditor?.document
+    ?? (vscode.workspace.textDocuments ?? []).find(isEngDocument);
+  runLanguageClientOperation("startup", languageClient.start(startupDocument));
   updateDiagnosticsStatusBar();
 }
 
-function deactivate() {}
+async function deactivate() {
+  await languageClient?.stop();
+}
 
 function appendOutputLine(message) {
   output?.appendLine(message);

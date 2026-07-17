@@ -38,7 +38,8 @@ const vscodeMock = {
   DiagnosticSeverity: {
     Error: 0,
     Warning: 1,
-    Information: 2
+    Information: 2,
+    Hint: 3
   },
   DiagnosticTag: {
     Deprecated: 1,
@@ -265,6 +266,85 @@ try {
     setCountBeforeStaleResult,
     "saved-file diagnostics from an older document version must be discarded"
   );
+
+  const liveDiagnostics = diagnosticsCollection();
+  const liveReviews = [];
+  const liveDecorations = [];
+  const liveController = new EngDiagnosticsController({}, liveDiagnostics, {
+    cacheReview(_document, currentReview) {
+      liveReviews.push(currentReview);
+    },
+    diagnosticsRuntime() {
+      return "lsp-snapshot";
+    },
+    isEngDocument() {
+      return true;
+    },
+    persistentDiagnostics: true,
+    updateReviewRiskDecorations(_document, currentReview) {
+      liveDecorations.push(currentReview);
+    }
+  });
+  const processCountBeforePersistentOpen = processCalls.length;
+  liveController.maybeCheck(document);
+  assert.strictEqual(processCalls.length, processCountBeforePersistentOpen);
+  document.isDirty = true;
+  assert.strictEqual(liveController.applyPublishedDiagnostics(document, {
+    uri: document.uri.toString(),
+    version: document.version,
+    diagnostics: [
+      {
+        code: "W-LIVE-001",
+        message: "live warning",
+        range: {
+          start: { line: 1, character: 4 },
+          end: { line: 1, character: 9 }
+        },
+        severity: 2
+      },
+      {
+        code: "H-LIVE-001",
+        message: "unused value",
+        range: {
+          start: { line: 1, character: 4 },
+          end: { line: 1, character: 9 }
+        },
+        severity: 4,
+        tags: [1]
+      }
+    ]
+  }), true);
+  assert.strictEqual(liveDiagnostics.sets.at(-1).diagnostics[0].source, "eng/live");
+  assert.strictEqual(
+    liveDiagnostics.sets.at(-1).diagnostics[0].severity,
+    vscodeMock.DiagnosticSeverity.Warning
+  );
+  assert.strictEqual(
+    liveDiagnostics.sets.at(-1).diagnostics[1].severity,
+    vscodeMock.DiagnosticSeverity.Hint
+  );
+  assert.deepStrictEqual(
+    liveDiagnostics.sets.at(-1).diagnostics[1].tags,
+    [vscodeMock.DiagnosticTag.Unnecessary]
+  );
+  const liveSetCount = liveDiagnostics.sets.length;
+  assert.strictEqual(liveController.applyPublishedDiagnostics(document, {
+    version: document.version - 1,
+    diagnostics: []
+  }), false);
+  assert.strictEqual(liveDiagnostics.sets.length, liveSetCount);
+
+  const liveReview = {
+    format: "eng-lsp-snapshot-v1",
+    diagnostics: [],
+    semantic_tokens: { tokens: [] }
+  };
+  assert.strictEqual(
+    liveController.applyReviewSnapshot(document, liveReview, document.version),
+    true
+  );
+  assert.deepStrictEqual(liveReviews, [liveReview]);
+  assert.deepStrictEqual(liveDecorations, [liveReview]);
 } finally {
   childProcess.execFile = originalExecFile;
 }

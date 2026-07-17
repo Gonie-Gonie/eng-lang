@@ -5,6 +5,7 @@ class EngFoldingRangeProvider {
   constructor(context, options = {}) {
     this.context = context;
     this.isEngDocument = options.isEngDocument ?? (() => true);
+    this.foldingRangesForDocument = options.foldingRangesForDocument;
     this.snapshotDocumentSource = options.snapshotDocumentSource;
     this.cacheSnapshotForDocument = options.cacheSnapshotForDocument ?? (() => undefined);
   }
@@ -14,6 +15,17 @@ class EngFoldingRangeProvider {
       return [];
     }
     const documentVersion = document.version;
+    const protocolRanges = await this.foldingRangesForDocument?.(
+      document,
+      cancellationToken
+    );
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return [];
+    }
+    if (protocolRanges !== undefined) {
+      return foldingRangesFromLsp(protocolRanges);
+    }
+
     const snapshot = await this.snapshotDocumentSource?.(
       document,
       this.context,
@@ -31,7 +43,11 @@ class EngFoldingRangeProvider {
 }
 
 function foldingRangesFromSnapshot(snapshot) {
-  return (snapshot.folding_ranges ?? [])
+  return foldingRangesFromLsp(snapshot.folding_ranges);
+}
+
+function foldingRangesFromLsp(payload) {
+  return (Array.isArray(payload) ? payload : [])
     .map(foldingRangeFromSnapshot)
     .filter((range) => range !== undefined);
 }
@@ -50,5 +66,6 @@ function foldingRangeFromSnapshot(range) {
 }
 
 module.exports = {
-  EngFoldingRangeProvider
+  EngFoldingRangeProvider,
+  foldingRangesFromLsp
 };

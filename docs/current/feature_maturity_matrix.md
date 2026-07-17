@@ -115,7 +115,8 @@ separate.
   smoke, native IDE for check/run/inspect, PlotSpec/report opening, and
   side-effect panels.
 - Evidence: release-check, package-smoke, IDE smoke.
-- Not included: persistent LSP editor contract, production editor platform.
+- Not included: a public cross-release compatibility commitment for the
+  persistent editor protocol or a production editor platform claim.
 - Next cleanup action: lead IDE docs with TimeSeries/schema/unit/report review.
 
 ## Supported Narrow Main Features
@@ -230,14 +231,16 @@ separate.
 - Public package: `Internal`
 - Main status: `Internal`
 - Evidence: `eng-lsp.exe` smoke/editor-request checks, a versioned persistent
-  document cache with debounced diagnostics, request-ID-scoped protocol
+  document cache with debounced diagnostics, a VS Code persistent stdio client
+  with document sync and direct protocol semantic tokens, request-ID-scoped protocol
   cancellation with cooperative workspace scan interruption, compiler-owned
   declaration and explicit Outline selection ranges, import-source isolation
   across diagnostics/semantic overlays/hover fallback, source-origin-aware
   validation records, stdio tests, and optional VS Code source.
-- Not included: stable long-running editor protocol contract.
-- Next cleanup action: keep editor tooling commands labeled as internal smoke
-  and diagnostic checks.
+- Not included: a stable public compatibility guarantee across EngLang releases
+  or incremental parsing.
+- Next cleanup action: keep the implemented persistent service tested while its
+  public maturity remains explicit.
 
 ### Runtime Optimization / JIT / AOT
 

@@ -4,11 +4,12 @@ const { lspCodeActionsFromPayload } = require("./lspCodeActions");
 class EngCodeActionProvider {
   constructor(context, options = {}) {
     this.context = context;
+    this.codeActionsForDocumentRange = options.codeActionsForDocumentRange;
     this.codeActionsForDocumentSource = options.codeActionsForDocumentSource;
     this.appendOutputLine = options.appendOutputLine ?? (() => undefined);
   }
 
-  async provideCodeActions(document, _range, context, cancellationToken) {
+  async provideCodeActions(document, range, context, cancellationToken) {
     if (!shouldProvideQuickFixes(context)) {
       return [];
     }
@@ -20,11 +21,19 @@ class EngCodeActionProvider {
     const documentVersion = document.version;
     let payload;
     try {
-      payload = await this.codeActionsForDocumentSource?.(
+      payload = await this.codeActionsForDocumentRange?.(
         document,
-        this.context,
+        range,
+        context.diagnostics,
         cancellationToken
       );
+      if (payload === undefined) {
+        payload = await this.codeActionsForDocumentSource?.(
+          document,
+          this.context,
+          cancellationToken
+        );
+      }
     } catch (error) {
       if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
         return [];

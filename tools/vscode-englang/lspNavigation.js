@@ -126,7 +126,11 @@ function workspaceSymbolInformationFromLsp(symbol, reportError) {
 }
 
 function documentSymbolsFromSnapshot(snapshot) {
-  return (snapshot.document_symbols ?? [])
+  return documentSymbolsFromLsp(snapshot.document_symbols);
+}
+
+function documentSymbolsFromLsp(payload) {
+  return (Array.isArray(payload) ? payload : [])
     .map(documentSymbolFromSnapshot)
     .filter((symbol) => symbol !== undefined);
 }
@@ -241,6 +245,7 @@ module.exports = {
   definitionLocationFromSnapshotSymbols,
   definitionNameCandidates,
   documentHighlightsFromLsp,
+  documentSymbolsFromLsp,
   documentSymbolsFromSnapshot,
   flattenSnapshotSymbols,
   identifierPathRangeAt,

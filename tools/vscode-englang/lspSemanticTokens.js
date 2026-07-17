@@ -26,6 +26,19 @@ function semanticTokensFromSnapshot(snapshot, semanticLegend, tokenTypes, tokenM
   return builder.build();
 }
 
+function semanticTokensFromLsp(payload) {
+  const data = payload?.data;
+  if (
+    !Array.isArray(data)
+    || data.length % 5 !== 0
+    || data.some((value) => !Number.isInteger(value) || value < 0 || value > 0xffff_ffff)
+  ) {
+    return new vscode.SemanticTokens(new Uint32Array());
+  }
+  const resultId = typeof payload.resultId === "string" ? payload.resultId : undefined;
+  return new vscode.SemanticTokens(Uint32Array.from(data), resultId);
+}
+
 function semanticModifierBits(modifiers, tokenModifiers) {
   assertSemanticModifierCapacity(tokenModifiers);
   let bits = 0;
@@ -155,6 +168,7 @@ module.exports = {
   semanticTokenFallbackScopes,
   semanticTokenRange,
   semanticTokenSelectors,
+  semanticTokensFromLsp,
   semanticTokensFromSnapshot,
   semanticTokenUnmappedSelectors
 };

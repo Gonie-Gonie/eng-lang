@@ -1,17 +1,32 @@
 const vscode = require("vscode");
+const { vscodeRangeFromLsp } = require("./lspRanges");
 
 class EngFormattingProvider {
   constructor(context, options = {}) {
     this.context = context;
     this.isEngDocument = options.isEngDocument ?? (() => true);
     this.formatDocumentSource = options.formatDocumentSource;
+    this.formattingEditsForDocument = options.formattingEditsForDocument;
+    this.rangeFormattingEditsForDocument = options.rangeFormattingEditsForDocument;
   }
 
-  async provideDocumentFormattingEdits(document, _options, cancellationToken) {
+  async provideDocumentFormattingEdits(document, formattingOptions, cancellationToken) {
     if (!this.isEngDocument(document)) {
       return [];
     }
     const documentVersion = document.version;
+    const protocolEdits = await this.formattingEditsForDocument?.(
+      document,
+      formattingOptions,
+      cancellationToken
+    );
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return [];
+    }
+    if (protocolEdits !== undefined) {
+      return textEditsFromLsp(protocolEdits);
+    }
+
     const payload = await this.formatDocumentSource?.(
       document,
       this.context,
@@ -26,11 +41,24 @@ class EngFormattingProvider {
     return [vscode.TextEdit.replace(fullDocumentRange(document), payload.formatted)];
   }
 
-  async provideDocumentRangeFormattingEdits(document, range, _options, cancellationToken) {
+  async provideDocumentRangeFormattingEdits(document, range, formattingOptions, cancellationToken) {
     if (!this.isEngDocument(document)) {
       return [];
     }
     const documentVersion = document.version;
+    const protocolEdits = await this.rangeFormattingEditsForDocument?.(
+      document,
+      range,
+      formattingOptions,
+      cancellationToken
+    );
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return [];
+    }
+    if (protocolEdits !== undefined) {
+      return textEditsFromLsp(protocolEdits);
+    }
+
     const payload = await this.formatDocumentSource?.(
       document,
       this.context,
@@ -46,7 +74,7 @@ class EngFormattingProvider {
     return edit ? [edit] : [];
   }
 
-  async provideOnTypeFormattingEdits(document, position, ch, _options, cancellationToken) {
+  async provideOnTypeFormattingEdits(document, position, ch, formattingOptions, cancellationToken) {
     if (
       ch !== "}"
       || cancellationToken?.isCancellationRequested
@@ -56,6 +84,21 @@ class EngFormattingProvider {
       return [];
     }
     const documentVersion = document.version;
+    const line = document.lineAt(position.line);
+    const lineRange = new vscode.Range(position.line, 0, position.line, line.text.length);
+    const protocolEdits = await this.rangeFormattingEditsForDocument?.(
+      document,
+      lineRange,
+      formattingOptions,
+      cancellationToken
+    );
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return [];
+    }
+    if (protocolEdits !== undefined) {
+      return textEditsFromLsp(protocolEdits);
+    }
+
     const payload = await this.formatDocumentSource?.(
       document,
       this.context,
@@ -67,11 +110,23 @@ class EngFormattingProvider {
     if (!payload?.changed || typeof payload.formatted !== "string") {
       return [];
     }
-    const line = document.lineAt(position.line);
-    const lineRange = new vscode.Range(position.line, 0, position.line, line.text.length);
     const edit = rangeFormattingEdit(document, lineRange, payload.formatted);
     return edit ? [edit] : [];
   }
+}
+
+function textEditsFromLsp(payload) {
+  if (!Array.isArray(payload)) {
+    return [];
+  }
+  return payload
+    .map((edit) => {
+      const range = vscodeRangeFromLsp(edit?.range);
+      return range && typeof edit?.newText === "string"
+        ? vscode.TextEdit.replace(range, edit.newText)
+        : undefined;
+    })
+    .filter((edit) => edit !== undefined);
 }
 
 function documentLineExists(document, line) {
@@ -170,5 +225,6 @@ function documentNewline(document) {
 }
 
 module.exports = {
-  EngFormattingProvider
+  EngFormattingProvider,
+  textEditsFromLsp
 };

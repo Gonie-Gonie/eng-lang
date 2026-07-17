@@ -13,6 +13,8 @@ embedding compiler logic in JavaScript.
 - optional live editor diagnostics, hover, completion, document/workspace
   symbols, semantic same-symbol highlights, and folding from the current
   unsaved buffer plus every modified open EngLang import in the workspace
+- one persistent `eng-lsp --stdio` session for document sync, versioned live
+  diagnostics, cancellable editor requests, and direct protocol semantic tokens
 - debounced diagnostics for unsaved buffers after a short typing pause,
   including open dependent EngLang files when an imported buffer changes
 - debounced role-aware color refresh and stale decoration clearing across open
@@ -190,12 +192,15 @@ englang.lspPath = C:\path\to\eng-lsp.exe
 
 ## Current Scope
 
-The extension is a local editor client for the bundled EngLang tooling. It uses
-on-demand live editor checks for live Problems, hover, completion, document
-symbols, workspace symbols, folding, role-aware color data, same-symbol highlights, definition, formatting,
-static-import-aware references, semantic rename, and quick fixes. References,
-rename preparation, and rename pass the current buffer plus all modified open
-EngLang documents in the same workspace to bounded compiler endpoints. Static
+The extension is a local editor client for the bundled EngLang tooling. It keeps
+one `eng-lsp --stdio` process running, synchronizes every open EngLang document,
+and uses standard LSP requests for live Problems, hover, completion, document
+symbols, workspace symbols, folding, semantic tokens, same-symbol highlights,
+definition, formatting, static-import-aware references, semantic rename, and
+quick fixes. The extension-only `englang/snapshot` request carries review and
+decoration metadata over the same session. Short-lived compiler endpoints remain
+only as a compatibility fallback for an older or unavailable configured server.
+The client keeps all modified open EngLang documents synchronized in that session. Static
 imports resolve open text before disk, so a changed declaration or import does
 not require a save. Saved workspace files are included only when their static
 import chain resolves to the same declaration; unrelated same-name symbols are
@@ -215,10 +220,10 @@ back to `file` clears stale live Problems for an unsaved active buffer and
 refreshes saved-file Problems after the file is saved. Direct `settings.json`
 changes to diagnostics mode or lint toggles also refresh or clear the active
 EngLang editor so Problems match the selected settings. Editing an EngLang
-buffer clears cached review/highlight data immediately, so hover,
-completion, and decorations cannot reuse an older buffer snapshot while
-live editor data is unavailable. The extension also stops the stale editor
-subprocess when a newer buffer revision invalidates its shared snapshot. If an
+buffer clears cached review/highlight data immediately. Protocol requests carry
+the current document version, cancelled VS Code requests send
+`$/cancelRequest`, and stale responses are discarded before they reach the
+editor. If an
 older workspace already has `englang.problemsSource` or
 `englang.diagnosticsBackend`, the extension still accepts it as a compatibility
 alias. New workspaces should use `englang.diagnosticsMode`.
@@ -255,10 +260,11 @@ The EngLang output
 panel records whether Problems came from file diagnostics or live-buffer
 diagnostics and which tool path was selected. The VS Code Problems source column
 uses `eng/file` for saved-file checks and `eng/live` for live-buffer checks.
-Checks are ordered per document, so a slower earlier request cannot replace
-newer Problems. Starting a newer file check stops the older subprocess, while a
-cancelled color-refresh caller does not interrupt another caller sharing the
-same current-revision analysis.
+Live diagnostics are versioned per document, so a slower earlier result cannot
+replace newer Problems. The server coalesces pending checks after document
+changes, while request cancellation interrupts only the matching JSON-RPC
+request and leaves the shared language-server session available to other editor
+features.
 The status bar shows the active `.eng` file's EngLang Problems mode and current
 error/warning/info/hint counts; click it to open `EngLang: Show Tooling Status`.
 Use `EngLang: Refresh Problems` from the Command Palette or `.eng` editor

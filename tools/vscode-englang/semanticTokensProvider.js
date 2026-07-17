@@ -1,5 +1,5 @@
 const vscode = require("vscode");
-const { semanticTokensFromSnapshot } = require("./lspSemanticTokens");
+const { semanticTokensFromLsp, semanticTokensFromSnapshot } = require("./lspSemanticTokens");
 
 const SEMANTIC_REFRESH_DEBOUNCE_MS = 350;
 
@@ -9,6 +9,7 @@ class EngSemanticTokensProvider {
     this._onDidChangeSemanticTokens = new vscode.EventEmitter();
     this.onDidChangeSemanticTokens = this._onDidChangeSemanticTokens.event;
     this.isEngDocument = options.isEngDocument ?? (() => true);
+    this.semanticTokensForDocument = options.semanticTokensForDocument;
     this.snapshotDocumentSource = options.snapshotDocumentSource;
     this.cacheSnapshotForDocument = options.cacheSnapshotForDocument ?? (() => undefined);
     this.updateReviewValidationDecorations =
@@ -31,6 +32,17 @@ class EngSemanticTokensProvider {
     }
 
     const documentVersion = document.version;
+    const protocolTokens = await this.semanticTokensForDocument?.(
+      document,
+      cancellationToken
+    );
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return emptySemanticTokens();
+    }
+    if (protocolTokens !== undefined) {
+      return semanticTokensFromLsp(protocolTokens);
+    }
+
     const snapshot = await this.snapshotDocumentSource?.(
       document,
       this.context,
