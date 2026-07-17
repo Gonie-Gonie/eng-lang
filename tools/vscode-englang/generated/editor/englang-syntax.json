@@ -131,6 +131,30 @@
                                                                     "label":  "manifest_count"
                                                                 },
                                                                 {
+                                                                    "detail":  "native_expression_runner execution backend",
+                                                                    "label":  "runner"
+                                                                },
+                                                                {
+                                                                    "detail":  "configured sequential or bounded parallel policy",
+                                                                    "label":  "scheduler"
+                                                                },
+                                                                {
+                                                                    "detail":  "configured workers: 1 sequential or 2 to 64 parallel",
+                                                                    "label":  "worker_count"
+                                                                },
+                                                                {
+                                                                    "detail":  "workers actually assigned at least one case row",
+                                                                    "label":  "effective_worker_count"
+                                                                },
+                                                                {
+                                                                    "detail":  "comma-separated lifecycle events reached by each case",
+                                                                    "label":  "scheduler_hooks"
+                                                                },
+                                                                {
+                                                                    "detail":  "bounded_static_partitions or disabled scheduling policy",
+                                                                    "label":  "parallel_policy"
+                                                                },
+                                                                {
                                                                     "detail":  "native case run aggregate status",
                                                                     "label":  "status"
                                                                 },
@@ -225,6 +249,8 @@
                                              "monte_carlo",
                                              "source_linear_terms",
                                              "finite_difference",
+                                             "sequential",
+                                             "parallel",
                                              "asc",
                                              "desc",
                                              "pending",
@@ -1966,6 +1992,10 @@
                                                         "label":  "scale"
                                                     },
                                                     {
+                                                        "detail":  "Native case policy: sequential or bounded parallel",
+                                                        "label":  "scheduler"
+                                                    },
+                                                    {
                                                         "detail":  "deterministic sampling seed",
                                                         "label":  "seed"
                                                     },
@@ -2068,6 +2098,10 @@
                                                     {
                                                         "detail":  "solver variable scale list",
                                                         "label":  "variable_scales"
+                                                    },
+                                                    {
+                                                        "detail":  "Native parallel case worker limit from 2 to 64",
+                                                        "label":  "workers"
                                                     },
                                                     {
                                                         "detail":  "calendar year option",

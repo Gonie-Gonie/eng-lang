@@ -1267,7 +1267,7 @@
   {
     "fixture": "05_sampling_model.eng",
     "scope": "meta.workflow.apply-step.englang",
-    "text": "apply run_case over designs",
+    "text": "apply run_case over cases",
     "fullMatch": true
   },
   {
@@ -1326,7 +1326,24 @@
   {
     "fixture": "05_sampling_model.eng",
     "scope": "variable.parameter.property.englang",
-    "text": "step ="
+    "text": "scheduler ="
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "workers ="
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "constant.language.englang",
+    "text": "parallel",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "constant.language.englang",
+    "text": "sequential",
+    "fullMatch": true
   },
   {
     "fixture": "05_sampling_model.eng",

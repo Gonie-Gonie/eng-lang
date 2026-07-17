@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v2",
-    "completion_items_count":  440,
+    "completion_items_count":  442,
     "completion_items":  [
                              {
                                  "detail":  "Schema array value",
@@ -1736,6 +1736,12 @@
                                  "lsp_kind":  10
                              },
                              {
+                                 "detail":  "Native case policy: sequential or bounded parallel",
+                                 "kind":  "property",
+                                 "label":  "scheduler",
+                                 "lsp_kind":  10
+                             },
+                             {
                                  "detail":  "deterministic sampling seed",
                                  "kind":  "property",
                                  "label":  "seed",
@@ -1880,6 +1886,12 @@
                                  "lsp_kind":  10
                              },
                              {
+                                 "detail":  "Native parallel case worker limit from 2 to 64",
+                                 "kind":  "property",
+                                 "label":  "workers",
+                                 "lsp_kind":  10
+                             },
+                             {
                                  "detail":  "calendar year option",
                                  "kind":  "property",
                                  "label":  "year",
@@ -1904,7 +1916,7 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native: Native CaseTable, CaseOutput, CaseRunResult, and CaseResultCollection stages with template rendering, sequential typed calculations, calculation-hash/result-SHA resume, verified local result-cache replay, manifests, status summaries, and process-adapter enrichment.",
+                                 "detail":  "Native: Native CaseTable, CaseOutput, CaseRunResult, and CaseResultCollection stages with template rendering, explicit sequential or bounded parallel typed calculations, deterministic worker slots, lifecycle hooks, calculation-hash/result-SHA resume, verified local result-cache replay, manifests, status summaries, and process-adapter enrichment.",
                                  "kind":  "stdlib",
                                  "label":  "eng.case",
                                  "lsp_kind":  9
@@ -2344,7 +2356,7 @@
                              {
                                  "detail":  "eng.case execute typed case results with verified resume and cache replay",
                                  "insert":  "apply run_case over case_inputs",
-                                 "insert_snippet":  "apply run_case over ${1:case_inputs}\nwith {\n    results = {\n        ${2:annual_energy} = ${3:load * 1 kWh}\n    }\n    result = \"{case_dir}/result.json\"\n    manifest = \"{case_dir}/case_run_manifest.json\"\n    on_error = fail\n    resume = true\n    overwrite = true\n}",
+                                 "insert_snippet":  "apply run_case over ${1:case_inputs}\nwith {\n    results = {\n        ${2:annual_energy} = ${3:load * 1 kWh}\n    }\n    result = \"{case_dir}/result.json\"\n    manifest = \"{case_dir}/case_run_manifest.json\"\n    on_error = fail\n    resume = true\n    overwrite = true\n    scheduler = parallel\n    workers = ${4:4}\n}",
                                  "kind":  "stdlib",
                                  "label":  "apply run_case",
                                  "lsp_kind":  9

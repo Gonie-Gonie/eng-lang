@@ -61,11 +61,17 @@ with {
     on_error = fail
     resume = true
     overwrite = true
+    scheduler = parallel
+    workers = 4
 }
 case_run_ready_count = case_runs.ready_count
 case_run_succeeded_count = case_runs.succeeded_count
 case_run_failed_count = case_runs.failed_count
 case_run_status = case_runs.status
+case_run_scheduler = case_runs.scheduler
+case_run_worker_count = case_runs.worker_count
+case_run_effective_worker_count = case_runs.effective_worker_count
+case_run_parallel_policy = case_runs.parallel_policy
 case_result_collection = collect results case_runs
 case_result_collected_count = case_result_collection.collected_count
 case_result_missing_count = case_result_collection.missing_count
@@ -116,7 +122,7 @@ summary_case_id: String = case_001.case_id
 annual_electricity: Energy [kWh] = case_001.annual_electricity
 peak_cooling: HeatRate [kW] = case_001.peak_cooling
 unmet_hours: Duration [h] = case_001.unmet_hours
-native_case_status = "case inputs rendered, native expressions executed per case, and result manifests collected by the sequential scheduler"
+native_case_status = "case inputs rendered, native expressions executed by a bounded parallel scheduler, and result manifests collected in case order"
 native_model_status = "native case results, regression model, predictions, and DB writes materialized with zero external processes"
 db = open sqlite args.database_target
 write case_result_collection to db.table("simulation_results")
@@ -151,6 +157,7 @@ print "Design samples = {designs.rows}"
 print "Case manifest = {cases.rows} initial_pending={case_manifest_pending_count} initial_failed={case_manifest_failed_count} initial_status={case_manifest_initial_status}"
 print "Case inputs = {case_inputs.rows} expected={case_input_expected_count} rendered={case_input_rendered_count} blocked={case_input_blocked_count}"
 print "Case runs = {case_runs.rows} ready={case_run_ready_count} succeeded={case_run_succeeded_count} failed={case_run_failed_count} status={case_run_status}"
+print "Case scheduler = {case_run_scheduler} workers={case_run_worker_count} effective={case_run_effective_worker_count} policy={case_run_parallel_policy}"
 print "Case result collection = {case_result_collection.rows} collected={case_result_collected_count} missing={case_result_missing_count} blocked={case_result_blocked_count} status={case_result_collection_status}"
 print "Predictions = {predictions.rows}"
 print "Persisted predictions readback = {persisted_predictions.rows}"
@@ -190,6 +197,10 @@ report {
     show case_run_succeeded_count
     show case_run_failed_count
     show case_run_status
+    show case_run_scheduler
+    show case_run_worker_count
+    show case_run_effective_worker_count
+    show case_run_parallel_policy
     show case_result_collected_count
     show case_result_missing_count
     show case_result_blocked_count

@@ -25,6 +25,7 @@ use toml::Value as TomlValue;
 
 type GraphiteSqlValue = graphitesql::Value;
 
+use crate::case_scheduler::{effective_worker_count, schedule_rows};
 use crate::solver::evaluator::{
     parse_source_rhs_expression, source_rhs_parse_symbols, source_rhs_symbol_metadata,
 };
@@ -1347,6 +1348,8 @@ pub struct RuntimeCaseTable {
     pub failed_case_count: usize,
     pub runner: String,
     pub scheduler: String,
+    pub worker_count: usize,
+    pub effective_worker_count: usize,
     pub scheduler_hooks: Vec<String>,
     pub parallel_policy: String,
     pub resume_policy: String,
@@ -7584,6 +7587,24 @@ fn text_runtime_column(name: &str, type_name: &str, values: Vec<String>) -> Runt
     }
 }
 
+fn integer_runtime_column(name: &str, values: Vec<usize>) -> RuntimeColumn {
+    let values = values
+        .into_iter()
+        .map(|value| Some(value as f64))
+        .collect::<Vec<_>>();
+    RuntimeColumn {
+        name: name.to_owned(),
+        type_name: "Int".to_owned(),
+        unit: Some("1".to_owned()),
+        canonical_unit: Some("1".to_owned()),
+        is_index: false,
+        values: RuntimeValues::Number(values.clone()),
+        canonical_values: values,
+        missing_count: 0,
+        conversion_failures: Vec::new(),
+    }
+}
+
 fn materialize_cases_source_table(expression: &str) -> Option<&str> {
     let source = expression.trim().strip_prefix("materialize cases ")?.trim();
     if is_simple_binding_name(source) {
@@ -7745,22 +7766,31 @@ fn materialize_case_run_result_table(
         parse_failures: source_table.parse_failures.clone(),
         line: run.line,
     };
-
-    for output in run
-        .outputs
+    let prepared_outputs = prepare_case_run_outputs(run, &mut table);
+    let scheduled_rows = schedule_rows(
+        &run.scheduler,
+        run.worker_count,
+        source_table.row_count,
+        |row_index| evaluate_case_run_output_row(source_table, &prepared_outputs, row_index),
+    );
+    let mut output_values = prepared_outputs
         .iter()
-        .filter(|output| output.status == "accepted")
-    {
-        let column = eng_compiler::TableDerivedColumnInfo {
-            name: output.name.clone(),
-            expression: output.expression.clone(),
-            source_columns: output.source_columns.clone(),
-            status: output.status.clone(),
-            line: output.line,
-        };
-        let derived = materialize_derived_column(&column, &table);
-        table.columns = runtime_columns_with_overrides(&table.columns, vec![derived]);
+        .map(|_| Vec::with_capacity(source_table.row_count))
+        .collect::<Vec<_>>();
+    let mut worker_slots = Vec::with_capacity(source_table.row_count);
+    for scheduled in scheduled_rows {
+        debug_assert_eq!(scheduled.row_index, worker_slots.len());
+        worker_slots.push(scheduled.worker_slot);
+        for (column, value) in output_values.iter_mut().zip(scheduled.value) {
+            column.push(value);
+        }
     }
+    let evaluated_columns = prepared_outputs
+        .iter()
+        .zip(output_values)
+        .map(|(output, values)| output.runtime_column(values))
+        .collect::<Vec<_>>();
+    table.columns = runtime_columns_with_overrides(&table.columns, evaluated_columns);
 
     let case_ids = text_column_values_by_name(source_table, "case_id").unwrap_or_default();
     let case_dirs = text_column_values_by_name(source_table, "case_dir").unwrap_or_default();
@@ -7782,6 +7812,7 @@ fn materialize_case_run_result_table(
     let mut result_hashes = Vec::new();
     let mut failure_reasons = Vec::new();
     let mut statuses = Vec::new();
+    let mut scheduler_hook_states = Vec::new();
 
     for row_index in 0..source_table.row_count {
         let case_id = case_ids.get(row_index).cloned().unwrap_or_default();
@@ -7857,8 +7888,11 @@ fn materialize_case_run_result_table(
         result_hashes.push(result_hash);
         failure_reasons.push(failure_reason);
         statuses.push(status.to_owned());
+        scheduler_hook_states.push(case_run_scheduler_hook_state(status));
     }
 
+    let effective_workers =
+        effective_worker_count(&run.scheduler, run.worker_count, source_table.row_count);
     table.columns = runtime_columns_with_overrides(
         &table.columns,
         vec![
@@ -7881,16 +7915,27 @@ fn materialize_case_run_result_table(
                 "String",
                 vec![run.scheduler.clone(); source_table.row_count],
             ),
+            integer_runtime_column(
+                "worker_count",
+                vec![run.worker_count; source_table.row_count],
+            ),
+            integer_runtime_column(
+                "effective_worker_count",
+                vec![effective_workers; source_table.row_count],
+            ),
+            integer_runtime_column("worker_slot", worker_slots),
+            text_runtime_column("scheduler_hooks", "String", scheduler_hook_states),
             text_runtime_column("status", "String", statuses),
         ],
     );
     let mut hash_payload = format!(
-        "{}|{}|{}|{}|{}",
+        "{}|{}|{}|{}|{}:{}",
         run.binding,
         run.source_table,
         source_table.source_hash.clone().unwrap_or_default(),
         run.runner,
-        run.scheduler
+        run.scheduler,
+        run.worker_count
     );
     for row in 0..table.row_count {
         hash_payload.push_str(&format!("|row={row}"));
@@ -7904,6 +7949,116 @@ fn materialize_case_run_result_table(
     }
     table.source_hash = Some(stable_hash_text(&hash_payload));
     table
+}
+
+struct PreparedCaseRunOutput {
+    name: String,
+    expression: Option<ParsedArithmeticExpression>,
+    referenced_symbols: HashSet<String>,
+    unit: ArithmeticUnitMetadata,
+}
+
+impl PreparedCaseRunOutput {
+    fn runtime_column(&self, values: Vec<Option<f64>>) -> RuntimeColumn {
+        let missing_count = values.iter().filter(|value| value.is_none()).count();
+        RuntimeColumn {
+            name: self.name.clone(),
+            type_name: self.unit.quantity_kind.clone(),
+            unit: Some(self.unit.display_unit.clone()),
+            canonical_unit: Some(self.unit.canonical_unit.clone()),
+            is_index: false,
+            values: RuntimeValues::Number(values.clone()),
+            canonical_values: values,
+            missing_count,
+            conversion_failures: Vec::new(),
+        }
+    }
+}
+
+fn prepare_case_run_outputs(
+    run: &eng_compiler::CaseRunInfo,
+    table: &mut RuntimeTable,
+) -> Vec<PreparedCaseRunOutput> {
+    let mut prepared = Vec::new();
+    for output in run
+        .outputs
+        .iter()
+        .filter(|output| output.status == "accepted")
+    {
+        let column = eng_compiler::TableDerivedColumnInfo {
+            name: output.name.clone(),
+            expression: output.expression.clone(),
+            source_columns: output.source_columns.clone(),
+            status: output.status.clone(),
+            line: output.line,
+        };
+        let expression = parse_derived_column_expression(&column, table);
+        let referenced_symbols = expression
+            .as_ref()
+            .map(ParsedArithmeticExpression::referenced_symbols)
+            .unwrap_or_default();
+        let unit = expression
+            .as_ref()
+            .map(|expression| derived_column_unit(expression, &column, table))
+            .unwrap_or_else(dimensionless_unit_metadata);
+        let placeholder = RuntimeColumn {
+            name: output.name.clone(),
+            type_name: unit.quantity_kind.clone(),
+            unit: Some(unit.display_unit.clone()),
+            canonical_unit: Some(unit.canonical_unit.clone()),
+            is_index: false,
+            values: RuntimeValues::Number(vec![None; table.row_count]),
+            canonical_values: vec![None; table.row_count],
+            missing_count: table.row_count,
+            conversion_failures: Vec::new(),
+        };
+        table.columns = runtime_columns_with_overrides(&table.columns, vec![placeholder]);
+        prepared.push(PreparedCaseRunOutput {
+            name: output.name.clone(),
+            expression,
+            referenced_symbols,
+            unit,
+        });
+    }
+    prepared
+}
+
+fn evaluate_case_run_output_row(
+    source_table: &RuntimeTable,
+    outputs: &[PreparedCaseRunOutput],
+    row_index: usize,
+) -> Vec<Option<f64>> {
+    let mut symbols =
+        table_numeric_symbols_for_row(source_table, row_index, &HashSet::new()).unwrap_or_default();
+    outputs
+        .iter()
+        .map(|output| {
+            let value = output.expression.as_ref().and_then(|expression| {
+                output
+                    .referenced_symbols
+                    .iter()
+                    .all(|symbol| symbols.contains_key(symbol))
+                    .then(|| expression.evaluate(&symbols).ok())
+                    .flatten()
+                    .filter(|value| value.is_finite())
+            });
+            if let Some(value) = value {
+                symbols.insert(output.name.clone(), value);
+            }
+            value
+        })
+        .collect()
+}
+
+fn case_run_scheduler_hook_state(status: &str) -> String {
+    match status {
+        "succeeded" => "case_queued,case_started,case_succeeded",
+        "failed" | "blocked" => "case_queued,case_started,case_failed",
+        "skipped" => "case_queued,case_skipped",
+        "ready" => "case_queued,case_started",
+        _ => "case_queued",
+    }
+    .to_owned()
 }
 
 fn case_run_result_hash(

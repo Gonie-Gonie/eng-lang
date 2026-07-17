@@ -32,7 +32,7 @@ is still future work.
 | `eng.artifact` | Generated artifact kinds, `write standard_text` table artifacts, hashes, manifests, and validation records. |
 | `eng.table` | Promoted table diagnostics and schema-aware filter/select/derive/sort/require_one/join transform records with row-level diagnostics. |
 | `eng.sampling` | Deterministic grid/random/LHS sample generation, promoted sample-table metadata, parameter ranges, duplicate case IDs, seeds, row hashes, and row-value previews. |
-| `eng.case` | Native CaseTable/CaseOutput/CaseRunResult/CaseResultCollection stages, template and sequential calculation execution, verified local result-cache replay, manifests, diagnostics, and process-adapter enrichment. |
+| `eng.case` | Native CaseTable/CaseOutput/CaseRunResult/CaseResultCollection stages, template and explicit sequential or bounded parallel calculation execution, verified local result-cache replay, manifests, diagnostics, and process-adapter enrichment. |
 | `eng.timeseries` | Axis, coverage, fill, quality, alignment/resampling, and integration metadata above core TimeSeries semantics. |
 | `eng.stats` | Compiler-checked TimeSeries summaries with native runtime values and report/review artifacts. |
 | `eng.review` | Review IR, risk/fallback, and semantic diff vocabulary. |
@@ -55,7 +55,7 @@ APIs unless a status document says so.
 | `eng.db` | Supported SQLite write scope | Native SQLite append/upsert/replace writes for typed tables with schema metadata, DB manifests, hash before/after records, transaction status, and safe-profile rejection. |
 | `eng.table` | Planned broader APIs | Derived-value execution, fill operations, and richer schema-aware transforms. |
 | `eng.sampling` | Planned broader APIs | Additional design-of-experiments strategies and richer sample manifests. |
-| `eng.case` | Supported sequential native scope | Native template rendering and typed per-case calculations, result/run manifests, calculation-hash/result-SHA resume, content-addressed local cache replay and repair, and fail/continue policy; parallel scheduling and automatic external-adapter dispatch remain planned. |
+| `eng.case` | Supported bounded native scope | Native template rendering and typed per-case calculations with explicit sequential or bounded parallel scheduling, deterministic worker slots, result/run manifests, calculation-hash/result-SHA resume, content-addressed local cache replay and repair, and fail/continue policy; automatic external-adapter dispatch remains planned. |
 | `eng.model` | Supported model-spec and predict-table scope | ModelSpec, FeatureSpec, TargetSpec, model-card, native prediction table, prediction-manifest, confidence, metric, residual, and hash review vocabulary. |
 | `eng.uncertainty` | Native workflow support | Narrow uncertainty constructors, linear propagation metadata, sensor_std TimeSeries review metadata, probability/statistic validation, and report confidence-band artifacts; broad probabilistic propagation remains planned. |
 | `eng.building` | Planned | Building/Zone/Construction object vocabulary before simulation adapters. |

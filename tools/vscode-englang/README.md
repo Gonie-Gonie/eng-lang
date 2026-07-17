@@ -43,6 +43,9 @@ embedding compiler logic in JavaScript.
   severity, and exact range under the caret
 - hover from compiler review metadata
 - position-aware completion from compiler/editor metadata
+- owner-aware `run_case` completion and highlighting for `scheduler`, `workers`,
+  sequential/parallel policy values, and CaseRunResult runner/worker/lifecycle
+  fields
 - compiler-backed go-to-definition for current-file and static-import symbols,
   preferring every modified open EngLang buffer over disk
 - safe current-file semantic rename plus unsaved-aware, static-import-aware

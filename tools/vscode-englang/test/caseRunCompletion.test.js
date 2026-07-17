@@ -24,7 +24,9 @@ try {
 const catalogs = {
   caseOutputTableFields: [{ label: "rendered_count", detail: "rendered outputs" }],
   caseRunResultTableFields: [
-    { label: "succeeded_count", detail: "succeeded native case runs" }
+    { label: "succeeded_count", detail: "succeeded native case runs" },
+    { label: "scheduler", detail: "case scheduler" },
+    { label: "worker_count", detail: "configured worker limit" }
   ]
 };
 const source = [
@@ -41,7 +43,7 @@ assert.deepStrictEqual(
 for (const binding of ["case_runs", "function_case_runs"]) {
   assert.deepStrictEqual(
     fieldsByBinding[binding].map((field) => field.label),
-    ["succeeded_count"],
+    ["succeeded_count", "scheduler", "worker_count"],
     `${binding} should use native case run result fields`
   );
 }
@@ -54,7 +56,7 @@ const localItems = localMemberCompletionsForContext(
 );
 assert.deepStrictEqual(
   localItems.map((item) => item.label),
-  ["succeeded_count"],
+  ["succeeded_count", "scheduler", "worker_count"],
   "case_runs name fallback should not offer CaseOutput fields"
 );
 

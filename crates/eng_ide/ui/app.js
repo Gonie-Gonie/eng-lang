@@ -5902,7 +5902,7 @@ function renderCaseTables(tables) {
       <td><strong>${escapeHtml(table.sample_table || table.sampleTable || "-")}</strong><div class="muted">${escapeHtml(table.status || "-")}</div></td>
       <td>${escapeHtml(table.case_count ?? table.caseCount ?? "-")}</td>
       <td>${escapeHtml(table.pending_count ?? table.pendingCount ?? 0)} / ${escapeHtml(table.succeeded_count ?? table.succeededCount ?? 0)} / ${escapeHtml(table.failed_count ?? table.failedCount ?? 0)} / ${escapeHtml(table.skipped_count ?? table.skippedCount ?? 0)}</td>
-      <td>${escapeHtml(table.runner || "-")}<div class="muted">${escapeHtml(table.scheduler || "-")}</div></td>
+      <td>${escapeHtml(table.runner || "-")}<div class="muted">${escapeHtml(table.scheduler || "-")} | workers ${escapeHtml(table.worker_count ?? table.workerCount ?? 0)} / ${escapeHtml(table.effective_worker_count ?? table.effectiveWorkerCount ?? 0)}</div><div class="muted">${escapeHtml(table.parallel_policy ?? table.parallelPolicy ?? "-")}</div></td>
       <td>${escapeHtml(table.cache_hit_count ?? table.cacheHitCount ?? 0)} / ${escapeHtml(table.cache_miss_count ?? table.cacheMissCount ?? 0)}</td>
       <td>${escapeHtml((table.duplicate_case_ids || table.duplicateCaseIds || []).join(", ") || "-")}</td>
     </tr>

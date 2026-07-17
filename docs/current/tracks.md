@@ -123,11 +123,12 @@ and next cleanup action.
   text/json, constrained copy/move/delete/mkdir, run logs, process results, test
   results, output manifests, and safe/normal/repro profiles.
 - Main internal: native HTTP(S), cache replay/invalidation, table transforms,
-  deterministic sampling, template/case execution, SQLite
+  deterministic sampling, template/case execution with bounded parallel case
+  calculations, SQLite
   append/upsert/replace, linear model training/prediction, output-manifest
   `artifact_registry` summaries, and their review artifacts. Broader
   filesystem/process isolation, network methods, shared or remote case caches,
-  database backends, parallel scheduling, and model algorithms remain planned.
+  database backends, and model algorithms remain planned.
 - Next cleanup: maintain artifact-first side-effect documentation and add
   module slices only with review/output-manifest evidence.
 

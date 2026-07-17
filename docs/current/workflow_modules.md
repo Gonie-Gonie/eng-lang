@@ -41,12 +41,14 @@ under the repro profile, and warn about stale cache entries. Native SQLite
 append/upsert/replace writes now produce DB files,
 DB manifests, schema diagnostics, hash before/after records, and transaction
 status. Native `predict <model> using <table>` now materializes prediction
-tables and manifests. Native sequential `apply run_case over ...` evaluates
+tables and manifests. Native `apply run_case over ...` evaluates
 typed result expressions per case, writes result and run-manifest artifacts,
+supports explicit sequential or bounded parallel scheduling with deterministic
+worker slots and lifecycle hooks,
 supports calculation-hash/result-SHA output resume and content-addressed local
 cache replay/repair plus fail/continue and overwrite policies, and feeds
 `collect results`. Shared or remote case caches, cross-artifact cache
-invalidation, parallel case scheduling, automatic external-adapter dispatch,
+invalidation, automatic external-adapter dispatch,
 broad DB support, and broader model train syntax remain planned or internal
 until concrete language/runtime/artifact slices land.
 
@@ -181,7 +183,7 @@ write manifests, and current network/cache records capture pinned offline
 boundaries, live HTTP(S) response materialization, and cache hit/miss lookup
 records, including materialized/replayed pinned network response cache entries.
 Future process/model cache replay, cross-artifact invalidation, shared or
-remote case caches, parallel case scheduling and automatic external-adapter
+remote case caches and automatic external-adapter
 dispatch, broad DB engines, and model modules should follow the same artifact
 pattern.
 
@@ -215,7 +217,7 @@ deterministic LHS training and prediction sample tables
 sample table artifacts with case IDs, parameter ranges, duplicate checks, row-hash records, and row-value previews
 case manifest records for generated sample/case rows
 rendered CaseOutput rows from `apply case_input_template over cases`
-native CaseRunResult rows from sequential `apply run_case over case_inputs`, with typed output expressions and per-case result/run-manifest artifacts
+native CaseRunResult rows from bounded parallel `apply run_case over case_inputs`, with typed output expressions, deterministic worker slots, lifecycle hooks, and per-case result/run-manifest artifacts
 content-addressed local case-result cache records with calculation-hash/result-SHA output resume, verified replay, and invalid-entry repair
 sampled typed columns preserved through CaseTable and CaseOutput, then calculated result columns preserved through CaseRunResult and CaseResultCollection, with model training, case selection, and the
 simulation-results DB write consuming the final collection
@@ -315,7 +317,7 @@ sample table
 -> typed validation
 -> case materialization
 -> native input template rendering
--> native sequential result-expression execution
+-> native bounded parallel result-expression execution
 -> result and run-manifest materialization
 -> typed result collection
 -> model-card or surrogate training
@@ -339,17 +341,20 @@ optional process-enriched case materialization fields only when a workflow uses
 an `eng.process` adapter with matching expected outputs. Current native
 `materialize cases`, template `apply`, `apply run_case`, and `collect results`
 make the supported path explicit by materializing CaseTable, CaseOutput,
-CaseRunResult, and CaseResultCollection rows. The sequential native runner
-evaluates a required `results` expression map for every rendered input, writes
+CaseRunResult, and CaseResultCollection rows. The native runner evaluates a
+required `results` expression map for every rendered input with an explicit
+`scheduler = sequential|parallel` contract. Parallel mode requires a bounded
+`workers` value, uses deterministic static row partitions, and writes
 `result.json` plus `case_run_manifest.json`, supports hash-based `resume`,
 `overwrite`, and `on_error = fail|continue`, and never starts an external
 process. Source columns, including typed numeric values,
 units, canonical values, and parse diagnostics, remain available at every
 stage. CaseOutput retains the CaseTable stage status as `case_status`, while
 CaseRunResult retains both `case_status` and `input_status` and adds runner,
-scheduler, result hash, failure reason, and run status. CaseResultCollection
-retains the run status and collects only succeeded results. Parallel execution
-and automatic external-adapter dispatch should extend the same record shape:
+scheduler, worker counts/slot, lifecycle hooks, result hash, failure reason,
+and run status. CaseResultCollection retains the run status and collects only
+succeeded results. Automatic external-adapter dispatch should extend the same
+record shape:
 
 ```text
 case_id

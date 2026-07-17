@@ -3168,9 +3168,17 @@ fn with_owner_apply_options(
             _ => None,
         }));
         options.extend(
-            ["results", "result", "manifest", "on_error", "resume"]
-                .into_iter()
-                .map(str::to_owned),
+            [
+                "results",
+                "result",
+                "manifest",
+                "on_error",
+                "resume",
+                "scheduler",
+                "workers",
+            ]
+            .into_iter()
+            .map(str::to_owned),
         );
     }
     options
@@ -7149,6 +7157,9 @@ fn table_metadata_field_semantic_type(
         {
             semantic_type("Count", "count")
         }
+        "worker_count" | "effective_worker_count" if quantity_kind == "Table[CaseRunResult]" => {
+            semantic_type("Count", "count")
+        }
         "blocked_count" | "waiting_count"
             if matches!(
                 quantity_kind,
@@ -7181,6 +7192,11 @@ fn table_metadata_field_semantic_type(
                     | "Table[CaseRunResult]"
                     | "Table[CaseResultCollection]"
             ) =>
+        {
+            semantic_type("String", "")
+        }
+        "runner" | "scheduler" | "scheduler_hooks" | "parallel_policy"
+            if quantity_kind == "Table[CaseRunResult]" =>
         {
             semantic_type("String", "")
         }
@@ -13840,6 +13856,7 @@ fn exposed_workflow_option_key(key: &str) -> bool {
                 | "response_body_limit"
                 | "return_column"
                 | "scale"
+                | "scheduler"
                 | "sigma"
                 | "split"
                 | "start"
@@ -13854,6 +13871,7 @@ fn exposed_workflow_option_key(key: &str) -> bool {
                 | "transaction"
                 | "upper"
                 | "values"
+                | "workers"
                 | "x"
                 | "y"
                 | "year"

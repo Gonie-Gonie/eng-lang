@@ -195,7 +195,7 @@ is not mistaken for public module support.
     Native case execution includes calculation-hash/result-SHA output resume
     and verified local result-cache replay/repair. Planned work includes
     process/model cache replay, cross-artifact invalidation, shared or remote
-    case caches, parallel case scheduling, automatic external-adapter dispatch,
+    case caches, automatic external-adapter dispatch,
     broad DB query/engine support, and broader model train syntax.
   - Current native DB evidence includes schema diagnostics, transaction status,
     table names, modes, keys, row counts, source hashes, and report-visible
@@ -215,7 +215,7 @@ is not mistaken for public module support.
   network/cache boundary,
   sampling, table-regression, prediction, template, and SQLite write/readback
   support: process/model cache replay, cross-artifact invalidation, shared or
-  remote case caches, parallel case scheduling, automatic external-adapter
+  remote case caches, automatic external-adapter
   dispatch, broad database query/engine support, and broader public model
   train/predict workflows.
 - Broad nonlinear/DAE/adaptive/component solving beyond the documented narrow

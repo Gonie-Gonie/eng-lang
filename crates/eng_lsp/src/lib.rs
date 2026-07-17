@@ -515,6 +515,8 @@ const LANGUAGE_CONSTANT_KEYWORDS: &[&str] = &[
     "monte_carlo",
     "source_linear_terms",
     "finite_difference",
+    "sequential",
+    "parallel",
     "asc",
     "desc",
     "pending",
@@ -918,6 +920,10 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("return_column", "projection return column"),
     ("samples", "uncertainty sample count"),
     ("scale", "uncertainty propagation scale"),
+    (
+        "scheduler",
+        "Native case policy: sequential or bounded parallel",
+    ),
     ("seed", "deterministic sampling seed"),
     ("sensor_std", "TimeSeries sensor standard deviation"),
     ("sigma", "uncertainty standard deviation alias"),
@@ -944,6 +950,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("values", "template value map"),
     ("variable_scale", "solver variable scale"),
     ("variable_scales", "solver variable scale list"),
+    ("workers", "Native parallel case worker limit from 2 to 64"),
     ("year", "calendar year option"),
 ];
 
@@ -1099,6 +1106,27 @@ const CASE_RUN_RESULT_TABLE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
     ("blocked_count", "blocked native case run count"),
     ("output_count", "native case result path count"),
     ("manifest_count", "native case run manifest path count"),
+    ("runner", "native_expression_runner execution backend"),
+    (
+        "scheduler",
+        "configured sequential or bounded parallel policy",
+    ),
+    (
+        "worker_count",
+        "configured workers: 1 sequential or 2 to 64 parallel",
+    ),
+    (
+        "effective_worker_count",
+        "workers actually assigned at least one case row",
+    ),
+    (
+        "scheduler_hooks",
+        "comma-separated lifecycle events reached by each case",
+    ),
+    (
+        "parallel_policy",
+        "bounded_static_partitions or disabled scheduling policy",
+    ),
     ("status", "native case run aggregate status"),
     ("row_count", "table row count"),
     ("column_count", "table column count"),
@@ -3702,7 +3730,9 @@ fn with_option_semantic_modifiers(
         "overwrite" if is_case_run_with_block(program, block.owner_line) => {
             &["sideEffect", "workflowStep"]
         }
-        "results" | "on_error" if is_case_run_with_block(program, block.owner_line) => {
+        "results" | "on_error" | "scheduler" | "workers"
+            if is_case_run_with_block(program, block.owner_line) =>
+        {
             &["workflowStep"]
         }
         "output" if is_template_workflow_with_block(program, block.owner_line) => {
@@ -3968,6 +3998,12 @@ fn with_option_value_semantic_class(
         }
         "step" if matches!(value, "run_case") => {
             Some(("function", &["defaultLibrary", "workflowStep"]))
+        }
+        "scheduler"
+            if is_case_run_with_block(program, block.owner_line)
+                && matches!(value, "sequential" | "parallel") =>
+        {
+            Some(("keyword", &["workflowStep"]))
         }
         "method" if is_sample_with_block(program, block.owner_line) => {
             Some(("keyword", &["workflowStep"]))
@@ -11096,6 +11132,8 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
             "on_error",
             "resume",
             "overwrite",
+            "scheduler",
+            "workers",
         ]);
     }
     if owner.contains("apply ") || owner.contains("apply(") {
@@ -11676,7 +11714,7 @@ fn completion_insert_snippet_for_label(label: &str) -> Option<String> {
                 .to_owned(),
         ),
         "apply run_case" => Some(
-            "apply run_case over ${1:case_inputs}\nwith {\n    results = {\n        ${2:annual_energy} = ${3:load * 1 kWh}\n    }\n    result = \"{case_dir}/result.json\"\n    manifest = \"{case_dir}/case_run_manifest.json\"\n    on_error = fail\n    resume = true\n    overwrite = true\n}"
+            "apply run_case over ${1:case_inputs}\nwith {\n    results = {\n        ${2:annual_energy} = ${3:load * 1 kWh}\n    }\n    result = \"{case_dir}/result.json\"\n    manifest = \"{case_dir}/case_run_manifest.json\"\n    on_error = fail\n    resume = true\n    overwrite = true\n    scheduler = parallel\n    workers = ${4:4}\n}"
                 .to_owned(),
         ),
         "collect results" => Some("collect results ${1:case_runs}".to_owned()),
@@ -14465,7 +14503,7 @@ print "done"
             .expect("editor metadata should include native case run completion");
         assert_eq!(
             apply_run_case_completion["insert_snippet"],
-            "apply run_case over ${1:case_inputs}\nwith {\n    results = {\n        ${2:annual_energy} = ${3:load * 1 kWh}\n    }\n    result = \"{case_dir}/result.json\"\n    manifest = \"{case_dir}/case_run_manifest.json\"\n    on_error = fail\n    resume = true\n    overwrite = true\n}"
+            "apply run_case over ${1:case_inputs}\nwith {\n    results = {\n        ${2:annual_energy} = ${3:load * 1 kWh}\n    }\n    result = \"{case_dir}/result.json\"\n    manifest = \"{case_dir}/case_run_manifest.json\"\n    on_error = fail\n    resume = true\n    overwrite = true\n    scheduler = parallel\n    workers = ${4:4}\n}"
         );
         assert_eq!(
             apply_run_case_completion["detail"],
@@ -21460,10 +21498,14 @@ with {
     on_error = fail
     resume = true
     overwrite = true
+    scheduler = parallel
+    workers = 2
 }
 
 succeeded = case_runs.succeeded_count
 waiting = case_runs.waiting_count
+configured_workers = case_runs.worker_count
+run_scheduler = case_runs.scheduler
 "#;
         let snapshot = snapshot_for_source(Path::new("case_run_members.eng"), source);
 
@@ -21475,6 +21517,14 @@ waiting = case_runs.waiting_count
             .completions
             .iter()
             .any(|completion| completion.label == "case_runs.waiting_count"));
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "case_runs.worker_count"));
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "case_runs.scheduler"));
         let succeeded_line = source
             .lines()
             .position(|line| line.contains("succeeded ="))
@@ -21525,8 +21575,33 @@ waiting = case_runs.waiting_count
             ("    on_error =", "fail", "keyword", "workflowStep"),
             ("    resume =", "resume", "property", "workflowStep"),
             (
+                "    scheduler = parallel",
+                "scheduler",
+                "property",
+                "workflowStep",
+            ),
+            (
+                "    scheduler = parallel",
+                "parallel",
+                "keyword",
+                "workflowStep",
+            ),
+            ("    workers = 2", "workers", "property", "workflowStep"),
+            (
                 "succeeded = case_runs.succeeded_count",
                 "succeeded_count",
+                "property",
+                "workflowStep",
+            ),
+            (
+                "configured_workers = case_runs.worker_count",
+                "worker_count",
+                "property",
+                "workflowStep",
+            ),
+            (
+                "run_scheduler = case_runs.scheduler",
+                "scheduler",
                 "property",
                 "workflowStep",
             ),
@@ -22880,6 +22955,8 @@ with {
             "on_error",
             "resume",
             "overwrite",
+            "scheduler",
+            "workers",
         ] {
             assert!(
                 completions

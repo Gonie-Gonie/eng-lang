@@ -6,10 +6,21 @@ use crate::parser::ParsedProgram;
 use crate::semantic::{SemanticProgram, WithOptionInfo};
 use crate::{Diagnostic, InferredDeclaration, SourceSpan};
 
+const MAX_CASE_RUN_WORKERS: usize = 64;
+const CASE_RUN_SCHEDULER_HOOKS: &[&str] = &[
+    "case_queued",
+    "case_started",
+    "case_succeeded",
+    "case_failed",
+    "case_skipped",
+];
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CaseRunOutputInfo {
     pub name: String,
+    pub name_span: SourceSpan,
     pub expression: String,
+    pub expression_span: SourceSpan,
     pub source_columns: Vec<String>,
     pub status: String,
     pub line: usize,
@@ -26,6 +37,8 @@ pub struct CaseRunInfo {
     pub resume: bool,
     pub overwrite: bool,
     pub scheduler: String,
+    pub worker_count: usize,
+    pub scheduler_hooks: Vec<String>,
     pub runner: String,
     pub status: String,
     pub line: usize,
@@ -128,6 +141,12 @@ pub fn analyze_case_runs(
             &mut analysis.diagnostics,
             &mut status,
         );
+        let (scheduler, worker_count) = case_run_scheduler_options(
+            &options,
+            binding.line,
+            &mut analysis.diagnostics,
+            &mut status,
+        );
         let result_path = case_run_path_option(
             parsed,
             &options,
@@ -181,8 +200,13 @@ pub fn analyze_case_runs(
             on_error,
             resume,
             overwrite,
-            scheduler: "sequential".to_owned(),
-            runner: "native_expression".to_owned(),
+            scheduler,
+            worker_count,
+            scheduler_hooks: CASE_RUN_SCHEDULER_HOOKS
+                .iter()
+                .map(|hook| (*hook).to_owned())
+                .collect(),
+            runner: "native_expression_runner".to_owned(),
             status,
             line: binding.line,
         });
@@ -296,7 +320,9 @@ fn case_run_outputs(
         .filter(|option| option.key != "}")
         .map(|option| CaseRunOutputInfo {
             name: option.key.clone(),
+            name_span: option.key_span,
             expression: option.value.clone(),
+            expression_span: option.value_span,
             source_columns: crate::table::expression_columns(&option.value),
             status: "accepted".to_owned(),
             line: option.line,
@@ -327,33 +353,45 @@ fn validate_case_run_outputs(
     let mut names = HashSet::new();
     for output in outputs {
         if reserved_case_run_column(&output.name) {
-            diagnostics.push(Diagnostic::error(
-                "E-CASE-RUN-OUTPUT-RESERVED",
-                output.line,
-                &format!("Run-case output `{}` conflicts with scheduler metadata.", output.name),
-                Some("Choose a domain result name that is not a case status, path, hash, or runner field."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-CASE-RUN-OUTPUT-RESERVED",
+                    output.line,
+                    &format!(
+                        "Run-case output `{}` conflicts with scheduler metadata.",
+                        output.name
+                    ),
+                    Some("Choose a domain result name that is not a case status, path, hash, or runner field."),
+                )
+                .with_source_span(output.name_span),
+            );
             output.status = "reserved_name".to_owned();
             *run_status = "invalid_output".to_owned();
         } else if !names.insert(output.name.clone()) {
-            diagnostics.push(Diagnostic::error(
-                "E-CASE-RUN-OUTPUT-DUPLICATE",
-                output.line,
-                &format!(
-                    "Run-case output `{}` is declared more than once.",
-                    output.name
-                ),
-                Some("Keep one expression for each result field."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-CASE-RUN-OUTPUT-DUPLICATE",
+                    output.line,
+                    &format!(
+                        "Run-case output `{}` is declared more than once.",
+                        output.name
+                    ),
+                    Some("Keep one expression for each result field."),
+                )
+                .with_source_span(output.name_span),
+            );
             output.status = "duplicate".to_owned();
             *run_status = "invalid_output".to_owned();
         } else if output.expression.trim().is_empty() {
-            diagnostics.push(Diagnostic::error(
-                "E-CASE-RUN-OUTPUT-EXPRESSION",
-                output.line,
-                &format!("Run-case output `{}` has an empty expression.", output.name),
-                Some("Assign a numeric expression based on case input columns."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-CASE-RUN-OUTPUT-EXPRESSION",
+                    output.line,
+                    &format!("Run-case output `{}` has an empty expression.", output.name),
+                    Some("Assign a numeric expression based on case input columns."),
+                )
+                .with_source_span(output.expression_span),
+            );
             output.status = "empty_expression".to_owned();
             *run_status = "invalid_output".to_owned();
         }
@@ -383,6 +421,102 @@ fn bool_option(
             *status = "invalid_policy".to_owned();
             default
         }
+    }
+}
+
+fn case_run_scheduler_options(
+    options: &[WithOptionInfo],
+    owner_line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+    status: &mut String,
+) -> (String, usize) {
+    let scheduler = option_text(options, "scheduler").unwrap_or_else(|| "sequential".to_owned());
+    let scheduler_option = options.iter().find(|option| option.key == "scheduler");
+    if !matches!(scheduler.as_str(), "sequential" | "parallel") {
+        let mut diagnostic = Diagnostic::error(
+            "E-CASE-RUN-SCHEDULER",
+            scheduler_option.map_or(owner_line, |option| option.line),
+            &format!("Unknown run-case scheduler `{scheduler}`."),
+            Some("Use `scheduler = sequential` or `scheduler = parallel`."),
+        );
+        if let Some(option) = scheduler_option {
+            diagnostic = diagnostic.with_source_span(option.value_span);
+        }
+        diagnostics.push(diagnostic);
+        *status = "invalid_scheduler".to_owned();
+    }
+
+    let workers_option = options.iter().find(|option| option.key == "workers");
+    let parsed_workers =
+        workers_option.and_then(|option| option.value.trim().parse::<usize>().ok());
+    if let Some(option) = workers_option {
+        if parsed_workers.is_none_or(|workers| workers == 0 || workers > MAX_CASE_RUN_WORKERS) {
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-CASE-RUN-SCHEDULER",
+                    option.line,
+                    &format!(
+                        "Run-case `workers` must be an integer from 1 to {MAX_CASE_RUN_WORKERS}."
+                    ),
+                    Some("Use a bounded worker count such as `workers = 4`."),
+                )
+                .with_source_span(option.value_span),
+            );
+            *status = "invalid_scheduler".to_owned();
+        }
+    }
+
+    match scheduler.as_str() {
+        "parallel" => match parsed_workers {
+            Some(workers @ 2..=MAX_CASE_RUN_WORKERS) => (scheduler, workers),
+            Some(1) => {
+                let option = workers_option.expect("parsed worker option");
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-CASE-RUN-SCHEDULER",
+                        option.line,
+                        "The parallel run-case scheduler requires at least two workers.",
+                        Some("Use `workers = 2` or switch to `scheduler = sequential`."),
+                    )
+                    .with_source_span(option.value_span),
+                );
+                *status = "invalid_scheduler".to_owned();
+                (scheduler, 1)
+            }
+            Some(_) => (scheduler, 1),
+            None if workers_option.is_none() => {
+                let mut diagnostic = Diagnostic::error(
+                    "E-CASE-RUN-SCHEDULER",
+                    scheduler_option.map_or(owner_line, |option| option.line),
+                    "The parallel run-case scheduler requires an explicit worker limit.",
+                    Some("Add `workers = 4` next to `scheduler = parallel`."),
+                );
+                if let Some(option) = scheduler_option {
+                    diagnostic = diagnostic.with_source_span(option.value_span);
+                }
+                diagnostics.push(diagnostic);
+                *status = "invalid_scheduler".to_owned();
+                (scheduler, 1)
+            }
+            None => (scheduler, 1),
+        },
+        "sequential" => {
+            if parsed_workers.is_some_and(|workers| workers != 1) {
+                let option = workers_option.expect("parsed worker option");
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-CASE-RUN-SCHEDULER",
+                        option.line,
+                        "The sequential run-case scheduler uses exactly one worker.",
+                        Some("Remove `workers`, use `workers = 1`, or switch to `scheduler = parallel`."),
+                    )
+                    .with_source_span(option.value_span),
+                );
+                *status = "invalid_scheduler".to_owned();
+            }
+            (scheduler, 1)
+        }
+        _ => (scheduler, 1),
     }
 }
 
@@ -470,7 +604,14 @@ fn line_in_range(line: usize, range: Option<(usize, usize)>) -> bool {
 fn case_run_control_option(key: &str) -> bool {
     matches!(
         key,
-        "results" | "result" | "manifest" | "on_error" | "resume" | "overwrite"
+        "results"
+            | "result"
+            | "manifest"
+            | "on_error"
+            | "resume"
+            | "overwrite"
+            | "scheduler"
+            | "workers"
     )
 }
 
@@ -489,6 +630,11 @@ fn reserved_case_run_column(name: &str) -> bool {
             | "failure_reason"
             | "runner"
             | "scheduler"
+            | "worker_count"
+            | "effective_worker_count"
+            | "worker_slot"
+            | "scheduler_hooks"
+            | "parallel_policy"
             | "status"
     )
 }

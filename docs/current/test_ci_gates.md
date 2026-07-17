@@ -127,10 +127,14 @@ syntax:
   Table[Prediction] materialization, prediction-manifest metadata, confidence
   columns, and writing prediction tables through the native SQLite DB write
   path.
+- Native case-runner tests cover sequential and bounded parallel scheduler
+  policy validation, actual concurrent row evaluation, deterministic uneven
+  partitions and result order, dependent result expressions, lifecycle hooks,
+  worker telemetry, result/run manifests, and scheduler-aware cache identity.
 
 Remaining gap: broader `eng.cache` invalidation/reuse policy, broader sampling
-distributions/design policies, case-runner scheduling, DB query/engine support,
-and public model training syntax remain planned. Pinned response/cache-record
+ distributions/design policies, DB query/engine support, and public model
+ training syntax remain planned. Pinned response/cache-record
 evidence must stay labeled as composite workflow foundations, not full native
 module support.
 

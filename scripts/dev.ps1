@@ -921,6 +921,43 @@ function Invoke-WorkflowsTest {
             if ($null -eq $CaseRunObject) {
                 throw "Workflow 02 native result missing case_runs object-store table"
             }
+            $NativeCaseTable = @($TypedPayload.case_tables | Where-Object {
+                [string]$_.sample_table -eq "training_designs" -and
+                [string]$_.schema_name -eq "GeneratedSample"
+            }) | Select-Object -First 1
+            if ($null -eq $NativeCaseTable) {
+                throw "Workflow 02 native result missing training case scheduler summary"
+            }
+            Assert-ArtifactValue $NativeCaseTable.runner "native_expression_runner" "Workflow 02 native case runner"
+            Assert-ArtifactValue $NativeCaseTable.scheduler "parallel" "Workflow 02 native case scheduler"
+            Assert-ArtifactNumber $NativeCaseTable.worker_count 4 "Workflow 02 configured native worker count"
+            Assert-ArtifactNumber $NativeCaseTable.effective_worker_count 4 "Workflow 02 effective native worker count"
+            Assert-ArtifactValue $NativeCaseTable.parallel_policy "bounded_static_partitions" "Workflow 02 native parallel policy"
+            $ExpectedSchedulerHooks = @("case_queued", "case_started", "case_succeeded", "case_failed", "case_skipped")
+            if ((@($NativeCaseTable.scheduler_hooks) -join "|") -ne ($ExpectedSchedulerHooks -join "|")) {
+                throw "Workflow 02 native case scheduler hook contract is incomplete"
+            }
+            foreach ($RequiredRunTelemetry in @(
+                @{ Name = "scheduler"; Value = "parallel" },
+                @{ Name = "worker_count"; Value = "4" },
+                @{ Name = "effective_worker_count"; Value = "4" },
+                @{ Name = "scheduler_hooks"; Value = "case_queued,case_started,case_succeeded" }
+            )) {
+                $TelemetryColumn = @($CaseRunObject.columns | Where-Object {
+                    [string]$_.name -eq $RequiredRunTelemetry.Name
+                }) | Select-Object -First 1
+                if ($null -eq $TelemetryColumn -or
+                    @($TelemetryColumn.values).Count -ne 8 -or
+                    @($TelemetryColumn.values | Where-Object { [string]$_ -ne $RequiredRunTelemetry.Value }).Count -ne 0) {
+                    throw "Workflow 02 case_runs must expose $($RequiredRunTelemetry.Name)=$($RequiredRunTelemetry.Value) for every native case"
+                }
+            }
+            $WorkerSlotColumn = @($CaseRunObject.columns | Where-Object {
+                [string]$_.name -eq "worker_slot"
+            }) | Select-Object -First 1
+            if ($null -eq $WorkerSlotColumn -or (@($WorkerSlotColumn.values) -join "|") -ne "1|1|2|2|3|3|4|4") {
+                throw "Workflow 02 case_runs must preserve deterministic bounded-static worker slots"
+            }
             $CasePipelineStages = @(
                 @{ Binding = "cases"; StatusColumn = "status"; StatusValue = "pending" },
                 @{ Binding = "case_inputs"; StatusColumn = "status"; StatusValue = "rendered" },
@@ -1109,6 +1146,63 @@ function Invoke-WorkflowsTest {
             } | Select-Object -First 1)
             if ($UnexpectedCaseManifests.Count -gt 0) {
                 throw "Workflow 02 native case manifests must expose native run_case results only for training designs"
+            }
+            $ExpectedNativeOutputs = @("annual_electricity", "annual_cooling", "peak_cooling", "unmet_hours")
+            $ExpectedSuccessHooks = @("case_queued", "case_started", "case_succeeded")
+            $WorkerSlotCounts = @{}
+            foreach ($NativeCaseManifest in @($CaseManifests | Where-Object { [string]$_.sample_table -eq "training_designs" })) {
+                $MetricNames = @($NativeCaseManifest.metrics | ForEach-Object { [string]$_.name } | Sort-Object)
+                if (($MetricNames -join "|") -ne ((@($ExpectedNativeOutputs) | Sort-Object) -join "|")) {
+                    throw "Workflow 02 native case manifest metrics must contain only declared result expressions"
+                }
+                $NativeResultRelativePath = @($NativeCaseManifest.result_files)[0]
+                $NativeRunManifestRelativePath = @($NativeCaseManifest.output_artifacts | Where-Object {
+                    [string]$_ -like "*case_run_manifest.json"
+                }) | Select-Object -First 1
+                if ([string]::IsNullOrWhiteSpace([string]$NativeResultRelativePath) -or
+                    [string]::IsNullOrWhiteSpace([string]$NativeRunManifestRelativePath)) {
+                    throw "Workflow 02 native case manifest must reference result and run-manifest artifacts"
+                }
+                $NativeResultPath = Join-Path (Join-Path $RepoRoot "build\result") ([string]$NativeResultRelativePath)
+                $NativeRunManifestPath = Join-Path (Join-Path $RepoRoot "build\result") ([string]$NativeRunManifestRelativePath)
+                if (-not (Test-Path -LiteralPath $NativeResultPath) -or -not (Test-Path -LiteralPath $NativeRunManifestPath)) {
+                    throw "Workflow 02 native case artifacts are missing for $($NativeCaseManifest.case_id)"
+                }
+                $NativeResult = Get-Content -LiteralPath $NativeResultPath -Raw | ConvertFrom-Json
+                $NativeRunManifest = Get-Content -LiteralPath $NativeRunManifestPath -Raw | ConvertFrom-Json
+                foreach ($NativeArtifact in @($NativeResult, $NativeRunManifest)) {
+                    Assert-ArtifactValue $NativeArtifact.runner "native_expression_runner" "Workflow 02 case artifact runner"
+                    Assert-ArtifactValue $NativeArtifact.scheduler "parallel" "Workflow 02 case artifact scheduler"
+                    Assert-ArtifactNumber $NativeArtifact.worker_count 4 "Workflow 02 case artifact configured workers"
+                    Assert-ArtifactNumber $NativeArtifact.effective_worker_count 4 "Workflow 02 case artifact effective workers"
+                    Assert-ArtifactValue $NativeArtifact.status "succeeded" "Workflow 02 case artifact status"
+                    if ((@($NativeArtifact.scheduler_hooks) -join "|") -ne ($ExpectedSuccessHooks -join "|")) {
+                        throw "Workflow 02 case artifact must expose queued, started, and succeeded hooks"
+                    }
+                }
+                Assert-ArtifactValue $NativeRunManifest.external_process $false "Workflow 02 case run external process flag"
+                Assert-ArtifactNumber $NativeRunManifest.output_count 4 "Workflow 02 case run output count"
+                if ((@($NativeRunManifest.output_fields) -join "|") -ne ($ExpectedNativeOutputs -join "|")) {
+                    throw "Workflow 02 case run manifest output fields do not match declared native expressions"
+                }
+                $NativeResultOutputNames = @($NativeResult.outputs.PSObject.Properties.Name | Sort-Object)
+                if (($NativeResultOutputNames -join "|") -ne ((@($ExpectedNativeOutputs) | Sort-Object) -join "|")) {
+                    throw "Workflow 02 case result outputs do not match declared native expressions"
+                }
+                $WorkerSlot = [int]$NativeRunManifest.worker_slot
+                if ($WorkerSlot -lt 1 -or $WorkerSlot -gt 4 -or [int]$NativeResult.worker_slot -ne $WorkerSlot) {
+                    throw "Workflow 02 case artifacts expose an invalid or inconsistent worker slot"
+                }
+                $WorkerSlotKey = [string]$WorkerSlot
+                if (-not $WorkerSlotCounts.ContainsKey($WorkerSlotKey)) {
+                    $WorkerSlotCounts[$WorkerSlotKey] = 0
+                }
+                $WorkerSlotCounts[$WorkerSlotKey] = [int]$WorkerSlotCounts[$WorkerSlotKey] + 1
+            }
+            foreach ($WorkerSlot in 1..4) {
+                if ([int]$WorkerSlotCounts[[string]$WorkerSlot] -ne 2) {
+                    throw "Workflow 02 bounded-static scheduler must assign two cases to worker slot $WorkerSlot"
+                }
             }
             foreach ($RequiredSurrogateResultToken in @(
                 '"sample_tables"',

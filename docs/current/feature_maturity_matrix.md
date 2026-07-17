@@ -275,13 +275,15 @@ separate.
   `train regression`, legacy-compatible `regression_table`, and `predict <model> using <table>` materialize
   Table[Prediction] rows and `typed_payload.prediction_manifests[]`; live
   HTTP(S) GET/download execution materializes pinned response/download bodies
-  with cache replay; native `materialize cases`, template `apply`, sequential
-  `apply run_case`, and `collect results` materialize CaseTable, CaseOutput,
+  with cache replay; native `materialize cases`, template `apply`, explicit
+  sequential or bounded parallel `apply run_case`, and `collect results`
+  materialize CaseTable, CaseOutput,
   CaseRunResult, and CaseResultCollection rows plus per-case result/run
   manifests. Calculation-hash/result-SHA output resume, content-addressed local
   cache replay/repair, overwrite, and fail/continue policies are implemented
-  for the native expression runner; shared or remote case caches, parallel
-  scheduling, automatic external-adapter dispatch, broad DB support, and
+  for the native expression runner; explicit parallel workers use deterministic
+  static partitions and lifecycle hooks. Shared or remote case caches,
+  automatic external-adapter dispatch, broad DB support, and
   broader model train syntax remain `Planned`.
 - User-facing scope: generic module boundaries only. Domain-specific KMA, EPW,
   EnergyPlus, CFD, FEM, or database adapters are examples layered above the
@@ -315,7 +317,7 @@ separate.
 - Not included: request bodies/auth beyond `secret env` and broader cache
   invalidation/reuse API,
   general table derived-value execution/fill transforms,
-  automatic external-adapter dispatch and parallel case scheduling, domain weather
+  automatic external-adapter dispatch, domain weather
   adapters, EPW writer, EnergyPlus IDF parser, broad DB engines/query
   APIs/migrations, or ML framework
   support.

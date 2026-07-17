@@ -16,7 +16,7 @@ The current executable workflow uses:
 ```text
 eng.sampling  deterministic LHS training-design and prediction sample tables
 eng.table     native filter and require_one transforms over completed case results
-eng.case      materialize, sequential run_case calculation, verified local cache replay, and collect stages with typed CaseRunResult rows
+eng.case      materialize, bounded parallel run_case calculation, verified local cache replay, and collect stages with typed CaseRunResult rows
 eng.template  native `apply ... over cases` template rendering for per-case input files
 eng.model     train regression ... with { ... } and predict model using samples
 eng.db        native SQLite writes plus typed readback for persisted predictions
@@ -34,7 +34,7 @@ object_store.objects exposes `cases`, `case_inputs`, `case_runs`, and `case_resu
 all four case-stage tables preserve sampled numeric columns; CaseRunResult and collection rows add calculated result columns with units and canonical values
 the regression model, case_001 selection, and simulation_results SQLite write consume case_result_collection rather than bypassing the case pipeline
 report entries separate initial CaseTable state, rendered CaseOutput state, succeeded CaseRunResult state, and final CaseResultCollection state
-each training case has a native `result.json` and `case_run_manifest.json` with calculation hash, output fields, runner, scheduler, and success status
+each training case has a native `result.json` and `case_run_manifest.json` with calculation hash, output fields, runner, scheduler, worker slot/counts, lifecycle hooks, and success status
 cache_manifest.json records per-case result misses, verified hits, replays, and repairs using calculation hashes and expected result SHA-256 values
 typed_payload.model_cards/model_specs/prediction_manifests are native records
 typed_payload.db_manifests records committed writes to simulation_results and predictions
@@ -47,9 +47,10 @@ workflow_summary.csv records values pulled from the selected completed case-resu
 ```
 
 The training-design table is produced by EngLang's native sampler.
-`materialize cases` and template `apply` create each case input. Sequential
-`apply run_case` then evaluates the four typed result expressions for every
-rendered case, writes its result and run manifest, and exposes a
+`materialize cases` and template `apply` create each case input. Bounded
+`apply run_case` scheduling evaluates the four typed result expressions across
+four deterministic worker partitions, emits results in case order, writes each
+result and run manifest, and exposes a
 `CaseRunResult` table for `collect results`. Model training, the selected summary row, and the
 `simulation_results` SQLite write all consume the final
 `case_result_collection`. The workflow reads sampler metadata through
@@ -57,8 +58,9 @@ rendered case, writes its result and run manifest, and exposes a
 `training_designs.sample_count`, and `training_designs.row_preview`, so the
 native sampling contract is visible in normal bindings, standard-text sample table files, reports,
 and the result JSON. It also exposes initial CaseTable counts, rendered input
-counts, ready/succeeded/failed run counts, and collected/missing/blocked result
-counts separately, so each scheduler stage is visible without inspecting JSON
+counts, ready/succeeded/failed run counts, configured/effective workers,
+scheduler policy, and collected/missing/blocked result counts separately, so
+each scheduler stage is visible without inspecting JSON
 artifacts. Future domain adapters can replace the native result expressions,
 but they should still enter EngLang through typed case results, model cards,
 prediction manifests, typed DB readback, DB connection summary bindings such as `db.summary`, and

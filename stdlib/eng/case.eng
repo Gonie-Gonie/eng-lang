@@ -1,5 +1,5 @@
 # module: eng.case
-# status: native case-table, template, sequential calculation, and collection support
+# status: native case-table, template, bounded parallel calculation, and collection support
 # purpose: per-case manifests for sample-to-run workflows.
 #
 # Current implementation:
@@ -22,7 +22,8 @@
 #   records. `apply case_input_template over cases` renders native per-case
 #   template inputs and records CaseOutput rows plus render manifests.
 #   `apply run_case over <Case|CaseOutput>` evaluates a required map of typed
-#   result expressions sequentially, writes result.json and
+#   result expressions with an explicit sequential or bounded parallel
+#   scheduler, writes result.json and
 #   case_run_manifest.json, and records CaseRunResult rows. `collect results`
 #   accepts those rows and records the final CaseResultCollection table.
 #
@@ -52,7 +53,7 @@
 #   duplicate case IDs
 #   case directory/input/output/result/metric counts
 #   collection manifest/status/counts
-#   sequential runner and scheduler contract
+#   scheduler, configured/effective worker counts, lifecycle hooks, and policy
 #   cache hit/miss counts and resume policy
 #
 # Cache counters include only materialized native case-result cache entries.
@@ -60,7 +61,6 @@
 # without an execution stage reports runner/scheduler/resume as not configured.
 #
 # Planned extensions:
-#   parallel scheduler implementation
 #   automatic external-adapter dispatch
 #   shared or remote case-result cache adapters
 #

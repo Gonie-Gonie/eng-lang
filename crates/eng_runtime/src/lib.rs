@@ -19,6 +19,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 mod artifact;
+mod case_scheduler;
 mod runtime_data;
 pub mod solver;
 mod vm;
@@ -4853,6 +4854,11 @@ fn execute_native_case_runs(
                 .ok_or_else(|| invalid_input("native run-case manifest path is missing"))?;
             let calculation_hash = case_table_text_value(table, "result_hash", row_index)
                 .ok_or_else(|| invalid_input("native run-case calculation hash is missing"))?;
+            let worker_slot =
+                runtime_case_count_column_row_value(table, "worker_slot", row_index).unwrap_or(1);
+            let effective_worker_count =
+                runtime_case_count_column_row_value(table, "effective_worker_count", row_index)
+                    .unwrap_or(1);
 
             if matches!(status.as_str(), "blocked" | "failed" | "waiting_input") {
                 if run.on_error == "fail" {
@@ -4871,6 +4877,8 @@ fn execute_native_case_runs(
                     failure_reason
                         .as_deref()
                         .unwrap_or("native case calculation failed"),
+                    worker_slot,
+                    effective_worker_count,
                     result_dir,
                 )?);
                 continue;
@@ -4900,6 +4908,10 @@ fn execute_native_case_runs(
                 "case_id": case_id,
                 "runner": run.runner,
                 "scheduler": run.scheduler,
+                "worker_count": run.worker_count,
+                "effective_worker_count": effective_worker_count,
+                "worker_slot": worker_slot,
+                "scheduler_hooks": native_case_scheduler_hooks("succeeded"),
                 "sample_row_hash": sample_row_hash,
                 "calculation_hash": calculation_hash,
                 "outputs": outputs,
@@ -4916,6 +4928,10 @@ fn execute_native_case_runs(
                 "source_table": run.source_table,
                 "runner": run.runner,
                 "scheduler": run.scheduler,
+                "worker_count": run.worker_count,
+                "effective_worker_count": effective_worker_count,
+                "worker_slot": worker_slot,
+                "scheduler_hooks": native_case_scheduler_hooks("succeeded"),
                 "external_process": false,
                 "result_path": runtime_path_text(&result_path_text),
                 "result_sha256": result_sha256,
@@ -5115,11 +5131,13 @@ fn native_case_result_cache_key_parts(
     manifest_path: &str,
 ) -> Vec<String> {
     vec![
-        "native_case_result_v1".to_owned(),
+        "native_case_result_v2".to_owned(),
         format!("binding={}", run.binding),
         format!("sample_table={sample_table}"),
         format!("source_table={}", run.source_table),
         format!("case_id={case_id}"),
+        format!("scheduler={}", run.scheduler),
+        format!("worker_count={}", run.worker_count),
         format!("calculation_hash={calculation_hash}"),
         format!("result_path={}", runtime_path_text(result_path)),
         format!("manifest_path={}", runtime_path_text(manifest_path)),
@@ -5293,6 +5311,8 @@ fn write_native_case_failure_manifest(
     case_id: &str,
     manifest_path_text: &str,
     reason: &str,
+    worker_slot: usize,
+    effective_worker_count: usize,
     result_dir: &Path,
 ) -> Result<Vec<OutputArtifact>, RuntimeError> {
     let manifest_path = export_output_path(result_dir, manifest_path_text).ok_or_else(|| {
@@ -5307,6 +5327,10 @@ fn write_native_case_failure_manifest(
         "source_table": run.source_table,
         "runner": run.runner,
         "scheduler": run.scheduler,
+        "worker_count": run.worker_count,
+        "effective_worker_count": effective_worker_count,
+        "worker_slot": worker_slot,
+        "scheduler_hooks": native_case_scheduler_hooks("failed"),
         "external_process": false,
         "failure_reason": reason,
         "status": "failed"
@@ -5321,6 +5345,15 @@ fn write_native_case_failure_manifest(
         manifest_path,
         if run.overwrite { "overwrite" } else { "error" },
     )])
+}
+
+fn native_case_scheduler_hooks(status: &str) -> Vec<&'static str> {
+    match status {
+        "succeeded" => vec!["case_queued", "case_started", "case_succeeded"],
+        "failed" => vec!["case_queued", "case_started", "case_failed"],
+        "skipped" => vec!["case_queued", "case_skipped"],
+        _ => vec!["case_queued"],
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -10151,6 +10184,27 @@ fn evaluate_table_metadata_field_expression(
         "waiting_count" if table.schema_name == "CaseRunResult" => {
             Some(count_value(table_status_count(table, "waiting_input")))
         }
+        "worker_count" if table.schema_name == "CaseRunResult" => {
+            runtime_case_count_column_value(table, "worker_count").map(count_value)
+        }
+        "effective_worker_count" if table.schema_name == "CaseRunResult" => {
+            runtime_case_count_column_value(table, "effective_worker_count").map(count_value)
+        }
+        "runner" | "scheduler" | "scheduler_hooks" if table.schema_name == "CaseRunResult" => {
+            case_table_text_value(table, field.trim(), 0).map(RuntimeFormatValue::Text)
+        }
+        "parallel_policy" if table.schema_name == "CaseRunResult" => {
+            case_table_text_value(table, "scheduler", 0).map(|scheduler| {
+                RuntimeFormatValue::Text(
+                    if scheduler == "parallel" {
+                        "bounded_static_partitions"
+                    } else {
+                        "disabled"
+                    }
+                    .to_owned(),
+                )
+            })
+        }
         "blocked_count"
             if matches!(
                 table.schema_name.as_str(),
@@ -14515,6 +14569,14 @@ fn case_tables_json(
             "        \"scheduler\": \"{}\",\n",
             json_escape(&table.scheduler)
         ));
+        json.push_str(&format!(
+            "        \"worker_count\": {},\n",
+            table.worker_count
+        ));
+        json.push_str(&format!(
+            "        \"effective_worker_count\": {},\n",
+            table.effective_worker_count
+        ));
         json.push_str("        \"scheduler_hooks\": [");
         push_json_string_array(&mut json, &table.scheduler_hooks);
         json.push_str("],\n");
@@ -14674,6 +14736,17 @@ fn materialized_case_tables(
                     step.name == "run_case" && step.command.starts_with("native_expression")
                 })
             });
+            let native_run_table = runtime_data.tables.iter().find(|table| {
+                table.schema_name == "CaseRunResult"
+                    && case_stage_sample_table(runtime_data, table).as_deref()
+                        == Some(first.sample_table.as_str())
+            });
+            let native_scheduler =
+                native_run_table.and_then(|table| case_table_text_value(table, "scheduler", 0));
+            let native_worker_count = native_run_table
+                .and_then(|table| runtime_case_count_column_value(table, "worker_count"));
+            let native_effective_worker_count = native_run_table
+                .and_then(|table| runtime_case_count_column_value(table, "effective_worker_count"));
             let status = if failed_count > 0 || collection_failed_count > 0 {
                 "failed"
             } else if running_count > 0 {
@@ -14720,29 +14793,35 @@ fn materialized_case_tables(
                 } else {
                     "not_configured".to_owned()
                 },
-                scheduler: if has_process || has_native_template || has_native_run {
+                scheduler: if let Some(scheduler) = native_scheduler.as_deref() {
+                    scheduler.to_owned()
+                } else if has_process || has_native_template || has_native_run {
                     "sequential".to_owned()
                 } else {
                     "not_configured".to_owned()
                 },
-                scheduler_hooks: if has_native_run {
+                worker_count: native_worker_count.unwrap_or_else(|| {
+                    usize::from(has_process || has_native_template || has_native_run)
+                }),
+                effective_worker_count: native_effective_worker_count.unwrap_or_else(|| {
+                    usize::from(has_process || has_native_template || has_native_run)
+                }),
+                scheduler_hooks: if has_process || has_native_template || has_native_run {
                     vec![
-                        "case_id".to_owned(),
-                        "case_dir".to_owned(),
-                        "sample_row_hash".to_owned(),
-                        "calculation_hash".to_owned(),
-                        "result_sha256".to_owned(),
-                    ]
-                } else if has_process || has_native_template {
-                    vec![
-                        "case_id".to_owned(),
-                        "case_dir".to_owned(),
-                        "sample_row_hash".to_owned(),
+                        "case_queued".to_owned(),
+                        "case_started".to_owned(),
+                        "case_succeeded".to_owned(),
+                        "case_failed".to_owned(),
+                        "case_skipped".to_owned(),
                     ]
                 } else {
                     Vec::new()
                 },
-                parallel_policy: "not_configured".to_owned(),
+                parallel_policy: match native_scheduler.as_deref() {
+                    Some("parallel") => "bounded_static_partitions".to_owned(),
+                    Some("sequential") => "disabled".to_owned(),
+                    _ => "not_configured".to_owned(),
+                },
                 resume_policy: if uses_native_result_cache {
                     "calculation_hash_and_result_sha256".to_owned()
                 } else if has_native_run {
@@ -14928,6 +15007,12 @@ fn runtime_data_case_run_output_names(
         run.columns
             .iter()
             .filter(|column| {
+                !matches!(
+                    column.name.as_str(),
+                    "worker_count" | "effective_worker_count" | "worker_slot"
+                )
+            })
+            .filter(|column| {
                 source
                     .columns
                     .iter()
@@ -14996,6 +15081,20 @@ fn runtime_numeric_column_value(
         return None;
     };
     values.get(row_index).and_then(|value| *value)
+}
+
+fn runtime_case_count_column_value(table: &RuntimeTable, name: &str) -> Option<usize> {
+    runtime_case_count_column_row_value(table, name, 0)
+}
+
+fn runtime_case_count_column_row_value(
+    table: &RuntimeTable,
+    name: &str,
+    row_index: usize,
+) -> Option<usize> {
+    let column = table.columns.iter().find(|column| column.name == name)?;
+    let value = runtime_numeric_column_value(column, row_index)?;
+    (value.is_finite() && value >= 0.0 && value.fract() == 0.0).then_some(value as usize)
 }
 
 fn case_result_cache_counts_for_cases(
@@ -19180,12 +19279,15 @@ mod tests {
                 "    results = {\n",
                 "        annual_electricity = 10000 kWh + envelope_load_index * 2000 kWh - cooling_cop * 500 kWh\n",
                 "        unmet_hours = 3 h + envelope_load_index * 1 h - cooling_cop * 0.5 h\n",
+                "        double_energy = annual_electricity * 2\n",
                 "    }\n",
                 "    result = \"{case_dir}/result.json\"\n",
                 "    manifest = \"{case_dir}/case_run_manifest.json\"\n",
                 "    on_error = fail\n",
                 "    resume = true\n",
                 "    overwrite = true\n",
+                "    scheduler = parallel\n",
+                "    workers = 2\n",
                 "}\n",
                 "case_results = collect results case_runs\n",
                 "succeeded = case_runs.succeeded_count\n",
@@ -19224,6 +19326,12 @@ mod tests {
         assert!(output
             .result_json
             .contains("\"runner\": \"native_expression_runner\""));
+        assert!(output.result_json.contains("\"scheduler\": \"parallel\""));
+        assert!(output.result_json.contains("\"worker_count\": 2"));
+        assert!(output.result_json.contains("\"effective_worker_count\": 2"));
+        assert!(output
+            .result_json
+            .contains("\"parallel_policy\": \"bounded_static_partitions\""));
         assert!(output
             .result_json
             .contains("\"resume_policy\": \"calculation_hash_and_result_sha256\""));
@@ -19241,6 +19349,17 @@ mod tests {
         assert_eq!(initial_case_cache["owner_kind"], "case_result");
         assert_eq!(initial_case_cache["lookup_status"], "miss");
         assert_eq!(initial_case_cache["status"], "miss_materialized");
+        assert!(initial_case_cache["cache_key_parts"]
+            .as_array()
+            .is_some_and(|parts| {
+                [
+                    "native_case_result_v2",
+                    "scheduler=parallel",
+                    "worker_count=2",
+                ]
+                .iter()
+                .all(|expected| parts.iter().any(|part| part.as_str() == Some(expected)))
+            }));
         assert_eq!(
             initial_case_cache.get("expected_hash"),
             initial_case_cache.get("observed_hash")
@@ -19278,6 +19397,24 @@ mod tests {
             .pointer("/outputs/annual_electricity/value")
             .and_then(Value::as_f64)
             .is_some());
+        let annual_electricity = case_result
+            .pointer("/outputs/annual_electricity/value")
+            .and_then(Value::as_f64)
+            .expect("annual electricity result");
+        assert_eq!(
+            case_result
+                .pointer("/outputs/double_energy/value")
+                .and_then(Value::as_f64),
+            Some(annual_electricity * 2.0)
+        );
+        assert_eq!(case_result["scheduler"], "parallel");
+        assert_eq!(case_result["worker_count"], 2);
+        assert_eq!(case_result["effective_worker_count"], 2);
+        assert_eq!(case_result["worker_slot"], 1);
+        assert_eq!(
+            case_result["scheduler_hooks"],
+            serde_json::json!(["case_queued", "case_started", "case_succeeded"])
+        );
         assert_eq!(
             case_manifest
                 .get("external_process")
@@ -19287,6 +19424,14 @@ mod tests {
         assert_eq!(
             case_manifest.get("status").and_then(Value::as_str),
             Some("succeeded")
+        );
+        assert_eq!(case_manifest["scheduler"], "parallel");
+        assert_eq!(case_manifest["worker_count"], 2);
+        assert_eq!(case_manifest["effective_worker_count"], 2);
+        assert_eq!(case_manifest["worker_slot"], 1);
+        assert_eq!(
+            case_manifest["scheduler_hooks"],
+            serde_json::json!(["case_queued", "case_started", "case_succeeded"])
         );
         let calculation_hash = case_manifest
             .get("calculation_hash")
@@ -19427,6 +19572,31 @@ mod tests {
         ));
 
         let result: Value = serde_json::from_str(&output.result_json).expect("result json");
+        let native_case_manifests = result
+            .pointer("/typed_payload/case_manifests")
+            .and_then(Value::as_array)
+            .expect("native case manifests");
+        assert_eq!(native_case_manifests.len(), 2);
+        for manifest in native_case_manifests {
+            assert_eq!(
+                manifest
+                    .pointer("/process_statuses/0/command")
+                    .and_then(Value::as_str),
+                Some("native_expression(outputs=annual_electricity,unmet_hours,double_energy)")
+            );
+            assert_eq!(
+                manifest
+                    .get("metrics")
+                    .and_then(Value::as_array)
+                    .map(|metrics| {
+                        metrics
+                            .iter()
+                            .filter_map(|metric| metric.get("name").and_then(Value::as_str))
+                            .collect::<Vec<_>>()
+                    }),
+                Some(vec!["annual_electricity", "unmet_hours", "double_energy"])
+            );
+        }
         let case_runs =
             json_array_item_by_field(&result, "/object_store/objects", "name", "case_runs")
                 .expect("case runs table");
@@ -19435,6 +19605,11 @@ mod tests {
                 .expect("case result collection");
         let run_status =
             json_array_item_by_field(case_runs, "/columns", "name", "status").expect("run status");
+        let worker_slots = json_array_item_by_field(case_runs, "/columns", "name", "worker_slot")
+            .expect("worker slot column");
+        let scheduler_hooks =
+            json_array_item_by_field(case_runs, "/columns", "name", "scheduler_hooks")
+                .expect("scheduler hooks column");
         let collection_status =
             json_array_item_by_field(case_results, "/columns", "name", "status")
                 .expect("collection status");
@@ -19442,9 +19617,104 @@ mod tests {
             run_status["values"],
             serde_json::json!(["succeeded", "succeeded"])
         );
+        assert_eq!(worker_slots["values"], serde_json::json!([1, 2]));
+        assert_eq!(
+            scheduler_hooks["values"],
+            serde_json::json!([
+                "case_queued,case_started,case_succeeded",
+                "case_queued,case_started,case_succeeded"
+            ])
+        );
         assert_eq!(
             collection_status["values"],
             serde_json::json!(["collected", "collected"])
+        );
+    }
+
+    #[test]
+    fn run_file_continues_failed_parallel_case_with_lifecycle_manifest() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-native-case-failure");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-native-case-failure-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "designs = sample lhs\n",
+                "with {\n",
+                "    count = 1\n",
+                "    seed = 9\n",
+                "    load = uniform(1 kW, 2 kW)\n",
+                "}\n",
+                "cases = materialize cases designs\n",
+                "case_runs = apply run_case over cases\n",
+                "with {\n",
+                "    results = {\n",
+                "        annual_energy = load * 1 h / 0\n",
+                "    }\n",
+                "    on_error = continue\n",
+                "    overwrite = true\n",
+                "    scheduler = parallel\n",
+                "    workers = 2\n",
+                "}\n",
+                "failed = case_runs.failed_count\n",
+                "print \"failed cases={failed}\"\n",
+            ),
+        )
+        .expect("source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("continued native case failure");
+        assert!(output.stdout.contains("failed cases=1"));
+        assert!(output.process_results_json.contains("\"process_count\": 0"));
+
+        let manifest_path = build_root
+            .join("result")
+            .join("outputs")
+            .join("case_001")
+            .join("case_run_manifest.json");
+        let manifest: Value = serde_json::from_str(
+            &fs::read_to_string(&manifest_path).expect("failed case run manifest"),
+        )
+        .expect("failed case run manifest json");
+        assert_eq!(manifest["runner"], "native_expression_runner");
+        assert_eq!(manifest["scheduler"], "parallel");
+        assert_eq!(manifest["worker_count"], 2);
+        assert_eq!(manifest["effective_worker_count"], 1);
+        assert_eq!(manifest["worker_slot"], 1);
+        assert_eq!(manifest["external_process"], false);
+        assert_eq!(manifest["status"], "failed");
+        assert_eq!(
+            manifest["scheduler_hooks"],
+            serde_json::json!(["case_queued", "case_started", "case_failed"])
+        );
+        assert!(!manifest_path.with_file_name("result.json").exists());
+
+        let result: Value = serde_json::from_str(&output.result_json).expect("result json");
+        let case_runs =
+            json_array_item_by_field(&result, "/object_store/objects", "name", "case_runs")
+                .expect("case runs table");
+        let scheduler_hooks =
+            json_array_item_by_field(case_runs, "/columns", "name", "scheduler_hooks")
+                .expect("scheduler hooks column");
+        assert_eq!(
+            scheduler_hooks["values"],
+            serde_json::json!(["case_queued,case_started,case_failed"])
         );
     }
 

@@ -67,9 +67,22 @@ with {
     resume = true
 }
 
-case_results = apply run_case over designs
+case_results = apply run_case over cases
 with {
-    step = run_case
+    results = {
+        annual_electricity = cooling_cop * 100 kWh
+    }
+    scheduler = parallel
+    workers = 4
+}
+
+sequential_case_results = apply run_case over cases
+with {
+    results = {
+        annual_electricity = cooling_cop * 100 kWh
+    }
+    scheduler = sequential
+    workers = 1
 }
 
 template_case_inputs = apply case_input_template over cases

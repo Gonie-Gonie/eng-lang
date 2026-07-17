@@ -1734,6 +1734,12 @@
                                  "lsp_kind":  10
                              },
                              {
+                                 "detail":  "Native case policy: sequential or bounded parallel",
+                                 "kind":  "property",
+                                 "label":  "scheduler",
+                                 "lsp_kind":  10
+                             },
+                             {
                                  "detail":  "deterministic sampling seed",
                                  "kind":  "property",
                                  "label":  "seed",
@@ -1878,6 +1884,12 @@
                                  "lsp_kind":  10
                              },
                              {
+                                 "detail":  "Native parallel case worker limit from 2 to 64",
+                                 "kind":  "property",
+                                 "label":  "workers",
+                                 "lsp_kind":  10
+                             },
+                             {
                                  "detail":  "calendar year option",
                                  "kind":  "property",
                                  "label":  "year",
@@ -1902,7 +1914,7 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native: Native CaseTable, CaseOutput, CaseRunResult, and CaseResultCollection stages with template rendering, sequential typed calculations, calculation-hash/result-SHA resume, verified local result-cache replay, manifests, status summaries, and process-adapter enrichment.",
+                                 "detail":  "Native: Native CaseTable, CaseOutput, CaseRunResult, and CaseResultCollection stages with template rendering, explicit sequential or bounded parallel typed calculations, deterministic worker slots, lifecycle hooks, calculation-hash/result-SHA resume, verified local result-cache replay, manifests, status summaries, and process-adapter enrichment.",
                                  "kind":  "stdlib",
                                  "label":  "eng.case",
                                  "lsp_kind":  9
@@ -2342,7 +2354,7 @@
                              {
                                  "detail":  "eng.case execute typed case results with verified resume and cache replay",
                                  "insert":  "apply run_case over case_inputs",
-                                 "insert_snippet":  "apply run_case over ${1:case_inputs}\nwith {\n    results = {\n        ${2:annual_energy} = ${3:load * 1 kWh}\n    }\n    result = \"{case_dir}/result.json\"\n    manifest = \"{case_dir}/case_run_manifest.json\"\n    on_error = fail\n    resume = true\n    overwrite = true\n}",
+                                 "insert_snippet":  "apply run_case over ${1:case_inputs}\nwith {\n    results = {\n        ${2:annual_energy} = ${3:load * 1 kWh}\n    }\n    result = \"{case_dir}/result.json\"\n    manifest = \"{case_dir}/case_run_manifest.json\"\n    on_error = fail\n    resume = true\n    overwrite = true\n    scheduler = parallel\n    workers = ${4:4}\n}",
                                  "kind":  "stdlib",
                                  "label":  "apply run_case",
                                  "lsp_kind":  9
@@ -2736,7 +2748,7 @@
                                  "lsp_kind":  11
                              }
                          ],
-    "completion_items_count":  440,
+    "completion_items_count":  442,
     "format":  "eng-lsp-editor-metadata-v2",
     "semantic_token_legend":  {
                                   "token_modifiers":  [
@@ -2921,6 +2933,30 @@
                                                                     "label":  "manifest_count"
                                                                 },
                                                                 {
+                                                                    "detail":  "native_expression_runner execution backend",
+                                                                    "label":  "runner"
+                                                                },
+                                                                {
+                                                                    "detail":  "configured sequential or bounded parallel policy",
+                                                                    "label":  "scheduler"
+                                                                },
+                                                                {
+                                                                    "detail":  "configured workers: 1 sequential or 2 to 64 parallel",
+                                                                    "label":  "worker_count"
+                                                                },
+                                                                {
+                                                                    "detail":  "workers actually assigned at least one case row",
+                                                                    "label":  "effective_worker_count"
+                                                                },
+                                                                {
+                                                                    "detail":  "comma-separated lifecycle events reached by each case",
+                                                                    "label":  "scheduler_hooks"
+                                                                },
+                                                                {
+                                                                    "detail":  "bounded_static_partitions or disabled scheduling policy",
+                                                                    "label":  "parallel_policy"
+                                                                },
+                                                                {
                                                                     "detail":  "native case run aggregate status",
                                                                     "label":  "status"
                                                                 },
@@ -3015,6 +3051,8 @@
                                              "monte_carlo",
                                              "source_linear_terms",
                                              "finite_difference",
+                                             "sequential",
+                                             "parallel",
                                              "asc",
                                              "desc",
                                              "pending",
@@ -4756,6 +4794,10 @@
                                                         "label":  "scale"
                                                     },
                                                     {
+                                                        "detail":  "Native case policy: sequential or bounded parallel",
+                                                        "label":  "scheduler"
+                                                    },
+                                                    {
                                                         "detail":  "deterministic sampling seed",
                                                         "label":  "seed"
                                                     },
@@ -4858,6 +4900,10 @@
                                                     {
                                                         "detail":  "solver variable scale list",
                                                         "label":  "variable_scales"
+                                                    },
+                                                    {
+                                                        "detail":  "Native parallel case worker limit from 2 to 64",
+                                                        "label":  "workers"
                                                     },
                                                     {
                                                         "detail":  "calendar year option",

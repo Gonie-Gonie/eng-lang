@@ -13676,6 +13676,8 @@ write csv "outputs/q.csv", Q
                 "    on_error = fail\n",
                 "    resume = true\n",
                 "    overwrite = true\n",
+                "    scheduler = parallel\n",
+                "    workers = 4\n",
                 "}\n",
             ),
             &CheckOptions::default(),
@@ -13688,8 +13690,19 @@ write csv "outputs/q.csv", Q
         let run = report.semantic_program.case_runs.first().expect("case run");
         assert_eq!(run.binding, "case_runs");
         assert_eq!(run.source_table, "cases");
-        assert_eq!(run.runner, "native_expression");
-        assert_eq!(run.scheduler, "sequential");
+        assert_eq!(run.runner, "native_expression_runner");
+        assert_eq!(run.scheduler, "parallel");
+        assert_eq!(run.worker_count, 4);
+        assert_eq!(
+            run.scheduler_hooks,
+            [
+                "case_queued",
+                "case_started",
+                "case_succeeded",
+                "case_failed",
+                "case_skipped"
+            ]
+        );
         assert_eq!(run.on_error, "fail");
         assert!(run.resume);
         assert!(run.overwrite);
@@ -13710,6 +13723,84 @@ write csv "outputs/q.csv", Q
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "E-CASE-RUN-RESULTS-MISSING"));
+    }
+
+    #[test]
+    fn run_case_scheduler_rejects_ambiguous_or_unbounded_worker_policies() {
+        for (scheduler_options, expected_text) in [
+            (
+                "    scheduler = parallel\n",
+                "requires an explicit worker limit",
+            ),
+            (
+                "    scheduler = parallel\n    workers = 1\n",
+                "requires at least two workers",
+            ),
+            (
+                "    scheduler = sequential\n    workers = 4\n",
+                "uses exactly one worker",
+            ),
+            (
+                "    scheduler = remote\n    workers = 4\n",
+                "Unknown run-case scheduler",
+            ),
+            (
+                "    scheduler = parallel\n    workers = 65\n",
+                "must be an integer from 1 to 64",
+            ),
+        ] {
+            let source = format!(
+                "designs = sample grid\nwith {{ count = 2 }}\ncases = materialize cases designs\ncase_runs = apply run_case over cases\nwith {{\n    results = {{ energy = 1 kWh }}\n{scheduler_options}}}\n"
+            );
+            let report = check_source(
+                "run_case_scheduler_policy.eng",
+                &source,
+                &CheckOptions::default(),
+            );
+            assert!(
+                report.diagnostics.iter().any(|diagnostic| {
+                    diagnostic.code == "E-CASE-RUN-SCHEDULER"
+                        && diagnostic.message.contains(expected_text)
+                        && diagnostic.source_span.is_some()
+                }),
+                "{scheduler_options:?}: {:?}",
+                report.diagnostics
+            );
+        }
+    }
+
+    #[test]
+    fn run_case_scheduler_defaults_to_one_sequential_worker() {
+        let report = check_source(
+            "run_case_sequential_default.eng",
+            "designs = sample grid\nwith { count = 2 }\ncases = materialize cases designs\ncase_runs = apply run_case over cases\nwith {\n    results = { energy = 1 kWh }\n}\n",
+            &CheckOptions::default(),
+        );
+        let run = report.semantic_program.case_runs.first().expect("case run");
+        assert_eq!(run.scheduler, "sequential");
+        assert_eq!(run.worker_count, 1);
+    }
+
+    #[test]
+    fn run_case_scheduler_outputs_cannot_shadow_metadata() {
+        let report = check_source(
+            "run_case_scheduler_output_names.eng",
+            "designs = sample grid\nwith { count = 2 }\ncases = materialize cases designs\ncase_runs = apply run_case over cases\nwith {\n    results = {\n        effective_worker_count = 1\n        parallel_policy = 2\n    }\n}\n",
+            &CheckOptions::default(),
+        );
+        let diagnostics = report
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "E-CASE-RUN-OUTPUT-RESERVED")
+            .collect::<Vec<_>>();
+        assert_eq!(diagnostics.len(), 2, "{:?}", report.diagnostics);
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.source_span.is_some()),
+            "{:?}",
+            diagnostics
+        );
     }
 
     #[test]
