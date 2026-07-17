@@ -123,8 +123,12 @@ review material. It is not a broad solver claim.
 - Packaged editor-tooling binary plus an internal persistent VS Code stdio
   client for document sync, diagnostics, semantic tokens, and editor requests.
   Exact-source editor requests share one compiler report and lazy snapshot;
-  source changes invalidate the document and recursive open import dependents.
-  This is not yet a public cross-release protocol compatibility commitment.
+  token-free comment/blank-line edits can retarget that report when every token
+  and token-bearing line stays at the same absolute source location. Token,
+  anchored-line, cache-bearing, and position-shifting edits use full analysis.
+  Source changes invalidate recursive open import dependents while preserving
+  the changed document as a candidate for that narrow reuse path. This is not
+  general partial parsing or a public cross-release protocol commitment.
 
 ## Supported But Narrow Main Behavior
 

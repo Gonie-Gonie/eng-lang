@@ -10,7 +10,8 @@ use std::time::{Duration, Instant};
 
 use eng_compiler::{
     bundled_module_registry, check_source_with_import_overrides, format_source, parse_source,
-    AstItem, CheckOptions, CheckReport, ImportSourceOverrides, ParseContext,
+    retarget_check_report_for_token_stable_trivia, AstItem, CheckOptions, CheckReport,
+    ImportSourceOverrides, ParseContext,
 };
 use eng_lsp::{
     completion_items_at, completion_items_for_path_position, completion_items_for_source_position,
@@ -1067,6 +1068,7 @@ struct DocumentAnalysisCache {
     analysis: Option<CachedDocumentAnalysis>,
     hits: usize,
     misses: usize,
+    trivia_reuses: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -1086,7 +1088,7 @@ impl DocumentState {
     }
 
     fn updated(text: String, version: Option<i64>, previous: Option<&Self>) -> Self {
-        if let Some(previous) = previous.filter(|previous| previous.text == text) {
+        if let Some(previous) = previous {
             return Self {
                 text,
                 version,
@@ -1112,6 +1114,30 @@ impl DocumentState {
             cache.misses += 1;
         }
         analysis
+    }
+
+    fn reuse_analysis_for_token_stable_trivia(
+        &self,
+        source: &str,
+    ) -> Option<CachedDocumentAnalysis> {
+        let mut cache = self
+            .analysis_cache
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let previous = cache.analysis.as_ref()?;
+        let report = Arc::new(retarget_check_report_for_token_stable_trivia(
+            &previous.report,
+            &previous.source,
+            source,
+        )?);
+        let analysis = CachedDocumentAnalysis {
+            source: source.to_owned(),
+            report,
+            snapshot: None,
+        };
+        cache.analysis = Some(analysis.clone());
+        cache.trivia_reuses += 1;
+        Some(analysis)
     }
 
     fn store_analysis(&self, analysis: &CachedDocumentAnalysis) {
@@ -1151,7 +1177,7 @@ impl DocumentState {
     }
 
     #[cfg(test)]
-    fn analysis_cache_stats(&self) -> (usize, usize, bool, bool) {
+    fn analysis_cache_stats(&self) -> (usize, usize, usize, bool, bool) {
         let cache = self
             .analysis_cache
             .lock()
@@ -1159,12 +1185,26 @@ impl DocumentState {
         (
             cache.hits,
             cache.misses,
+            cache.trivia_reuses,
             cache.analysis.is_some(),
             cache
                 .analysis
                 .as_ref()
                 .is_some_and(|analysis| analysis.snapshot.is_some()),
         )
+    }
+
+    #[cfg(test)]
+    fn analysis_cache_snapshot(&self) -> Option<(String, Arc<eng_lsp::LspSnapshot>)> {
+        let cache = self
+            .analysis_cache
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let analysis = cache.analysis.as_ref()?;
+        Some((
+            analysis.source.clone(),
+            Arc::clone(analysis.snapshot.as_ref()?),
+        ))
     }
 }
 
@@ -1174,6 +1214,15 @@ fn invalidate_document_analyses<'a>(states: impl IntoIterator<Item = &'a Documen
     for state in states {
         state.invalidate_analysis();
     }
+}
+
+fn invalidate_dependent_document_analyses(changed_uri: &str, affected: &[(String, DocumentState)]) {
+    invalidate_document_analyses(
+        affected
+            .iter()
+            .filter(|(uri, _)| uri != changed_uri)
+            .map(|(_, state)| state),
+    );
 }
 
 const DEFAULT_PERSISTENT_DIAGNOSTICS_DEBOUNCE_MS: u64 = 150;
@@ -1582,7 +1631,7 @@ fn run_lsp() -> io::Result<()> {
                     documents.insert(uri.clone(), state.clone());
                     let affected = diagnostic_documents_after_change(&uri, &documents);
                     if source_changed {
-                        invalidate_document_analyses(affected.iter().map(|(_, state)| state));
+                        invalidate_dependent_document_analyses(&uri, &affected);
                     }
                     if method == "textDocument/didChange" {
                         pending_diagnostics.schedule(
@@ -6662,8 +6711,13 @@ fn analysis_for_open_documents(
     let open_document = workspace_document_for_path(documents, path)
         .map(|(_, state)| state)
         .filter(|state| state.text == source);
-    if let Some(analysis) = open_document.and_then(|state| state.cached_analysis(source)) {
-        return analysis;
+    if let Some(state) = open_document {
+        if let Some(analysis) = state.cached_analysis(source) {
+            return analysis;
+        }
+        if let Some(analysis) = state.reuse_analysis_for_token_stable_trivia(source) {
+            return analysis;
+        }
     }
     let import_overrides = import_source_overrides_from_documents(documents);
     let report = Arc::new(check_source_with_import_overrides(
@@ -9912,7 +9966,7 @@ mod tests {
         assert!(!completions.is_empty());
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
-            (0, 1, true, false),
+            (0, 1, 0, true, false),
             "completion should cache the compiler report without eager snapshot projection"
         );
         let first = snapshot_for_open_documents(&path, source, &documents);
@@ -9920,7 +9974,7 @@ mod tests {
         assert_eq!(first, second);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
-            (2, 1, true, true),
+            (2, 1, 0, true, true),
             "snapshot requests should reuse the completion compiler report and projection"
         );
 
@@ -9930,18 +9984,163 @@ mod tests {
         });
         let (saved_uri, saved_state) =
             document_state_from_notification(&save, &documents).expect("saved document state");
-        assert_eq!(saved_state.analysis_cache_stats(), (2, 1, true, true));
+        assert_eq!(saved_state.analysis_cache_stats(), (2, 1, 0, true, true));
         documents.insert(saved_uri, saved_state);
         let after_save = snapshot_for_open_documents(&path, source, &documents);
         assert_eq!(first, after_save);
-        assert_eq!(documents[&uri].analysis_cache_stats(), (3, 1, true, true));
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (3, 1, 0, true, true)
+        );
 
         invalidate_document_analyses(documents.values());
-        assert_eq!(documents[&uri].analysis_cache_stats(), (3, 1, false, false));
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (3, 1, 0, false, false)
+        );
         let rebuilt = snapshot_for_open_documents(&path, source, &documents);
         assert_eq!(first, rebuilt);
-        assert_eq!(documents[&uri].analysis_cache_stats(), (3, 2, true, true));
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (3, 2, 0, true, true)
+        );
         std::fs::remove_dir_all(&root).expect("analysis cache fixture should be removed");
+    }
+
+    #[test]
+    fn token_free_trivia_edits_reuse_analysis_with_exact_fallbacks() {
+        let root = std::env::temp_dir().join(format!(
+            "eng_lsp_trivia_analysis_cache_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("trivia cache fixture should be created");
+        let path = root.join("current.eng");
+        let initial_source = concat!(
+            "value = 2 kW\n",
+            "# alpha\n",
+            "print \"value={value:kW}\"\n",
+            "# short\n",
+        );
+        std::fs::write(&path, initial_source).expect("trivia cache source should be written");
+        let path = path
+            .canonicalize()
+            .expect("trivia cache source should exist");
+        let uri = file_uri_from_path(&path);
+        let mut documents = Documents::new();
+        documents.insert(
+            uri.clone(),
+            DocumentState::new(initial_source.to_owned(), Some(1)),
+        );
+
+        let _initial = snapshot_for_open_documents(&path, initial_source, &documents);
+        let (_, initial_cached_snapshot) = documents[&uri]
+            .analysis_cache_snapshot()
+            .expect("initial snapshot should be cached");
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 1, 0, true, true)
+        );
+
+        let trivia_source = concat!(
+            "value = 2 kW\n",
+            "# bravo\n",
+            "print \"value={value:kW}\"\n",
+            "# a much longer trailing comment\n",
+        );
+        let trivia_change = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 2 },
+                "contentChanges": [{ "text": trivia_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&trivia_change, &documents)
+                .expect("trivia change should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+
+        let reused = snapshot_for_open_documents(&path, trivia_source, &documents);
+        let fresh = snapshot_for_source(&path, trivia_source);
+        assert_eq!(reused, fresh);
+        let (cached_source, reused_cached_snapshot) = documents[&uri]
+            .analysis_cache_snapshot()
+            .expect("retargeted snapshot should be cached");
+        assert_eq!(cached_source, trivia_source);
+        assert!(!Arc::ptr_eq(
+            &initial_cached_snapshot,
+            &reused_cached_snapshot
+        ));
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 2, 1, true, true),
+            "the report should be retargeted and the source-specific snapshot rebuilt lazily"
+        );
+        assert_eq!(
+            snapshot_for_open_documents(&path, trivia_source, &documents),
+            reused
+        );
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (1, 2, 1, true, true)
+        );
+
+        let shifted_source = concat!(
+            "value = 2 kW\n",
+            "# a longer middle comment\n",
+            "print \"value={value:kW}\"\n",
+            "# a much longer trailing comment\n",
+        );
+        let shifted_change = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 3 },
+                "contentChanges": [{ "text": shifted_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&shifted_change, &documents)
+                .expect("position-shifting change should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, shifted_source, &documents),
+            snapshot_for_source(&path, shifted_source)
+        );
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (1, 3, 1, true, true),
+            "position shifts must fall back to a fresh compiler report"
+        );
+
+        let semantic_source = shifted_source.replacen("value = 2 kW", "value = 3 kW", 1);
+        let semantic_change = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 4 },
+                "contentChanges": [{ "text": semantic_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&semantic_change, &documents)
+                .expect("semantic change should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, &semantic_source, &documents),
+            snapshot_for_source(&path, &semantic_source)
+        );
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (1, 4, 1, true, true),
+            "semantic edits must not increment the trivia reuse counter"
+        );
+
+        std::fs::remove_dir_all(&root).expect("trivia cache fixture should be removed");
     }
 
     #[test]
@@ -9991,7 +10190,7 @@ mod tests {
             assert_eq!(first, second);
             assert_eq!(
                 documents.get(uri).unwrap().analysis_cache_stats(),
-                (1, 1, true, true)
+                (1, 1, 0, true, true)
             );
         }
 
@@ -10006,18 +10205,18 @@ mod tests {
         assert!(!affected_uris.contains(&unrelated_uri.as_str()));
         assert_eq!(affected_uris.last().copied(), Some(module_uri.as_str()));
 
-        invalidate_document_analyses(affected.iter().map(|(_, state)| state));
+        invalidate_dependent_document_analyses(&module_uri, &affected);
         assert_eq!(
             documents[&bridge_uri].analysis_cache_stats(),
-            (1, 1, false, false)
+            (1, 1, 0, false, false)
         );
         assert_eq!(
             documents[&current_uri].analysis_cache_stats(),
-            (1, 1, false, false)
+            (1, 1, 0, false, false)
         );
         assert_eq!(
             documents[&unrelated_uri].analysis_cache_stats(),
-            (1, 1, true, true)
+            (1, 1, 0, true, true)
         );
 
         let current_source = documents[&current_uri].text.clone();
@@ -10026,11 +10225,11 @@ mod tests {
         let _ = snapshot_for_open_documents(&unrelated_path, &unrelated_source, &documents);
         assert_eq!(
             documents[&current_uri].analysis_cache_stats(),
-            (1, 2, true, true)
+            (1, 2, 0, true, true)
         );
         assert_eq!(
             documents[&unrelated_uri].analysis_cache_stats(),
-            (2, 1, true, true)
+            (2, 1, 0, true, true)
         );
         std::fs::remove_dir_all(&root).expect("diagnostic fixture should be removed");
     }

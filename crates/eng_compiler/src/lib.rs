@@ -505,6 +505,74 @@ pub fn check_source(path: impl AsRef<Path>, source: &str, options: &CheckOptions
     check_source_with_import_overrides(path, source, &ImportSourceOverrides::default(), options)
 }
 
+/// Retargets a prior report when an edit changes only token-free trivia lines.
+///
+/// The fast path requires the complete lexer token stream, including absolute source spans, to
+/// remain identical and every line containing a token to remain byte-for-byte unchanged. Any token,
+/// token position, anchored-line, cache identity, or prior-report mismatch returns `None`, and the
+/// caller must run a normal check. This deliberately narrow contract keeps every public
+/// `SourceSpan` and parsed source fragment exact while avoiding parser and semantic work for safe
+/// comment-only and blank-line edits.
+///
+/// The caller must also preserve the report's source path, check options, argument overrides, and
+/// resolved import environment. A change to any of those inputs requires a normal check.
+pub fn retarget_check_report_for_token_stable_trivia(
+    report: &CheckReport,
+    previous_source: &str,
+    source: &str,
+) -> Option<CheckReport> {
+    let previous_lines = previous_source
+        .lines()
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    if report.source_hash != hash_text(previous_source) || report.source_lines != previous_lines {
+        return None;
+    }
+    if !report.semantic_program.cache_records.is_empty()
+        || report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code.starts_with("E-CACHE-"))
+    {
+        return None;
+    }
+    let previous_tokens = anchored_tokens(previous_source);
+    if previous_tokens != anchored_tokens(source)
+        || !anchored_lines_unchanged(previous_source, source, &previous_tokens)
+    {
+        return None;
+    }
+
+    let mut reused = report.clone();
+    reused.source_hash = hash_text(source);
+    reused.source_lines = source.lines().map(str::to_owned).collect();
+    reused.syntax_summary.lines = source::source_lines(source).len();
+    Some(reused)
+}
+
+fn anchored_tokens(source: &str) -> Vec<Token> {
+    source::source_lines(source)
+        .into_iter()
+        .flat_map(|line| lexer::lex_line(line.line, line.start, &line.text))
+        .collect()
+}
+
+fn anchored_lines_unchanged(previous_source: &str, source: &str, tokens: &[Token]) -> bool {
+    let previous_lines = source::source_lines(previous_source);
+    let source_lines = source::source_lines(source);
+    let mut previous_line = None;
+
+    tokens.iter().all(|token| {
+        if previous_line == Some(token.span.line) {
+            return true;
+        }
+        previous_line = Some(token.span.line);
+        let index = token.span.line.saturating_sub(1);
+        previous_lines.get(index).map(|line| line.text.as_str())
+            == source_lines.get(index).map(|line| line.text.as_str())
+    })
+}
+
 /// Checks source while resolving matching static file imports from the supplied in-memory text.
 ///
 /// Paths inserted into `import_overrides` are canonicalized, and imports without an override keep
@@ -8835,6 +8903,106 @@ mod tests {
 
         assert_eq!(first_token.span.line, 1);
         assert_eq!(first_token.span.column, 1);
+    }
+
+    #[test]
+    fn retargets_report_for_token_free_trivia_edits() {
+        let previous_source = concat!(
+            "value = 2 kW\n",
+            "# alpha\n",
+            "print \"value={value:kW}\"\n",
+            "# short\n",
+        );
+        let source = concat!(
+            "value = 2 kW\n",
+            "# bravo\n",
+            "print \"value={value:kW}\"\n",
+            "# a much longer trailing comment\n",
+        );
+        let previous = check_source("retarget.eng", previous_source, &CheckOptions::default());
+        let reused =
+            retarget_check_report_for_token_stable_trivia(&previous, previous_source, source)
+                .expect("token-free trivia edits should reuse the prior report");
+        let fresh = check_source("retarget.eng", source, &CheckOptions::default());
+
+        assert_eq!(reused.source_path, fresh.source_path);
+        assert_eq!(reused.source_hash, fresh.source_hash);
+        assert_eq!(reused.source_lines, fresh.source_lines);
+        assert_eq!(reused.diagnostics, fresh.diagnostics);
+        assert_eq!(reused.inferred_declarations, fresh.inferred_declarations);
+        assert_eq!(reused.syntax_summary, fresh.syntax_summary);
+        assert_eq!(reused.semantic_program, fresh.semantic_program);
+        assert_eq!(
+            reused.quantity_completion_count,
+            fresh.quantity_completion_count
+        );
+        assert_eq!(reused.unit_info_count, fresh.unit_info_count);
+        assert_eq!(review_json(&reused), review_json(&fresh));
+        assert_eq!(
+            encode_bytecode(&build_bytecode_program(&reused, source)),
+            encode_bytecode(&build_bytecode_program(&fresh, source))
+        );
+    }
+
+    #[test]
+    fn trivia_retarget_falls_back_for_semantic_or_anchored_line_edits() {
+        let previous_source = "value = 2 kW\n# alpha\nprint value\n";
+        let previous = check_source("retarget.eng", previous_source, &CheckOptions::default());
+
+        assert!(retarget_check_report_for_token_stable_trivia(
+            &previous,
+            previous_source,
+            "value = 3 kW\n# alpha\nprint value\n"
+        )
+        .is_none());
+        assert!(retarget_check_report_for_token_stable_trivia(
+            &previous,
+            previous_source,
+            "value = 2 kW\n# a longer comment\nprint value\n"
+        )
+        .is_none());
+
+        let inline_previous_source = "value = 2 kW # alpha\n";
+        let inline_previous = check_source(
+            "retarget.eng",
+            inline_previous_source,
+            &CheckOptions::default(),
+        );
+        assert!(retarget_check_report_for_token_stable_trivia(
+            &inline_previous,
+            inline_previous_source,
+            "value = 2 kW # bravo\n"
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn trivia_retarget_rejects_cache_identity_and_prior_report_mismatches() {
+        let cache_source = concat!(
+            "response = http get url(\"https://example.org/data.json\")\n",
+            "with {\n",
+            "    cache = true\n",
+            "    cache_key = [\"demo\"]\n",
+            "}\n",
+            "# alpha\n",
+        );
+        let cached = check_source("retarget.eng", cache_source, &CheckOptions::default());
+        assert!(!cached.semantic_program.cache_records.is_empty());
+        assert!(retarget_check_report_for_token_stable_trivia(
+            &cached,
+            cache_source,
+            &cache_source.replace("# alpha", "# bravo")
+        )
+        .is_none());
+
+        let previous_source = "value = 2 kW\n# alpha\n";
+        let previous = check_source("retarget.eng", previous_source, &CheckOptions::default());
+        assert!(retarget_check_report_for_token_stable_trivia(
+            &previous,
+            "value = 20 kW\n# alpha\n",
+            "value = 20 kW\n# bravo\n"
+        )
+        .is_none());
     }
 
     #[test]
