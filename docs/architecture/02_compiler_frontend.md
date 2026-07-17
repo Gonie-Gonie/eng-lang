@@ -176,6 +176,19 @@ semantic colors plus source-owned domain, component, equation, and connection
 Outline selections; synthesized residual metadata is not presented as a source
 declaration.
 
+Fast bindings whose RHS starts with `promote csv`, `promote json`, `promote
+json records`, or `promote toml` retain a token-parsed `PromotionDecl`. It owns
+the promotion/format/`records`/`as` tokens plus exact source, source-path
+segment, and schema-name spans. `CsvPromotion` and `ConfigPromotion` expose the
+binding, expression, promotion keyword, format, optional `records`, `as`, source,
+and schema spans as optional public metadata so
+runtime-synthesized table records can remain source-less. Schema lookup errors
+select the schema name; source, missing-column, Args-source, and config
+validation errors select the source operand. A failed CSV/JSON/config read does
+not also infer missing columns or fields from an empty payload. Promotion
+semantic roles and Outline entries consume these same ranges rather than
+searching for repeated text on the source line.
+
 Class declarations retain exact field default, validation expression, method
 return type/unit, and method expression spans. Class object fields retain their
 value expression spans. Every `E-CLASS-*` diagnostic consumes one of these

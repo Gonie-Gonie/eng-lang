@@ -161,8 +161,12 @@ the attached `with` block or a newly created block. Every `E-CLASS-*` diagnostic
 also has a compiler-owned range. Field defaults and object assignments select
 their value, invalid validation and method return declarations select their
 expression, missing fields select the object name, and method-call diagnostics
-select the receiver, method, or argument. The global non-regression ceiling now
-permits at most 70 diagnostics that still need the older range inference path.
+select the receiver, method, or argument. A dedicated promotion guard requires
+schema lookups to select the schema name and CSV/JSON/config source and
+validation failures to select the source operand. Unreadable sources do not
+cascade into missing-column or missing-field diagnostics. The global
+non-regression ceiling permits at most 49 diagnostics to use the older range
+inference path.
 Older diagnostics retain source-aware inference: dimensionless arithmetic
 diagnostics highlight the offending `+` or `-`, schema fast-assignment
 diagnostics highlight `=`, and file mutation diagnostics target `move` or
@@ -442,6 +446,12 @@ token per identifier, with `args` as a parameter, other receivers as variables,
 and member segments as properties. Command-style `apply` targets follow the same
 rule and classify the final segment as a workflow-step function.
 
+`promote csv/json/toml` and `promote json records` bindings, source operands,
+and schema targets use compiler-owned token ranges. A repeated identifier on the
+same line can therefore be a declaration variable, an external source path, and
+a schema class without overlapping semantic tokens. `file`/`dir`/`join` helpers
+are searched only inside the source span.
+
 Sampling declarations and distribution option names use compiler-owned binding
 and key spans. Their semantic token and Outline selection ranges therefore point
 to the exact declaration occurrence instead of searching the source line.
@@ -499,6 +509,9 @@ selected option.
 
 Sampling bindings and distribution children use their exact compiler-owned name
 and option-key spans for Outline selection.
+
+CSV, JSON-record, and config promotion symbols select their exact binding spans;
+their details retain the promoted schema name.
 
 Domain symbols select the declaration name; generic parameters, variables, and
 conservation children select their own source occurrences. Component ports,

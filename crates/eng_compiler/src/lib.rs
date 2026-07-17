@@ -36,10 +36,10 @@ pub use ast::{
     CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainVariableDecl, EquationDecl,
     ExpectationDecl, ExpectationSuiteDecl, ExplicitDecl, FastBinding, FileOperationDecl,
     FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl, NetDownloadDecl, OnBlockDecl,
-    OnPredicateDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl,
-    StateSpaceTypeBlockDecl, StateSpaceTypeMemberDecl, StructDecl, SystemDecl, SystemVariableDecl,
-    TestDecl, WhereBindingDecl, WhereBlockDecl, WherePredicateDecl, WithBlockDecl, WithOptionDecl,
-    WriteDecl,
+    OnPredicateDecl, PortDecl, PrintDecl, PromotionDecl, PromotionKind, ReturnDecl, SchemaDecl,
+    ScriptDecl, StateSpaceTypeBlockDecl, StateSpaceTypeMemberDecl, StructDecl, SystemDecl,
+    SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl, WherePredicateDecl,
+    WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
@@ -17702,6 +17702,107 @@ schema SensorData {
 
         assert!(report.has_errors());
         assert_eq!(report.diagnostics[0].code, "E-SCHEMA-PROMOTE-001");
+    }
+
+    #[test]
+    fn promotion_diagnostics_and_metadata_preserve_exact_source_spans() {
+        let root = env::temp_dir().join(format!(
+            "englang-promotion-span-missing-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let source_path = root.join("main.eng");
+        let source = concat!(
+            "schema KnownRow {\r\n",
+            "    value: Float\r\n",
+            "}\r\n",
+            "csv_rows = promote   csv   file(\"\u{1f600}-missing.csv\")   as   MissingCsv\r\n",
+            "json_rows = promote json records payload.records as MissingRows\r\n",
+            "config = promote   toml   file(\"missing.toml\") as MissingConfig\r\n",
+            "known_csv = promote csv file(\"missing-known.csv\") as KnownRow\r\n",
+            "known_config = promote json file(\"missing-known.json\") as KnownRow\r\n",
+        );
+        let report = check_source(&source_path, source, &CheckOptions::default());
+
+        let span_text = |span: Option<SourceSpan>| {
+            let span = span.expect("compiler-owned promotion span");
+            source
+                .get(span.start..span.end)
+                .unwrap_or_else(|| panic!("invalid source span: {span:?}"))
+        };
+        let diagnostic_text = |line: usize, code: &str| {
+            let diagnostic = report
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.line == line && diagnostic.code == code)
+                .unwrap_or_else(|| {
+                    panic!("missing {code} on line {line}: {:?}", report.diagnostics)
+                });
+            span_text(diagnostic.source_span)
+        };
+
+        assert_eq!(diagnostic_text(4, "E-SCHEMA-PROMOTE-001"), "MissingCsv");
+        assert_eq!(
+            diagnostic_text(4, "E-SCHEMA-CSV-001"),
+            "file(\"\u{1f600}-missing.csv\")"
+        );
+        assert_eq!(diagnostic_text(5, "E-SCHEMA-PROMOTE-001"), "MissingRows");
+        assert_eq!(diagnostic_text(5, "E-SCHEMA-JSON-001"), "payload.records");
+        assert_eq!(diagnostic_text(6, "E-SCHEMA-PROMOTE-001"), "MissingConfig");
+        assert_eq!(
+            diagnostic_text(6, "E-CONFIG-SOURCE-001"),
+            "file(\"missing.toml\")"
+        );
+        assert_eq!(
+            diagnostic_text(7, "E-SCHEMA-CSV-001"),
+            "file(\"missing-known.csv\")"
+        );
+        assert_eq!(
+            diagnostic_text(8, "E-CONFIG-SOURCE-001"),
+            "file(\"missing-known.json\")"
+        );
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-SCHEMA-CSV-002"));
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-CONFIG-MISSING-FIELD"));
+
+        let csv = report
+            .semantic_program
+            .csv_promotions
+            .iter()
+            .find(|promotion| promotion.binding == "csv_rows")
+            .expect("CSV promotion metadata");
+        assert_eq!(span_text(csv.binding_span), "csv_rows");
+        assert_eq!(span_text(csv.promote_span), "promote");
+        assert_eq!(span_text(csv.format_span), "csv");
+        assert_eq!(span_text(csv.as_span), "as");
+        assert_eq!(csv.records_span, None);
+        assert_eq!(
+            span_text(csv.source_span),
+            "file(\"\u{1f600}-missing.csv\")"
+        );
+        assert_eq!(span_text(csv.schema_span), "MissingCsv");
+        assert_eq!(
+            span_text(csv.expression_span),
+            "promote   csv   file(\"\u{1f600}-missing.csv\")   as   MissingCsv"
+        );
+
+        let records = report
+            .semantic_program
+            .csv_promotions
+            .iter()
+            .find(|promotion| promotion.binding == "json_rows")
+            .expect("JSON records promotion metadata");
+        assert_eq!(records.json_source_binding.as_deref(), Some("payload"));
+        assert_eq!(records.json_records_field.as_deref(), Some("records"));
+        assert_eq!(span_text(records.format_span), "json");
+        assert_eq!(span_text(records.records_span), "records");
+        assert_eq!(span_text(records.source_span), "payload.records");
+        assert_eq!(span_text(records.schema_span), "MissingRows");
     }
 
     #[test]

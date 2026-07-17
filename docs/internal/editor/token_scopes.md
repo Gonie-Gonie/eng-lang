@@ -176,7 +176,10 @@ For `promote csv/json/toml` and `promote json records`, TextMate first-paint
 scopes keep the phrase workflow-colored and include member-aware source-path
 fallbacks, while LSP semantic tokens add `workflowStep` plus `external` to
 source operands such as `file(...)`, `args.input`, `payload`, and
-`payload.records`.
+`payload.records`. The LSP constrains binding, source, and schema roles to the
+token-parsed promotion spans. Repeated names on one line therefore remain a
+declaration variable, source variable/property path, and schema class at their
+own occurrences instead of being repainted by first-text search.
 
 I/O and external-boundary phrases such as `read json`, `write text`,
 `write json`, `write standard_text`, `export summary to csv`, `download`,
@@ -418,6 +421,13 @@ call, argument, unit, or equation side. Domain, component, source equation, and
 connection Outline selections reuse those ranges; generated residuals are not
 shown as source children. A dedicated corpus guard requires every targeted
 diagnostic in these families to retain a valid compiler-owned range.
+
+Promotion schema lookup diagnostics select the exact schema token after `as`.
+CSV/JSON source, required-column, Args-source, and config source/validation
+diagnostics select the complete source operand. The fixture guard covers
+`E-SCHEMA-PROMOTE-001`, `E-SCHEMA-CSV-*`, `E-SCHEMA-JSON-*`, and
+`E-CONFIG-SOURCE-001`; unreadable sources no longer generate secondary
+missing-column or missing-field diagnostics from empty inferred data.
 
 HTTP request and download metadata preserve the exact URL operand span. URL
 validation follows declared const/local aliases to a literal when possible and

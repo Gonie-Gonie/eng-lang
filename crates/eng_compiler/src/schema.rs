@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::ast::AstItem;
+use crate::ast::{AstItem, PromotionDecl, PromotionKind};
 use crate::parser::ParseContext;
 use crate::semantic::{read_only_io_expression, ArgValueInfo};
 use crate::source::SourceSpan;
@@ -50,9 +50,17 @@ pub struct SchemaInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CsvPromotion {
     pub binding: String,
+    pub binding_span: Option<SourceSpan>,
+    pub expression_span: Option<SourceSpan>,
+    pub promote_span: Option<SourceSpan>,
+    pub format_span: Option<SourceSpan>,
+    pub records_span: Option<SourceSpan>,
+    pub as_span: Option<SourceSpan>,
     pub source_format: String,
     pub schema_name: String,
+    pub schema_span: Option<SourceSpan>,
     pub source_literal: String,
+    pub source_span: Option<SourceSpan>,
     pub source_value: String,
     pub resolved_path: String,
     pub source_hash: Option<String>,
@@ -75,9 +83,17 @@ pub struct ConfigTypeMismatch {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ConfigPromotion {
     pub binding: String,
+    pub binding_span: Option<SourceSpan>,
+    pub expression_span: Option<SourceSpan>,
+    pub promote_span: Option<SourceSpan>,
+    pub format_span: Option<SourceSpan>,
+    pub records_span: Option<SourceSpan>,
+    pub as_span: Option<SourceSpan>,
     pub format: String,
     pub schema_name: String,
+    pub schema_span: Option<SourceSpan>,
     pub source_literal: String,
+    pub source_span: Option<SourceSpan>,
     pub source_value: String,
     pub resolved_path: String,
     pub source_hash: Option<String>,
@@ -216,9 +232,13 @@ pub fn analyze_schema(
         let AstItem::FastBinding(binding) = item else {
             continue;
         };
-        let Some((source, schema_name)) = parse_promote_table(&binding.expression) else {
+        let Some(promotion) = binding.promotion.as_ref() else {
             continue;
         };
+        let Some(source) = table_promotion_source(promotion) else {
+            continue;
+        };
+        let schema_name = promotion.schema_name.clone();
         let source_format = match &source {
             TablePromotionSource::Csv { .. } => "csv",
             TablePromotionSource::JsonRecords { .. } => "json_records",
@@ -242,18 +262,21 @@ pub fn analyze_schema(
             .iter()
             .find(|candidate| candidate.name == schema_name);
         if schema.is_none() {
-            diagnostics.push(Diagnostic::error(
-                "E-SCHEMA-PROMOTE-001",
-                binding.line,
-                &format!("Table promotion references unknown schema `{schema_name}`."),
-                Some("Define the schema before the promote expression."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SCHEMA-PROMOTE-001",
+                    binding.line,
+                    &format!("Table promotion references unknown schema `{schema_name}`."),
+                    Some("Define the schema before the promote expression."),
+                )
+                .with_source_span(promotion.schema_span),
+            );
         }
         let mut headers = Vec::new();
         let mut row_count = 0usize;
         let mut source_hash = None;
 
-        let (source_value, resolved_path) = match &source {
+        let (source_value, resolved_path, source_ready) = match &source {
             TablePromotionSource::Csv { source_literal } => {
                 let source_value = match resolve_source_value(source_literal, arg_values) {
                     Ok(value) => value,
@@ -265,12 +288,20 @@ pub fn analyze_schema(
                                 "CSV promotion path references `args.{arg_name}`, but no value is available."
                             ),
                             Some("Provide the field with `--<name> <value>` or add a default in `args { ... }`."),
-                        ));
+                        ).with_source_span(promotion.source_span));
                         csv_promotions.push(CsvPromotion {
                             binding: binding.name.clone(),
+                            binding_span: Some(binding.span),
+                            expression_span: Some(binding.expression_span),
+                            promote_span: Some(promotion.promote_span),
+                            format_span: Some(promotion.format_span),
+                            records_span: promotion.records_span,
+                            as_span: Some(promotion.as_span),
                             source_format,
                             schema_name,
+                            schema_span: Some(promotion.schema_span),
                             source_literal: source_literal.clone(),
+                            source_span: Some(promotion.source_span),
                             source_value: String::new(),
                             resolved_path: String::new(),
                             source_hash: None,
@@ -286,20 +317,27 @@ pub fn analyze_schema(
                     }
                 };
                 let resolved_path = resolve_csv_path(source_base, &source_value);
-                match read_csv_header(&resolved_path) {
+                let source_ready = match read_csv_header(&resolved_path) {
                     Ok(csv) => {
                         headers = csv.headers;
                         row_count = csv.row_count;
                         source_hash = Some(csv.source_hash);
+                        true
                     }
-                    Err(error) => diagnostics.push(Diagnostic::error(
-                        "E-SCHEMA-CSV-001",
-                        binding.line,
-                        &format!("Cannot read CSV source `{source_value}`: {error}."),
-                        Some("Check that the path is relative to the .eng source file."),
-                    )),
-                }
-                (source_value, resolved_path)
+                    Err(error) => {
+                        diagnostics.push(
+                            Diagnostic::error(
+                                "E-SCHEMA-CSV-001",
+                                binding.line,
+                                &format!("Cannot read CSV source `{source_value}`: {error}."),
+                                Some("Check that the path is relative to the .eng source file."),
+                            )
+                            .with_source_span(promotion.source_span),
+                        );
+                        false
+                    }
+                };
+                (source_value, resolved_path, source_ready)
             }
             TablePromotionSource::JsonRecords {
                 source_binding,
@@ -317,12 +355,20 @@ pub fn analyze_schema(
                             "JSON records promotion references `{source_binding}`, but no matching JSON source is available."
                         ),
                         Some("Bind the payload first with `read json` or `promote json ... as PayloadSchema`, then use `promote json records payload.records as SchemaName`."),
-                    ));
+                    ).with_source_span(promotion.source_span));
                     csv_promotions.push(CsvPromotion {
                         binding: binding.name.clone(),
+                        binding_span: Some(binding.span),
+                        expression_span: Some(binding.expression_span),
+                        promote_span: Some(promotion.promote_span),
+                        format_span: Some(promotion.format_span),
+                        records_span: promotion.records_span,
+                        as_span: Some(promotion.as_span),
                         source_format,
                         schema_name,
+                        schema_span: Some(promotion.schema_span),
                         source_literal,
+                        source_span: Some(promotion.source_span),
                         source_value: String::new(),
                         resolved_path: String::new(),
                         source_hash: None,
@@ -338,7 +384,7 @@ pub fn analyze_schema(
                 };
                 let source_value = raw_source.source_value.clone();
                 let resolved_path = raw_source.resolved_path.clone();
-                if raw_source.runtime_bound {
+                let source_ready = if raw_source.runtime_bound {
                     if let Some(schema) = schema {
                         headers = schema
                             .columns
@@ -346,28 +392,38 @@ pub fn analyze_schema(
                             .map(|column| column.name.clone())
                             .collect();
                     }
+                    true
                 } else {
                     match read_json_records_header(&resolved_path, records_field) {
                         Ok(json) => {
                             headers = json.headers;
                             row_count = json.row_count;
                             source_hash = Some(json.source_hash);
+                            true
                         }
-                        Err(error) => diagnostics.push(Diagnostic::error(
-                            "E-SCHEMA-JSON-001",
-                            binding.line,
-                            &format!(
-                                "Cannot read JSON records source `{source_literal}` from `{source_value}`: {error}."
-                            ),
-                            Some("Check that the JSON path resolves to an array of record objects."),
-                        )),
+                        Err(error) => {
+                            diagnostics.push(
+                                Diagnostic::error(
+                                    "E-SCHEMA-JSON-001",
+                                    binding.line,
+                                    &format!(
+                                        "Cannot read JSON records source `{source_literal}` from `{source_value}`: {error}."
+                                    ),
+                                    Some("Check that the JSON path resolves to an array of record objects."),
+                                )
+                                .with_source_span(promotion.source_span),
+                            );
+                            false
+                        }
                     }
-                }
-                (source_value, resolved_path)
+                };
+                (source_value, resolved_path, source_ready)
             }
         };
 
-        let missing_columns = schema
+        let missing_columns = source_ready
+            .then_some(schema)
+            .flatten()
             .map(|schema| {
                 schema
                     .columns
@@ -378,7 +434,9 @@ pub fn analyze_schema(
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
-        let optional_missing_columns = schema
+        let optional_missing_columns = source_ready
+            .then_some(schema)
+            .flatten()
             .map(|schema| {
                 schema
                     .columns
@@ -404,22 +462,33 @@ pub fn analyze_schema(
                     "Add the missing CSV headers or update the schema.",
                 )
             };
-            diagnostics.push(Diagnostic::error(
-                code,
-                binding.line,
-                &format!(
-                    "{label} `{source_literal}` is missing required column(s): {}.",
-                    missing_columns.join(", ")
-                ),
-                Some(help),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    code,
+                    binding.line,
+                    &format!(
+                        "{label} `{source_literal}` is missing required column(s): {}.",
+                        missing_columns.join(", ")
+                    ),
+                    Some(help),
+                )
+                .with_source_span(promotion.source_span),
+            );
         }
 
         csv_promotions.push(CsvPromotion {
             binding: binding.name.clone(),
+            binding_span: Some(binding.span),
+            expression_span: Some(binding.expression_span),
+            promote_span: Some(promotion.promote_span),
+            format_span: Some(promotion.format_span),
+            records_span: promotion.records_span,
+            as_span: Some(promotion.as_span),
             source_format,
             schema_name,
+            schema_span: Some(promotion.schema_span),
             source_literal,
+            source_span: Some(promotion.source_span),
             source_value,
             resolved_path: resolved_path.display().to_string(),
             source_hash,
@@ -437,20 +506,27 @@ pub fn analyze_schema(
         let AstItem::FastBinding(binding) = item else {
             continue;
         };
-        let Some((format, source_literal, schema_name)) = parse_promote_config(&binding.expression)
-        else {
+        let Some(promotion) = binding.promotion.as_ref() else {
             continue;
         };
+        let Some(format) = config_promotion_format(promotion) else {
+            continue;
+        };
+        let source_literal = promotion.source_expression.clone();
+        let schema_name = promotion.schema_name.clone();
         let schema = schemas
             .iter()
             .find(|candidate| candidate.name == schema_name);
         if schema.is_none() {
-            diagnostics.push(Diagnostic::error(
-                "E-SCHEMA-PROMOTE-001",
-                binding.line,
-                &format!("Config promotion references unknown schema `{schema_name}`."),
-                Some("Define the schema before the `promote json/toml` expression."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-SCHEMA-PROMOTE-001",
+                    binding.line,
+                    &format!("Config promotion references unknown schema `{schema_name}`."),
+                    Some("Define the schema before the `promote json/toml` expression."),
+                )
+                .with_source_span(promotion.schema_span),
+            );
         }
 
         let raw_source = raw_config_sources
@@ -469,12 +545,20 @@ pub fn analyze_schema(
                             "Config promotion path references `args.{arg_name}`, but no value is available."
                         ),
                         Some("Provide the field with `--<name> <value>` or add a default in `args { ... }`."),
-                    ));
+                    ).with_source_span(promotion.source_span));
                     config_promotions.push(ConfigPromotion {
                         binding: binding.name.clone(),
+                        binding_span: Some(binding.span),
+                        expression_span: Some(binding.expression_span),
+                        promote_span: Some(promotion.promote_span),
+                        format_span: Some(promotion.format_span),
+                        records_span: promotion.records_span,
+                        as_span: Some(promotion.as_span),
                         format,
                         schema_name,
+                        schema_span: Some(promotion.schema_span),
                         source_literal,
+                        source_span: Some(promotion.source_span),
                         source_value: String::new(),
                         resolved_path: String::new(),
                         source_hash: None,
@@ -502,6 +586,7 @@ pub fn analyze_schema(
         let mut source_hash = None;
         let mut fields = Vec::new();
         let mut status = "validated".to_owned();
+        let mut source_ready = true;
 
         let runtime_bound = raw_source.is_some_and(|source| source.runtime_bound);
         if runtime_bound {
@@ -514,12 +599,13 @@ pub fn analyze_schema(
                 }
                 Err(error) => {
                     status = "source_error".to_owned();
+                    source_ready = false;
                     diagnostics.push(Diagnostic::error(
                         "E-CONFIG-SOURCE-001",
                         binding.line,
                         &format!("Cannot read config source `{source_value}`: {error}."),
                         Some("Check that the path is relative to the .eng source file and is valid UTF-8."),
-                    ));
+                    ).with_source_span(promotion.source_span));
                 }
             }
         }
@@ -528,7 +614,7 @@ pub fn analyze_schema(
             .iter()
             .map(|field| field.name.clone())
             .collect::<Vec<_>>();
-        let validation = if runtime_bound {
+        let validation = if runtime_bound || !source_ready {
             ConfigValidation::default()
         } else {
             schema
@@ -551,58 +637,78 @@ pub fn analyze_schema(
 
         if !missing_fields.is_empty() {
             status = "invalid".to_owned();
-            diagnostics.push(Diagnostic::error(
-                "E-CONFIG-MISSING-FIELD",
-                binding.line,
-                &format!(
-                    "Config source `{source_literal}` is missing required field(s): {}.",
-                    missing_fields.join(", ")
-                ),
-                Some("Add the missing config fields or update the schema."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-CONFIG-MISSING-FIELD",
+                    binding.line,
+                    &format!(
+                        "Config source `{source_literal}` is missing required field(s): {}.",
+                        missing_fields.join(", ")
+                    ),
+                    Some("Add the missing config fields or update the schema."),
+                )
+                .with_source_span(promotion.source_span),
+            );
         }
         if !unknown_fields.is_empty() {
             status = "invalid".to_owned();
-            diagnostics.push(Diagnostic::error(
-                "E-CONFIG-UNKNOWN-FIELD",
-                binding.line,
-                &format!(
-                    "Config source `{source_literal}` has unknown field(s): {}.",
-                    unknown_fields.join(", ")
-                ),
-                Some("Remove unknown config fields or declare them in the schema."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-CONFIG-UNKNOWN-FIELD",
+                    binding.line,
+                    &format!(
+                        "Config source `{source_literal}` has unknown field(s): {}.",
+                        unknown_fields.join(", ")
+                    ),
+                    Some("Remove unknown config fields or declare them in the schema."),
+                )
+                .with_source_span(promotion.source_span),
+            );
         }
         if !null_fields.is_empty() {
             status = "invalid".to_owned();
-            diagnostics.push(Diagnostic::error(
-                "E-CONFIG-NULL-NOT-OPTIONAL",
-                binding.line,
-                &format!(
-                    "Config source `{source_literal}` sets non-optional field(s) to null: {}.",
-                    null_fields.join(", ")
-                ),
-                Some("Use a concrete value, or add optional-field support before using null."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-CONFIG-NULL-NOT-OPTIONAL",
+                    binding.line,
+                    &format!(
+                        "Config source `{source_literal}` sets non-optional field(s) to null: {}.",
+                        null_fields.join(", ")
+                    ),
+                    Some("Use a concrete value, or add optional-field support before using null."),
+                )
+                .with_source_span(promotion.source_span),
+            );
         }
         for mismatch in &type_mismatches {
             status = "invalid".to_owned();
-            diagnostics.push(Diagnostic::error(
-                "E-CONFIG-TYPE-MISMATCH",
-                binding.line,
-                &format!(
-                    "Config field `{}` expected `{}` but found `{}`.",
-                    mismatch.field, mismatch.expected, mismatch.actual
-                ),
-                Some("Update the config value type or the schema field type."),
-            ));
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-CONFIG-TYPE-MISMATCH",
+                    binding.line,
+                    &format!(
+                        "Config field `{}` expected `{}` but found `{}`.",
+                        mismatch.field, mismatch.expected, mismatch.actual
+                    ),
+                    Some("Update the config value type or the schema field type."),
+                )
+                .with_source_span(promotion.source_span),
+            );
         }
 
         config_promotions.push(ConfigPromotion {
             binding: binding.name.clone(),
+            binding_span: Some(binding.span),
+            expression_span: Some(binding.expression_span),
+            promote_span: Some(promotion.promote_span),
+            format_span: Some(promotion.format_span),
+            records_span: promotion.records_span,
+            as_span: Some(promotion.as_span),
             format,
             schema_name,
+            schema_span: Some(promotion.schema_span),
             source_literal,
+            source_span: Some(promotion.source_span),
             source_value,
             resolved_path: resolved_path.display().to_string(),
             source_hash,
@@ -658,89 +764,30 @@ fn clean_schema_type(type_name: &str) -> String {
         .join(" ")
 }
 
-fn parse_promote_table(expression: &str) -> Option<(TablePromotionSource, String)> {
-    parse_promote_csv(expression)
-        .map(|(source_literal, schema_name)| {
-            (TablePromotionSource::Csv { source_literal }, schema_name)
-        })
-        .or_else(|| parse_promote_json_records(expression))
-}
-
-fn parse_promote_csv(expression: &str) -> Option<(String, String)> {
-    let trimmed = expression.trim();
-    if !trimmed.starts_with("promote csv ") {
-        return None;
+fn table_promotion_source(promotion: &PromotionDecl) -> Option<TablePromotionSource> {
+    match promotion.kind {
+        PromotionKind::Csv => Some(TablePromotionSource::Csv {
+            source_literal: strip_string_literal(&promotion.source_expression),
+        }),
+        PromotionKind::JsonRecords => {
+            let source_binding = promotion.source_binding.clone()?;
+            let records_field = promotion.records_field.clone()?;
+            Some(TablePromotionSource::JsonRecords {
+                source_literal: format!("{source_binding}.{records_field}"),
+                source_binding,
+                records_field,
+            })
+        }
+        PromotionKind::Json | PromotionKind::Toml => None,
     }
-
-    let after_prefix = trimmed.trim_start_matches("promote csv ").trim();
-    let source_literal = if let Some(rest) = after_prefix.strip_prefix('"') {
-        let (path, _) = rest.split_once('"')?;
-        path.to_owned()
-    } else {
-        after_prefix.split_whitespace().next()?.to_owned()
-    };
-
-    let schema_name = trimmed.rsplit_once(" as ")?.1.trim();
-    let schema_name = schema_name
-        .split_whitespace()
-        .next()
-        .unwrap_or(schema_name)
-        .trim_matches('{')
-        .to_owned();
-
-    Some((source_literal, schema_name))
 }
 
-fn parse_promote_json_records(expression: &str) -> Option<(TablePromotionSource, String)> {
-    let trimmed = expression.trim();
-    let after_prefix = trimmed.strip_prefix("promote json records ")?.trim();
-    let (source_literal, schema_name) = after_prefix.rsplit_once(" as ")?;
-    let source_literal = source_literal.trim();
-    let (source_binding, records_field) = source_literal.split_once('.')?;
-    let source_binding = source_binding.trim();
-    let records_field = records_field.trim();
-    if source_binding.is_empty() || records_field.is_empty() {
-        return None;
+fn config_promotion_format(promotion: &PromotionDecl) -> Option<String> {
+    match promotion.kind {
+        PromotionKind::Json => Some("json".to_owned()),
+        PromotionKind::Toml => Some("toml".to_owned()),
+        PromotionKind::Csv | PromotionKind::JsonRecords => None,
     }
-    let schema_name = schema_name_after_as(schema_name);
-    Some((
-        TablePromotionSource::JsonRecords {
-            source_literal: source_literal.to_owned(),
-            source_binding: source_binding.to_owned(),
-            records_field: records_field.to_owned(),
-        },
-        schema_name,
-    ))
-}
-
-fn schema_name_after_as(schema_name: &str) -> String {
-    schema_name
-        .split_whitespace()
-        .next()
-        .unwrap_or(schema_name)
-        .trim_matches('{')
-        .to_owned()
-}
-
-fn parse_promote_config(expression: &str) -> Option<(String, String, String)> {
-    let trimmed = expression.trim();
-    if trimmed.starts_with("promote json records ") {
-        return None;
-    }
-    let (format, after_prefix) = if let Some(rest) = trimmed.strip_prefix("promote json ") {
-        ("json", rest.trim())
-    } else if let Some(rest) = trimmed.strip_prefix("promote toml ") {
-        ("toml", rest.trim())
-    } else {
-        return None;
-    };
-    let (source_literal, schema_name) = after_prefix.rsplit_once(" as ")?;
-    let schema_name = schema_name_after_as(schema_name);
-    Some((
-        format.to_owned(),
-        source_literal.trim().to_owned(),
-        schema_name,
-    ))
 }
 
 fn collect_raw_config_sources(
@@ -807,11 +854,13 @@ fn collect_raw_config_sources(
         if binding.context != ParseContext::TopLevel {
             continue;
         }
-        let Some((format, source_literal, _schema_name)) =
-            parse_promote_config(&binding.expression)
-        else {
+        let Some(promotion) = binding.promotion.as_ref() else {
             continue;
         };
+        let Some(format) = config_promotion_format(promotion) else {
+            continue;
+        };
+        let source_literal = promotion.source_expression.clone();
         let source = if let Some(source) = sources
             .get(source_literal.as_str())
             .filter(|source| source.format == format)

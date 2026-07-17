@@ -330,7 +330,14 @@ connect compatibility, component parameter/equation/boundary/behavior, and
 physical-equation Problems underline the failing declaration, endpoint, call,
 argument, unit, or equation side. Domain/component/equation/connection Outline
 entries use the same source positions, while synthesized residuals stay out of
-the source Outline. The diagnostic corpus fallback ceiling is 70.
+the source Outline.
+Promotion bindings, source operands, and schema targets use token-parsed
+compiler ranges for semantic colors and Outline selection. Repeated names in
+`name = promote csv name as name` keep distinct declaration, external-source,
+and schema roles. Promotion schema/source Problems underline the schema name or
+complete source operand, and unreadable CSV/JSON/config inputs do not emit
+secondary missing-column or missing-field Problems. The diagnostic corpus
+fallback ceiling is 49.
 Invalid network URL Problems underline the complete request/download URL operand.
 Declared URL aliases are resolved before validation; unsupplied runtime
 `args.*` URLs do not create malformed-URL false positives, and trailing comments

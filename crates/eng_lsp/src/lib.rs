@@ -2445,52 +2445,143 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for promotion in &program.csv_promotions {
-        builder.push_on_line(
-            promotion.line,
-            &promotion.binding,
-            "variable",
-            &["declaration"],
-        );
-        builder.push_on_line(
-            promotion.line,
-            &promotion.schema_name,
-            "class",
-            &["defaultLibrary"],
-        );
-        builder.push_keywords_on_line(
-            promotion.line,
-            promotion_source_format_keywords(&promotion.source_format),
-            &["workflowStep"],
-        );
+        if let Some(span) = promotion.binding_span {
+            builder.push_preferred_named_span(
+                span,
+                &promotion.binding,
+                "variable",
+                &["declaration"],
+            );
+        } else {
+            builder.push_on_line(
+                promotion.line,
+                &promotion.binding,
+                "variable",
+                &["declaration"],
+            );
+        }
+        if let Some(span) = promotion.schema_span {
+            builder.push_preferred_named_span(
+                span,
+                &promotion.schema_name,
+                "class",
+                &["defaultLibrary"],
+            );
+        } else {
+            builder.push_on_line(
+                promotion.line,
+                &promotion.schema_name,
+                "class",
+                &["defaultLibrary"],
+            );
+        }
+        if let (Some(promote_span), Some(format_span), Some(as_span)) = (
+            promotion.promote_span,
+            promotion.format_span,
+            promotion.as_span,
+        ) {
+            builder.push_preferred_named_span(
+                promote_span,
+                "promote",
+                "keyword",
+                &["workflowStep"],
+            );
+            let format_keyword = if promotion.source_format == "json_records" {
+                "json"
+            } else {
+                promotion.source_format.as_str()
+            };
+            builder.push_preferred_named_span(
+                format_span,
+                format_keyword,
+                "keyword",
+                &["workflowStep"],
+            );
+            if let Some(records_span) = promotion.records_span {
+                builder.push_preferred_named_span(
+                    records_span,
+                    "records",
+                    "keyword",
+                    &["workflowStep"],
+                );
+            }
+            builder.push_preferred_named_span(as_span, "as", "keyword", &["workflowStep"]);
+        } else {
+            builder.push_keywords_on_line(
+                promotion.line,
+                promotion_source_format_keywords(&promotion.source_format),
+                &["workflowStep"],
+            );
+        }
         add_promotion_source_semantic_tokens(
             &mut builder,
             promotion.line,
             &promotion.source_literal,
+            promotion.source_span,
         );
     }
 
     for promotion in &program.config_promotions {
-        builder.push_on_line(
-            promotion.line,
-            &promotion.binding,
-            "variable",
-            &["declaration"],
-        );
-        builder.push_on_line(
-            promotion.line,
-            &promotion.schema_name,
-            "class",
-            &["defaultLibrary"],
-        );
-        builder.push_keywords_on_line(
-            promotion.line,
-            config_promotion_format_keywords(&promotion.format),
-            &["workflowStep"],
-        );
+        if let Some(span) = promotion.binding_span {
+            builder.push_preferred_named_span(
+                span,
+                &promotion.binding,
+                "variable",
+                &["declaration"],
+            );
+        } else {
+            builder.push_on_line(
+                promotion.line,
+                &promotion.binding,
+                "variable",
+                &["declaration"],
+            );
+        }
+        if let Some(span) = promotion.schema_span {
+            builder.push_preferred_named_span(
+                span,
+                &promotion.schema_name,
+                "class",
+                &["defaultLibrary"],
+            );
+        } else {
+            builder.push_on_line(
+                promotion.line,
+                &promotion.schema_name,
+                "class",
+                &["defaultLibrary"],
+            );
+        }
+        if let (Some(promote_span), Some(format_span), Some(as_span)) = (
+            promotion.promote_span,
+            promotion.format_span,
+            promotion.as_span,
+        ) {
+            builder.push_preferred_named_span(
+                promote_span,
+                "promote",
+                "keyword",
+                &["workflowStep"],
+            );
+            builder.push_preferred_named_span(
+                format_span,
+                &promotion.format,
+                "keyword",
+                &["workflowStep"],
+            );
+            builder.push_preferred_named_span(as_span, "as", "keyword", &["workflowStep"]);
+        } else {
+            builder.push_keywords_on_line(
+                promotion.line,
+                config_promotion_format_keywords(&promotion.format),
+                &["workflowStep"],
+            );
+        }
         add_promotion_source_semantic_tokens(
             &mut builder,
             promotion.line,
             &promotion.source_literal,
+            promotion.source_span,
         );
     }
 
@@ -4354,29 +4445,56 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
         } else {
             format!("csv as {}", promotion.schema_name)
         };
-        push_document_symbol(
-            &mut symbols,
-            &mut seen,
-            &lines,
-            promotion.binding.clone(),
-            detail,
-            SYMBOL_KIND_VARIABLE,
-            promotion.line,
-            Vec::new(),
-        );
+        if let Some(span) = promotion.binding_span {
+            push_document_symbol_at_span(
+                &mut symbols,
+                &mut seen,
+                &lines,
+                promotion.binding.clone(),
+                detail,
+                SYMBOL_KIND_VARIABLE,
+                span,
+                Vec::new(),
+            );
+        } else {
+            push_document_symbol(
+                &mut symbols,
+                &mut seen,
+                &lines,
+                promotion.binding.clone(),
+                detail,
+                SYMBOL_KIND_VARIABLE,
+                promotion.line,
+                Vec::new(),
+            );
+        }
     }
 
     for promotion in &program.config_promotions {
-        push_document_symbol(
-            &mut symbols,
-            &mut seen,
-            &lines,
-            promotion.binding.clone(),
-            format!("config as {}", promotion.schema_name),
-            SYMBOL_KIND_VARIABLE,
-            promotion.line,
-            Vec::new(),
-        );
+        let detail = format!("config as {}", promotion.schema_name);
+        if let Some(span) = promotion.binding_span {
+            push_document_symbol_at_span(
+                &mut symbols,
+                &mut seen,
+                &lines,
+                promotion.binding.clone(),
+                detail,
+                SYMBOL_KIND_VARIABLE,
+                span,
+                Vec::new(),
+            );
+        } else {
+            push_document_symbol(
+                &mut symbols,
+                &mut seen,
+                &lines,
+                promotion.binding.clone(),
+                detail,
+                SYMBOL_KIND_VARIABLE,
+                promotion.line,
+                Vec::new(),
+            );
+        }
     }
 
     for sample in &program.sample_generations {
@@ -7769,23 +7887,36 @@ fn add_promotion_source_semantic_tokens(
     builder: &mut SemanticTokenBuilder<'_>,
     line: usize,
     source_literal: &str,
+    source_span: Option<SourceSpan>,
 ) {
     let source_literal = source_literal.trim();
     if source_literal.is_empty() {
         return;
     }
     let modifiers = &["workflowStep", "external"];
-    let Some(line_index) = line.checked_sub(1) else {
-        return;
-    };
-    builder.push_identifiers_on_line(
-        line_index,
-        &["file", "dir", "join", "url"],
-        "function",
-        modifiers,
-    );
-    if is_simple_identifier_path(source_literal) {
-        builder.push_identifier_path_on_line(line, source_literal, modifiers);
+    if let Some(span) = source_span {
+        builder.push_identifiers_within_span(
+            span,
+            &["file", "dir", "join", "url"],
+            "function",
+            modifiers,
+        );
+        if is_simple_identifier_path(source_literal) {
+            builder.push_preferred_identifier_path_span(span, source_literal, None, modifiers);
+        }
+    } else {
+        let Some(line_index) = line.checked_sub(1) else {
+            return;
+        };
+        builder.push_identifiers_on_line(
+            line_index,
+            &["file", "dir", "join", "url"],
+            "function",
+            modifiers,
+        );
+        if is_simple_identifier_path(source_literal) {
+            builder.push_identifier_path_on_line(line, source_literal, modifiers);
+        }
     }
 }
 
@@ -12242,6 +12373,66 @@ mod tests {
     }
 
     #[test]
+    fn promotion_fixture_diagnostics_keep_compiler_owned_ranges() {
+        let repo_root = repo_root_for_tests();
+        let mut files = BTreeSet::new();
+        for relative in [
+            "examples",
+            "tests/diagnostics",
+            "tools/vscode-englang/test/grammar-fixtures",
+        ] {
+            files.extend(eng_files_under(&repo_root.join(relative)));
+        }
+
+        let is_target = |code: &str| {
+            matches!(
+                code,
+                "E-SCHEMA-PROMOTE-001"
+                    | "E-SCHEMA-CSV-001"
+                    | "E-SCHEMA-CSV-002"
+                    | "E-SCHEMA-JSON-001"
+                    | "E-SCHEMA-JSON-002"
+                    | "E-CONFIG-SOURCE-001"
+            )
+        };
+        let mut observed = 0usize;
+        let mut missing = Vec::new();
+        for path in files {
+            let source = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            let report = check_source(&path, &source, &CheckOptions::default());
+            let lines = source_lines(&source);
+            for diagnostic in report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| is_target(&diagnostic.code))
+            {
+                observed += 1;
+                let line_index = line_index_from_one_based(&lines, diagnostic.line);
+                let line = lines.get(line_index).copied().unwrap_or_default();
+                if compiler_diagnostic_byte_range(line, diagnostic).is_none() {
+                    missing.push(format!(
+                        "{}:{} {}",
+                        path.strip_prefix(&repo_root).unwrap_or(&path).display(),
+                        diagnostic.line,
+                        diagnostic.code
+                    ));
+                }
+            }
+        }
+
+        assert!(
+            observed >= 15,
+            "promotion diagnostic corpus unexpectedly shrank to {observed} item(s)"
+        );
+        assert!(
+            missing.is_empty(),
+            "promotion diagnostics missing valid compiler ranges: {}",
+            missing.join(", ")
+        );
+    }
+
+    #[test]
     fn diagnostic_corpus_compiler_range_coverage_does_not_regress() {
         let repo_root = repo_root_for_tests();
         let mut files = BTreeSet::new();
@@ -12278,7 +12469,7 @@ mod tests {
             fallback.len()
         );
         assert!(
-            fallback.len() <= 70,
+            fallback.len() <= 49,
             "compiler-owned diagnostic range coverage regressed to {} fallback item(s): {}",
             fallback.len(),
             fallback.join(", ")
@@ -20938,6 +21129,134 @@ waiting = case_runs.waiting_count
                 "{code} end"
             );
         }
+    }
+
+    #[test]
+    fn promotion_editor_features_use_compiler_owned_spans() {
+        let source = concat!(
+            "schema Collision {\r\n",
+            "    value: Float\r\n",
+            "}\r\n",
+            "schema JsonSchema {\r\n",
+            "    value: Float\r\n",
+            "}\r\n",
+            "Collision = promote csv Collision as Collision\r\n",
+            "json = promote json json as JsonSchema\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("promotion_editor_spans.eng"), source);
+        let (line_index, line) = source
+            .lines()
+            .enumerate()
+            .find(|(_, line)| line.contains("promote csv"))
+            .expect("promotion line");
+        let assert_occurrence = |occurrence: usize, token_type: &str, expected_modifier: &str| {
+            let start = line
+                .match_indices("Collision")
+                .nth(occurrence)
+                .map(|(start, _)| start)
+                .expect("Collision occurrence");
+            assert!(
+                snapshot.semantic_tokens.tokens.iter().any(|token| {
+                    token.line == line_index
+                        && token.start == utf16_len(&line[..start])
+                        && token.length == utf16_len("Collision")
+                        && token.token_type == token_type
+                        && token
+                            .modifiers
+                            .iter()
+                            .any(|modifier| modifier == expected_modifier)
+                }),
+                "Collision occurrence {occurrence} should be {token_type}.{expected_modifier}"
+            );
+        };
+
+        assert_occurrence(0, "variable", "declaration");
+        assert_occurrence(1, "variable", "external");
+        assert_occurrence(2, "class", "defaultLibrary");
+
+        let (json_line_index, json_line) = source
+            .lines()
+            .enumerate()
+            .find(|(_, line)| line.starts_with("json ="))
+            .expect("JSON promotion line");
+        let assert_json_occurrence =
+            |occurrence: usize, token_type: &str, expected_modifier: &str| {
+                let start = json_line
+                    .match_indices("json")
+                    .nth(occurrence)
+                    .map(|(start, _)| start)
+                    .expect("json occurrence");
+                assert!(
+                    snapshot.semantic_tokens.tokens.iter().any(|token| {
+                        token.line == json_line_index
+                            && token.start == utf16_len(&json_line[..start])
+                            && token.length == utf16_len("json")
+                            && token.token_type == token_type
+                            && token
+                                .modifiers
+                                .iter()
+                                .any(|modifier| modifier == expected_modifier)
+                    }),
+                    "json occurrence {occurrence} should be {token_type}.{expected_modifier}"
+                );
+            };
+        assert_json_occurrence(0, "variable", "declaration");
+        assert_json_occurrence(1, "keyword", "workflowStep");
+        assert_json_occurrence(2, "variable", "external");
+        assert_no_conflicting_semantic_token_types(&snapshot, source, "promotion_editor_spans.eng");
+        assert_no_semantic_token_overlaps(&snapshot, "promotion_editor_spans.eng");
+
+        let symbol = snapshot
+            .document_symbols
+            .iter()
+            .find(|symbol| symbol.name == "Collision" && symbol.detail == "csv as Collision")
+            .expect("promotion Outline symbol");
+        assert_eq!(symbol.selection_line, line_index);
+        assert_eq!(symbol.selection_character, 0);
+
+        let config_symbol = snapshot
+            .document_symbols
+            .iter()
+            .find(|symbol| symbol.name == "json" && symbol.detail == "config as JsonSchema")
+            .expect("config promotion Outline symbol");
+        assert_eq!(config_symbol.selection_line, json_line_index);
+        assert_eq!(config_symbol.selection_character, 0);
+    }
+
+    #[test]
+    fn promotion_diagnostics_use_exact_utf16_source_ranges() {
+        let source = "rows = promote   csv   file(\"\u{1f600}-missing.csv\")   as   MissingSchema // \u{1f600} MissingSchema\r\n";
+        let snapshot = snapshot_for_source(Path::new("promotion_diagnostic_utf16.eng"), source);
+        let line = source.lines().next().expect("promotion line");
+
+        for (code, expected) in [
+            ("E-SCHEMA-CSV-001", "file(\"\u{1f600}-missing.csv\")"),
+            ("E-SCHEMA-PROMOTE-001", "MissingSchema"),
+        ] {
+            let diagnostic = snapshot
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code)
+                .unwrap_or_else(|| panic!("missing {code}: {:?}", snapshot.diagnostics));
+            let byte_start = line
+                .find(expected)
+                .unwrap_or_else(|| panic!("missing `{expected}` in `{line}`"));
+            assert_eq!(diagnostic.line, 1);
+            assert_eq!(
+                diagnostic.start_character,
+                utf16_len(&line[..byte_start]),
+                "{code} start"
+            );
+            assert_eq!(
+                diagnostic.end_character,
+                utf16_len(&line[..byte_start + expected.len()]),
+                "{code} end"
+            );
+        }
+        assert!(snapshot
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-SCHEMA-CSV-002"));
     }
 
     #[test]

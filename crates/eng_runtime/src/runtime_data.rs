@@ -3257,9 +3257,17 @@ fn materialize_db_read_table(
     }));
     let promotion = eng_compiler::CsvPromotion {
         binding: declaration.name.clone(),
+        binding_span: None,
+        expression_span: Some(declaration.expression_span),
+        promote_span: None,
+        format_span: None,
+        records_span: None,
+        as_span: None,
         source_format: "sqlite_table".to_owned(),
         schema_name: read.schema_name.clone(),
+        schema_span: None,
         source_literal: declaration.expression.clone(),
+        source_span: Some(declaration.expression_span),
         source_value: read.table.clone(),
         resolved_path: db_path.display().to_string(),
         source_hash: crate::sha256_file_if_exists(&db_path),

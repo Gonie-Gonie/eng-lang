@@ -300,11 +300,37 @@ pub struct EquationDecl {
     pub context: ParseContext,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PromotionKind {
+    Csv,
+    Json,
+    JsonRecords,
+    Toml,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PromotionDecl {
+    pub kind: PromotionKind,
+    pub promote_span: SourceSpan,
+    pub format_span: SourceSpan,
+    pub records_span: Option<SourceSpan>,
+    pub source_expression: String,
+    pub source_span: SourceSpan,
+    pub source_binding: Option<String>,
+    pub source_binding_span: Option<SourceSpan>,
+    pub records_field: Option<String>,
+    pub records_field_span: Option<SourceSpan>,
+    pub as_span: SourceSpan,
+    pub schema_name: String,
+    pub schema_span: SourceSpan,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FastBinding {
     pub name: String,
     pub expression: String,
     pub expression_span: SourceSpan,
+    pub promotion: Option<PromotionDecl>,
     pub line: usize,
     pub span: SourceSpan,
     pub context: ParseContext,

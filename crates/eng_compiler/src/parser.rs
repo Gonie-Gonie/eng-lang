@@ -6,10 +6,10 @@ use crate::ast::{
     DomainVariableDecl, EquationDecl, ExpectationDecl, ExpectationSuiteDecl, ExplicitDecl,
     FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl,
     MissingPolicyDecl, NetDownloadDecl, OnBlockDecl, OnPredicateDecl, PortDecl, PrintDecl,
-    ProcessRunDecl, ReturnDecl, SchemaDecl, ScriptDecl, StateSpaceTypeBlockDecl,
-    StateSpaceTypeMemberDecl, StateSpaceVectorDecl, StructDecl, SummaryDecl, SystemDecl,
-    SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl, WherePredicateDecl,
-    WithBlockDecl, WithOptionDecl, WriteDecl,
+    ProcessRunDecl, PromotionDecl, PromotionKind, ReturnDecl, SchemaDecl, ScriptDecl,
+    StateSpaceTypeBlockDecl, StateSpaceTypeMemberDecl, StateSpaceVectorDecl, StructDecl,
+    SummaryDecl, SystemDecl, SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl,
+    WherePredicateDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -2161,6 +2161,7 @@ fn parse_fast_binding(
     if is_process_run_rhs(&expression) {
         return None;
     }
+    let promotion = parse_promotion_decl(tokens, line_text, line_start);
     let command = parse_command_style_expression(
         &expression,
         expression_span,
@@ -2177,6 +2178,7 @@ fn parse_fast_binding(
             name: name.clone(),
             expression,
             expression_span,
+            promotion,
             line: first.span.line,
             span: first.span,
             context,
@@ -2191,6 +2193,136 @@ fn fast_binding_name(token: &Token) -> Option<String> {
         TokenKind::Keyword(Keyword::Model) => Some("model".to_owned()),
         _ => None,
     }
+}
+
+fn parse_promotion_decl(
+    tokens: &[Token],
+    line_text: &str,
+    line_start: usize,
+) -> Option<PromotionDecl> {
+    let expression_tokens = tokens.get(2..)?;
+    let promote = expression_tokens.first()?;
+    if promote.lexeme != "promote" {
+        return None;
+    }
+    let format = expression_tokens.get(1)?;
+    let (kind, source_start, records_span) = match format.lexeme.as_str() {
+        "csv" => (PromotionKind::Csv, 2, None),
+        "json" if expression_tokens.get(2)?.lexeme == "records" => (
+            PromotionKind::JsonRecords,
+            3,
+            Some(expression_tokens.get(2)?.span),
+        ),
+        "json" => (PromotionKind::Json, 2, None),
+        "toml" => (PromotionKind::Toml, 2, None),
+        _ => return None,
+    };
+    let as_index = top_level_as_index(expression_tokens, source_start)?;
+    if as_index <= source_start {
+        return None;
+    }
+    let source_tokens = expression_tokens.get(source_start..as_index)?;
+    let source_first = source_tokens.first()?;
+    let source_last = source_tokens.last()?;
+    let source_span = span_covering_tokens(source_first, source_last);
+    let source_start_in_line = source_span.start.checked_sub(line_start)?;
+    let source_end_in_line = source_span.end.checked_sub(line_start)?;
+    let source_expression = line_text
+        .get(source_start_in_line..source_end_in_line)?
+        .to_owned();
+    let as_token = expression_tokens.get(as_index)?;
+    let schema = expression_tokens.get(as_index + 1)?;
+    if !is_identifier_text(&schema.lexeme) {
+        return None;
+    }
+
+    let (source_binding, source_binding_span, records_field, records_field_span) =
+        if kind == PromotionKind::JsonRecords {
+            let dot_index = source_tokens
+                .iter()
+                .position(|token| matches!(token.kind, TokenKind::Symbol(Symbol::Dot)))?;
+            let binding_tokens = source_tokens.get(..dot_index)?;
+            let field_tokens = source_tokens.get(dot_index + 1..)?;
+            let binding = identifier_path_from_tokens(binding_tokens)?;
+            let field = identifier_path_from_tokens(field_tokens)?;
+            (
+                Some(binding),
+                Some(span_covering_tokens(
+                    binding_tokens.first()?,
+                    binding_tokens.last()?,
+                )),
+                Some(field),
+                Some(span_covering_tokens(
+                    field_tokens.first()?,
+                    field_tokens.last()?,
+                )),
+            )
+        } else {
+            (None, None, None, None)
+        };
+
+    Some(PromotionDecl {
+        kind,
+        promote_span: promote.span,
+        format_span: format.span,
+        records_span,
+        source_expression,
+        source_span,
+        source_binding,
+        source_binding_span,
+        records_field,
+        records_field_span,
+        as_span: as_token.span,
+        schema_name: schema.lexeme.clone(),
+        schema_span: schema.span,
+    })
+}
+
+fn top_level_as_index(tokens: &[Token], start: usize) -> Option<usize> {
+    let mut paren_depth = 0usize;
+    let mut bracket_depth = 0usize;
+    let mut brace_depth = 0usize;
+    for (index, token) in tokens.iter().enumerate().skip(start) {
+        match token.kind {
+            TokenKind::Keyword(Keyword::As)
+                if paren_depth == 0 && bracket_depth == 0 && brace_depth == 0 =>
+            {
+                return Some(index);
+            }
+            TokenKind::Symbol(Symbol::LParen) => paren_depth += 1,
+            TokenKind::Symbol(Symbol::RParen) => paren_depth = paren_depth.saturating_sub(1),
+            TokenKind::Symbol(Symbol::LBracket) => bracket_depth += 1,
+            TokenKind::Symbol(Symbol::RBracket) => bracket_depth = bracket_depth.saturating_sub(1),
+            TokenKind::Symbol(Symbol::LBrace) => brace_depth += 1,
+            TokenKind::Symbol(Symbol::RBrace) => brace_depth = brace_depth.saturating_sub(1),
+            _ => {}
+        }
+    }
+    None
+}
+
+fn identifier_path_from_tokens(tokens: &[Token]) -> Option<String> {
+    let mut segments = Vec::new();
+    for (index, token) in tokens.iter().enumerate() {
+        if index % 2 == 0 {
+            if !is_identifier_text(&token.lexeme) {
+                return None;
+            }
+            segments.push(token.lexeme.as_str());
+        } else if !matches!(token.kind, TokenKind::Symbol(Symbol::Dot)) {
+            return None;
+        }
+    }
+    (!segments.is_empty()).then(|| segments.join("."))
+}
+
+fn span_covering_tokens(first: &Token, last: &Token) -> SourceSpan {
+    SourceSpan::new(
+        first.span.start,
+        last.span.end,
+        first.span.line,
+        first.span.column,
+    )
 }
 
 fn parse_where_block_decl(tokens: &[Token], owner_line: Option<usize>) -> Option<WhereBlockDecl> {

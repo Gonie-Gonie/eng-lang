@@ -84,8 +84,16 @@ Recorded promotion metadata:
 
 ```text
 binding
+binding span
+expression span
+promote keyword span
+format keyword span
+optional records keyword span
+as keyword span
 schema name
+schema span
 source literal
+source span
 source value after Args binding
 resolved path
 source hash
@@ -115,6 +123,14 @@ E-SCHEMA-MISSING-001
 E-ARGS-CSV-001
   CSV promotion path references an Args field without a value.
 ```
+
+Promotion syntax is parsed from lexer tokens, so ordinary spacing differences
+do not change schema analysis. Schema-name diagnostics underline the exact name
+after `as`; CSV/JSON/config source diagnostics underline the complete source
+operand such as `args.input`, `payload.records`, or `file("data/input.csv")`.
+When a source cannot be opened or parsed, the compiler reports that boundary
+failure without also reporting required columns or fields as missing from an
+empty synthetic payload.
 
 ## Artifacts
 
