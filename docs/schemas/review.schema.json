@@ -658,7 +658,8 @@
       "properties": {
         "line": { "type": "integer", "minimum": 1 },
         "column": { "type": "integer", "minimum": 1 },
-        "source_origin": { "enum": ["root", "import"] }
+        "source_origin": { "enum": ["root", "import"] },
+        "source_path": { "type": "string", "minLength": 1 }
       }
     },
     "reviewSideEffect": {

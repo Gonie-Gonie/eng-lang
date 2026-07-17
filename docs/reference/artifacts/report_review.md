@@ -599,7 +599,11 @@ value, and unit fields when available. Their `source_span` points to the object
 declaration while `rule_source_span` retains the class rule location. Both span
 objects emit `source_origin` as `root` or `import`; a root object validated by
 an imported class therefore keeps those two locations distinct instead of
-reinterpreting the imported rule line in the root file. The root
+reinterpreting the imported rule line in the root file. Import-owned spans also
+emit `source_path`. Paths inside the checked source tree are relative to the
+root source directory; external imports retain their absolute path. Editor
+clients resolve a relative path from the checked root source before opening the
+line and column. Root-owned spans omit the redundant path. The root
 `validation_count` is the exact number of records in `validations`.
 
 The quick CLI view is:

@@ -194,24 +194,32 @@ impl ReviewFallbackRecord {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReviewSourceSpan {
     pub line: usize,
     pub column: usize,
     pub source_id: usize,
+    pub source_path: Option<String>,
 }
 
 impl ReviewSourceSpan {
-    pub fn is_root_source(self) -> bool {
+    pub fn is_root_source(&self) -> bool {
         self.source_id == SourceSpan::ROOT_SOURCE_ID
     }
 
-    fn to_json_value(self) -> serde_json::Value {
-        serde_json::json!({
+    fn to_json_value(&self) -> serde_json::Value {
+        let mut value = serde_json::json!({
             "line": self.line,
             "column": self.column,
             "source_origin": if self.is_root_source() { "root" } else { "import" }
-        })
+        });
+        if let Some(source_path) = &self.source_path {
+            value
+                .as_object_mut()
+                .expect("review source span JSON must be an object")
+                .insert("source_path".to_owned(), serde_json::json!(source_path));
+        }
+        value
     }
 }
 
@@ -257,7 +265,7 @@ impl ReviewValidationRecord {
         insert_optional_json_string(object, "left_value", self.left_value.as_deref());
         insert_optional_json_string(object, "right_value", self.right_value.as_deref());
         insert_optional_json_string(object, "unit", self.unit.as_deref());
-        if let Some(rule_source_span) = self.rule_source_span {
+        if let Some(rule_source_span) = &self.rule_source_span {
             object.insert(
                 "rule_source_span".to_owned(),
                 rule_source_span.to_json_value(),
@@ -400,9 +408,18 @@ pub struct InferredDeclaration {
     pub line: usize,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SourceFileInfo {
+    /// Opaque owner used by compiler source spans. JSON projections expose paths instead.
+    pub source_id: usize,
+    /// Canonical path when the checked source exists on disk; otherwise the requested path.
+    pub path: PathBuf,
+}
+
 #[derive(Clone, Debug)]
 pub struct CheckReport {
     pub source_path: PathBuf,
+    pub source_files: Vec<SourceFileInfo>,
     pub source_hash: String,
     pub source_lines: Vec<String>,
     pub diagnostics: Vec<Diagnostic>,
@@ -425,6 +442,14 @@ impl CheckReport {
             .iter()
             .filter(|diagnostic| diagnostic.severity == severity)
             .count()
+    }
+
+    /// Resolves an opaque compiler source owner to its root or static-import file.
+    pub fn source_path_for_id(&self, source_id: usize) -> Option<&Path> {
+        self.source_files
+            .iter()
+            .find(|source| source.source_id == source_id)
+            .map(|source| source.path.as_path())
     }
 }
 
@@ -494,13 +519,23 @@ pub fn check_source_with_import_overrides(
     let source_hash = hash_text(source);
     let mut parsed = parser::parse_source(source);
     let mut import_diagnostics = Vec::new();
+    let mut source_files = vec![SourceFileInfo {
+        source_id: SourceSpan::ROOT_SOURCE_ID,
+        path: source_path
+            .canonicalize()
+            .unwrap_or_else(|_| source_path.to_path_buf()),
+    }];
     if let Some(base_dir) = source_path.parent() {
         let mut visited = HashSet::new();
+        if let Ok(root_path) = source_path.canonicalize() {
+            visited.insert(root_path);
+        }
         let imported_items = resolve_file_imports(
             &parsed,
             base_dir,
             import_overrides,
             &mut visited,
+            &mut source_files,
             &mut import_diagnostics,
         );
         if !imported_items.is_empty() {
@@ -574,6 +609,7 @@ pub fn check_source_with_import_overrides(
 
     CheckReport {
         source_path: source_path.to_path_buf(),
+        source_files,
         source_hash,
         source_lines: source.lines().map(str::to_owned).collect(),
         diagnostics: semantic_output.diagnostics,
@@ -617,6 +653,7 @@ fn resolve_file_imports(
     base_dir: &Path,
     import_overrides: &ImportSourceOverrides,
     visited: &mut HashSet<PathBuf>,
+    source_files: &mut Vec<SourceFileInfo>,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<AstItem> {
     let mut imported_items = Vec::new();
@@ -692,8 +729,8 @@ fn resolve_file_imports(
                 }
             },
         };
-        let imported =
-            parser::parse_source_in_source(source.as_ref(), import_source_id(&import_path));
+        let source_id = register_import_source(&import_path, source_files);
+        let imported = parser::parse_source_in_source(source.as_ref(), source_id);
         if imported_has_args_block(&imported) {
             diagnostics.push(
                 Diagnostic::warning(
@@ -715,6 +752,7 @@ fn resolve_file_imports(
                 import_base_dir,
                 import_overrides,
                 visited,
+                source_files,
                 diagnostics,
             ));
         }
@@ -729,18 +767,29 @@ fn resolve_file_imports(
     imported_items
 }
 
-fn import_source_id(path: &Path) -> usize {
+fn register_import_source(path: &Path, source_files: &mut Vec<SourceFileInfo>) -> usize {
+    if let Some(source) = source_files.iter().find(|source| source.path == path) {
+        return source.source_id;
+    }
+
     let mut hash = 0xcbf29ce484222325u64;
     for byte in path.as_os_str().to_string_lossy().as_bytes() {
         hash ^= u64::from(*byte);
         hash = hash.wrapping_mul(0x100000001b3);
     }
-    let source_id = hash as usize;
-    if source_id == SourceSpan::ROOT_SOURCE_ID {
-        SourceSpan::ROOT_SOURCE_ID + 1
-    } else {
-        source_id
+    let mut source_id = hash as usize;
+    while source_id == SourceSpan::ROOT_SOURCE_ID
+        || source_files
+            .iter()
+            .any(|source| source.source_id == source_id)
+    {
+        source_id = source_id.wrapping_add(1);
     }
+    source_files.push(SourceFileInfo {
+        source_id,
+        path: path.to_path_buf(),
+    });
+    source_id
 }
 
 fn handle_stdlib_module_import(import: &ImportDecl, diagnostics: &mut Vec<Diagnostic>) -> bool {
@@ -7439,7 +7488,21 @@ fn review_source_span(
             compiler_span.map(|span| span.column).unwrap_or(1)
         },
         source_id,
+        source_path: imported_source_path(report, source_id),
     }
+}
+
+fn imported_source_path(report: &CheckReport, source_id: usize) -> Option<String> {
+    if source_id == SourceSpan::ROOT_SOURCE_ID {
+        return None;
+    }
+    let source_path = report.source_path_for_id(source_id)?;
+    let root_path = report.source_path_for_id(SourceSpan::ROOT_SOURCE_ID)?;
+    let display_path = root_path
+        .parent()
+        .and_then(|root| source_path.strip_prefix(root).ok())
+        .unwrap_or(source_path);
+    Some(display_path.to_string_lossy().replace('\\', "/"))
 }
 
 fn push_review_validations_json(json: &mut String, report: &CheckReport) {
@@ -16171,6 +16234,18 @@ write csv "outputs/q.csv", Q
             .consts
             .iter()
             .any(|constant| constant.name == "OPEN_MODULE_GAIN"));
+        assert_eq!(report.source_files.len(), 3);
+        for path in [&main_path, &module_path, &nested_path] {
+            let canonical = path.canonicalize().expect("canonical source path");
+            assert!(
+                report
+                    .source_files
+                    .iter()
+                    .any(|source| source.path == canonical),
+                "missing source registry entry for {}",
+                canonical.display()
+            );
+        }
         fs::remove_dir_all(&root).expect("temp dir cleanup");
     }
 
@@ -16219,6 +16294,19 @@ write csv "outputs/q.csv", Q
             class_rule.to_json_value()["source_span"]["source_origin"],
             "import"
         );
+        assert_eq!(
+            class_rule.source_span.source_path.as_deref(),
+            Some("rules.eng")
+        );
+        assert_eq!(
+            report.source_path_for_id(class_rule.source_span.source_id),
+            Some(
+                rules_path
+                    .canonicalize()
+                    .expect("canonical rules path")
+                    .as_path()
+            )
+        );
 
         let object_result = records
             .iter()
@@ -16228,12 +16316,15 @@ write csv "outputs/q.csv", Q
         assert_eq!(object_result.source_span.line, 4);
         let rule_span = object_result
             .rule_source_span
+            .as_ref()
             .expect("imported class rule span");
         assert!(!rule_span.is_root_source());
         assert_eq!(rule_span.source_id, class_rule.source_span.source_id);
         let object_json = object_result.to_json_value();
         assert_eq!(object_json["source_span"]["source_origin"], "root");
         assert_eq!(object_json["rule_source_span"]["source_origin"], "import");
+        assert!(object_json["source_span"].get("source_path").is_none());
+        assert_eq!(object_json["rule_source_span"]["source_path"], "rules.eng");
 
         fs::remove_dir_all(&root).expect("temp dir cleanup");
     }

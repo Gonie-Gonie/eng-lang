@@ -235,7 +235,9 @@ through the same profile/artifact path.
 inputs, symbols, schemas, units/quantities, time axes, derived values,
 diagnostics, external boundaries, side effects, table transforms, calculations,
 validations, caches, risks, and workflow modules. Line cells in the panel jump
-back to the matching source line, and the Last Run Artifacts section opens
+back to the matching source line. Validation result and rule locations are
+separate; a rule imported from another `.eng` file opens that file instead of
+reusing its line number in the root editor. The Last Run Artifacts section opens
 available `build/result` outputs directly, with the same availability labels as
 the artifact picker. `EngLang: Open Current File Review Data` runs the same
 current-file review command and opens the normalized review data directly,

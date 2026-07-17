@@ -436,11 +436,12 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
 
     <h2>Validations</h2>
     ${renderReviewTable(
-      ["Line", "Target", "Expression", "Kind", "Phase", "Status"],
+      ["Result", "Rule", "Target", "Expression", "Kind", "Phase", "Status"],
       validations,
       "No validations.",
       (validation) => `<tr>
         <td>${sourceLineCell(validation)}</td>
+        <td>${sourceLineCellForRole(validation, "rule")}</td>
         <td><strong>${escapeHtml(reviewValue(validation, "target", "name"))}</strong></td>
         <td>${escapeHtml(compactText(reviewValue(validation, "expression"), 140))}</td>
         <td>${escapeHtml(reviewValue(validation, "kind", "category"))}</td>
@@ -512,8 +513,9 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
         }
         const line = Number(target.getAttribute("data-source-line"));
         const column = Number(target.getAttribute("data-source-column") || 1);
+        const sourcePath = target.getAttribute("data-source-path") || undefined;
         if (Number.isFinite(line) && line > 0) {
-          vscode.postMessage({ type: "openSourceLine", line, column });
+          vscode.postMessage({ type: "openSourceLine", line, column, sourcePath });
         }
       });
     })();
@@ -604,9 +606,23 @@ function countOrContract(items, contract, snakeKey, camelKey) {
   return contract?.[snakeKey] ?? contract?.[camelKey] ?? 0;
 }
 
+function sourceSpanValue(item, role = "source") {
+  if (role === "rule") {
+    return item?.rule_source_span ?? item?.ruleSourceSpan;
+  }
+  return item?.source_span ?? item?.sourceSpan;
+}
+
 function lineValue(item) {
-  return item?.source_span?.line
-    ?? item?.sourceSpan?.line
+  return lineValueForRole(item, "source");
+}
+
+function lineValueForRole(item, role) {
+  const span = sourceSpanValue(item, role);
+  if (role === "rule") {
+    return span?.line ?? "-";
+  }
+  return span?.line
     ?? item?.source_line
     ?? item?.sourceLine
     ?? item?.line
@@ -614,30 +630,57 @@ function lineValue(item) {
 }
 
 function columnValue(item) {
-  return item?.source_span?.column
-    ?? item?.sourceSpan?.column
+  return columnValueForRole(item, "source");
+}
+
+function columnValueForRole(item, role) {
+  const span = sourceSpanValue(item, role);
+  if (role === "rule") {
+    return span?.column;
+  }
+  return span?.column
     ?? item?.source_column
     ?? item?.sourceColumn
     ?? item?.column;
 }
 
+function sourcePathValue(item, role = "source") {
+  const span = sourceSpanValue(item, role);
+  const sourcePath = span?.source_path ?? span?.sourcePath;
+  return typeof sourcePath === "string" && sourcePath.trim().length > 0
+    ? sourcePath.trim()
+    : undefined;
+}
+
+function sourcePathLabel(sourcePath) {
+  return sourcePath?.replaceAll("\\", "/").split("/").filter(Boolean).at(-1);
+}
+
 function sourceLineCell(item) {
-  const line = lineValue(item);
+  return sourceLineCellForRole(item, "source");
+}
+
+function sourceLineCellForRole(item, role) {
+  const line = lineValueForRole(item, role);
   const lineNumber = Number(line);
   if (!Number.isFinite(lineNumber) || lineNumber < 1) {
     return escapeHtml(line);
   }
   const safeLine = Math.trunc(lineNumber);
-  const column = columnValue(item);
+  const column = columnValueForRole(item, role);
   const columnNumber = Number(column);
   const hasColumn = Number.isFinite(columnNumber) && columnNumber > 1;
   const safeColumn = hasColumn ? Math.trunc(columnNumber) : null;
   const columnAttr = hasColumn ? ` data-source-column="${escapeAttr(safeColumn)}"` : "";
-  const label = hasColumn ? `L${safeLine}:C${safeColumn}` : `L${safeLine}`;
+  const sourcePath = sourcePathValue(item, role);
+  const sourcePathAttr = sourcePath ? ` data-source-path="${escapeAttr(sourcePath)}"` : "";
+  const locationLabel = hasColumn ? `L${safeLine}:C${safeColumn}` : `L${safeLine}`;
+  const sourceLabel = sourcePathLabel(sourcePath);
+  const label = sourceLabel ? `${sourceLabel} ${locationLabel}` : locationLabel;
   const title = hasColumn
-    ? `Open source line ${safeLine}, column ${safeColumn}`
-    : `Open source line ${safeLine}`;
-  return `<button class="line-button" type="button" data-source-line="${escapeAttr(safeLine)}"${columnAttr} title="${escapeAttr(title)}">${escapeHtml(label)}</button>`;
+    ? `Open ${sourceLabel || "source"}, line ${safeLine}, column ${safeColumn}`
+    : `Open ${sourceLabel || "source"}, line ${safeLine}`;
+  return `<button class="line-button" type="button" data-source-line="${escapeAttr(safeLine)}"${columnAttr}${sourcePathAttr} title="${escapeAttr(title)}">${escapeHtml(label)}</button>`;
 }
 
 function reviewList(value, limit = 120) {

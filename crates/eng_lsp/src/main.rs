@@ -9243,6 +9243,7 @@ mod tests {
             kind: kind.to_owned(),
             line,
             source_id: eng_compiler::SourceSpan::ROOT_SOURCE_ID,
+            source_path: None,
             detail: kind.to_owned(),
             quantity_kind: String::new(),
             display_unit: "-".to_owned(),

@@ -79,8 +79,10 @@ declaration as though it had passed for every object. Each span also emits
 `source_origin` as `root` or `import`. A root object using an imported class can
 therefore have a root `source_span` and an import `rule_source_span`; clients
 must not navigate an import-owned line/column pair inside the checked root
-buffer. Imported class-rule rows remain available as program-level validation
-metadata with the same explicit origin.
+buffer. Import-owned spans include `source_path`, relative to the root source
+directory when possible, so clients can open the owning file. Imported
+class-rule rows remain available as program-level validation metadata with the
+same explicit origin.
 
 ## Static Editor Metadata
 
@@ -241,6 +243,7 @@ metadata:
   "kind": "variable",
   "line": 28,
   "source_origin": "root",
+  "source_path": null,
   "quantity_kind": "TimeSeries[Time] of HeatRate",
   "display_unit": "W",
   "status": null,
@@ -257,7 +260,9 @@ request positions from zero-based LSP coordinates before matching hover lines.
 snapshot so name-resolved hover and cross-file navigation can describe imported
 definitions. Root-owned structured metadata wins when a root declaration and an
 imported definition share a name; anonymous same-line fallback accepts only
-root-owned hover entries.
+root-owned hover entries. Imported entries include a root-relative
+`source_path` when possible and show that path in their Markdown body; root
+entries use `null` because the request URI already identifies their file.
 `quantity_kind` and `display_unit` are included for editor clients that want to
 render compact metadata without parsing the markdown body. A semantic-role
 hover that does not describe a physical quantity leaves `quantity_kind` empty;

@@ -270,7 +270,11 @@ TextMate grammar, completion catalog, semantic legend, and syntax catalog are
 rebuilt from compiler/LSP metadata so first-paint highlighting and live semantic
 highlighting stay aligned. Snapshot hover and review-span JSON exposes
 `source_origin` as `root` or `import`; consumers must not project an imported
-line/column pair onto the checked root buffer.
+line/column pair onto the checked root buffer. `CheckReport::source_files`
+retains the root/import source registry behind compiler spans, and
+`source_path_for_id` resolves that ownership without exposing the internal
+numeric ID in JSON. Import-owned hover and validation spans project a portable
+`source_path` for editor navigation.
 
 ## Boundaries
 

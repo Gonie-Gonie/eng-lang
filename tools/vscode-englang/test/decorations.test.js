@@ -69,6 +69,7 @@ let reviewValidationDecorationOptions;
 let timeAlignmentDecorationOptions;
 let fnv1a64;
 let fallbackReviewMatchesDocument;
+let reviewSourceUri;
 let timeAlignmentReportMatchesDocument;
 let renderReviewSummaryHtml;
 try {
@@ -88,6 +89,7 @@ try {
   ({
     fallbackReviewMatchesDocument,
     fnv1a64,
+    reviewSourceUri,
     timeAlignmentReportMatchesDocument
   } = require("../commandHandlers"));
   ({ renderReviewSummaryHtml } = require("../reviewPanelRenderer"));
@@ -132,7 +134,12 @@ function objectValidation(target, line, status, expression, leftValue, rightValu
     right_value: rightValue,
     status,
     source_span: { line, column: 1 },
-    rule_source_span: { line: 1, column: 1 }
+    rule_source_span: {
+      line: 1,
+      column: 5,
+      source_origin: "import",
+      source_path: "rules/Construction.eng"
+    }
   };
 }
 
@@ -490,9 +497,19 @@ assert.strictEqual(fallbackType.after.color.id, "editorWarning.foreground");
 assert.strictEqual(fallbackType.overviewRulerLane, 4);
 
 const reviewHtml = renderReviewSummaryHtml(review, "C:/workspace/main.eng", "nonce", []);
-assert.match(reviewHtml, /<th>Target<\/th><th>Expression<\/th><th>Kind<\/th><th>Phase<\/th>/);
+assert.match(reviewHtml, /<th>Result<\/th><th>Rule<\/th><th>Target<\/th><th>Expression<\/th>/);
 assert.match(reviewHtml, /<strong>good<\/strong>/);
 assert.match(reviewHtml, /u_value &gt; 0 W\/K/);
 assert.match(reviewHtml, /pill good">pass<\/span>/);
+assert.match(reviewHtml, /data-source-path="rules\/Construction\.eng"/);
+assert.match(reviewHtml, /Construction\.eng L1:C5/);
+assert.match(reviewHtml, /openSourceLine", line, column, sourcePath/);
+
+const rootReviewUri = { fsPath: path.join(workspaceRoot, "main.eng") };
+assert.strictEqual(reviewSourceUri(rootReviewUri, undefined), rootReviewUri);
+assert.strictEqual(
+  reviewSourceUri(rootReviewUri, "rules/Construction.eng").fsPath,
+  path.resolve(workspaceRoot, "rules", "Construction.eng")
+);
 
 process.stdout.write("VS Code risk, validation, TimeSeries alignment, and fallback decoration smoke passed.\n");

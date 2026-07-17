@@ -51,6 +51,7 @@ pub struct LspHover {
     pub kind: String,
     pub line: usize,
     pub source_id: usize,
+    pub source_path: Option<String>,
     pub detail: String,
     pub quantity_kind: String,
     pub display_unit: String,
@@ -9146,11 +9147,15 @@ pub fn hover_json(hover: &LspHover) -> Value {
     if let Some(status) = &hover.status {
         value.push_str(&format!("\n\nStatus: {}", hover_status_label(status)));
     }
+    if let Some(source_path) = &hover.source_path {
+        value.push_str(&format!("\n\nSource: `{}`", source_path.replace('`', "'")));
+    }
     json!({
         "name": hover.name,
         "kind": hover.kind,
         "line": hover.line,
         "source_origin": if hover.is_root_source() { "root" } else { "import" },
+        "source_path": hover.source_path,
         "quantity_kind": hover.quantity_kind,
         "display_unit": hover.display_unit,
         "status": hover.status,
@@ -9373,6 +9378,7 @@ fn push_member_field_hovers(
                     kind: kind.to_owned(),
                     line: line_index + 1,
                     source_id: SourceSpan::ROOT_SOURCE_ID,
+                    source_path: None,
                     detail: format!("{detail}; member of {receiver_quantity_kind}"),
                     quantity_kind: public_member_field_quantity_kind(field).to_owned(),
                     display_unit: "-".to_owned(),
@@ -9427,6 +9433,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             kind: "variable".to_owned(),
             line: hover.line,
             source_id: hover.span.source_id,
+            source_path: None,
             detail: hover.detail.clone(),
             quantity_kind: hover.quantity_kind.clone(),
             display_unit: hover.display_unit.clone(),
@@ -9441,6 +9448,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             kind: "state_space_type".to_owned(),
             line: block.line,
             source_id: block.span.source_id,
+            source_path: None,
             detail: format!("{role} vector type with {} member(s)", block.members.len()),
             quantity_kind: format!(
                 "{}[{}]",
@@ -9457,6 +9465,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 kind: "state_space_member".to_owned(),
                 line: member.line,
                 source_id: member.span.source_id,
+                source_path: None,
                 detail: format!(
                     "{role} member {}: {} [{}] in {}",
                     member.name, member.type_name, display_unit, block.name
@@ -9474,6 +9483,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             kind: "domain".to_owned(),
             line: domain.line,
             source_id: domain.span.source_id,
+            source_path: None,
             detail: format!(
                 "{}, {} variable(s), {} conservation contract(s), package {}, version {}",
                 domain_signature(&domain.name, &domain.type_parameters),
@@ -9492,6 +9502,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 kind: "domain_variable".to_owned(),
                 line: variable.line,
                 source_id: variable.span.source_id,
+                source_path: None,
                 detail: format!(
                     "{} variable in domain {}; canonical unit {}; dimension {}",
                     variable.role, domain.name, variable.canonical_unit, variable.dimension
@@ -9507,6 +9518,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 kind: "domain_conservation".to_owned(),
                 line: conservation.line,
                 source_id: conservation.span.source_id,
+                source_path: None,
                 detail: conservation.text.clone(),
                 quantity_kind: "conservation".to_owned(),
                 display_unit: "-".to_owned(),
@@ -9532,6 +9544,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             kind: "component".to_owned(),
             line: component.line,
             source_id: component.span.source_id,
+            source_path: None,
             detail,
             quantity_kind: "component".to_owned(),
             display_unit: "-".to_owned(),
@@ -9543,6 +9556,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 kind: "component_port".to_owned(),
                 line: port.line,
                 source_id: port.span.source_id,
+                source_path: None,
                 detail: format!(
                     "port {} on component {}; {}",
                     port.name,
@@ -9562,6 +9576,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             kind: "connection".to_owned(),
             line: connection.line,
             source_id: connection.left_span.source_id,
+            source_path: None,
             detail: format!(
                 "connects {} to {} in domain {}",
                 connection.left, connection.right, connection.domain
@@ -9578,6 +9593,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             kind: "component_assembly".to_owned(),
             line: assembly.line,
             source_id: assembly.span.source_id,
+            source_path: None,
             detail: format!(
                 "{} connection set(s), {} generated equation(s), {} unknown(s), balance {}",
                 assembly.connection_sets.len(),
@@ -9595,6 +9611,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 kind: "connection_set".to_owned(),
                 line: connection_set.line,
                 source_id: assembly.span.source_id,
+                source_path: None,
                 detail: format!(
                     "{} port(s) in domain {}: {}",
                     connection_set.ports.len(),
@@ -9612,6 +9629,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 kind: "assembly_equation".to_owned(),
                 line: equation.line,
                 source_id: assembly.span.source_id,
+                source_path: None,
                 detail: format!(
                     "{}; residual {}; dependencies {}",
                     equation.expression,
@@ -9631,6 +9649,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             kind: "function".to_owned(),
             line: function.line,
             source_id: function.span.source_id,
+            source_path: None,
             detail: function_signature_detail(function),
             quantity_kind: function.return_quantity_kind.clone(),
             display_unit: function.return_display_unit.clone(),
@@ -9642,6 +9661,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 kind: "function_local".to_owned(),
                 line: local.line,
                 source_id: local.span.source_id,
+                source_path: None,
                 detail: format!(
                     "local `{}` in function `{}` = {}",
                     local.name, function.name, local.expression
@@ -9660,6 +9680,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 kind: "where_local".to_owned(),
                 line: binding.line,
                 source_id: binding.span.source_id,
+                source_path: None,
                 detail: format!(
                     "where local `{}` = {}; owner line {}; status {}",
                     binding.name,
@@ -9683,6 +9704,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             kind: "class".to_owned(),
             line: class_info.line,
             source_id: class_info.span.source_id,
+            source_path: None,
             detail: format!("class with {} field(s)", class_info.fields.len()),
             quantity_kind: "class".to_owned(),
             display_unit: "-".to_owned(),
@@ -9694,6 +9716,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 kind: "class_field".to_owned(),
                 line: field.line,
                 source_id: field.span.source_id,
+                source_path: None,
                 detail: format!(
                     "field {}: {} [{}], {}",
                     field.name,
@@ -9712,6 +9735,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 kind: "class_validation".to_owned(),
                 line: validation.line,
                 source_id: validation.expression_span.source_id,
+                source_path: None,
                 detail: format!("validates {}", validation.expression),
                 quantity_kind: "Bool".to_owned(),
                 display_unit: "1".to_owned(),
@@ -9724,6 +9748,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 kind: "class_method".to_owned(),
                 line: method.line,
                 source_id: method.span.source_id,
+                source_path: None,
                 detail: format!("method {}() -> {}", method.name, method.return_type),
                 quantity_kind: method.return_quantity_kind.clone(),
                 display_unit: method.return_display_unit.clone(),
@@ -9738,6 +9763,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             kind: "class_object".to_owned(),
             line: object.line,
             source_id: object.span.source_id,
+            source_path: None,
             detail: format!(
                 "{} object with {} explicit field(s)",
                 object.class_name,
@@ -9753,6 +9779,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 kind: "object_field".to_owned(),
                 line: field.line,
                 source_id: field.span.source_id,
+                source_path: None,
                 detail: format!("{} = {}", field.name, field.expression),
                 quantity_kind: field.quantity_kind.clone(),
                 display_unit: field.display_unit.clone(),
@@ -9765,6 +9792,7 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
                 kind: "object_validation".to_owned(),
                 line: validation.line,
                 source_id: object.span.source_id,
+                source_path: None,
                 detail: format!("{} => {}", validation.expression, validation.status),
                 quantity_kind: "Bool".to_owned(),
                 display_unit: validation.unit.clone(),
@@ -9777,6 +9805,10 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
         push_public_member_field_hovers(&mut hovers, report, source);
     }
 
+    for hover in &mut hovers {
+        hover.source_path = imported_hover_source_path(report, hover.source_id);
+    }
+
     hovers.sort_by(|left, right| {
         left.line
             .cmp(&right.line)
@@ -9784,6 +9816,19 @@ pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> 
             .then_with(|| left.name.cmp(&right.name))
     });
     hovers
+}
+
+fn imported_hover_source_path(report: &CheckReport, source_id: usize) -> Option<String> {
+    if source_id == SourceSpan::ROOT_SOURCE_ID {
+        return None;
+    }
+    let source_path = report.source_path_for_id(source_id)?;
+    let root_path = report.source_path_for_id(SourceSpan::ROOT_SOURCE_ID)?;
+    let display_path = root_path
+        .parent()
+        .and_then(|root| source_path.strip_prefix(root).ok())
+        .unwrap_or(source_path);
+    Some(display_path.to_string_lossy().replace('\\', "/"))
 }
 
 fn push_semantic_role_hovers(
@@ -9985,6 +10030,7 @@ fn semantic_role_hover(
         kind: kind.to_owned(),
         line,
         source_id: SourceSpan::ROOT_SOURCE_ID,
+        source_path: None,
         detail,
         quantity_kind,
         display_unit,
@@ -15365,7 +15411,12 @@ print "done"
                 !hover.is_root_source(),
                 "imported hover was mislabeled as root-owned: {hover:?}"
             );
-            assert_eq!(hover_json(hover)["source_origin"], "import");
+            let json = hover_json(hover);
+            assert_eq!(json["source_origin"], "import");
+            assert_eq!(json["source_path"], "thermal.eng");
+            assert!(json["contents"]["value"]
+                .as_str()
+                .is_some_and(|value| value.contains("Source: `thermal.eng`")));
         }
         let root_hover = snapshot
             .hovers
@@ -15374,6 +15425,7 @@ print "done"
             .expect("root Q_wall hover");
         assert!(root_hover.is_root_source());
         assert_eq!(hover_json(root_hover)["source_origin"], "root");
+        assert!(hover_json(root_hover)["source_path"].is_null());
         let imported_validation = snapshot
             .validations
             .iter()
@@ -15383,6 +15435,10 @@ print "done"
         assert_eq!(
             imported_validation.to_json_value()["source_span"]["source_origin"],
             "import"
+        );
+        assert_eq!(
+            imported_validation.to_json_value()["source_span"]["source_path"],
+            "thermal.eng"
         );
     }
 

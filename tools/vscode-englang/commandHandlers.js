@@ -378,7 +378,8 @@ function createCommandHandlers(options = {}) {
     );
     panel.webview.onDidReceiveMessage((message) => {
       if (message?.type === "openSourceLine") {
-        openSourceLine(result.document.uri, message.line, message.column).catch((error) => {
+        const sourceUri = reviewSourceUri(result.document.uri, message.sourcePath);
+        openSourceLine(sourceUri, message.line, message.column).catch((error) => {
           output.appendLine(`Unable to open EngLang source line: ${error.message}`);
         });
       }
@@ -2725,6 +2726,17 @@ function stripWindowsExtendedPathPrefix(value) {
   return value.replace(/^[\\/]{2}\?[\\/]/, "");
 }
 
+function reviewSourceUri(rootSourceUri, sourcePath) {
+  if (typeof sourcePath !== "string" || sourcePath.trim().length === 0) {
+    return rootSourceUri;
+  }
+  const normalizedSourcePath = stripWindowsExtendedPathPrefix(sourcePath.trim());
+  const resolvedPath = path.isAbsolute(normalizedSourcePath)
+    ? path.normalize(normalizedSourcePath)
+    : path.resolve(path.dirname(rootSourceUri.fsPath), normalizedSourcePath);
+  return vscode.Uri.file(resolvedPath);
+}
+
 function fnv1a64(value) {
   let hash = 0xcbf29ce484222325n;
   const prime = 0x100000001b3n;
@@ -2741,6 +2753,7 @@ module.exports = {
   fnv1a64,
   loadLastRunFallbackReview,
   loadLastRunTimeAlignmentReport,
+  reviewSourceUri,
   runArtifactMatchesDocument,
   stripWindowsExtendedPathPrefix,
   timeAlignmentReportMatchesDocument
