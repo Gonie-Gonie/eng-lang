@@ -21,7 +21,23 @@ The documentation plans in `EngLang_Documentation_Reorganization_and_User_Guide_
 | Artifact golden check | `dev.bat artifacts-check` | Validates schemas and stable artifact snapshots for official and internal fixtures. |
 | Documentation check | `dev.bat docs-check` | Checks Markdown final-newline/trailing-whitespace hygiene, links, documented snippets, and supported documentation examples. |
 | Native workflow status | `dev.bat workflow-native-status` | Quickly reports workflow 01/02/03 native-only source/docs status and latest process/run-graph artifact evidence without rerunning the full smoke gate. |
+| Editor visual contract | `dev.bat editor-visual-check` | Builds `eng-lsp` and validates bounded VS Code Light/Dark plus native IDE fixtures, clean/intentional diagnostics, semantic token coverage, and inspected screenshot manifest integrity. |
 | Package smoke | `dev.bat package-smoke` | Validates the portable public package path. Workflow fixtures stay in workflow smoke until promoted. |
+
+## Editor Visual Acceptance
+
+`tools/editor-acceptance` keeps a user-data-free VS Code workspace, a bounded
+native IDE workspace, and one shared clean `main.eng` source. The executable
+gate requires zero diagnostics for that source, broad semantic token
+type/modifier coverage, and exactly four known diagnostics in the separate
+negative fixture. It also checks the headers, dimensions, and SHA-256 values of
+the manually inspected VS Code Light, VS Code Dark, and native IDE screenshots.
+
+Screenshot replacement remains an explicit manual acceptance step: verify the
+EngLang language mode, zero clean-source Problems, role-aware color families,
+contrast, clipping, and overlap before updating the manifest. CI protects the
+accepted files and compiler/editor contract but does not automate VS Code or
+claim pixel-equivalence across OS, font, or VS Code versions.
 
 ## Checklist 9.1: Uncertainty Tests
 

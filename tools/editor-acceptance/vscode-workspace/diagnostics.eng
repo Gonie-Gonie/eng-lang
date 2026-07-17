@@ -1,0 +1,12 @@
+# Intentional linter fixture: every expression below has a unit mismatch.
+length_total = 1 m + 20
+heat_total = 1 + 2 kW
+expected_heat: HeatRate [kW] = 2 kW - 1
+room_temperature = 24 degC + 1
+
+report {
+    show length_total
+    show heat_total
+    show expected_heat
+    show room_temperature
+}

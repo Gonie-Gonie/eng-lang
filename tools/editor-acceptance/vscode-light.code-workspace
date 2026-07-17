@@ -1,0 +1,27 @@
+{
+  "folders": [
+    {
+      "name": "EngLang Visual Acceptance",
+      "path": "vscode-workspace"
+    }
+  ],
+  "settings": {
+    "workbench.colorTheme": "EngLang Light",
+    "workbench.startupEditor": "none",
+    "editor.fontFamily": "Cascadia Code, Consolas, monospace",
+    "editor.fontSize": 14,
+    "editor.minimap.enabled": true,
+    "editor.renderWhitespace": "selection",
+    "editor.semanticHighlighting.enabled": true,
+    "englang.semanticHighlighting.enabled": true,
+    "englang.diagnosticsMode": "live",
+    "englang.lintOnChange": true,
+    "englang.lintOnSave": true,
+    "files.autoSave": "off"
+  },
+  "extensions": {
+    "recommendations": [
+      "englang.englang"
+    ]
+  }
+}

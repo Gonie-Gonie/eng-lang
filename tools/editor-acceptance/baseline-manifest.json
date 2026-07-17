@@ -1,0 +1,47 @@
+{
+  "format": "englang-editor-visual-baseline-v1",
+  "captured_on": "2026-07-17",
+  "source": "vscode-workspace/main.eng",
+  "captures": [
+    {
+      "path": "baselines/vscode-light.png",
+      "surface": "vscode",
+      "theme": "EngLang Light",
+      "width": 1446,
+      "height": 906,
+      "sha256": "41e468ca2279163749f85e8a38265b94e3115c0725f874936f0e6a5840239d30",
+      "required_state": [
+        "EngLang language mode",
+        "zero Problems",
+        "role-aware semantic colors"
+      ]
+    },
+    {
+      "path": "baselines/vscode-dark.png",
+      "surface": "vscode",
+      "theme": "EngLang Dark",
+      "width": 1445,
+      "height": 905,
+      "sha256": "7fbe6cdf1982cb1e0d7eeb496d5f355582041d34f5635b54ff7f988a2c10898c",
+      "required_state": [
+        "EngLang language mode",
+        "zero Problems",
+        "role-aware semantic colors"
+      ]
+    },
+    {
+      "path": "baselines/native-ide-light.png",
+      "surface": "native-ide",
+      "theme": "native light",
+      "width": 1602,
+      "height": 951,
+      "sha256": "91770dda3f8c23c9d4d064037d69f1fb72fcde7fb6baafb923039a8dae038f01",
+      "required_state": [
+        "loaded bounded main.eng",
+        "zero errors",
+        "zero warnings",
+        "role-aware semantic colors"
+      ]
+    }
+  ]
+}

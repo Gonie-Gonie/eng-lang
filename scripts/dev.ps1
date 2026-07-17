@@ -4138,11 +4138,13 @@ function Assert-VscodeExtensionContract {
         '(?m)^\s+"vscode-status"\s*\{\s*Invoke-VscodeStatus\s*\}',
         '(?m)^\s+"vscode-package"\s*\{\s*Invoke-VscodePackage\s*\}',
         '(?m)^\s+"vscode-install"\s*\{\s*Invoke-VscodeInstall\s*\}',
+        '(?m)^\s+"editor-visual-check"\s*\{\s*Invoke-EditorVisualCheck\s*\}',
         '(?m)^\s+\.\\dev\.bat vscode-smoke\s+Validate generated metadata and VS Code extension smoke tests\s*$',
         '(?m)^\s+\.\\dev\.bat vscode-test\s+Build eng-lsp and validate full VS Code semantic coverage\s*$',
         '(?m)^\s+\.\\dev\.bat vscode-status  Show local VS Code extension install/package status\s*$',
         '(?m)^\s+\.\\dev\.bat vscode-package Build a local installable VS Code extension VSIX\s*$',
-        '(?m)^\s+\.\\dev\.bat vscode-install Build and install the EngLang VS Code extension with the code CLI\s*$'
+        '(?m)^\s+\.\\dev\.bat vscode-install Build and install the EngLang VS Code extension with the code CLI\s*$',
+        '(?m)^\s+\.\\dev\.bat editor-visual-check Validate bounded VS Code light/dark and native IDE acceptance workspaces\s*$'
     )) {
         if ($DevScriptSource -notmatch $RequiredVscodeInstallPattern) {
             throw "dev wrapper missing VS Code local install contract pattern $RequiredVscodeInstallPattern"
@@ -4151,6 +4153,8 @@ function Assert-VscodeExtensionContract {
     foreach ($RequiredVscodeTestDocToken in @(
         ".\dev.bat vscode-smoke",
         ".\dev.bat vscode-test",
+        ".\dev.bat editor-visual-check",
+        "tools\editor-acceptance",
         "without creating a VSIX",
         "checks full semantic fallback"
     )) {
@@ -7215,6 +7219,209 @@ function Invoke-VscodeSmoke {
     Write-Host "VS Code smoke passed."
 }
 
+function Assert-EditorVisualAcceptanceContract {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $LspExecutable
+    )
+
+    $AcceptanceRoot = Join-Path $RepoRoot "tools\editor-acceptance"
+    $VscodeWorkspaceRoot = Join-Path $AcceptanceRoot "vscode-workspace"
+    $NativeWorkspaceRoot = Join-Path $AcceptanceRoot "native-workspace"
+    $VscodeMainPath = Join-Path $VscodeWorkspaceRoot "main.eng"
+    $VscodeDiagnosticsPath = Join-Path $VscodeWorkspaceRoot "diagnostics.eng"
+    $NativeMainPath = Join-Path $NativeWorkspaceRoot "examples\official\01_editor_visual\main.eng"
+    $NativeStdlibPath = Join-Path $NativeWorkspaceRoot "stdlib"
+    $LightWorkspacePath = Join-Path $AcceptanceRoot "vscode-light.code-workspace"
+    $DarkWorkspacePath = Join-Path $AcceptanceRoot "vscode-dark.code-workspace"
+    $AcceptanceReadmePath = Join-Path $AcceptanceRoot "README.md"
+    $BaselineManifestPath = Join-Path $AcceptanceRoot "baseline-manifest.json"
+
+    foreach ($RequiredPath in @(
+        $VscodeMainPath,
+        $VscodeDiagnosticsPath,
+        $NativeMainPath,
+        $NativeStdlibPath,
+        $LightWorkspacePath,
+        $DarkWorkspacePath,
+        $AcceptanceReadmePath,
+        $BaselineManifestPath
+    )) {
+        if (-not (Test-Path -LiteralPath $RequiredPath)) {
+            throw "editor visual acceptance fixture is missing $RequiredPath"
+        }
+    }
+    if (-not (Test-Path -LiteralPath $LspExecutable -PathType Leaf)) {
+        throw "editor visual acceptance requires eng-lsp at $LspExecutable"
+    }
+
+    foreach ($WorkspaceSpec in @(
+        @{ Path = $LightWorkspacePath; Theme = "EngLang Light" },
+        @{ Path = $DarkWorkspacePath; Theme = "EngLang Dark" }
+    )) {
+        $Workspace = Get-Content -LiteralPath $WorkspaceSpec.Path -Raw -Encoding UTF8 | ConvertFrom-Json
+        if (@($Workspace.folders).Count -ne 1 -or $Workspace.folders[0].path -ne "vscode-workspace") {
+            throw "$($WorkspaceSpec.Path) must open only the bounded VS Code acceptance workspace"
+        }
+        if ($Workspace.settings.'workbench.colorTheme' -ne $WorkspaceSpec.Theme) {
+            throw "$($WorkspaceSpec.Path) must select $($WorkspaceSpec.Theme)"
+        }
+        foreach ($RequiredBooleanSetting in @(
+            "editor.semanticHighlighting.enabled",
+            "englang.semanticHighlighting.enabled",
+            "englang.lintOnChange",
+            "englang.lintOnSave"
+        )) {
+            if ($Workspace.settings.$RequiredBooleanSetting -ne $true) {
+                throw "$($WorkspaceSpec.Path) must enable $RequiredBooleanSetting"
+            }
+        }
+        if ($Workspace.settings.'englang.diagnosticsMode' -ne "live") {
+            throw "$($WorkspaceSpec.Path) must use live persistent diagnostics"
+        }
+        if (@($Workspace.extensions.recommendations) -notcontains "englang.englang") {
+            throw "$($WorkspaceSpec.Path) must recommend englang.englang"
+        }
+    }
+
+    $VscodeMainHash = (Get-FileHash -LiteralPath $VscodeMainPath -Algorithm SHA256).Hash
+    $NativeMainHash = (Get-FileHash -LiteralPath $NativeMainPath -Algorithm SHA256).Hash
+    if ($VscodeMainHash -ne $NativeMainHash) {
+        throw "VS Code and native IDE visual acceptance main sources must stay identical"
+    }
+    $VscodeDataHash = (Get-FileHash -LiteralPath (Join-Path $VscodeWorkspaceRoot "data\sensor.csv") -Algorithm SHA256).Hash
+    $NativeDataHash = (Get-FileHash -LiteralPath (Join-Path $NativeWorkspaceRoot "examples\official\01_editor_visual\data\sensor.csv") -Algorithm SHA256).Hash
+    if ($VscodeDataHash -ne $NativeDataHash) {
+        throw "VS Code and native IDE visual acceptance data must stay identical"
+    }
+
+    $SnapshotOutput = & $LspExecutable "--snapshot" $VscodeMainPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "eng-lsp failed to analyze the editor visual acceptance main source"
+    }
+    $Snapshot = ($SnapshotOutput | Out-String).Trim() | ConvertFrom-Json
+    if ($Snapshot.format -ne "eng-lsp-snapshot-v1" -or @($Snapshot.diagnostics).Count -ne 0) {
+        throw "editor visual acceptance main source must return a clean eng-lsp-snapshot-v1 payload"
+    }
+    $SemanticTokens = @($Snapshot.semantic_tokens.tokens)
+    if ($SemanticTokens.Count -lt 150) {
+        throw "editor visual acceptance main source returned too few semantic tokens: $($SemanticTokens.Count)"
+    }
+    $ObservedTypes = @($SemanticTokens | ForEach-Object { [string]$_.type } | Sort-Object -Unique)
+    foreach ($RequiredType in @("class", "comment", "function", "keyword", "namespace", "number", "operator", "parameter", "property", "string", "type", "variable")) {
+        if ($ObservedTypes -notcontains $RequiredType) {
+            throw "editor visual acceptance main source is missing semantic token type $RequiredType"
+        }
+    }
+    $ObservedModifiers = @($SemanticTokens | ForEach-Object { @($_.modifiers) } | ForEach-Object { [string]$_ } | Sort-Object -Unique)
+    foreach ($RequiredModifier in @("axis", "declaration", "external", "imported", "quantity", "report", "sideEffect", "timeseries", "unit", "validation", "workflowStep")) {
+        if ($ObservedModifiers -notcontains $RequiredModifier) {
+            throw "editor visual acceptance main source is missing semantic token modifier $RequiredModifier"
+        }
+    }
+
+    $DiagnosticsOutput = & $LspExecutable "--snapshot" $VscodeDiagnosticsPath
+    if ($LASTEXITCODE -ne 0) {
+        throw "eng-lsp failed to analyze the intentional editor diagnostics fixture"
+    }
+    $DiagnosticsSnapshot = ($DiagnosticsOutput | Out-String).Trim() | ConvertFrom-Json
+    $DiagnosticCodes = @($DiagnosticsSnapshot.diagnostics | ForEach-Object { [string]$_.code } | Sort-Object -Unique)
+    foreach ($RequiredCode in @("E-DIM-ADD-001", "E-DIM-ADD-002", "E-DIM-ADD-003")) {
+        if ($DiagnosticCodes -notcontains $RequiredCode) {
+            throw "editor diagnostics fixture is missing expected code $RequiredCode"
+        }
+    }
+    if (@($DiagnosticsSnapshot.diagnostics).Count -ne 4) {
+        throw "editor diagnostics fixture must return exactly four intentional diagnostics"
+    }
+
+    $BaselineManifest = Get-Content -LiteralPath $BaselineManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($BaselineManifest.format -ne "englang-editor-visual-baseline-v1") {
+        throw "editor visual baseline manifest must use englang-editor-visual-baseline-v1"
+    }
+    if ($BaselineManifest.source -ne "vscode-workspace/main.eng") {
+        throw "editor visual baseline manifest must point at the clean VS Code main source"
+    }
+    $BaselineCaptures = @($BaselineManifest.captures)
+    $ExpectedBaselineCaptures = @(
+        @{
+            Path = "baselines/vscode-light.png"
+            Surface = "vscode"
+            Theme = "EngLang Light"
+            States = @("EngLang language mode", "zero Problems", "role-aware semantic colors")
+        },
+        @{
+            Path = "baselines/vscode-dark.png"
+            Surface = "vscode"
+            Theme = "EngLang Dark"
+            States = @("EngLang language mode", "zero Problems", "role-aware semantic colors")
+        },
+        @{
+            Path = "baselines/native-ide-light.png"
+            Surface = "native-ide"
+            Theme = "native light"
+            States = @("loaded bounded main.eng", "zero errors", "zero warnings", "role-aware semantic colors")
+        }
+    )
+    if ($BaselineCaptures.Count -ne $ExpectedBaselineCaptures.Count) {
+        throw "editor visual baseline manifest must contain exactly $($ExpectedBaselineCaptures.Count) captures"
+    }
+    $PngSignature = [byte[]](137, 80, 78, 71, 13, 10, 26, 10)
+    foreach ($ExpectedCapture in $ExpectedBaselineCaptures) {
+        $MatchingCaptures = @($BaselineCaptures | Where-Object { $_.path -eq $ExpectedCapture.Path })
+        if ($MatchingCaptures.Count -ne 1) {
+            throw "editor visual baseline manifest must contain one $($ExpectedCapture.Path) capture"
+        }
+        $Capture = $MatchingCaptures[0]
+        if ($Capture.surface -ne $ExpectedCapture.Surface -or $Capture.theme -ne $ExpectedCapture.Theme) {
+            throw "editor visual baseline $($ExpectedCapture.Path) has an unexpected surface or theme"
+        }
+        foreach ($RequiredState in $ExpectedCapture.States) {
+            if (@($Capture.required_state) -notcontains $RequiredState) {
+                throw "editor visual baseline $($ExpectedCapture.Path) is missing required state $RequiredState"
+            }
+        }
+        $CapturePath = Join-Path $AcceptanceRoot ($Capture.path -replace '/', [IO.Path]::DirectorySeparatorChar)
+        if (-not (Test-Path -LiteralPath $CapturePath -PathType Leaf)) {
+            throw "editor visual baseline image is missing $CapturePath"
+        }
+        $CaptureHash = (Get-FileHash -LiteralPath $CapturePath -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($CaptureHash -ne ([string]$Capture.sha256).ToLowerInvariant()) {
+            throw "editor visual baseline hash changed for $($Capture.path); inspect the replacement and update the manifest"
+        }
+        $CaptureBytes = [IO.File]::ReadAllBytes($CapturePath)
+        if ($CaptureBytes.Length -lt 24) {
+            throw "editor visual baseline is not a complete PNG: $($Capture.path)"
+        }
+        for ($SignatureIndex = 0; $SignatureIndex -lt $PngSignature.Length; $SignatureIndex++) {
+            if ($CaptureBytes[$SignatureIndex] -ne $PngSignature[$SignatureIndex]) {
+                throw "editor visual baseline has an invalid PNG signature: $($Capture.path)"
+            }
+        }
+        $PngWidth = ([int]$CaptureBytes[16] -shl 24) -bor ([int]$CaptureBytes[17] -shl 16) -bor ([int]$CaptureBytes[18] -shl 8) -bor [int]$CaptureBytes[19]
+        $PngHeight = ([int]$CaptureBytes[20] -shl 24) -bor ([int]$CaptureBytes[21] -shl 16) -bor ([int]$CaptureBytes[22] -shl 8) -bor [int]$CaptureBytes[23]
+        if ($PngWidth -ne [int]$Capture.width -or $PngHeight -ne [int]$Capture.height) {
+            throw "editor visual baseline dimensions do not match the manifest for $($Capture.path)"
+        }
+        if ($PngWidth -lt 1200 -or $PngHeight -lt 800) {
+            throw "editor visual baseline is too small for full-window inspection: $($Capture.path)"
+        }
+    }
+
+    Write-Host "Editor visual acceptance contract passed: light/dark VS Code workspaces, native IDE workspace, $($SemanticTokens.Count) semantic tokens, four intentional diagnostics, and three inspected baselines."
+}
+
+function Invoke-EditorVisualCheck {
+    Set-DevEnvironment
+    $cargo = Get-Cargo
+    if ($null -eq $cargo) {
+        Write-Host "Cargo not found. Run .\dev.bat setup."
+        exit 1
+    }
+    Invoke-Native $cargo "build" "-p" "eng_lsp"
+    Assert-EditorVisualAcceptanceContract -LspExecutable (Join-Path $RepoRoot "target\debug\eng-lsp.exe")
+}
+
 function Invoke-VscodeTest {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -8344,6 +8551,7 @@ function Invoke-LspCheck {
     }
     $LspExecutable = Join-Path $RepoRoot "target\debug\eng-lsp.exe"
     Assert-VscodeSemanticFallbackCoverage -LspExecutable $LspExecutable
+    Assert-EditorVisualAcceptanceContract -LspExecutable $LspExecutable
     Write-Host "LSP check passed."
 }
 
@@ -9722,6 +9930,7 @@ Usage:
   .\dev.bat vscode-status  Show local VS Code extension install/package status
   .\dev.bat vscode-package Build a local installable VS Code extension VSIX
   .\dev.bat vscode-install Build and install the EngLang VS Code extension with the code CLI
+  .\dev.bat editor-visual-check Validate bounded VS Code light/dark and native IDE acceptance workspaces
   .\dev.bat ide-check      Validate the native IDE and VS Code extension preview
   .\dev.bat lsp-check      Validate eng-lsp.exe stdio, smoke, and snapshot output
   .\dev.bat jit-check      Validate runtime optimization track kernel planning and bench output
@@ -9763,6 +9972,7 @@ switch ($Command) {
     "vscode-status" { Invoke-VscodeStatus }
     "vscode-package" { Invoke-VscodePackage }
     "vscode-install" { Invoke-VscodeInstall }
+    "editor-visual-check" { Invoke-EditorVisualCheck }
     "ide-check" { Invoke-IdeCheck }
     "lsp-check" { Invoke-LspCheck }
     "jit-check" { Invoke-JitCheck }

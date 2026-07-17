@@ -1,0 +1,5 @@
+const cp_water_default: SpecificHeat [J/kg/K] = 4180 J/kg/K
+
+fn heat_rate(m_dot: MassFlowRate [kg/s], dT: TemperatureDelta [K]) -> HeatRate [W] {
+    return m_dot * cp_water_default * dT
+}

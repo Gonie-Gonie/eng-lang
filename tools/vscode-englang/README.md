@@ -173,6 +173,19 @@ additionally builds the debug `eng-lsp` and checks full semantic fallback
 coverage across the example and grammar-fixture snapshots. Packaging retains
 the same checks against the release binary before it writes the VSIX.
 
+For the bounded real-editor fixtures and inspected Light/Dark/native IDE
+baselines, run:
+
+```bat
+.\dev.bat editor-visual-check
+```
+
+The fixtures live under `tools\editor-acceptance`. This focused gate verifies
+that VS Code and the native IDE use identical clean source/data, checks semantic
+token and intentional diagnostic coverage, and protects the recorded PNG
+dimensions and hashes. The accompanying README documents the manual full-window
+capture procedure; CI does not launch VS Code or claim an automatic pixel diff.
+
 If the `code` CLI is not on PATH, run `Extensions: Install from VSIX...` in VS
 Code and select the generated VSIX. For extension-host development instead of
 local installation, open `tools\vscode-englang` in VS Code and launch the
