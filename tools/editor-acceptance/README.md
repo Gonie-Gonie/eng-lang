@@ -22,7 +22,9 @@ Run:
 The command builds `eng-lsp` and verifies the bounded workspace definitions,
 matching VS Code/native source and data, clean main-source diagnostics, the
 semantic token type/modifier coverage, the intentional diagnostic corpus, and
-the committed screenshot manifest, dimensions, hashes, and PNG headers.
+the committed screenshot manifest, dimensions, hashes, and PNG headers. It also
+runs the pixel-comparison engine against the accepted captures as a decoder and
+zero-diff self-check.
 
 ## VS Code Capture
 
@@ -65,5 +67,28 @@ previous image for missing color families, low contrast, clipped text,
 overlap, unexpected diagnostics, and stale language mode. Then update the
 manifest dimensions and SHA-256 values and rerun `editor-visual-check`.
 
-The automated gate protects baseline integrity and compiler/editor contracts;
-it does not claim to drive VS Code or perform a pixel-diff in CI.
+Before replacing a baseline, place the three new full-window captures in one
+directory using these exact names:
+
+```text
+vscode-light.png
+vscode-dark.png
+native-ide-light.png
+```
+
+Then run:
+
+```bat
+.\dev.bat editor-visual-compare path\to\current-captures
+```
+
+The comparison requires identical dimensions, treats an RGB channel delta over
+24 as a changed pixel, and fails above a 3% changed-pixel ratio or a mean RGB
+channel delta of 3.0. It writes a JSON summary and magenta difference images to
+`build/editor-tests/visual-diff`. The thresholds allow small rasterization
+noise; they do not make a changed theme, layout, diagnostics state, or missing
+color family acceptable.
+
+The automated gate protects baseline integrity and compiler/editor contracts
+and can compare supplied captures. It does not drive VS Code or the native IDE,
+so capture state and any accepted visual change still require manual review.

@@ -7332,6 +7332,7 @@ function Assert-EditorVisualAcceptanceContract {
     $DarkWorkspacePath = Join-Path $AcceptanceRoot "vscode-dark.code-workspace"
     $AcceptanceReadmePath = Join-Path $AcceptanceRoot "README.md"
     $BaselineManifestPath = Join-Path $AcceptanceRoot "baseline-manifest.json"
+    $BaselineComparePath = Join-Path $AcceptanceRoot "compare-baselines.ps1"
 
     foreach ($RequiredPath in @(
         $VscodeMainPath,
@@ -7341,7 +7342,8 @@ function Assert-EditorVisualAcceptanceContract {
         $LightWorkspacePath,
         $DarkWorkspacePath,
         $AcceptanceReadmePath,
-        $BaselineManifestPath
+        $BaselineManifestPath,
+        $BaselineComparePath
     )) {
         if (-not (Test-Path -LiteralPath $RequiredPath)) {
             throw "editor visual acceptance fixture is missing $RequiredPath"
@@ -7516,6 +7518,19 @@ function Invoke-EditorVisualCheck {
     }
     Invoke-Native $cargo "build" "-p" "eng_lsp"
     Assert-EditorVisualAcceptanceContract -LspExecutable (Join-Path $RepoRoot "target\debug\eng-lsp.exe")
+    & (Join-Path $RepoRoot "tools\editor-acceptance\compare-baselines.ps1") `
+        -CandidateRoot (Join-Path $RepoRoot "tools\editor-acceptance\baselines") `
+        -OutputRoot (Join-Path $RepoRoot "build\editor-tests\visual-diff-self-check")
+}
+
+function Invoke-EditorVisualCompare {
+    if ($Rest.Count -ne 1) {
+        throw "usage: .\dev.bat editor-visual-compare <capture-directory>"
+    }
+    $CandidateRoot = $Rest[0]
+    & (Join-Path $RepoRoot "tools\editor-acceptance\compare-baselines.ps1") `
+        -CandidateRoot $CandidateRoot `
+        -OutputRoot (Join-Path $RepoRoot "build\editor-tests\visual-diff")
 }
 
 function Invoke-VscodeTest {
@@ -10031,6 +10046,7 @@ Usage:
   .\dev.bat vscode-package Build a local installable VS Code extension VSIX
   .\dev.bat vscode-install Build and install the EngLang VS Code extension with the code CLI
   .\dev.bat editor-visual-check Validate bounded VS Code light/dark and native IDE acceptance workspaces
+  .\dev.bat editor-visual-compare <dir> Compare three current captures with the inspected image baselines
   .\dev.bat ide-check      Validate the native IDE and VS Code extension preview
   .\dev.bat lsp-check      Validate eng-lsp.exe stdio, smoke, and snapshot output
   .\dev.bat jit-check      Validate runtime optimization track kernel planning and bench output
@@ -10073,6 +10089,7 @@ switch ($Command) {
     "vscode-package" { Invoke-VscodePackage }
     "vscode-install" { Invoke-VscodeInstall }
     "editor-visual-check" { Invoke-EditorVisualCheck }
+    "editor-visual-compare" { Invoke-EditorVisualCompare }
     "ide-check" { Invoke-IdeCheck }
     "lsp-check" { Invoke-LspCheck }
     "jit-check" { Invoke-JitCheck }

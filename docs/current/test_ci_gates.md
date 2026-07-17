@@ -22,7 +22,8 @@ The documentation plans in `EngLang_Documentation_Reorganization_and_User_Guide_
 | Documentation check | `dev.bat docs-check` | Checks Markdown final-newline/trailing-whitespace hygiene, links, documented snippets, and supported documentation examples. |
 | Native workflow status | `dev.bat workflow-native-status` | Quickly reports workflow 01/02/03 native-only source/docs status and latest process/run-graph artifact evidence without rerunning the full smoke gate. |
 | LSP/editor check | `dev.bat lsp-check` | Runs library, persistent-stdio, semantic-token, visual-contract, exact-source analysis-cache, and recursive import-invalidation regressions. |
-| Editor visual contract | `dev.bat editor-visual-check` | Builds `eng-lsp` and validates bounded VS Code Light/Dark plus native IDE fixtures, clean/intentional diagnostics, semantic token coverage, and inspected screenshot manifest integrity. |
+| Editor visual contract | `dev.bat editor-visual-check` | Builds `eng-lsp`, validates bounded VS Code Light/Dark plus native IDE fixtures, clean/intentional diagnostics, semantic token coverage, inspected screenshot manifest integrity, and the zero-diff comparison engine path. |
+| Editor visual comparison | `dev.bat editor-visual-compare <capture-dir>` | Compares supplied Light/Dark/native captures with accepted baselines using fixed dimensions, RGB thresholds, summary JSON, and generated diff PNGs. |
 | Package smoke | `dev.bat package-smoke` | Validates the portable public package path. Workflow fixtures stay in workflow smoke until promoted. |
 
 ## Editor Visual Acceptance
@@ -32,13 +33,16 @@ native IDE workspace, and one shared clean `main.eng` source. The executable
 gate requires zero diagnostics for that source, broad semantic token
 type/modifier coverage, and exactly four known diagnostics in the separate
 negative fixture. It also checks the headers, dimensions, and SHA-256 values of
-the manually inspected VS Code Light, VS Code Dark, and native IDE screenshots.
+the manually inspected VS Code Light, VS Code Dark, and native IDE screenshots,
+then exercises their zero-diff pixel-comparison path.
 
 Screenshot replacement remains an explicit manual acceptance step: verify the
 EngLang language mode, zero clean-source Problems, role-aware color families,
 contrast, clipping, and overlap before updating the manifest. CI protects the
-accepted files and compiler/editor contract but does not automate VS Code or
-claim pixel-equivalence across OS, font, or VS Code versions.
+accepted files and compiler/editor contract but does not automate VS Code.
+`editor-visual-compare` evaluates supplied same-dimension captures with bounded
+RGB thresholds and emits diff artifacts; it does not claim cross-platform pixel
+equivalence across OS, font, GPU, or VS Code versions.
 
 ## Checklist 9.1: Uncertainty Tests
 

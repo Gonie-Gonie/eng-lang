@@ -191,7 +191,10 @@ The fixtures live under `tools\editor-acceptance`. This focused gate verifies
 that VS Code and the native IDE use identical clean source/data, checks semantic
 token and intentional diagnostic coverage, and protects the recorded PNG
 dimensions and hashes. The accompanying README documents the manual full-window
-capture procedure; CI does not launch VS Code or claim an automatic pixel diff.
+capture procedure. After capturing, run
+`.\dev.bat editor-visual-compare <capture-dir>` to produce thresholded RGB
+comparison results and diff PNGs. CI exercises the comparison engine but does
+not launch VS Code or the native IDE.
 
 If the `code` CLI is not on PATH, run `Extensions: Install from VSIX...` in VS
 Code and select the generated VSIX. For extension-host development instead of
