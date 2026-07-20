@@ -10457,17 +10457,43 @@ mod tests {
             "adding a binding to a trivia-only report should rebuild the scalar suffix"
         );
 
-        let fallback_source = concat!("# scalar bindings cleared\r\n", "value = 1 + 1\r\n",);
-        let fallback_change = json!({
+        let arithmetic_source =
+            concat!("# scalar bindings cleared\r\n", "ratio = (1 + 1) / 2\r\n",);
+        let arithmetic_change = json!({
             "method": "textDocument/didChange",
             "params": {
                 "textDocument": { "uri": uri, "version": 11 },
+                "contentChanges": [{ "text": arithmetic_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&arithmetic_change, &documents)
+                .expect("scalar arithmetic change should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, arithmetic_source, &documents),
+            snapshot_for_source(&path, arithmetic_source)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 10);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 11, 0, true, true),
+            "pure scalar arithmetic should rebuild the cached semantic suffix"
+        );
+
+        let fallback_source = concat!("# scalar bindings cleared\r\n", "ratio = sqrt(4)\r\n",);
+        let fallback_change = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 12 },
                 "contentChanges": [{ "text": fallback_source }]
             }
         });
         let (changed_uri, changed_state) =
             document_state_from_notification(&fallback_change, &documents)
-                .expect("compound expression change should be accepted");
+                .expect("function expression change should be accepted");
         documents.insert(changed_uri.clone(), changed_state);
         let affected = diagnostic_documents_after_change(&changed_uri, &documents);
         invalidate_dependent_document_analyses(&changed_uri, &affected);
@@ -10475,11 +10501,11 @@ mod tests {
             snapshot_for_open_documents(&path, fallback_source, &documents),
             snapshot_for_source(&path, fallback_source)
         );
-        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 9);
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 10);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
-            (0, 11, 0, true, true),
-            "a compound expression edit must fall back to a fresh compiler report"
+            (0, 12, 0, true, true),
+            "function calls must fall back to a fresh compiler report"
         );
 
         std::fs::remove_dir_all(&root).expect("incremental binding fixture should be removed");

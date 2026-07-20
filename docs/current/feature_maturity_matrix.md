@@ -237,10 +237,11 @@ separate.
   the unchanged prefix and reparses/semantically reanalyzes from the first
   scalar binding at or after the first changed binding or standalone token-free
   trivia line through the suffix affected by source positions or dependencies in
-  documents containing only numeric literals and backward aliases, including
-  coordinated multi-line value edits, renames, binding additions/removals,
-  variable-width/inserted/removed trivia, and suffix line-ending shifts, lazy
-  shared editor snapshots, recursive
+  documents containing only numeric literals, backward aliases, and pure scalar
+  arithmetic over registered-unit literals, parentheses, and earlier typed
+  bindings, including coordinated multi-line value edits, renames, binding
+  additions/removals, variable-width/inserted/removed trivia, and suffix
+  line-ending shifts, lazy shared editor snapshots, recursive
   import-dependent invalidation, a VS Code persistent stdio client with document
   sync and direct protocol semantic tokens, request-ID-scoped protocol
   cancellation with cooperative workspace scan interruption, compiler-owned
@@ -248,8 +249,8 @@ separate.
   across diagnostics/semantic overlays/hover fallback, source-origin-aware
   validation records, stdio tests, and optional VS Code source.
 - Not included: a stable public compatibility guarantee across EngLang releases
-  or general partial parse/semantic recomputation beyond the numeric-literal and
-  backward-alias scalar binding contract, including forward/unresolved or compound
+  or general partial parse/semantic recomputation beyond the bounded scalar
+  binding contract, including forward/unresolved references, calls, workflow
   expressions, token-bearing non-binding lines, and richer language constructs
   inside a changed document.
 - Next cleanup action: keep the implemented persistent service tested while its

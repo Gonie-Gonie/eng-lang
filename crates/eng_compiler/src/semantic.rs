@@ -1052,10 +1052,11 @@ pub(crate) struct IncrementalBindingAnalysis {
 
 /// Analyzes a side-effect-free scalar binding suffix against a trusted prefix environment.
 ///
-/// The compiler owns the validation around this helper. Keeping the accepted expressions to
-/// numeric literals and backward aliases ensures that no whole-program semantic collection needs
-/// to be recomputed while still allowing changed types to propagate through an alias chain. An
-/// empty suffix is accepted so the caller can remove the final affected bindings atomically.
+/// The compiler owns the validation around this helper. Accepted expressions are numeric literals,
+/// backward aliases, or pure scalar arithmetic over registered-unit literals and backward scalar
+/// references. The arithmetic grammar is deliberately shared with component parameter validation
+/// so calls and workflow expressions cannot enter this local semantic path. An empty suffix is
+/// accepted so the caller can remove the final affected bindings atomically.
 pub(crate) fn analyze_incremental_scalar_bindings(
     program: &ParsedProgram,
     prefix_typed_bindings: &[TypedBinding],
@@ -1076,10 +1077,6 @@ pub(crate) fn analyze_incremental_scalar_bindings(
             .iter()
             .filter(|line| !line.tokens.is_empty())
             .count()
-        || bindings.iter().any(|binding| {
-            let expression = binding.expression.trim();
-            parse_numeric_literal(expression).is_none() && !is_identifier(expression)
-        })
     {
         return None;
     }
@@ -1098,6 +1095,9 @@ pub(crate) fn analyze_incremental_scalar_bindings(
     let mut timeseries_kernels = Vec::new();
 
     for binding in &bindings {
+        if !supports_incremental_scalar_expression(&binding.expression, &typed_bindings) {
+            return None;
+        }
         let mut accum = SemanticAccum {
             diagnostics: &mut diagnostics,
             inferred_declarations: &mut inferred_declarations,
@@ -1142,6 +1142,69 @@ pub(crate) fn analyze_incremental_scalar_bindings(
         type_infos,
         unit_derivations,
     })
+}
+
+pub(crate) fn supports_incremental_scalar_expression(
+    expression: &str,
+    available_bindings: &[TypedBinding],
+) -> bool {
+    let expression = expression.trim();
+    if parse_numeric_literal(expression).is_some() {
+        return true;
+    }
+    if is_identifier(expression) {
+        return available_bindings
+            .iter()
+            .any(|binding| binding.name == expression);
+    }
+    if ["simulate", "solve"].iter().any(|command| {
+        expression.strip_prefix(command).is_some_and(|rest| {
+            rest.chars()
+                .next()
+                .is_some_and(|character| character.is_whitespace())
+        })
+    }) {
+        return false;
+    }
+
+    let Ok(mut tokens) = tokenize_component_parameter_expression(expression, &[], 0) else {
+        return false;
+    };
+    let mut saw_operator = false;
+    for token in &mut tokens {
+        match token {
+            ComponentParameterExpressionToken::Identifier(name) => {
+                let Some(dimension) = available_bindings
+                    .iter()
+                    .find(|binding| binding.name == *name)
+                    .map(|binding| dimension_for_quantity(&binding.semantic_type.quantity_kind))
+                else {
+                    return false;
+                };
+                *token =
+                    ComponentParameterExpressionToken::Number(ComponentParameterExpressionValue {
+                        value: 1.0,
+                        dimension,
+                    });
+            }
+            ComponentParameterExpressionToken::Plus
+            | ComponentParameterExpressionToken::Minus
+            | ComponentParameterExpressionToken::Star
+            | ComponentParameterExpressionToken::Slash => saw_operator = true,
+            _ => {}
+        }
+    }
+    if !saw_operator {
+        return false;
+    }
+
+    let mut parser = ComponentParameterExpressionParser {
+        tokens,
+        position: 0,
+    };
+    parser
+        .parse_expression()
+        .is_ok_and(|_| parser.position == parser.tokens.len())
 }
 
 pub fn analyze(program: &ParsedProgram) -> SemanticOutput {

@@ -553,17 +553,18 @@ pub fn retarget_check_report_for_token_stable_trivia(
 /// Rechecks one scalar binding and the suffix affected by source positions or dependencies.
 ///
 /// This token-changing incremental path is intentionally strict. Both sources must contain only
-/// successful top-level scalar bindings and trivia, and every expression must be either a numeric
-/// literal or a backward alias to an earlier binding.
+/// successful top-level scalar bindings and trivia. Expressions may be numeric literals, backward
+/// aliases, or pure scalar `+`, `-`, `*`, and `/` arithmetic over registered-unit literals,
+/// parentheses, and earlier scalar bindings.
 /// Changed logical lines may remain bindings or token-free trivia, including inserted or removed
 /// trivia and line-ending changes. Coordinated binding renames are accepted when the resulting names
 /// stay unique and aliases resolve in source order. The compiler preserves report records before the
 /// first binding at or after the first raw-line difference, then reparses and semantically reanalyzes
 /// that suffix. Binding additions and removals update all scalar semantic vectors, syntax counts, and
 /// the top-level workflow line atomically. The compiler verifies the old suffix result against the
-/// prior report before patching. Imports, diagnostics, caches, compound expressions, richer language
-/// constructs, and edits without an affected binding return `None` so the caller can run a normal
-/// check or another reuse path.
+/// prior report before patching. Imports, diagnostics, caches, calls, workflow expressions, richer
+/// language constructs, and edits without an affected binding return `None` so the caller can run a
+/// normal check or another reuse path.
 ///
 /// The caller must preserve the source path, check options, argument overrides, and import
 /// environment, just as for [`retarget_check_report_for_token_stable_trivia`].
@@ -782,13 +783,14 @@ fn report_has_incremental_scalar_binding_shape(
     }
 
     let mut names = HashSet::new();
-    if !report.inferred_declarations.iter().all(|declaration| {
-        let expression = declaration.expression.trim();
-        let supported_expression = quantities::parse_numeric_literal(expression).is_some()
-            || (is_identifier_text(expression) && names.contains(expression));
-        supported_expression && names.insert(declaration.name.as_str())
-    }) {
-        return false;
+    for (index, declaration) in report.inferred_declarations.iter().enumerate() {
+        if !semantic::supports_incremental_scalar_expression(
+            &declaration.expression,
+            &report.semantic_program.typed_bindings[..index],
+        ) || !names.insert(declaration.name.as_str())
+        {
+            return false;
+        }
     }
     if !report
         .inferred_declarations
@@ -9467,6 +9469,132 @@ mod tests {
     }
 
     #[test]
+    fn incrementally_rechecks_pure_scalar_arithmetic_with_fresh_equivalence() {
+        fn assert_fresh_equivalent(reused: &CheckReport, fresh: &CheckReport, source: &str) {
+            assert_eq!(reused.source_path, fresh.source_path);
+            assert_eq!(reused.source_files, fresh.source_files);
+            assert_eq!(reused.source_hash, fresh.source_hash);
+            assert_eq!(reused.source_lines, fresh.source_lines);
+            assert_eq!(reused.diagnostics, fresh.diagnostics);
+            assert_eq!(reused.inferred_declarations, fresh.inferred_declarations);
+            assert_eq!(reused.syntax_summary, fresh.syntax_summary);
+            assert_eq!(reused.semantic_program, fresh.semantic_program);
+            assert_eq!(
+                reused.quantity_completion_count,
+                fresh.quantity_completion_count
+            );
+            assert_eq!(reused.unit_info_count, fresh.unit_info_count);
+            assert_eq!(review_json(reused), review_json(fresh));
+            assert_eq!(
+                encode_bytecode(&build_bytecode_program(reused, source)),
+                encode_bytecode(&build_bytecode_program(fresh, source))
+            );
+        }
+
+        let previous_source = concat!(
+            "ratio = (1 + 1) / 2\n",
+            "heat_rate = (2 kW + 500 W) * ratio\n",
+            "heat_rate_copy = heat_rate\n",
+        );
+        let source = concat!(
+            "ratio = (3 - 1) / 2\n",
+            "heat_rate = (1800 W + 200 W) / ratio\n",
+            "heat_rate_copy = heat_rate\n",
+        );
+        let previous = check_source(
+            "incremental-arithmetic.eng",
+            previous_source,
+            &CheckOptions::default(),
+        );
+        assert!(
+            previous.diagnostics.is_empty(),
+            "unexpected arithmetic fixture diagnostics: {:#?}",
+            previous.diagnostics
+        );
+        assert_eq!(previous.inferred_declarations.len(), 3);
+
+        let reused =
+            recheck_scalar_binding_suffix_incrementally(&previous, previous_source, source)
+                .expect("pure scalar arithmetic should recheck one semantic suffix");
+        let fresh = check_source(
+            "incremental-arithmetic.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(&reused, &fresh, source);
+        let heat_rate = reused
+            .inferred_declarations
+            .iter()
+            .find(|declaration| declaration.name == "heat_rate")
+            .expect("arithmetic heat-rate declaration");
+        assert_eq!(
+            source.get(heat_rate.expression_span.start..heat_rate.expression_span.end),
+            Some("(1800 W + 200 W) / ratio")
+        );
+
+        let appended_source = concat!(
+            "ratio = (3 - 1) / 2\n",
+            "heat_rate = (1800 W + 200 W) / ratio\n",
+            "heat_rate_copy = heat_rate\n",
+            "backup_heat_rate = (heat_rate + 100 W) * ratio\n",
+        );
+        let appended =
+            recheck_scalar_binding_suffix_incrementally(&reused, source, appended_source)
+                .expect("an appended arithmetic binding should extend the semantic suffix");
+        let appended_fresh = check_source(
+            "incremental-arithmetic.eng",
+            appended_source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(&appended, &appended_fresh, appended_source);
+        assert_eq!(appended.syntax_summary.fast_bindings, 4);
+
+        let type_previous_source =
+            concat!("gain = 1\n", "ratio = gain + 1\n", "ratio_copy = ratio\n",);
+        let type_source = concat!(
+            "gain = 1 m\n",
+            "ratio = gain + 1 m\n",
+            "ratio_copy = ratio\n",
+        );
+        let type_previous = check_source(
+            "incremental-arithmetic-type.eng",
+            type_previous_source,
+            &CheckOptions::default(),
+        );
+        assert!(
+            type_previous.diagnostics.is_empty(),
+            "unexpected type-propagation fixture diagnostics: {:#?}",
+            type_previous.diagnostics
+        );
+        assert_eq!(type_previous.inferred_declarations.len(), 3);
+        let type_reused = recheck_scalar_binding_suffix_incrementally(
+            &type_previous,
+            type_previous_source,
+            type_source,
+        )
+        .expect("a scalar input type change should propagate through arithmetic and aliases");
+        let type_fresh = check_source(
+            "incremental-arithmetic-type.eng",
+            type_source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(&type_reused, &type_fresh, type_source);
+        for name in ["gain", "ratio", "ratio_copy"] {
+            assert_eq!(
+                type_reused
+                    .semantic_program
+                    .typed_bindings
+                    .iter()
+                    .find(|binding| binding.name == name)
+                    .expect("propagated arithmetic binding")
+                    .semantic_type
+                    .quantity_kind,
+                "Length"
+            );
+        }
+    }
+
+    #[test]
     fn incrementally_rechecks_scalar_bindings_after_token_free_trivia_shift() {
         fn assert_fresh_equivalent(reused: &CheckReport, fresh: &CheckReport, source: &str) {
             assert_eq!(reused.source_path, fresh.source_path);
@@ -9722,9 +9850,11 @@ mod tests {
 
         for unsupported in [
             "length = 2 m\nheat_rate = missing\n",
-            "length = 2 m\nheat_rate = 2 kW + 1 kW\n",
+            "length = 2 m\nheat_rate = 2 kW + 1 m\n",
+            "length = 2 m\nheat_rate = sqrt(4)\n",
             "length = 2 m\nheat_rate = 2 kW\n# trailing trivia\n",
             "length = 3 m\nadded = heat_rate\nheat_rate = 2 kW\n",
+            "simulate = 1\nratio = simulate + 1\n",
         ] {
             assert!(
                 recheck_scalar_binding_suffix_incrementally(

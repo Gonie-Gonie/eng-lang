@@ -21,7 +21,8 @@ embedding compiler logic in JavaScript.
   decorations, with lazy snapshot projection and recursive open-import invalidation
 - strict token-changing partial parse/semantic recheck from the first changed
   scalar binding through the affected suffix in documents containing only numeric
-  literals and backward aliases, including coordinated multi-line edits and
+  literals, backward aliases, and pure scalar arithmetic over registered-unit
+  literals and earlier bindings, including coordinated multi-line edits and
   renames, binding additions/removals, resized/inserted/removed standalone trivia,
   and suffix line-ending shifts, with full-analysis fallback outside that contract
 - debounced diagnostics for unsaved buffers after a short typing pause,
@@ -234,19 +235,22 @@ For a changed source, it can also retarget the prior report when the complete
 token stream and absolute spans are unchanged and every token-bearing line is
 byte-identical. This narrow path covers edits to comment-only and blank lines;
 the source-dependent snapshot is rebuilt lazily. In a document containing only
-top-level numeric literals and backward scalar aliases, changed binding lines or
-standalone token-free trivia preserve the report before the first binding at or
-after the first change and reparse/semantically reanalyze that suffix once. This
-also repairs absolute source spans and line numbers when comments or blank lines
-are resized, inserted, or removed, or when suffix line endings change. Coordinated
-declaration and alias renames are accepted when names remain unique and aliases
-resolve backward in source order. The server verifies the old suffix against the
-corresponding report records before patching them. Scalar bindings can be inserted
-or removed, including clearing all bindings and restarting from a trivia-only
-report; semantic vectors, syntax counts, and the first workflow line are updated
-together. Token-bearing non-binding lines, incomplete or duplicate renames,
-forward, unresolved, or compound expressions, diagnostics, imports, caches, and
-richer language run a full compiler analysis.
+top-level numeric literals, backward scalar aliases, and compiler-validated pure
+scalar arithmetic using registered-unit literals, parentheses, `+`, `-`, `*`,
+`/`, and earlier typed bindings, changed binding lines or standalone token-free
+trivia preserve the report before the first binding at or after the first change
+and reparse/semantically reanalyze that suffix once. This also repairs absolute
+source spans and line numbers when comments or blank lines are resized, inserted,
+or removed, or when suffix line endings change. Coordinated declaration and alias
+renames are accepted when names remain unique and references resolve backward in
+source order. The server verifies the old suffix against the corresponding report
+records before patching them. Scalar bindings can be inserted or removed,
+including clearing all bindings and restarting from a trivia-only report;
+semantic vectors, syntax counts, and the first workflow line are updated together.
+Token-bearing non-binding lines, incomplete or duplicate renames, forward or
+unresolved references, dimensionally incompatible arithmetic, calls, workflow
+expressions, diagnostics, imports, caches, and richer language run a full compiler
+analysis.
 Changing an open import hard-invalidates its recursive open dependents, while
 unrelated document analyses remain cached. This remains a narrow partial path,
 not general incremental parse or semantic recomputation.

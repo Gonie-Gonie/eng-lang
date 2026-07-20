@@ -125,18 +125,20 @@ review material. It is not a broad solver claim.
   Exact-source editor requests share one compiler report and lazy snapshot;
   token-free comment/blank-line edits can retarget that report when every token
   and token-bearing line stays at the same absolute source location. In a clean
-  document containing only top-level numeric literals and backward scalar
-  aliases, changed binding lines or standalone token-free trivia preserve the
-  report before the first binding at or after the first change and
+  document containing only top-level numeric literals, backward scalar aliases,
+  and compiler-validated pure scalar arithmetic over registered-unit literals and
+  earlier typed bindings, changed binding lines or standalone token-free trivia
+  preserve the report before the first binding at or after the first change and
   reparse/semantically reanalyze that suffix. This repairs absolute spans and line
   numbers after variable-width, inserted, or removed standalone trivia and suffix
   line-ending changes. Coordinated declaration and alias renames are accepted when
-  names remain unique and every alias resolves backward in source order. Scalar
-  binding additions/removals, complete clearing, and restart from trivia-only text
-  update semantic vectors, syntax counts, and the first workflow line together.
-  Token-bearing non-binding lines, incomplete or duplicate renames, forward,
-  unresolved, or compound expressions, diagnostics, imports, caches, and richer
-  language use full analysis.
+  names remain unique and every reference resolves backward in source order.
+  Scalar binding additions/removals, complete clearing, and restart from
+  trivia-only text update semantic vectors, syntax counts, and the first workflow
+  line together. Token-bearing non-binding lines, incomplete or duplicate renames,
+  forward or unresolved references, dimensionally incompatible arithmetic, calls,
+  workflow expressions, diagnostics, imports, caches, and richer language use full
+  analysis.
   Source changes invalidate recursive open import dependents while preserving
   the changed document as a candidate for these narrow reuse paths. This is not
   general partial parsing or a public cross-release protocol commitment.
