@@ -10313,16 +10313,79 @@ mod tests {
             "a position-shifting trivia edit should recheck the following scalar suffix"
         );
 
-        let fallback_source = concat!(
+        let inserted_trivia_source = concat!(
             "heat_rate = 1800 W\n",
             "factor = 2\n",
+            "\n",
             "# aliases shifted by a longer comment\n",
-            "scaled_ratio = heat_rate + heat_rate\n",
+            "scaled_ratio = factor\n",
+        );
+        let inserted_trivia_change = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 6 },
+                "contentChanges": [{ "text": inserted_trivia_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&inserted_trivia_change, &documents)
+                .expect("inserted trivia change should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, inserted_trivia_source, &documents),
+            snapshot_for_source(&path, inserted_trivia_source)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 5);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 6, 0, true, true),
+            "inserted trivia should recheck the shifted scalar suffix"
+        );
+
+        let crlf_source = concat!(
+            "heat_rate = 1800 W\r\n",
+            "factor = 2\r\n",
+            "\r\n",
+            "# aliases shifted by a longer comment\r\n",
+            "scaled_ratio = factor\r\n",
+        );
+        let crlf_change = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 7 },
+                "contentChanges": [{ "text": crlf_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&crlf_change, &documents)
+                .expect("line-ending change should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, crlf_source, &documents),
+            snapshot_for_source(&path, crlf_source)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 6);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 7, 0, true, true),
+            "line-ending changes should recheck the affected scalar suffix"
+        );
+
+        let fallback_source = concat!(
+            "heat_rate = 1800 W\r\n",
+            "factor = 2\r\n",
+            "\r\n",
+            "# aliases shifted by a longer comment\r\n",
+            "scaled_ratio = heat_rate + heat_rate\r\n",
         );
         let fallback_change = json!({
             "method": "textDocument/didChange",
             "params": {
-                "textDocument": { "uri": uri, "version": 6 },
+                "textDocument": { "uri": uri, "version": 8 },
                 "contentChanges": [{ "text": fallback_source }]
             }
         });
@@ -10336,10 +10399,10 @@ mod tests {
             snapshot_for_open_documents(&path, fallback_source, &documents),
             snapshot_for_source(&path, fallback_source)
         );
-        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 4);
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 6);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
-            (0, 6, 0, true, true),
+            (0, 8, 0, true, true),
             "a compound expression edit must fall back to a fresh compiler report"
         );
 

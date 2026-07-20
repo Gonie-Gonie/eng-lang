@@ -128,13 +128,13 @@ review material. It is not a broad solver claim.
   document containing only top-level numeric literals and backward scalar
   aliases, changed binding lines or standalone token-free trivia preserve the
   report before the first binding at or after the first change and
-  reparse/semantically reanalyze that suffix. This repairs absolute spans after a
-  variable-width comment or blank-line edit. Coordinated declaration and alias
-  renames are accepted when names remain unique and every alias resolves backward
-  in source order. Binding layout changes, token-bearing non-binding lines,
-  incomplete or duplicate renames, unresolved or compound expressions,
-  diagnostics, imports, caches, richer language, line-count, and line-ending edits
-  use full analysis.
+  reparse/semantically reanalyze that suffix. This repairs absolute spans and line
+  numbers after variable-width, inserted, or removed standalone trivia and suffix
+  line-ending changes. Coordinated declaration and alias renames are accepted when
+  names remain unique and every alias resolves backward in source order. Binding
+  additions or removals, token-bearing non-binding lines, incomplete or duplicate
+  renames, unresolved or compound expressions, diagnostics, imports, caches, and
+  richer language use full analysis.
   Source changes invalidate recursive open import dependents while preserving
   the changed document as a candidate for these narrow reuse paths. This is not
   general partial parsing or a public cross-release protocol commitment.
