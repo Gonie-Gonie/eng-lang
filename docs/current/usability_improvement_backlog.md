@@ -1,3 +1,4 @@
+- Batch 1052: Made compatibility-only `regression_table(...)` and `train_regression(...)` visibly non-preferred across compiler diagnostics, exact call-name ranges, model-plus-deprecated semantic tokens, TextMate first-paint scopes, VS Code diagnostic tags, and documentation; added a bounded single-line migration action to `train regression <table>` plus canonical attached options; corrected alias-specific ML error wording; clarified that native linear regression computes real model metrics and artifacts without Python; and reconciled stale backlog wording that still listed bounded parallel case scheduling as unimplemented.
 - Batch 1051: Consolidated the three scalar incremental compiler APIs onto one mode-driven suffix engine; reduced the fast-only and explicit-only entry points to compatibility wrappers that enforce their original declaration-kind policy; removed duplicate raw-line boundary detection, suffix parsers, report-shape validators, semantic analyzers, patch logic, and temporary compatibility aliases; added trivia-only cross-style rejection coverage; and retained all homogeneous, mixed, strict-fallback, fresh-equivalence, and persistent-LSP cache behavior while removing more code than the cleanup added.
 - Batch 1050: Added the unified public `recheck_scalar_declaration_suffix_incrementally` compiler API for clean top-level scalar documents; allowed fast bindings and registered explicit declarations to interleave and switch style inside the affected suffix; tracked independent inferred, expected, and shared typed/hover/type/unit prefix indexes while patching syntax counts and the workflow line atomically; moved the persistent LSP cache from two homogeneous probes to the unified path; proved style transitions, suffix growth, complete clearing, trivia-only restart, compiler report/review/bytecode equality, and LSP snapshot equality against fresh checks; retained the existing homogeneous APIs as compatibility boundaries; and kept full fallback for unresolved/forward references, duplicate names, incompatible dimensions, calls, diagnostics, imports, caches, token-bearing non-declaration lines, and richer constructs.
 - Batch 1049: Added a compiler-owned incremental path for declaration-only scalar documents with registered explicit quantity annotations and pure scalar RHS expressions; preserved the prefix before changed trivia/declarations; atomically patched expected-type, typed-binding, hover, type-info, unit-derivation, syntax-count, and workflow-line records across type/unit/RHS edits, declaration addition, complete clearing, and trivia-only restart; integrated the path into the persistent LSP cache; proved report/review/bytecode and LSP snapshot equivalence with fresh checks; and retained full fallback for mixed fast/explicit declarations, unresolved/forward references, calls, non-scalar types, diagnostics, imports, caches, and richer constructs.
@@ -203,7 +204,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 ## Current Priorities
 
 1. Keep workflow 01/02/03 native-only: no Python, `.py`, or `run command` path may re-enter those examples.
-2. Replace remaining seed-only implementation paths with executable compiler/runtime behavior where the public docs imply support.
+2. Replace remaining metadata-only or synthetic implementation paths with executable compiler/runtime behavior where the public docs imply support.
 3. Improve VS Code and native IDE authoring quality: consistent TextMate first-paint highlighting, checked-code role-aware colors, precise diagnostics, hover, completion, and quick fixes.
 4. Reduce API wording ambiguity in public examples, generated metadata, diagnostics, and command names.
 5. Keep current docs compact and task-oriented; move implementation history and long-form plans to `docs/archive` or `docs/internal`.
@@ -214,12 +215,11 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Live network execution: live HTTP(S) GET/download and POST/PUT/PATCH string request bodies are implemented with timeout, retry, body limits, SHA-256 verification, body hashes, cache replay, and redacted Secret query/header records; broader live secret injection and auth schemes still need a public contract.
 - Model training surface: native `train regression <table>` feeds model-card, metrics, and prediction-table paths; broader algorithm coverage and clearer multi-model naming remain open.
 - Case orchestration: native `materialize cases`, template `apply`, sequential
-  `apply run_case`, and `collect results` now materialize
+  or bounded parallel `apply run_case`, and `collect results` now materialize
   CaseTable/CaseOutput/CaseRunResult/CaseResultCollection records and per-case
   result manifests. Native results now use a calculation-hash/result-SHA
-  verified local cache with replay and invalid-entry repair. Parallel
-  scheduling, automatic external-adapter dispatch, and shared/remote cache
-  adapters remain open.
+  verified local cache with replay and invalid-entry repair. Automatic
+  external-adapter dispatch and shared/remote cache adapters remain open.
 - DB query support: typed SQLite table readback is implemented; arbitrary query APIs, parameter binding, and query transaction policy remain open.
 - Native IDE usability: current-file Outline, workspace symbol search, unsaved-aware static-import definition/references/rename, and compiler quick fixes are implemented; keep improving token insight and inspector flows for repeated debugging tasks.
 - VS Code navigation: current-file highlights plus unsaved-aware workspace symbols and static-import definition/references/rename are implemented; broader package/index identities remain open.

@@ -1887,6 +1887,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         &typed_bindings,
         &where_blocks,
     ));
+    diagnostics.extend(crate::ml::public_api_diagnostics(&ml_infos));
     diagnostics.extend(crate::ml::with_block_argument_diagnostics(&ml_infos));
     validate_file_operation_options(&file_operations, &with_blocks, &mut diagnostics);
     validate_process_options(&process_runs, &with_blocks, &mut diagnostics);

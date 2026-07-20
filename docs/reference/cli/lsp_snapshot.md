@@ -148,7 +148,10 @@ has not been supplied yet is not presented as malformed. URL ranges end before
 trailing `#` or `//` comments. All `E-ML-SOURCE-*` and `E-ML-ARGS-*`
 diagnostics use compiler-owned ML expression, source operand, option key/value,
 or individual feature spans. Inline named arguments and attached `with` blocks
-share this range model, and trailing option comments are excluded. The corpus
+share this range model, and trailing option comments are excluded.
+`W-ML-TRAIN-ALIAS` selects only the `regression_table` or `train_regression`
+call name so deprecation styling and migration actions do not underline the
+model operands. The corpus
 also requires every `E-UNC-SOURCE-*` and `E-UNC-ARGS-*` diagnostic to retain its
 uncertainty expression, source, positional value, or named value range. Nested
 constructor values and trailing comments keep their source boundaries. Every

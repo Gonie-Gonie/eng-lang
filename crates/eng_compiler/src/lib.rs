@@ -16720,6 +16720,53 @@ write csv "outputs/q.csv", Q
     }
 
     #[test]
+    fn warns_on_legacy_model_training_aliases_with_exact_call_spans() {
+        let source = "designs = sample lhs\nwith {\n    count = 4\n    seed = 5\n    cooling_cop = uniform(2.5, 5.0)\n}\nlegacy_table = regression_table(designs, target=annual_electricity, features=[cooling_cop])\nlegacy_train = train_regression(designs, target=annual_electricity, features=[cooling_cop])\npreferred = train regression designs\nwith {\n    target = annual_electricity\n    features = [cooling_cop]\n}\n";
+        let report = check_source("legacy-model-api.eng", source, &CheckOptions::default());
+
+        let warnings = report
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "W-ML-TRAIN-ALIAS")
+            .collect::<Vec<_>>();
+        assert_eq!(warnings.len(), 2, "{:?}", report.diagnostics);
+        for (warning, alias) in warnings
+            .iter()
+            .zip(["regression_table", "train_regression"])
+        {
+            let span = warning
+                .source_span
+                .expect("legacy model warning should own the call-name span");
+            assert_eq!(source.get(span.start..span.end), Some(alias));
+            assert!(warning.message.contains(alias));
+            assert!(warning
+                .help
+                .as_deref()
+                .is_some_and(|help| help.contains("train regression")));
+        }
+    }
+
+    #[test]
+    fn legacy_train_regression_errors_name_the_source_alias() {
+        let report = check_source(
+            "legacy-model-error.eng",
+            "designs = sample lhs\nwith {\n    count = 2\n    seed = 5\n    cooling_cop = uniform(2.5, 5.0)\n}\nmodel = train_regression(designs, features=[cooling_cop])\n",
+            &CheckOptions::default(),
+        );
+
+        let diagnostic = report
+            .diagnostics
+            .iter()
+            .find(|diagnostic| {
+                diagnostic.code == "E-ML-ARGS-001"
+                    && diagnostic.message.contains("requires `target=<column>`")
+            })
+            .expect("missing target should produce a model argument diagnostic");
+        assert!(diagnostic.message.contains("`train_regression`"));
+        assert!(!diagnostic.message.contains("`regression_table`"));
+    }
+
+    #[test]
     fn rejects_unresolved_ml_source() {
         let report = check_source(
             "bad.eng",

@@ -2283,6 +2283,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "W-TABLE-LEGACY-SELECT-FIRST-ROW" => optional_code_action(
             lsp_select_first_row_migration_code_action(uri, text, diagnostic),
         ),
+        "W-ML-TRAIN-ALIAS" => optional_code_action(
+            lsp_legacy_model_training_migration_code_action(uri, text, diagnostic),
+        ),
         "E-IO-JSON-FIELD-ACCESS-001" => {
             optional_code_action(lsp_json_read_promotion_code_action(uri, text, diagnostic))
         }
@@ -4878,6 +4881,138 @@ fn select_first_row_migration_replacement(
         "{indent}}}{newline}{indent}{row_binding} = require_one {rows_binding}{newline}{indent}{} = {row_binding}.{}{newline}",
         migration.lhs, migration.return_column
     ));
+    replacement
+}
+
+struct LegacyModelTrainingMigration<'a> {
+    alias: &'static str,
+    lhs: &'a str,
+    source: &'a str,
+    options: Vec<(&'static str, &'a str)>,
+    trailing_comment: &'a str,
+}
+
+fn lsp_legacy_model_training_migration_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let lines = split_lines_preserve_logical(text);
+    if has_following_with_block_after_trivia(&lines, line_number) {
+        return None;
+    }
+    let line = *lines.get(line_number)?;
+    let migration = legacy_model_training_migration_from_line(line)?;
+    let replacement = legacy_model_training_migration_replacement(
+        &migration,
+        line_indent(line),
+        document_newline(text),
+    );
+    Some(json!({
+        "title": format!("Replace {} with train regression", migration.alias),
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(uri, full_line_range(text, line_number), &replacement)
+    }))
+}
+
+fn has_following_with_block_after_trivia(lines: &[&str], owner_line_number: usize) -> bool {
+    let mut line_number = owner_line_number.saturating_add(1);
+    while line_number < lines.len() && strip_line_comment(lines[line_number]).trim().is_empty() {
+        line_number += 1;
+    }
+    lines
+        .get(line_number)
+        .is_some_and(|line| strip_line_comment(line).trim() == "with {")
+}
+
+fn legacy_model_training_migration_from_line(
+    line: &str,
+) -> Option<LegacyModelTrainingMigration<'_>> {
+    let comment_start = line_comment_start(line).unwrap_or(line.len());
+    let code = &line[..comment_start];
+    let trailing_comment = line[comment_start..].trim();
+    let (call_start, alias) = ["regression_table", "train_regression"]
+        .into_iter()
+        .filter_map(|alias| code.find(&format!("{alias}(")).map(|start| (start, alias)))
+        .min_by_key(|(start, _)| *start)?;
+    let before_call = &code[..call_start];
+    let equals = before_call.rfind('=')?;
+    if !before_call[equals + 1..].trim().is_empty() {
+        return None;
+    }
+    let lhs = before_call[line_indent(before_call).len()..equals].trim();
+    let binding = lhs
+        .split_once(':')
+        .map(|(name, _annotation)| name.trim())
+        .unwrap_or(lhs);
+    if !is_identifier(binding) {
+        return None;
+    }
+
+    let open = call_start.checked_add(alias.len())?;
+    let close = matching_close_paren_byte(code, open)?;
+    if !code[close + 1..].trim().is_empty() {
+        return None;
+    }
+    let parts = split_top_level_commas(&code[open + 1..close]);
+    let source = parts.first()?.trim();
+    if !is_simple_path_expression(source) {
+        return None;
+    }
+
+    let mut seen = HashSet::new();
+    let mut options = Vec::new();
+    for part in parts.iter().skip(1) {
+        let (name, value) = split_top_level_assignment(part)?;
+        let name = match name.trim() {
+            "target" | "y" => "target",
+            "features" | "x" => "features",
+            "test" | "test_fraction" => "test",
+            "algorithm" => "algorithm",
+            "seed" => "seed",
+            _ => return None,
+        };
+        let value = value.trim();
+        if value.is_empty() || value.contains('{') || value.contains('}') || !seen.insert(name) {
+            return None;
+        }
+        options.push((name, value));
+    }
+
+    Some(LegacyModelTrainingMigration {
+        alias,
+        lhs,
+        source,
+        options,
+        trailing_comment,
+    })
+}
+
+fn legacy_model_training_migration_replacement(
+    migration: &LegacyModelTrainingMigration<'_>,
+    indent: &str,
+    newline: &str,
+) -> String {
+    let comment = if migration.trailing_comment.is_empty() {
+        String::new()
+    } else {
+        format!(" {}", migration.trailing_comment)
+    };
+    let mut replacement = format!(
+        "{indent}{} = train regression {}{comment}{newline}",
+        migration.lhs, migration.source
+    );
+    if migration.options.is_empty() {
+        return replacement;
+    }
+    replacement.push_str(&format!("{indent}with {{{newline}"));
+    for (name, value) in &migration.options {
+        replacement.push_str(&format!("{indent}    {name} = {value}{newline}"));
+    }
+    replacement.push_str(&format!("{indent}}}{newline}"));
     replacement
 }
 
@@ -9644,6 +9779,44 @@ mod tests {
         assert_eq!(hover.name, "W/m2");
         assert_eq!(hover.kind, "unit");
         assert_eq!(hover.display_unit, "W/m2");
+    }
+
+    #[test]
+    fn legacy_model_training_quick_fix_migrates_only_unambiguous_single_lines() {
+        let uri = "file:///C:/workspace/legacy-model.eng";
+        let diagnostic = json!({
+            "range": {
+                "start": { "line": 0, "character": 15 },
+                "end": { "line": 0, "character": 31 }
+            },
+            "code": "W-ML-TRAIN-ALIAS",
+            "message": "`regression_table(...)` is a compatibility-only model training alias."
+        });
+        let source = "legacy_model = regression_table(designs, y=annual_electricity, x=[cooling_cop], test_fraction=0.25, seed=7) # keep\r\n";
+        let actions = code_actions_for_diagnostic(uri, source, &diagnostic);
+        assert_eq!(actions.len(), 1);
+        assert_eq!(
+            actions[0]["title"],
+            "Replace regression_table with train regression"
+        );
+        assert_eq!(
+            actions[0]["edit"]["changes"][uri][0]["newText"],
+            "legacy_model = train regression designs # keep\r\nwith {\r\n    target = annual_electricity\r\n    features = [cooling_cop]\r\n    test = 0.25\r\n    seed = 7\r\n}\r\n"
+        );
+
+        let train_alias_source = "model = train_regression(designs)\n";
+        let train_alias_actions = code_actions_for_diagnostic(uri, train_alias_source, &diagnostic);
+        assert_eq!(train_alias_actions.len(), 1);
+        assert_eq!(
+            train_alias_actions[0]["edit"]["changes"][uri][0]["newText"],
+            "model = train regression designs\n"
+        );
+
+        let attached =
+            "model = train_regression(designs)\n# existing options\nwith {\n    target = y\n}\n";
+        assert!(code_actions_for_diagnostic(uri, attached, &diagnostic).is_empty());
+        let duplicate = "model = regression_table(designs, target=y, y=other, features=[x])\n";
+        assert!(code_actions_for_diagnostic(uri, duplicate, &diagnostic).is_empty());
     }
 
     #[test]

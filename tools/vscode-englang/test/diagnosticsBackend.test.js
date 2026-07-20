@@ -82,7 +82,8 @@ function documentFixture() {
   const lines = [
     "script main {",
     "    value := 1",
-    "}"
+    "}",
+    "legacy_model = regression_table(designs)"
   ];
   return {
     isDirty: false,
@@ -139,6 +140,13 @@ function successfulReview() {
           start: { line: 1, character: 4 },
           end: { line: 1, character: 9 }
         }
+      },
+      {
+        code: "W-ML-TRAIN-ALIAS",
+        severity: "warning",
+        message: "`regression_table(...)` is a compatibility-only model training alias.",
+        line: 4,
+        column: 1
       }
     ],
     review_document: {
@@ -215,7 +223,7 @@ try {
   processCalls[0].callback(null, JSON.stringify(review), "");
   assert.strictEqual(diagnostics.sets.length, 1);
   assert.strictEqual(diagnostics.sets[0].uri, document.uri.toString());
-  assert.strictEqual(diagnostics.sets[0].diagnostics.length, 2);
+  assert.strictEqual(diagnostics.sets[0].diagnostics.length, 3);
 
   const scriptDiagnostic = diagnostics.sets[0].diagnostics[0];
   assert.strictEqual(scriptDiagnostic.source, "eng/file");
@@ -233,6 +241,12 @@ try {
   assert.deepStrictEqual(legacyDiagnostic.range.start, { line: 1, character: 4 });
   assert.deepStrictEqual(legacyDiagnostic.range.end, { line: 1, character: 9 });
   assert.deepStrictEqual(legacyDiagnostic.tags, [vscodeMock.DiagnosticTag.Deprecated]);
+  const modelAliasDiagnostic = diagnostics.sets[0].diagnostics[2];
+  assert.strictEqual(modelAliasDiagnostic.code.value, "W-ML-TRAIN-ALIAS");
+  assert.match(modelAliasDiagnostic.code.target.toString(), /report_review/);
+  assert.deepStrictEqual(modelAliasDiagnostic.range.start, { line: 3, character: 15 });
+  assert.deepStrictEqual(modelAliasDiagnostic.range.end, { line: 3, character: 31 });
+  assert.deepStrictEqual(modelAliasDiagnostic.tags, [vscodeMock.DiagnosticTag.Deprecated]);
   assert.deepStrictEqual(cachedReviews.at(-1), review);
   assert.strictEqual(riskDecorations.at(-1), cachedReviews.at(-1));
   assert.strictEqual(validationDecorations.at(-1), cachedReviews.at(-1));

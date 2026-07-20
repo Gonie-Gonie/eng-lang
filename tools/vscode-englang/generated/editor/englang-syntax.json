@@ -1567,7 +1567,9 @@
                                      ],
                            "workflow_builtin_groups":  {
                                                            "deprecated":  [
-                                                                              "select_first_row"
+                                                                              "select_first_row",
+                                                                              "regression_table",
+                                                                              "train_regression"
                                                                           ],
                                                            "external":  [
                                                                             "file",
@@ -1580,10 +1582,8 @@
                                                            "model":  [
                                                                          "train_test_split",
                                                                          "regression",
-                                                                         "train_regression",
                                                                          "mlp",
                                                                          "ann",
-                                                                         "regression_table",
                                                                          "evaluate",
                                                                          "model_card",
                                                                          "leakage_lint"

@@ -1855,6 +1855,7 @@ generation.
 | `E-WITH-OPTION-001` | Unknown `with` option | Use a supported option key |
 | `E-WITH-UNIT-001` | Incompatible display unit | Pick a unit compatible with the owner quantity |
 | `W-TABLE-LEGACY-SELECT-FIRST-ROW` | `select_first_row` is compatibility-only | Use `filter` plus `require_one` |
+| `W-ML-TRAIN-ALIAS` | `regression_table(...)` or `train_regression(...)` is a compatibility-only model-training alias | Use `train regression <table>` with an attached `with` block |
 | `E-LOG-LEVEL-001` | Unknown or missing log level | Use `log debug/info/warn/error "..."` |
 | `E-PRINT-FMT-003` | Print requested incompatible unit | Fix the print unit |
 | `E-PRINT-FMT-004` | Print expression cannot be resolved | Bind the value or fix the name |

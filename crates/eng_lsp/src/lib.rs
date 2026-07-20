@@ -395,7 +395,8 @@ const WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &[
 ];
 
 const HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &["latin-hypercube"];
-const EDITOR_WORKFLOW_BUILTIN_GROUP_DEPRECATED: &[&str] = &["select_first_row"];
+const EDITOR_WORKFLOW_BUILTIN_GROUP_DEPRECATED: &[&str] =
+    &["select_first_row", "regression_table", "train_regression"];
 const EDITOR_WORKFLOW_BUILTIN_GROUP_VALIDATION: &[&str] = &["fill_missing"];
 const EDITOR_WORKFLOW_BUILTIN_GROUP_EXTERNAL: &[&str] =
     &["file", "dir", "url", "env", "secret", "exists"];
@@ -404,10 +405,8 @@ const EDITOR_WORKFLOW_BUILTIN_GROUP_TEMPORAL: &[&str] = &["date"];
 const EDITOR_WORKFLOW_BUILTIN_GROUP_MODEL: &[&str] = &[
     "train_test_split",
     "regression",
-    "train_regression",
     "mlp",
     "ann",
-    "regression_table",
     "evaluate",
     "model_card",
     "leakage_lint",
@@ -6092,7 +6091,9 @@ impl<'a> SemanticTokenBuilder<'a> {
                     );
                     continue;
                 }
-                if WORKFLOW_BUILTIN_KEYWORDS.contains(&token) {
+                if WORKFLOW_BUILTIN_KEYWORDS.contains(&token)
+                    || EDITOR_LEGACY_WORKFLOW_BUILTIN_ALIASES.contains(&token)
+                {
                     let (token_type, modifiers) = workflow_builtin_semantic_class(
                         line,
                         token,
@@ -7720,6 +7721,9 @@ fn http_request_method_keyword(method: &str) -> &'static str {
 }
 
 fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
+    if EDITOR_LEGACY_WORKFLOW_BUILTIN_ALIASES.contains(&keyword) {
+        return &["defaultLibrary", "model", "deprecated"];
+    }
     if EDITOR_WORKFLOW_BUILTIN_GROUP_EXTERNAL.contains(&keyword) {
         return &["defaultLibrary", "external"];
     }
@@ -20432,6 +20436,8 @@ with {
     seed = 9
 }
 model_on = train regression on designs
+legacy_table_model = regression_table(designs, target=annual_electricity, features=[people_density])
+legacy_train_model = train_regression(designs, target=annual_electricity, features=[people_density])
 ann_model = ann(split_alias, hidden=[8], epochs=10)
 metrics = evaluate(surrogate)
 card = model_card(surrogate)
@@ -20503,6 +20509,8 @@ legacy_station = select_first_row(stations, return_column="station_id")
             "ann",
             "evaluate",
             "model_card",
+            "regression_table",
+            "train_regression",
             "select_first_row",
         ] {
             assert_semantic_token_type(&snapshot, source, label, "function");
@@ -20515,12 +20523,17 @@ legacy_station = select_first_row(stations, return_column="station_id")
         for label in [
             "train",
             "regression",
+            "regression_table",
+            "train_regression",
             "ann",
             "evaluate",
             "model_card",
             "predict",
         ] {
             assert_semantic_token_modifier(&snapshot, source, label, "model");
+        }
+        for label in ["regression_table", "train_regression"] {
+            assert_semantic_token_modifier(&snapshot, source, label, "deprecated");
         }
         assert_semantic_token_on_line_with_modifier(
             &snapshot,
@@ -20720,8 +20733,8 @@ legacy_station = select_first_row(stations, return_column="station_id")
         );
         assert_eq!(
             semantic_token_modifier_count(&snapshot, source, "designs", "variable", "model"),
-            4,
-            "regression and prediction table operands should be model tokens"
+            6,
+            "preferred, legacy, and prediction table operands should be model tokens"
         );
         for label in ["annual_electricity", "people_density"] {
             assert_semantic_token_modifier(&snapshot, source, label, "model");

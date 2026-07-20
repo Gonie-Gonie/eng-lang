@@ -1316,6 +1316,7 @@ with {
 }
 write csv "outputs/bad.csv", bad_standard_text_value
 legacy_station_id = select_first_row(stations, return_column="station_id", region=args.region)
+legacy_model = regression_table(designs, y=annual_electricity, x=[cooling_cop], test_fraction=0.25, seed=7)
 
 schema SensorData {
     m_dot = 1 kg/s
@@ -2013,6 +2014,18 @@ report {
     assert_action_edit_contains(
         actions,
         &uri,
+        "Replace regression_table with train regression",
+        "legacy_model = train regression designs",
+    );
+    assert_action_edit_contains(
+        actions,
+        &uri,
+        "Replace regression_table with train regression",
+        "target = annual_electricity",
+    );
+    assert_action_edit_contains(
+        actions,
+        &uri,
         "Define uncertainty source Q_missing_unc",
         "Q_missing_unc = normal(mean=5 kW, std=0.8 kW, samples=31)",
     );
@@ -2270,6 +2283,7 @@ with {
 }
 write csv "outputs/bad.csv", bad_standard_text_value
 legacy_station_id = select_first_row(stations, return_column="station_id", region=args.region)
+legacy_model = regression_table(designs, y=annual_electricity, x=[cooling_cop], test_fraction=0.25, seed=7)
 
 schema SensorData {
     m_dot = 1 kg/s
@@ -2548,6 +2562,12 @@ report {
         &uri,
         "Replace select_first_row with filter + require_one",
         "legacy_station_id_rows = filter stations",
+    );
+    assert_action_edit_contains(
+        actions,
+        &uri,
+        "Replace regression_table with train regression",
+        "legacy_model = train regression designs",
     );
     assert_action_edit_contains(
         actions,

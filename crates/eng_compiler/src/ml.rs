@@ -179,6 +179,26 @@ pub fn with_block_argument_diagnostics(ml_infos: &[MlInfo]) -> Vec<Diagnostic> {
         .collect()
 }
 
+pub fn public_api_diagnostics(ml_infos: &[MlInfo]) -> Vec<Diagnostic> {
+    ml_infos
+        .iter()
+        .filter_map(|info| {
+            let (alias, span) = legacy_training_alias(info)?;
+            Some(
+                Diagnostic::warning(
+                    "W-ML-TRAIN-ALIAS",
+                    span.line,
+                    &format!("`{alias}(...)` is a compatibility-only model training alias."),
+                    Some(
+                        "Use `model = train regression training_rows` and put model options in an attached `with` block.",
+                    ),
+                )
+                .with_source_span(span),
+            )
+        })
+        .collect()
+}
+
 pub fn is_model_with_options_owner(expression: &str) -> bool {
     let lowered = expression.trim_start().to_ascii_lowercase();
     lowered.starts_with("train_test_split(")
@@ -478,8 +498,10 @@ fn ml_call_name(expression: &str) -> &'static str {
         "train_test_split"
     } else if is_train_regression_phrase(expression) {
         "train regression"
-    } else if is_table_regression_expression(expression) {
+    } else if lowered.starts_with("regression_table(") {
         "regression_table"
+    } else if lowered.starts_with("train_regression(") {
+        "train_regression"
     } else if lowered.starts_with("regression(") {
         "regression"
     } else if lowered.starts_with("mlp(") {
@@ -1177,11 +1199,38 @@ fn replace_argument(info: &mut MlInfo, names: &[&str], argument: MlArgumentInfo)
 }
 
 fn regression_call_label(expression: &str) -> &'static str {
+    let lowered = expression.trim_start().to_ascii_lowercase();
     if is_train_regression_phrase(expression) {
         "train regression"
+    } else if lowered.starts_with("train_regression(") {
+        "train_regression"
     } else {
         "regression_table"
     }
+}
+
+fn legacy_training_alias(info: &MlInfo) -> Option<(&'static str, SourceSpan)> {
+    let trimmed = info.expression.trim_start();
+    let lowered = trimmed.to_ascii_lowercase();
+    let alias = if lowered.starts_with("regression_table(") {
+        "regression_table"
+    } else if lowered.starts_with("train_regression(") {
+        "train_regression"
+    } else {
+        return None;
+    };
+    let leading = info.expression.len().checked_sub(trimmed.len())?;
+    let start = info.expression_span.start.checked_add(leading)?;
+    Some((
+        alias,
+        SourceSpan::new_in_source(
+            info.expression_span.source_id,
+            start,
+            start.checked_add(alias.len())?,
+            info.expression_span.line,
+            info.expression_span.column.checked_add(leading)?,
+        ),
+    ))
 }
 
 fn unquote_value(value: &str) -> &str {

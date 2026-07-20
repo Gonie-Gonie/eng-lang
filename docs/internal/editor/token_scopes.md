@@ -123,8 +123,8 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `variable.parameter.type.englang` | Generic type arguments inside bracketed type expressions. |
 | `support.function.builtin.englang` | Error-tolerant fallback for incomplete or not-yet-classified builtin editor states; public helper fixtures should use a role-specific scope. |
 | `support.function.validation.englang` | Validation and data-quality compatibility coloring for `fill_missing(...)`; this does not make it a public top-level call, and current authoring uses the `fill missing ...` workflow phrase. |
-| `support.function.deprecated.englang` | Deprecated helper calls such as `select_first_row(...)`, which should be migrated to `filter` plus `require_one`. |
-| `support.function.model.englang` | Model-training and model-summary helper calls such as `regression(...)`, `train_test_split(...)`, `regression_table(...)`, `train_regression(...)`, `mlp(...)`, `ann(...)`, `evaluate(...)`, `model_card(...)`, and `leakage_lint(...)`. |
+| `support.function.deprecated.englang` | Deprecated helper calls such as `select_first_row(...)`, `regression_table(...)`, and `train_regression(...)`; editor migration actions target their preferred forms. |
+| `support.function.model.englang` | Preferred model-training and model-summary helper calls such as `regression(...)`, `train_test_split(...)`, `mlp(...)`, `ann(...)`, `evaluate(...)`, `model_card(...)`, and `leakage_lint(...)`. |
 | `support.function.uncertain.englang` | Uncertainty helper calls such as `measured(...)`, `interval(...)`, `normal(...)`, `uniform(...)`, `distribution(...)`, `propagate(...)`, `ensemble(...)`, and `probability(...)`. |
 | `support.function.timeseries.englang` | TimeSeries/statistic calls such as `integrate(...)`, `mean(...)`, `min(...)`, `max(...)`, `median(...)`, `std(...)`, `sum(...)`, `time_weighted_mean(...)`, and `p90(...)`; `duration_above(...)` uses this color as a `summarize` statistic selector rather than a public top-level value call. |
 | `support.function.external-boundary.englang` | External boundary constructors/checks such as `file(...)`, `dir(...)`, `url(...)`, `env(...)`, `secret env(...)`, and `exists(...)`. |
@@ -166,7 +166,43 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `invalid.deprecated.englang` | High-risk fallback mapping. |
 | `markup.warning.englang` | Medium-risk fallback mapping. |
 
-Command-style workflow and review verbs such as `sample`, `filter`, `derive`, `require_one`, `integrate`, and `mean` use `keyword.control.*.englang`; model workflow phrases such as `predict ... using ...` and `train regression ...` use `keyword.control.model.englang`; model helper calls such as `regression(...)`, `train_test_split(...)`, `regression_table(...)`, `train_regression(...)`, `mlp(...)`, `ann(...)`, `evaluate(...)`, `model_card(...)`, and `leakage_lint(...)` use `support.function.model.englang`; uncertainty helper calls such as `measured(...)`, `interval(...)`, `normal(...)`, `uniform(...)`, `distribution(...)`, `propagate(...)`, `ensemble(...)`, and `probability(...)` use `support.function.uncertain.englang`; TimeSeries/statistic helper calls such as `integrate(...)`, `mean(...)`, `min(...)`, `max(...)`, `median(...)`, `std(...)`, `sum(...)`, `time_weighted_mean(...)`, `duration_above(...)`, `p90(...)`, and `p95(...)` use `support.function.timeseries.englang`; arbitrary `pNN(...)` names are not treated as implemented percentile helpers. `fill_missing(...)` uses `support.function.validation.englang` while current authoring uses the `fill missing ...` phrase; `select_first_row(...)` uses `support.function.deprecated.englang`; external boundary constructors/checks such as `file(...)`, `dir(...)`, `url(...)`, `env(...)`, `secret env(...)`, and `exists(...)` use `support.function.external-boundary.englang`; path helpers such as `join(...)`, `parent(...)`, `stem(...)`, and `extension(...)` use `support.function.path.englang`; `date(...)` uses `support.function.temporal.englang`; workflow-step helpers such as `apply(...)` and `run_case` use `support.function.workflow-step.englang`; solver helpers such as `der(...)` and `delay(...)` use `support.function.solver.englang`; TimeSeries quality verbs such as `fill`, `align`, and `resample` use validation-colored fallback scopes to match their phrase scopes. String interpolation and the native IDE lexical first paint consume the same compiler-owned builtin role groups before falling back to generic builtin coloring. `support.function.builtin.englang` remains only as an error-tolerant fallback for incomplete editor states, not as evidence that an additional public call-style API is implemented.
+Command-style workflow and review verbs such as `sample`, `filter`, `derive`,
+`require_one`, `integrate`, and `mean` use `keyword.control.*.englang`. Model
+workflow phrases such as `predict ... using ...` and `train regression ...`
+use `keyword.control.model.englang`; current model helper calls such as
+`regression(...)`, `train_test_split(...)`, `mlp(...)`, `ann(...)`,
+`evaluate(...)`, `model_card(...)`, and `leakage_lint(...)` use
+`support.function.model.englang`. Compatibility-only `regression_table(...)`
+and `train_regression(...)` use `support.function.deprecated.englang` while
+retaining the model semantic modifier.
+
+Uncertainty helper calls such as `measured(...)`, `interval(...)`, `normal(...)`,
+`uniform(...)`, `distribution(...)`, `propagate(...)`, `ensemble(...)`, and
+`probability(...)` use `support.function.uncertain.englang`. TimeSeries/statistic
+helper calls such as `integrate(...)`, `mean(...)`, `min(...)`, `max(...)`,
+`median(...)`, `std(...)`, `sum(...)`, `time_weighted_mean(...)`,
+`duration_above(...)`, `p90(...)`, and `p95(...)` use
+`support.function.timeseries.englang`; arbitrary `pNN(...)` names are not
+treated as implemented percentile helpers. `fill_missing(...)` uses
+`support.function.validation.englang` while current authoring uses the
+`fill missing ...` workflow phrase; `select_first_row(...)` uses
+`support.function.deprecated.englang`.
+
+External boundary constructors/checks such as `file(...)`, `dir(...)`,
+`url(...)`, `env(...)`, `secret env(...)`, and `exists(...)` use
+`support.function.external-boundary.englang`; path helpers such as `join(...)`,
+`parent(...)`, `stem(...)`, and `extension(...)` use
+`support.function.path.englang`; `date(...)` uses
+`support.function.temporal.englang`; workflow-step helpers such as `apply(...)`
+and `run_case` use `support.function.workflow-step.englang`; solver helpers such
+as `der(...)` and `delay(...)` use `support.function.solver.englang`.
+TimeSeries quality verbs such as `fill`, `align`, and `resample` use
+validation-colored fallback scopes to match their phrase scopes. String
+interpolation and the native IDE lexical first paint consume the same
+compiler-owned builtin role groups before falling back to generic builtin
+coloring. `support.function.builtin.englang` remains only as an error-tolerant
+fallback for incomplete editor states, not as evidence that an additional
+public call-style API is implemented.
 
 These color roles are context classifications, not top-level API claims.
 `duration_above(...)` is a `summarize` statistic selector, `delay(...)` is
@@ -221,7 +257,8 @@ coloring include `#members` first; `status` option/condition scopes are the
 only allowed exception because they color fixed workflow-state keys and literals.
 
 Model call phrases such as `train_test_split(...)`, `regression_table(...)`,
-`evaluate(...)`, `model_card(...)`, and `leakage_lint(...)` also include
+`train_regression(...)`, `evaluate(...)`, `model_card(...)`, and
+`leakage_lint(...)` also include
 member-aware fallbacks so nested model, split, table, and feature operands stay
 split before broad property scopes.
 
@@ -263,7 +300,8 @@ Current workflow phrase scopes:
 | `meta.workflow.log-message.englang` | `log <level> ...` structured runtime message lines; includes member-aware first-paint fallbacks for dotted message operands. |
 | `meta.workflow.materialize-cases.englang` | `materialize cases <table>` |
 | `meta.workflow.model-summary-call.englang` | `evaluate(<model>[, split=...])`, `model_card(<model>)`, and related model summary calls. |
-| `meta.workflow.model-train-call.englang` | `train_test_split(...)`, legacy-compatible `train_regression(...)`, `regression(...)`, `mlp(...)`, and `ann(...)` model-training calls. |
+| `meta.workflow.model-train-call.englang` | `train_test_split(...)`, `regression(...)`, `mlp(...)`, and `ann(...)` model-training calls. |
+| `meta.workflow.legacy-model-train.englang` | Compatibility-only `regression_table(...)` and `train_regression(...)` calls with deprecated function-name coloring and model-aware arguments. |
 | `meta.workflow.train-regression.englang` | `train regression <table>`, `train regression from <table>`, and `train regression on <table>` table-model training phrases. |
 | `meta.workflow.open-sqlite.englang` | `open sqlite <source>` |
 | `meta.workflow.option-map.englang` | `query = { ... }`, `headers = { ... }`, and `values = { ... }` option maps. |
@@ -278,7 +316,6 @@ Current workflow phrase scopes:
 | `meta.workflow.promote-json-records.englang` | `promote json records <source> as <schema>` |
 | `meta.workflow.promote-toml.englang` | `promote toml <source> as <schema>` |
 | `meta.workflow.read-structured.englang` | `read json <source>`, `read toml <source>`, and `read text <source>` raw string reads; phrase keywords use external-boundary coloring because the source can be a file, response body, or other boundary value. Use `promote csv <source> as <schema>` for CSV tables. |
-| `meta.workflow.regression-table.englang` | Legacy-compatible `regression_table(<table>, target=..., features=..., ...)` table-model training calls. |
 | `meta.workflow.require-one.englang` | `require_one <table>` |
 | `meta.workflow.resample-series.englang` | `resample <series> to <series>`, `resample <series> with <series>`, or `resample <series> by <duration>` |
 | `meta.workflow.render-template.englang` | `render template <source>` and `render template <source> to <output>` |

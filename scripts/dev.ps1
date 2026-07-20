@@ -6665,6 +6665,9 @@ function Assert-VscodeExtensionContract {
         "Set model seed",
         "Set model hidden layers",
         "Set model epochs",
+        "W-ML-TRAIN-ALIAS",
+        "lsp_legacy_model_training_migration_code_action",
+        "Replace {} with train regression",
         "lsp_unsupported_write_format_code_actions",
         "Change write format to",
         "lsp_write_standard_text_output_code_action",
@@ -6678,8 +6681,16 @@ function Assert-VscodeExtensionContract {
             throw "eng-lsp code action source missing quick fix token $RequiredLspQuickFixToken"
         }
     }
+    $ModelOptionQuickFixFunction = [regex]::Match(
+        $LspCliSource,
+        'fn model_option_quick_fix_option_names\(.*?(?=\r?\nfn )',
+        [System.Text.RegularExpressions.RegexOptions]::Singleline
+    )
+    if (-not $ModelOptionQuickFixFunction.Success) {
+        throw "eng-lsp code action source missing model_option_quick_fix_option_names"
+    }
     foreach ($HiddenModelOptionAlias in @('"test_fraction"', '"layers"')) {
-        if ($LspCliSource.Contains($HiddenModelOptionAlias)) {
+        if ($ModelOptionQuickFixFunction.Value.Contains($HiddenModelOptionAlias)) {
             throw "eng-lsp model option quick fixes must not expose compatibility-only option aliases"
         }
     }

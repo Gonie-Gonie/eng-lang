@@ -7028,7 +7028,10 @@ const NATIVE_WORKFLOW_BANNED_MARKERS: &[(&str, &str)] = &[
     ("jupyter", "notebook workflow dependency"),
     ("jupyterlab", "notebook workflow dependency"),
     ("notebook", "notebook workflow dependency"),
-    ("select_first_row", "legacy seeded row selection helper"),
+    (
+        "select_first_row",
+        "compatibility-only row selection helper",
+    ),
 ];
 
 fn native_workflow_sources_avoid_external_processes() -> bool {

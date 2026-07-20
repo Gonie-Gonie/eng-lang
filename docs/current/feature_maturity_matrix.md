@@ -291,7 +291,9 @@ separate.
   `typed_payload.sample_tables[]`; native SQLite append/upsert/replace writes
   include manifests, typed table readback records, schema diagnostics,
   transaction status, and DB file hashes; preferred native
-  `train regression`, legacy-compatible `regression_table`, and `predict <model> using <table>` materialize
+  preferred `train regression`, warning-producing compatibility aliases
+  `regression_table(...)`/`train_regression(...)`, and
+  `predict <model> using <table>` materialize
   Table[Prediction] rows and `typed_payload.prediction_manifests[]`; live
   HTTP(S) GET/download execution materializes pinned response/download bodies
   with cache replay; native `materialize cases`, template `apply`, explicit
@@ -343,7 +345,7 @@ separate.
 - Next cleanup action: grow `eng.cache` beyond network and native case-result
   materialization/replay into process/model and cross-artifact invalidation,
   then extend the existing native workflow artifact snapshots to cover
-  broader `eng.case` scheduling, `eng.db`
+  external-adapter and shared/remote `eng.case` dispatch/cache policy, `eng.db`
   query/migration, and `eng.model` framework-adapter slices with artifacts and
   diagnostics.
 

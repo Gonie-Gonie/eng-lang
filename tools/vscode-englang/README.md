@@ -86,7 +86,9 @@ embedding compiler logic in JavaScript.
   insertion into attached or new `with` blocks, model source-chain
   starter-code repairs, model option value repairs for invalid test splits, seeds, hidden layers, and epochs,
   unsupported regression algorithm repairs, unsupported command-style call conversions,
-  legacy `select_first_row` migration edits,
+  legacy `select_first_row` migration edits, compatibility-only
+  `regression_table(...)`/`train_regression(...)` migration to the preferred
+  `train regression` form,
   uncertainty constructor argument repairs, direct uncertainty comparison repairs,
   uncertainty propagation option/seed repairs, uncertainty source
   definition/conversion repairs, and golden test-block/expected path wrappers.

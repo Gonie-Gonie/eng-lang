@@ -699,11 +699,21 @@ The data-driven modeling track adds metadata for:
 ```text
 train_test_split(...)
 regression(...)
+train regression <table> with { ... }
+regression_table(...)
+train_regression(...)
 mlp(...) / ann(...)
 evaluate(...) / metrics(...)
 model_card(...)
 leakage_lint(...)
+predict <model> using <table>
 ```
+
+`train regression <table>` is the preferred native table-training API.
+`regression_table(...)` and `train_regression(...)` remain accepted for source
+compatibility, but emit `W-ML-TRAIN-ALIAS`; VS Code marks the call deprecated
+and can migrate an unambiguous single-line call to the phrase form plus an
+attached `with` block.
 
 The same ML surface appears in:
 
@@ -737,8 +747,11 @@ the wrong semantic type produce `E-ML-SOURCE-002`. It also validates required
 split/model/MLP options: malformed arguments produce `E-ML-ARGS-001` or
 `E-ML-ARGS-002`, and unsupported model options produce `E-ML-ARGS-003`.
 
-These metrics are deterministic values for user testing and artifact review.
-Full ML training maturity is a later roadmap item.
+For `train regression <table>`, the native runtime fits the supported linear
+regression model from materialized table rows, evaluates train/test metrics,
+and writes the model card, prediction metadata, and content hashes without a
+Python process. Broader algorithms and external framework adapters remain
+roadmap items.
 
 ## TimeSeries Coverage Metadata
 
