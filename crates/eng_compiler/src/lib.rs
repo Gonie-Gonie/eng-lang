@@ -553,14 +553,15 @@ pub fn retarget_check_report_for_token_stable_trivia(
 /// Rechecks one scalar binding and the suffix affected by source positions or dependencies.
 ///
 /// This token-changing incremental path is intentionally strict. Both sources must contain only
-/// successful top-level scalar bindings and trivia, suffix binding cardinality must remain stable,
-/// and every expression must be either a numeric literal or a backward alias to an earlier binding.
+/// successful top-level scalar bindings and trivia, and every expression must be either a numeric
+/// literal or a backward alias to an earlier binding.
 /// Changed logical lines may remain bindings or token-free trivia, including inserted or removed
 /// trivia and line-ending changes. Coordinated binding renames are accepted when the resulting names
 /// stay unique and aliases resolve in source order. The compiler preserves report records before the
 /// first binding at or after the first raw-line difference, then reparses and semantically reanalyzes
-/// that suffix. It verifies the old suffix result against the prior report before patching. Imports,
-/// diagnostics, caches, compound expressions, binding additions or removals, richer language
+/// that suffix. Binding additions and removals update all scalar semantic vectors, syntax counts, and
+/// the top-level workflow line atomically. The compiler verifies the old suffix result against the
+/// prior report before patching. Imports, diagnostics, caches, compound expressions, richer language
 /// constructs, and edits without an affected binding return `None` so the caller can run a normal
 /// check or another reuse path.
 ///
@@ -612,17 +613,21 @@ pub fn recheck_scalar_binding_suffix_incrementally(
 
     let previous_suffix = parse_scalar_binding_suffix(&previous_lines[changed_index..])?;
     let source_suffix = parse_scalar_binding_suffix(&source_lines[changed_index..])?;
-    let previous_changed = previous_suffix.bindings.first()?;
-    if previous_suffix.bindings.len() != source_suffix.bindings.len() {
+    if previous_suffix.bindings.is_empty() && source_suffix.bindings.is_empty() {
         return None;
     }
 
-    let first_record = report
-        .inferred_declarations
-        .iter()
-        .position(|declaration| {
-            declaration.line == previous_changed.line && declaration.name == previous_changed.name
-        })?;
+    let first_record = if let Some(previous_changed) = previous_suffix.bindings.first() {
+        report
+            .inferred_declarations
+            .iter()
+            .position(|declaration| {
+                declaration.line == previous_changed.line
+                    && declaration.name == previous_changed.name
+            })?
+    } else {
+        report.inferred_declarations.len()
+    };
     let mut source_names = HashSet::new();
     if !report.inferred_declarations[..first_record]
         .iter()
@@ -673,7 +678,24 @@ pub fn recheck_scalar_binding_suffix_incrementally(
         .tokens
         .checked_sub(previous_suffix.token_count)?
         .checked_add(source_suffix.token_count)?;
+    reused.syntax_summary.ast_items = reused
+        .syntax_summary
+        .ast_items
+        .checked_sub(previous_suffix.bindings.len())?
+        .checked_add(source_suffix.bindings.len())?;
+    reused.syntax_summary.fast_bindings = reused
+        .syntax_summary
+        .fast_bindings
+        .checked_sub(previous_suffix.bindings.len())?
+        .checked_add(source_suffix.bindings.len())?;
     reused.syntax_summary.lines = source_lines.len();
+    if first_record == 0 {
+        semantic.workflow.line = source_suffix
+            .bindings
+            .first()
+            .map(|binding| binding.line)
+            .unwrap_or(1);
+    }
     reused.source_hash = hash_text(source);
     reused.source_lines = source.lines().map(str::to_owned).collect();
     Some(reused)
@@ -730,7 +752,7 @@ fn parse_scalar_binding_suffix(lines: &[source::SourceLine]) -> Option<ParsedBin
             Some(binding.clone())
         })
         .collect::<Option<Vec<_>>>()?;
-    if bindings.is_empty() || syntax_summary.ast_items != syntax_summary.fast_bindings {
+    if syntax_summary.ast_items != syntax_summary.fast_bindings {
         return None;
     }
     Some(ParsedBindingSuffix {
@@ -745,8 +767,7 @@ fn report_has_incremental_scalar_binding_shape(
     empty_semantic_program: &SemanticProgram,
 ) -> bool {
     let binding_count = report.syntax_summary.fast_bindings;
-    if binding_count == 0
-        || report.source_files.len() != 1
+    if report.source_files.len() != 1
         || report.source_files[0].source_id != SourceSpan::ROOT_SOURCE_ID
         || !report.diagnostics.is_empty()
         || report.syntax_summary.ast_items != binding_count
@@ -9570,6 +9591,124 @@ mod tests {
         assert_fresh_equivalent(&compact_reused, &compact_fresh, compact_source);
         assert_eq!(compact_reused.syntax_summary.lines, 3);
         assert_eq!(compact_reused.inferred_declarations[1].line, 2);
+
+        let leading_trivia_source = concat!(
+            "# scalar values\r\n",
+            "\r\n",
+            "length = 2 m\r\n",
+            "heat_rate = 1800 W\r\n",
+            "heat_rate_copy = heat_rate\r\n",
+        );
+        let leading_trivia_reused = recheck_scalar_binding_suffix_incrementally(
+            &compact_reused,
+            compact_source,
+            leading_trivia_source,
+        )
+        .expect("leading trivia should move the top-level workflow line incrementally");
+        let leading_trivia_fresh = check_source(
+            "incremental-trivia.eng",
+            leading_trivia_source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(
+            &leading_trivia_reused,
+            &leading_trivia_fresh,
+            leading_trivia_source,
+        );
+        assert_eq!(leading_trivia_reused.semantic_program.workflow.line, 3);
+
+        let expanded_source = concat!(
+            "# scalar values\r\n",
+            "\r\n",
+            "length = 2 m\r\n",
+            "heat_rate = 1800 W\r\n",
+            "heat_rate_copy = heat_rate\r\n",
+            "heat_rate_alias = heat_rate_copy\r\n",
+        );
+        let expanded_reused = recheck_scalar_binding_suffix_incrementally(
+            &leading_trivia_reused,
+            leading_trivia_source,
+            expanded_source,
+        )
+        .expect("an appended scalar alias should extend the semantic suffix");
+        let expanded_fresh = check_source(
+            "incremental-trivia.eng",
+            expanded_source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(&expanded_reused, &expanded_fresh, expanded_source);
+        assert_eq!(expanded_reused.syntax_summary.fast_bindings, 4);
+
+        let inserted_binding_source = concat!(
+            "# scalar values\r\n",
+            "\r\n",
+            "length = 2 m\r\n",
+            "ratio = 1\r\n",
+            "heat_rate = 1800 W\r\n",
+            "heat_rate_copy = heat_rate\r\n",
+            "heat_rate_alias = heat_rate_copy\r\n",
+        );
+        let inserted_binding_reused = recheck_scalar_binding_suffix_incrementally(
+            &expanded_reused,
+            expanded_source,
+            inserted_binding_source,
+        )
+        .expect("an inserted scalar binding should extend the semantic suffix");
+        let inserted_binding_fresh = check_source(
+            "incremental-trivia.eng",
+            inserted_binding_source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(
+            &inserted_binding_reused,
+            &inserted_binding_fresh,
+            inserted_binding_source,
+        );
+        assert_eq!(inserted_binding_reused.syntax_summary.ast_items, 5);
+
+        let reduced_reused = recheck_scalar_binding_suffix_incrementally(
+            &inserted_binding_reused,
+            inserted_binding_source,
+            leading_trivia_source,
+        )
+        .expect("removed scalar bindings should shrink the semantic suffix");
+        assert_fresh_equivalent(
+            &reduced_reused,
+            &leading_trivia_fresh,
+            leading_trivia_source,
+        );
+
+        let cleared_source = "# reset\r\n";
+        let cleared_reused = recheck_scalar_binding_suffix_incrementally(
+            &reduced_reused,
+            leading_trivia_source,
+            cleared_source,
+        )
+        .expect("removing every scalar binding should clear semantic records");
+        let cleared_fresh = check_source(
+            "incremental-trivia.eng",
+            cleared_source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(&cleared_reused, &cleared_fresh, cleared_source);
+        assert!(cleared_reused.inferred_declarations.is_empty());
+        assert_eq!(cleared_reused.syntax_summary.fast_bindings, 0);
+        assert_eq!(cleared_reused.semantic_program.workflow.line, 1);
+
+        let restarted_source = "# reset\r\nvalue = 1\r\n";
+        let restarted_reused = recheck_scalar_binding_suffix_incrementally(
+            &cleared_reused,
+            cleared_source,
+            restarted_source,
+        )
+        .expect("a scalar binding should be added to a trivia-only report");
+        let restarted_fresh = check_source(
+            "incremental-trivia.eng",
+            restarted_source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(&restarted_reused, &restarted_fresh, restarted_source);
+        assert_eq!(restarted_reused.semantic_program.workflow.line, 2);
     }
 
     #[test]
@@ -9585,7 +9724,7 @@ mod tests {
             "length = 2 m\nheat_rate = missing\n",
             "length = 2 m\nheat_rate = 2 kW + 1 kW\n",
             "length = 2 m\nheat_rate = 2 kW\n# trailing trivia\n",
-            "length = 3 m\nadded = 1\nheat_rate = 2 kW\n",
+            "length = 3 m\nadded = heat_rate\nheat_rate = 2 kW\n",
         ] {
             assert!(
                 recheck_scalar_binding_suffix_incrementally(

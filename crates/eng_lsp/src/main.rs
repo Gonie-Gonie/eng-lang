@@ -10375,17 +10375,93 @@ mod tests {
             "line-ending changes should recheck the affected scalar suffix"
         );
 
-        let fallback_source = concat!(
+        let expanded_source = concat!(
             "heat_rate = 1800 W\r\n",
             "factor = 2\r\n",
             "\r\n",
             "# aliases shifted by a longer comment\r\n",
-            "scaled_ratio = heat_rate + heat_rate\r\n",
+            "scaled_ratio = factor\r\n",
+            "scaled_ratio_copy = scaled_ratio\r\n",
         );
-        let fallback_change = json!({
+        let expanded_change = json!({
             "method": "textDocument/didChange",
             "params": {
                 "textDocument": { "uri": uri, "version": 8 },
+                "contentChanges": [{ "text": expanded_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&expanded_change, &documents)
+                .expect("appended scalar binding should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, expanded_source, &documents),
+            snapshot_for_source(&path, expanded_source)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 7);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 8, 0, true, true),
+            "an appended scalar binding should extend the cached semantic suffix"
+        );
+
+        let cleared_source = "# scalar bindings cleared\r\n";
+        let cleared_change = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 9 },
+                "contentChanges": [{ "text": cleared_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&cleared_change, &documents)
+                .expect("cleared scalar document should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, cleared_source, &documents),
+            snapshot_for_source(&path, cleared_source)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 8);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 9, 0, true, true),
+            "removing every scalar binding should clear the cached semantic records"
+        );
+
+        let restarted_source = "# scalar bindings cleared\r\nvalue = 1\r\n";
+        let restarted_change = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 10 },
+                "contentChanges": [{ "text": restarted_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&restarted_change, &documents)
+                .expect("restarted scalar document should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, restarted_source, &documents),
+            snapshot_for_source(&path, restarted_source)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 9);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 10, 0, true, true),
+            "adding a binding to a trivia-only report should rebuild the scalar suffix"
+        );
+
+        let fallback_source = concat!("# scalar bindings cleared\r\n", "value = 1 + 1\r\n",);
+        let fallback_change = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 11 },
                 "contentChanges": [{ "text": fallback_source }]
             }
         });
@@ -10399,10 +10475,10 @@ mod tests {
             snapshot_for_open_documents(&path, fallback_source, &documents),
             snapshot_for_source(&path, fallback_source)
         );
-        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 6);
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 9);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
-            (0, 8, 0, true, true),
+            (0, 11, 0, true, true),
             "a compound expression edit must fall back to a fresh compiler report"
         );
 

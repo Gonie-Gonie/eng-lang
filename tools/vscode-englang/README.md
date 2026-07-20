@@ -22,8 +22,8 @@ embedding compiler logic in JavaScript.
 - strict token-changing partial parse/semantic recheck from the first changed
   scalar binding through the affected suffix in documents containing only numeric
   literals and backward aliases, including coordinated multi-line edits and
-  renames plus resized/inserted/removed standalone trivia and suffix line-ending
-  shifts before a later binding, with full-analysis fallback outside that contract
+  renames, binding additions/removals, resized/inserted/removed standalone trivia,
+  and suffix line-ending shifts, with full-analysis fallback outside that contract
 - debounced diagnostics for unsaved buffers after a short typing pause,
   including open dependent EngLang files when an imported buffer changes
 - debounced role-aware color refresh and stale decoration clearing across open
@@ -241,10 +241,12 @@ also repairs absolute source spans and line numbers when comments or blank lines
 are resized, inserted, or removed, or when suffix line endings change. Coordinated
 declaration and alias renames are accepted when names remain unique and aliases
 resolve backward in source order. The server verifies the old suffix against the
-corresponding report records before patching them. Binding additions or removals,
-token-bearing non-binding lines, incomplete or duplicate renames, unresolved or
-compound expressions, diagnostics, imports, caches, and richer language run a
-full compiler analysis.
+corresponding report records before patching them. Scalar bindings can be inserted
+or removed, including clearing all bindings and restarting from a trivia-only
+report; semantic vectors, syntax counts, and the first workflow line are updated
+together. Token-bearing non-binding lines, incomplete or duplicate renames,
+forward, unresolved, or compound expressions, diagnostics, imports, caches, and
+richer language run a full compiler analysis.
 Changing an open import hard-invalidates its recursive open dependents, while
 unrelated document analyses remain cached. This remains a narrow partial path,
 not general incremental parse or semantic recomputation.

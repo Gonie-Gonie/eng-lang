@@ -1054,7 +1054,8 @@ pub(crate) struct IncrementalBindingAnalysis {
 ///
 /// The compiler owns the validation around this helper. Keeping the accepted expressions to
 /// numeric literals and backward aliases ensures that no whole-program semantic collection needs
-/// to be recomputed while still allowing changed types to propagate through an alias chain.
+/// to be recomputed while still allowing changed types to propagate through an alias chain. An
+/// empty suffix is accepted so the caller can remove the final affected bindings atomically.
 pub(crate) fn analyze_incremental_scalar_bindings(
     program: &ParsedProgram,
     prefix_typed_bindings: &[TypedBinding],
@@ -1069,13 +1070,12 @@ pub(crate) fn analyze_incremental_scalar_bindings(
             (binding.context == ParseContext::TopLevel).then_some(binding)
         })
         .collect::<Option<Vec<_>>>()?;
-    if bindings.is_empty()
-        || bindings.len()
-            != program
-                .lines
-                .iter()
-                .filter(|line| !line.tokens.is_empty())
-                .count()
+    if bindings.len()
+        != program
+            .lines
+            .iter()
+            .filter(|line| !line.tokens.is_empty())
+            .count()
         || bindings.iter().any(|binding| {
             let expression = binding.expression.trim();
             parse_numeric_literal(expression).is_none() && !is_identifier(expression)

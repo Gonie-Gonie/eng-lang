@@ -131,10 +131,12 @@ review material. It is not a broad solver claim.
   reparse/semantically reanalyze that suffix. This repairs absolute spans and line
   numbers after variable-width, inserted, or removed standalone trivia and suffix
   line-ending changes. Coordinated declaration and alias renames are accepted when
-  names remain unique and every alias resolves backward in source order. Binding
-  additions or removals, token-bearing non-binding lines, incomplete or duplicate
-  renames, unresolved or compound expressions, diagnostics, imports, caches, and
-  richer language use full analysis.
+  names remain unique and every alias resolves backward in source order. Scalar
+  binding additions/removals, complete clearing, and restart from trivia-only text
+  update semantic vectors, syntax counts, and the first workflow line together.
+  Token-bearing non-binding lines, incomplete or duplicate renames, forward,
+  unresolved, or compound expressions, diagnostics, imports, caches, and richer
+  language use full analysis.
   Source changes invalidate recursive open import dependents while preserving
   the changed document as a candidate for these narrow reuse paths. This is not
   general partial parsing or a public cross-release protocol commitment.
