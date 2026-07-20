@@ -553,15 +553,15 @@ pub fn retarget_check_report_for_token_stable_trivia(
 /// Rechecks one scalar binding and the suffix affected by source positions or dependencies.
 ///
 /// This token-changing incremental path is intentionally strict. Both sources must contain only
-/// successful top-level scalar bindings and trivia, every changed logical line must remain a
-/// binding line, line endings and binding line identities must remain stable, and every expression
-/// must be either a numeric literal or a backward alias to an earlier binding. Coordinated binding
-/// renames are accepted when the resulting names stay unique and aliases resolve in source order.
-/// The compiler preserves the preceding report records, then reparses and semantically reanalyzes
-/// only the first changed binding and its suffix. It verifies the old suffix result against the prior
-/// report before patching. Imports, diagnostics, caches, compound expressions, changed trivia lines,
-/// richer language constructs, and line-count or line-ending changes return `None` so the caller can
-/// run a full check.
+/// successful top-level scalar bindings and trivia, line endings and binding line identities must
+/// remain stable, and every expression must be either a numeric literal or a backward alias to an
+/// earlier binding. Changed logical lines may remain bindings or token-free trivia in both sources.
+/// Coordinated binding renames are accepted when the resulting names stay unique and aliases resolve
+/// in source order. The compiler preserves report records before the first binding at or after the
+/// first changed line, then reparses and semantically reanalyzes that suffix. It verifies the old
+/// suffix result against the prior report before patching. Imports, diagnostics, caches, compound
+/// expressions, binding additions or removals, richer language constructs, and line-count or
+/// line-ending changes return `None` so the caller can run a full check.
 ///
 /// The caller must preserve the source path, check options, argument overrides, and import
 /// environment, just as for [`retarget_check_report_for_token_stable_trivia`].
@@ -587,7 +587,7 @@ pub fn recheck_scalar_binding_suffix_incrementally(
     {
         return None;
     }
-    let mut changed_indices = Vec::new();
+    let mut changed_index = None;
     for (index, (previous_line, source_line)) in
         previous_lines.iter().zip(&source_lines).enumerate()
     {
@@ -597,11 +597,11 @@ pub fn recheck_scalar_binding_suffix_incrementally(
         {
             return None;
         }
-        if previous_line.text != source_line.text {
-            changed_indices.push(index);
+        if previous_line.text != source_line.text && changed_index.is_none() {
+            changed_index = Some(index);
         }
     }
-    let changed_index = *changed_indices.first()?;
+    let changed_index = changed_index?;
     if previous_lines[changed_index].start != source_lines[changed_index].start {
         return None;
     }
@@ -618,21 +618,7 @@ pub fn recheck_scalar_binding_suffix_incrementally(
     let previous_suffix = parse_scalar_binding_suffix(&previous_lines[changed_index..])?;
     let source_suffix = parse_scalar_binding_suffix(&source_lines[changed_index..])?;
     let previous_changed = previous_suffix.bindings.first()?;
-    let source_changed = source_suffix.bindings.first()?;
-    if previous_changed.line != previous_lines[changed_index].line
-        || source_changed.line != source_lines[changed_index].line
-        || previous_suffix.bindings.len() != source_suffix.bindings.len()
-        || !changed_indices.iter().all(|index| {
-            let line = previous_lines[*index].line;
-            previous_suffix
-                .bindings
-                .iter()
-                .any(|binding| binding.line == line)
-                && source_suffix
-                    .bindings
-                    .iter()
-                    .any(|binding| binding.line == line)
-        })
+    if previous_suffix.bindings.len() != source_suffix.bindings.len()
         || !previous_suffix
             .bindings
             .iter()
@@ -9470,6 +9456,73 @@ mod tests {
     }
 
     #[test]
+    fn incrementally_rechecks_scalar_bindings_after_token_free_trivia_shift() {
+        let previous_source = concat!(
+            "length = 2 m\n",
+            "# inputs\n",
+            "heat_rate = 2 kW\n",
+            "heat_rate_copy = heat_rate\n",
+        );
+        let source = concat!(
+            "length = 2 m\n",
+            "# expanded scalar inputs and units\n",
+            "heat_rate = 1800 W\n",
+            "heat_rate_copy = heat_rate\n",
+        );
+        let previous = check_source(
+            "incremental-trivia.eng",
+            previous_source,
+            &CheckOptions::default(),
+        );
+        let previous_heat_rate_span = previous
+            .inferred_declarations
+            .iter()
+            .find(|declaration| declaration.name == "heat_rate")
+            .expect("previous shifted declaration")
+            .expression_span;
+
+        let reused =
+            recheck_scalar_binding_suffix_incrementally(&previous, previous_source, source)
+                .expect("trivia-shifted scalar suffix should be rechecked incrementally");
+        let fresh = check_source("incremental-trivia.eng", source, &CheckOptions::default());
+
+        assert_eq!(reused.source_path, fresh.source_path);
+        assert_eq!(reused.source_files, fresh.source_files);
+        assert_eq!(reused.source_hash, fresh.source_hash);
+        assert_eq!(reused.source_lines, fresh.source_lines);
+        assert_eq!(reused.diagnostics, fresh.diagnostics);
+        assert_eq!(reused.inferred_declarations, fresh.inferred_declarations);
+        assert_eq!(reused.syntax_summary, fresh.syntax_summary);
+        assert_eq!(reused.semantic_program, fresh.semantic_program);
+        assert_eq!(
+            reused.quantity_completion_count,
+            fresh.quantity_completion_count
+        );
+        assert_eq!(reused.unit_info_count, fresh.unit_info_count);
+        assert_eq!(review_json(&reused), review_json(&fresh));
+        assert_eq!(
+            encode_bytecode(&build_bytecode_program(&reused, source)),
+            encode_bytecode(&build_bytecode_program(&fresh, source))
+        );
+        assert_eq!(
+            reused.inferred_declarations.first(),
+            previous.inferred_declarations.first(),
+            "the declaration before the changed trivia should remain exact"
+        );
+        let heat_rate_span = reused
+            .inferred_declarations
+            .iter()
+            .find(|declaration| declaration.name == "heat_rate")
+            .expect("rechecked shifted declaration")
+            .expression_span;
+        assert!(heat_rate_span.start > previous_heat_rate_span.start);
+        assert_eq!(
+            source.get(heat_rate_span.start..heat_rate_span.end),
+            Some("1800 W")
+        );
+    }
+
+    #[test]
     fn scalar_binding_incremental_recheck_uses_strict_fallbacks() {
         let previous_source = "length = 2 m\nheat_rate = 2 kW\n";
         let previous = check_source(
@@ -9538,7 +9591,7 @@ mod tests {
         assert!(recheck_scalar_binding_suffix_incrementally(
             &trivia_report,
             trivia_source,
-            "# bravo\nlength = 3 m\nheat_rate = 2 kW\n"
+            "print length\nlength = 3 m\nheat_rate = 2 kW\n"
         )
         .is_none());
 

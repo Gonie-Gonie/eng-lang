@@ -235,10 +235,11 @@ separate.
   conservative report retargeting for token-free trivia edits with unchanged
   absolute token anchors, a strict token-changing partial recheck that preserves
   the unchanged prefix and reparses/semantically reanalyzes from the first
-  changed scalar binding through the suffix affected by source positions or
-  dependencies in documents containing only numeric literals and backward
-  aliases, including coordinated multi-line value edits and renames, lazy shared
-  editor snapshots, recursive
+  scalar binding at or after the first changed binding or standalone token-free
+  trivia line through the suffix affected by source positions or dependencies in
+  documents containing only numeric literals and backward aliases, including
+  coordinated multi-line value edits, renames, and variable-width trivia shifts,
+  lazy shared editor snapshots, recursive
   import-dependent invalidation, a VS Code persistent stdio client with document
   sync and direct protocol semantic tokens, request-ID-scoped protocol
   cancellation with cooperative workspace scan interruption, compiler-owned
@@ -248,8 +249,8 @@ separate.
 - Not included: a stable public compatibility guarantee across EngLang releases
   or general partial parse/semantic recomputation beyond the numeric-literal and
   backward-alias scalar binding contract, including compound expressions,
-  changed trivia lines, line-count changes, and richer language constructs
-  inside a changed document.
+  binding layout changes, token-bearing non-binding lines, line-count changes, and
+  richer language constructs inside a changed document.
 - Next cleanup action: keep the implemented persistent service tested while its
   public maturity remains explicit.
 

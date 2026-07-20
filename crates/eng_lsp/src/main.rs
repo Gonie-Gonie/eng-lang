@@ -10185,7 +10185,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).expect("incremental binding fixture should be created");
         let path = root.join("current.eng");
-        let initial_source = "heat_rate = 2 kW\nratio = 1\nheat_rate_copy = heat_rate\n";
+        let initial_source = "heat_rate = 2 kW\nratio = 1\n# aliases\nheat_rate_copy = heat_rate\n";
         std::fs::write(&path, initial_source)
             .expect("incremental binding source should be written");
         let path = path
@@ -10204,7 +10204,8 @@ mod tests {
             .expect("initial snapshot should be cached");
         assert_eq!(documents[&uri].scalar_binding_reuse_count(), 0);
 
-        let incremental_source = "heat_rate = 1800 W\nratio = 1\nheat_rate_copy = heat_rate\n";
+        let incremental_source =
+            "heat_rate = 1800 W\nratio = 1\n# aliases\nheat_rate_copy = heat_rate\n";
         let incremental_change = json!({
             "method": "textDocument/didChange",
             "params": {
@@ -10234,7 +10235,7 @@ mod tests {
             (0, 2, 0, true, true)
         );
 
-        let suffix_source = "heat_rate = 1800 W\nratio = 1\nheat_rate_copy = ratio\n";
+        let suffix_source = "heat_rate = 1800 W\nratio = 1\n# aliases\nheat_rate_copy = ratio\n";
         let suffix_change = json!({
             "method": "textDocument/didChange",
             "params": {
@@ -10258,7 +10259,7 @@ mod tests {
             (0, 3, 0, true, true)
         );
 
-        let renamed_source = "heat_rate = 1800 W\nfactor = 2\nscaled_ratio = factor\n";
+        let renamed_source = "heat_rate = 1800 W\nfactor = 2\n# aliases\nscaled_ratio = factor\n";
         let renamed_change = json!({
             "method": "textDocument/didChange",
             "params": {
@@ -10282,12 +10283,46 @@ mod tests {
             (0, 4, 0, true, true)
         );
 
-        let fallback_source =
-            "heat_rate = 1800 W\nfactor = 2\nscaled_ratio = heat_rate + heat_rate\n";
-        let fallback_change = json!({
+        let shifted_trivia_source = concat!(
+            "heat_rate = 1800 W\n",
+            "factor = 2\n",
+            "# aliases shifted by a longer comment\n",
+            "scaled_ratio = factor\n",
+        );
+        let shifted_trivia_change = json!({
             "method": "textDocument/didChange",
             "params": {
                 "textDocument": { "uri": uri, "version": 5 },
+                "contentChanges": [{ "text": shifted_trivia_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&shifted_trivia_change, &documents)
+                .expect("position-shifting trivia change should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, shifted_trivia_source, &documents),
+            snapshot_for_source(&path, shifted_trivia_source)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 4);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 5, 0, true, true),
+            "a position-shifting trivia edit should recheck the following scalar suffix"
+        );
+
+        let fallback_source = concat!(
+            "heat_rate = 1800 W\n",
+            "factor = 2\n",
+            "# aliases shifted by a longer comment\n",
+            "scaled_ratio = heat_rate + heat_rate\n",
+        );
+        let fallback_change = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 6 },
                 "contentChanges": [{ "text": fallback_source }]
             }
         });
@@ -10301,10 +10336,10 @@ mod tests {
             snapshot_for_open_documents(&path, fallback_source, &documents),
             snapshot_for_source(&path, fallback_source)
         );
-        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 3);
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 4);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
-            (0, 5, 0, true, true),
+            (0, 6, 0, true, true),
             "a compound expression edit must fall back to a fresh compiler report"
         );
 
