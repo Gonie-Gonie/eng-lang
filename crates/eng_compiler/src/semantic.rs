@@ -1041,6 +1041,109 @@ pub struct SemanticOutput {
     pub semantic_program: SemanticProgram,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct IncrementalBindingAnalysis {
+    pub(crate) inferred_declarations: Vec<InferredDeclaration>,
+    pub(crate) typed_bindings: Vec<TypedBinding>,
+    pub(crate) hover_hints: Vec<HoverHint>,
+    pub(crate) type_infos: Vec<TypeInfo>,
+    pub(crate) unit_derivations: Vec<UnitDerivation>,
+}
+
+/// Analyzes a side-effect-free scalar binding suffix against a trusted prefix environment.
+///
+/// The compiler owns the validation around this helper. Keeping the accepted expressions to
+/// numeric literals and backward aliases ensures that no whole-program semantic collection needs
+/// to be recomputed while still allowing changed types to propagate through an alias chain.
+pub(crate) fn analyze_incremental_scalar_bindings(
+    program: &ParsedProgram,
+    prefix_typed_bindings: &[TypedBinding],
+) -> Option<IncrementalBindingAnalysis> {
+    let bindings = program
+        .items
+        .iter()
+        .map(|item| {
+            let AstItem::FastBinding(binding) = item else {
+                return None;
+            };
+            (binding.context == ParseContext::TopLevel).then_some(binding)
+        })
+        .collect::<Option<Vec<_>>>()?;
+    if bindings.is_empty()
+        || bindings.len()
+            != program
+                .lines
+                .iter()
+                .filter(|line| !line.tokens.is_empty())
+                .count()
+        || bindings.iter().any(|binding| {
+            let expression = binding.expression.trim();
+            parse_numeric_literal(expression).is_none() && !is_identifier(expression)
+        })
+    {
+        return None;
+    }
+
+    let mut diagnostics = Vec::new();
+    let mut inferred_declarations = Vec::new();
+    let prefix_count = prefix_typed_bindings.len();
+    let mut typed_bindings = prefix_typed_bindings.to_vec();
+    let mut hover_hints = Vec::new();
+    let mut type_infos = Vec::new();
+    let mut unit_derivations = Vec::new();
+    let mut integrations = Vec::new();
+    let mut uncertainty_infos = Vec::new();
+    let mut ml_infos = Vec::new();
+    let mut db_reads = Vec::new();
+    let mut timeseries_kernels = Vec::new();
+
+    for binding in &bindings {
+        let mut accum = SemanticAccum {
+            diagnostics: &mut diagnostics,
+            inferred_declarations: &mut inferred_declarations,
+            typed_bindings: &mut typed_bindings,
+            scoped_bindings: Vec::new(),
+            hover_hints: &mut hover_hints,
+            type_infos: &mut type_infos,
+            unit_derivations: &mut unit_derivations,
+            integrations: &mut integrations,
+            uncertainty_infos: &mut uncertainty_infos,
+            ml_infos: &mut ml_infos,
+            functions: &[],
+            classes: &[],
+            class_objects: &[],
+            db_reads: &mut db_reads,
+            timeseries_kernels: &mut timeseries_kernels,
+        };
+        analyze_fast_binding(binding, &mut accum);
+    }
+
+    let binding_count = bindings.len();
+    if !diagnostics.is_empty()
+        || inferred_declarations.len() != binding_count
+        || typed_bindings.len() != prefix_count.checked_add(binding_count)?
+        || hover_hints.len() != binding_count
+        || type_infos.len() != binding_count
+        || unit_derivations.len() != binding_count
+        || !integrations.is_empty()
+        || !uncertainty_infos.is_empty()
+        || !ml_infos.is_empty()
+        || !db_reads.is_empty()
+        || !timeseries_kernels.is_empty()
+        || !crate::stats::axis_infos(&typed_bindings).is_empty()
+    {
+        return None;
+    }
+
+    Some(IncrementalBindingAnalysis {
+        inferred_declarations,
+        typed_bindings: typed_bindings.split_off(prefix_count),
+        hover_hints,
+        type_infos,
+        unit_derivations,
+    })
+}
+
 pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut diagnostics = Vec::new();
     let mut inferred_declarations = Vec::new();

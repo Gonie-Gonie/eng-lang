@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use eng_compiler::{
     bundled_module_registry, check_source_with_import_overrides, format_source, parse_source,
-    recheck_numeric_binding_edit_incrementally, retarget_check_report_for_token_stable_trivia,
+    recheck_scalar_binding_suffix_incrementally, retarget_check_report_for_token_stable_trivia,
     AstItem, CheckOptions, CheckReport, ImportSourceOverrides, ParseContext,
 };
 use eng_lsp::{
@@ -1069,7 +1069,7 @@ struct DocumentAnalysisCache {
     hits: usize,
     misses: usize,
     trivia_reuses: usize,
-    numeric_binding_reuses: usize,
+    scalar_binding_reuses: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -1141,13 +1141,13 @@ impl DocumentState {
         Some(analysis)
     }
 
-    fn recheck_numeric_binding_edit(&self, source: &str) -> Option<CachedDocumentAnalysis> {
+    fn recheck_scalar_binding_suffix(&self, source: &str) -> Option<CachedDocumentAnalysis> {
         let mut cache = self
             .analysis_cache
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let previous = cache.analysis.as_ref()?;
-        let report = Arc::new(recheck_numeric_binding_edit_incrementally(
+        let report = Arc::new(recheck_scalar_binding_suffix_incrementally(
             &previous.report,
             &previous.source,
             source,
@@ -1158,7 +1158,7 @@ impl DocumentState {
             snapshot: None,
         };
         cache.analysis = Some(analysis.clone());
-        cache.numeric_binding_reuses += 1;
+        cache.scalar_binding_reuses += 1;
         Some(analysis)
     }
 
@@ -1230,11 +1230,11 @@ impl DocumentState {
     }
 
     #[cfg(test)]
-    fn numeric_binding_reuse_count(&self) -> usize {
+    fn scalar_binding_reuse_count(&self) -> usize {
         self.analysis_cache
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .numeric_binding_reuses
+            .scalar_binding_reuses
     }
 }
 
@@ -6748,7 +6748,7 @@ fn analysis_for_open_documents(
         if let Some(analysis) = state.reuse_analysis_for_token_stable_trivia(source) {
             return analysis;
         }
-        if let Some(analysis) = state.recheck_numeric_binding_edit(source) {
+        if let Some(analysis) = state.recheck_scalar_binding_suffix(source) {
             return analysis;
         }
     }
@@ -10177,15 +10177,15 @@ mod tests {
     }
 
     #[test]
-    fn numeric_binding_suffix_edits_use_incremental_compiler_recheck() {
+    fn scalar_binding_dependency_edits_use_incremental_compiler_recheck() {
         let root = std::env::temp_dir().join(format!(
-            "eng_lsp_numeric_binding_analysis_cache_{}",
+            "eng_lsp_scalar_binding_analysis_cache_{}",
             std::process::id()
         ));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).expect("incremental binding fixture should be created");
         let path = root.join("current.eng");
-        let initial_source = "length = 2 m\nheat_rate = 2 kW\n";
+        let initial_source = "heat_rate = 2 kW\nratio = 1\nheat_rate_copy = heat_rate\n";
         std::fs::write(&path, initial_source)
             .expect("incremental binding source should be written");
         let path = path
@@ -10202,9 +10202,9 @@ mod tests {
         let (_, initial_cached_snapshot) = documents[&uri]
             .analysis_cache_snapshot()
             .expect("initial snapshot should be cached");
-        assert_eq!(documents[&uri].numeric_binding_reuse_count(), 0);
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 0);
 
-        let incremental_source = "length = 2 m\nheat_rate = 1800 W\n";
+        let incremental_source = "heat_rate = 1800 W\nratio = 1\nheat_rate_copy = heat_rate\n";
         let incremental_change = json!({
             "method": "textDocument/didChange",
             "params": {
@@ -10214,7 +10214,7 @@ mod tests {
         });
         let (changed_uri, changed_state) =
             document_state_from_notification(&incremental_change, &documents)
-                .expect("terminal binding change should be accepted");
+                .expect("dependency-bearing suffix change should be accepted");
         documents.insert(changed_uri.clone(), changed_state);
         let affected = diagnostic_documents_after_change(&changed_uri, &documents);
         invalidate_dependent_document_analyses(&changed_uri, &affected);
@@ -10228,13 +10228,13 @@ mod tests {
             &initial_cached_snapshot,
             &incremental_cached_snapshot
         ));
-        assert_eq!(documents[&uri].numeric_binding_reuse_count(), 1);
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 1);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
             (0, 2, 0, true, true)
         );
 
-        let suffix_source = "length = 2000 mm\nheat_rate = 1800 W\n";
+        let suffix_source = "heat_rate = 1800 W\nratio = 1\nheat_rate_copy = ratio\n";
         let suffix_change = json!({
             "method": "textDocument/didChange",
             "params": {
@@ -10244,7 +10244,7 @@ mod tests {
         });
         let (changed_uri, changed_state) =
             document_state_from_notification(&suffix_change, &documents)
-                .expect("non-terminal change should be accepted");
+                .expect("backward alias target change should be accepted");
         documents.insert(changed_uri.clone(), changed_state);
         let affected = diagnostic_documents_after_change(&changed_uri, &documents);
         invalidate_dependent_document_analyses(&changed_uri, &affected);
@@ -10252,13 +10252,14 @@ mod tests {
             snapshot_for_open_documents(&path, suffix_source, &documents),
             snapshot_for_source(&path, suffix_source)
         );
-        assert_eq!(documents[&uri].numeric_binding_reuse_count(), 2);
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 2);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
             (0, 3, 0, true, true)
         );
 
-        let fallback_source = "length = heat_rate\nheat_rate = 1800 W\n";
+        let fallback_source =
+            "heat_rate = 1800 W\nratio = 1\nheat_rate_copy = heat_rate + heat_rate\n";
         let fallback_change = json!({
             "method": "textDocument/didChange",
             "params": {
@@ -10268,7 +10269,7 @@ mod tests {
         });
         let (changed_uri, changed_state) =
             document_state_from_notification(&fallback_change, &documents)
-                .expect("dependent expression change should be accepted");
+                .expect("compound expression change should be accepted");
         documents.insert(changed_uri.clone(), changed_state);
         let affected = diagnostic_documents_after_change(&changed_uri, &documents);
         invalidate_dependent_document_analyses(&changed_uri, &affected);
@@ -10276,11 +10277,11 @@ mod tests {
             snapshot_for_open_documents(&path, fallback_source, &documents),
             snapshot_for_source(&path, fallback_source)
         );
-        assert_eq!(documents[&uri].numeric_binding_reuse_count(), 2);
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 2);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
             (0, 4, 0, true, true),
-            "a dependent expression edit must fall back to a fresh compiler report"
+            "a compound expression edit must fall back to a fresh compiler report"
         );
 
         std::fs::remove_dir_all(&root).expect("incremental binding fixture should be removed");
