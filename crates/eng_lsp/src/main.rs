@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use eng_compiler::{
     bundled_module_registry, check_source_with_import_overrides, format_source, parse_source,
-    recheck_terminal_numeric_binding_incrementally, retarget_check_report_for_token_stable_trivia,
+    recheck_numeric_binding_edit_incrementally, retarget_check_report_for_token_stable_trivia,
     AstItem, CheckOptions, CheckReport, ImportSourceOverrides, ParseContext,
 };
 use eng_lsp::{
@@ -1069,7 +1069,7 @@ struct DocumentAnalysisCache {
     hits: usize,
     misses: usize,
     trivia_reuses: usize,
-    terminal_binding_reuses: usize,
+    numeric_binding_reuses: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -1141,13 +1141,13 @@ impl DocumentState {
         Some(analysis)
     }
 
-    fn recheck_terminal_numeric_binding(&self, source: &str) -> Option<CachedDocumentAnalysis> {
+    fn recheck_numeric_binding_edit(&self, source: &str) -> Option<CachedDocumentAnalysis> {
         let mut cache = self
             .analysis_cache
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let previous = cache.analysis.as_ref()?;
-        let report = Arc::new(recheck_terminal_numeric_binding_incrementally(
+        let report = Arc::new(recheck_numeric_binding_edit_incrementally(
             &previous.report,
             &previous.source,
             source,
@@ -1158,7 +1158,7 @@ impl DocumentState {
             snapshot: None,
         };
         cache.analysis = Some(analysis.clone());
-        cache.terminal_binding_reuses += 1;
+        cache.numeric_binding_reuses += 1;
         Some(analysis)
     }
 
@@ -1230,11 +1230,11 @@ impl DocumentState {
     }
 
     #[cfg(test)]
-    fn terminal_binding_reuse_count(&self) -> usize {
+    fn numeric_binding_reuse_count(&self) -> usize {
         self.analysis_cache
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .terminal_binding_reuses
+            .numeric_binding_reuses
     }
 }
 
@@ -6748,7 +6748,7 @@ fn analysis_for_open_documents(
         if let Some(analysis) = state.reuse_analysis_for_token_stable_trivia(source) {
             return analysis;
         }
-        if let Some(analysis) = state.recheck_terminal_numeric_binding(source) {
+        if let Some(analysis) = state.recheck_numeric_binding_edit(source) {
             return analysis;
         }
     }
@@ -10177,9 +10177,9 @@ mod tests {
     }
 
     #[test]
-    fn terminal_numeric_binding_edits_use_incremental_compiler_recheck() {
+    fn numeric_binding_suffix_edits_use_incremental_compiler_recheck() {
         let root = std::env::temp_dir().join(format!(
-            "eng_lsp_terminal_binding_analysis_cache_{}",
+            "eng_lsp_numeric_binding_analysis_cache_{}",
             std::process::id()
         ));
         let _ = std::fs::remove_dir_all(&root);
@@ -10202,7 +10202,7 @@ mod tests {
         let (_, initial_cached_snapshot) = documents[&uri]
             .analysis_cache_snapshot()
             .expect("initial snapshot should be cached");
-        assert_eq!(documents[&uri].terminal_binding_reuse_count(), 0);
+        assert_eq!(documents[&uri].numeric_binding_reuse_count(), 0);
 
         let incremental_source = "length = 2 m\nheat_rate = 1800 W\n";
         let incremental_change = json!({
@@ -10228,23 +10228,47 @@ mod tests {
             &initial_cached_snapshot,
             &incremental_cached_snapshot
         ));
-        assert_eq!(documents[&uri].terminal_binding_reuse_count(), 1);
+        assert_eq!(documents[&uri].numeric_binding_reuse_count(), 1);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
             (0, 2, 0, true, true)
         );
 
-        let fallback_source = "length = 3 m\nheat_rate = 1800 W\n";
-        let fallback_change = json!({
+        let suffix_source = "length = 2000 mm\nheat_rate = 1800 W\n";
+        let suffix_change = json!({
             "method": "textDocument/didChange",
             "params": {
                 "textDocument": { "uri": uri, "version": 3 },
+                "contentChanges": [{ "text": suffix_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&suffix_change, &documents)
+                .expect("non-terminal change should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, suffix_source, &documents),
+            snapshot_for_source(&path, suffix_source)
+        );
+        assert_eq!(documents[&uri].numeric_binding_reuse_count(), 2);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 3, 0, true, true)
+        );
+
+        let fallback_source = "length = heat_rate\nheat_rate = 1800 W\n";
+        let fallback_change = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 4 },
                 "contentChanges": [{ "text": fallback_source }]
             }
         });
         let (changed_uri, changed_state) =
             document_state_from_notification(&fallback_change, &documents)
-                .expect("non-terminal change should be accepted");
+                .expect("dependent expression change should be accepted");
         documents.insert(changed_uri.clone(), changed_state);
         let affected = diagnostic_documents_after_change(&changed_uri, &documents);
         invalidate_dependent_document_analyses(&changed_uri, &affected);
@@ -10252,11 +10276,11 @@ mod tests {
             snapshot_for_open_documents(&path, fallback_source, &documents),
             snapshot_for_source(&path, fallback_source)
         );
-        assert_eq!(documents[&uri].terminal_binding_reuse_count(), 1);
+        assert_eq!(documents[&uri].numeric_binding_reuse_count(), 2);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
-            (0, 3, 0, true, true),
-            "a non-terminal edit must fall back to a fresh compiler report"
+            (0, 4, 0, true, true),
+            "a dependent expression edit must fall back to a fresh compiler report"
         );
 
         std::fs::remove_dir_all(&root).expect("incremental binding fixture should be removed");

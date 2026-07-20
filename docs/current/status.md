@@ -125,10 +125,11 @@ review material. It is not a broad solver claim.
   Exact-source editor requests share one compiler report and lazy snapshot;
   token-free comment/blank-line edits can retarget that report when every token
   and token-bearing line stays at the same absolute source location. In a clean
-  document containing only top-level numeric bindings, a token-changing edit to
-  the final logical line reparses and semantically reanalyzes only that binding.
-  Earlier-line, renamed, dependent, diagnostic, import, cache-bearing, richer
-  language, and source-position-shifting edits use full analysis.
+  document containing only independent top-level numeric bindings, one changed
+  binding preserves the preceding report and reparses/semantically reanalyzes
+  that line plus later bindings whose absolute spans may shift. Multi-line,
+  renamed, dependent, diagnostic, import, cache-bearing, richer-language,
+  line-count, and line-ending edits use full analysis.
   Source changes invalidate recursive open import dependents while preserving
   the changed document as a candidate for these narrow reuse paths. This is not
   general partial parsing or a public cross-release protocol commitment.
