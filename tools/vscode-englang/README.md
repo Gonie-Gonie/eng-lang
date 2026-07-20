@@ -235,27 +235,24 @@ For a changed source, it can also retarget the prior report when the complete
 token stream and absolute spans are unchanged and every token-bearing line is
 byte-identical. This narrow path covers edits to comment-only and blank lines;
 the source-dependent snapshot is rebuilt lazily. In a document containing only
-top-level numeric literals, backward scalar aliases, and compiler-validated pure
-scalar arithmetic using registered-unit literals, parentheses, `+`, `-`, `*`,
-`/`, and earlier typed bindings, changed binding lines or standalone token-free
-trivia preserve the report before the first binding at or after the first change
-and reparse/semantically reanalyze that suffix once. This also repairs absolute
+top-level fast scalar bindings, registered explicit scalar declarations, and
+compiler-validated pure scalar expressions using numeric or registered-unit
+literals, backward aliases, parentheses, `+`, `-`, `*`, `/`, and earlier typed
+bindings, changed declaration lines or standalone token-free trivia preserve the
+report before the first declaration at or after the first change and reparse and
+semantically reanalyze that suffix once. Fast and explicit declarations may be
+interleaved or switch style inside the affected suffix. This repairs absolute
 source spans and line numbers when comments or blank lines are resized, inserted,
 or removed, or when suffix line endings change. Coordinated declaration and alias
 renames are accepted when names remain unique and references resolve backward in
 source order. The server verifies the old suffix against the corresponding report
-records before patching them. Scalar bindings can be inserted or removed,
-including clearing all bindings and restarting from a trivia-only report;
-semantic vectors, syntax counts, and the first workflow line are updated together.
-Declaration-only documents with registered explicit scalar quantity annotations
-and the same pure RHS expression grammar use a parallel suffix path. It patches
-expected types, typed bindings, hovers, type information, unit derivations, syntax
-counts, and the first workflow line together across annotation/RHS edits,
-declaration addition/removal, complete clearing, and trivia-only restart.
-Token-bearing non-binding lines, incomplete or duplicate renames, forward or
-unresolved references, dimensionally incompatible arithmetic, calls, workflow
-expressions, mixed fast/explicit declaration documents, diagnostics, imports,
-caches, and richer language run a full compiler analysis.
+records before patching inferred declarations, expected types, typed bindings,
+hovers, type information, unit derivations, syntax counts, and the first workflow
+line together. Declarations can be inserted or removed, including clearing all
+scalar declarations and restarting from a trivia-only report. Token-bearing
+non-declaration lines, incomplete or duplicate renames, forward or unresolved
+references, dimensionally incompatible arithmetic, calls, workflow expressions,
+diagnostics, imports, caches, and richer language run a full compiler analysis.
 Changing an open import hard-invalidates its recursive open dependents, while
 unrelated document analyses remain cached. This remains a narrow partial path,
 not general incremental parse or semantic recomputation.

@@ -125,22 +125,21 @@ review material. It is not a broad solver claim.
   Exact-source editor requests share one compiler report and lazy snapshot;
   token-free comment/blank-line edits can retarget that report when every token
   and token-bearing line stays at the same absolute source location. In a clean
-  document containing only top-level numeric literals, backward scalar aliases,
-  and compiler-validated pure scalar arithmetic over registered-unit literals and
-  earlier typed bindings, changed binding lines or standalone token-free trivia
-  preserve the report before the first binding at or after the first change and
-  reparse/semantically reanalyze that suffix. This repairs absolute spans and line
-  numbers after variable-width, inserted, or removed standalone trivia and suffix
+  document containing only top-level fast scalar bindings, registered explicit
+  scalar declarations, and compiler-validated pure scalar expressions over
+  numeric or registered-unit literals and earlier typed bindings, changed
+  declaration lines or standalone token-free trivia preserve the report before
+  the first declaration at or after the first change and reparse/semantically
+  reanalyze that suffix. Fast and explicit declarations may be interleaved or
+  switch style inside the suffix. This repairs absolute spans and line numbers
+  after variable-width, inserted, or removed standalone trivia and suffix
   line-ending changes. Coordinated declaration and alias renames are accepted when
   names remain unique and every reference resolves backward in source order.
-  Scalar binding additions/removals, complete clearing, and restart from
-  trivia-only text update semantic vectors, syntax counts, and the first workflow
-  line together. Declaration-only documents with registered explicit scalar
-  quantity annotations and the same pure RHS grammar use a separate suffix path
-  that also patches expected types across type/unit/RHS edits, additions, clearing,
-  and trivia-only restart. Token-bearing non-binding lines, incomplete or duplicate
-  renames, forward or unresolved references, dimensionally incompatible
-  arithmetic, calls, workflow expressions, mixed fast/explicit documents,
+  Declaration additions/removals, complete clearing, and restart from trivia-only
+  text update inferred and expected records, shared semantic vectors, syntax
+  counts, and the first workflow line together. Token-bearing non-declaration
+  lines, incomplete or duplicate renames, forward or unresolved references,
+  dimensionally incompatible arithmetic, calls, workflow expressions,
   diagnostics, imports, caches, and richer language use full analysis.
   Source changes invalidate recursive open import dependents while preserving
   the changed document as a candidate for these narrow reuse paths. This is not

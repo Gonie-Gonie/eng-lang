@@ -10,8 +10,7 @@ use std::time::{Duration, Instant};
 
 use eng_compiler::{
     bundled_module_registry, check_source_with_import_overrides, format_source, parse_source,
-    recheck_explicit_scalar_declaration_suffix_incrementally,
-    recheck_scalar_binding_suffix_incrementally, retarget_check_report_for_token_stable_trivia,
+    recheck_scalar_declaration_suffix_incrementally, retarget_check_report_for_token_stable_trivia,
     AstItem, CheckOptions, CheckReport, ImportSourceOverrides, ParseContext,
 };
 use eng_lsp::{
@@ -1070,7 +1069,7 @@ struct DocumentAnalysisCache {
     hits: usize,
     misses: usize,
     trivia_reuses: usize,
-    scalar_binding_reuses: usize,
+    scalar_declaration_reuses: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -1142,29 +1141,24 @@ impl DocumentState {
         Some(analysis)
     }
 
-    fn recheck_scalar_binding_suffix(&self, source: &str) -> Option<CachedDocumentAnalysis> {
+    fn recheck_scalar_declaration_suffix(&self, source: &str) -> Option<CachedDocumentAnalysis> {
         let mut cache = self
             .analysis_cache
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let previous = cache.analysis.as_ref()?;
-        let report = Arc::new(
-            recheck_scalar_binding_suffix_incrementally(&previous.report, &previous.source, source)
-                .or_else(|| {
-                    recheck_explicit_scalar_declaration_suffix_incrementally(
-                        &previous.report,
-                        &previous.source,
-                        source,
-                    )
-                })?,
-        );
+        let report = Arc::new(recheck_scalar_declaration_suffix_incrementally(
+            &previous.report,
+            &previous.source,
+            source,
+        )?);
         let analysis = CachedDocumentAnalysis {
             source: source.to_owned(),
             report,
             snapshot: None,
         };
         cache.analysis = Some(analysis.clone());
-        cache.scalar_binding_reuses += 1;
+        cache.scalar_declaration_reuses += 1;
         Some(analysis)
     }
 
@@ -1240,7 +1234,7 @@ impl DocumentState {
         self.analysis_cache
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .scalar_binding_reuses
+            .scalar_declaration_reuses
     }
 }
 
@@ -6754,7 +6748,7 @@ fn analysis_for_open_documents(
         if let Some(analysis) = state.reuse_analysis_for_token_stable_trivia(source) {
             return analysis;
         }
-        if let Some(analysis) = state.recheck_scalar_binding_suffix(source) {
+        if let Some(analysis) = state.recheck_scalar_declaration_suffix(source) {
             return analysis;
         }
     }
@@ -10635,6 +10629,119 @@ mod tests {
         );
 
         std::fs::remove_dir_all(&root).expect("explicit scalar fixture should be removed");
+    }
+
+    #[test]
+    fn mixed_scalar_declaration_edits_use_incremental_compiler_recheck() {
+        let root = std::env::temp_dir().join(format!(
+            "eng_lsp_mixed_scalar_analysis_cache_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("mixed scalar fixture should be created");
+        let path = root.join("current.eng");
+        let initial_source = concat!(
+            "distance = 1 m\n",
+            "offset: Length [m] = distance + 2 m\n",
+            "combined = offset + distance + 0 m\n",
+        );
+        std::fs::write(&path, initial_source).expect("mixed scalar source should be written");
+        let path = path
+            .canonicalize()
+            .expect("mixed scalar source should exist");
+        let uri = file_uri_from_path(&path);
+        let mut documents = Documents::new();
+        documents.insert(
+            uri.clone(),
+            DocumentState::new(initial_source.to_owned(), Some(1)),
+        );
+
+        let _initial = snapshot_for_open_documents(&path, initial_source, &documents);
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 0);
+
+        let changed_source = concat!(
+            "distance: Length [cm] = 200 cm\n",
+            "offset = distance + 3 m\n",
+            "combined: Length [m] = offset + distance\n",
+        );
+        let changed_notification = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 2 },
+                "contentChanges": [{ "text": changed_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&changed_notification, &documents)
+                .expect("mixed scalar style change should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, changed_source, &documents),
+            snapshot_for_source(&path, changed_source)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 1);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 2, 0, true, true)
+        );
+
+        let appended_source = concat!(
+            "distance: Length [cm] = 200 cm\n",
+            "offset = distance + 3 m\n",
+            "combined: Length [m] = offset + distance\n",
+            "combined_copy = combined\n",
+        );
+        let appended_notification = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 3 },
+                "contentChanges": [{ "text": appended_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&appended_notification, &documents)
+                .expect("appended mixed scalar should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, appended_source, &documents),
+            snapshot_for_source(&path, appended_source)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 2);
+
+        let fallback_source = concat!(
+            "distance: Length [cm] = 200 cm\n",
+            "offset = sqrt(4)\n",
+            "combined: Length [m] = distance + 1 m\n",
+        );
+        let fallback_notification = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 4 },
+                "contentChanges": [{ "text": fallback_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&fallback_notification, &documents)
+                .expect("mixed scalar function expression should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, fallback_source, &documents),
+            snapshot_for_source(&path, fallback_source)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 2);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 4, 0, true, true),
+            "function calls must use a fresh compiler report"
+        );
+
+        std::fs::remove_dir_all(&root).expect("mixed scalar fixture should be removed");
     }
 
     #[test]

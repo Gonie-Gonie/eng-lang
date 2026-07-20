@@ -233,18 +233,19 @@ separate.
 - Evidence: `eng-lsp.exe` smoke/editor-request checks, a versioned persistent
   document cache with debounced diagnostics, exact-source `CheckReport` reuse,
   conservative report retargeting for token-free trivia edits with unchanged
-  absolute token anchors, a strict token-changing partial recheck that preserves
-  the unchanged prefix and reparses/semantically reanalyzes from the first
-  scalar binding at or after the first changed binding or standalone token-free
-  trivia line through the suffix affected by source positions or dependencies in
-  documents containing only numeric literals, backward aliases, and pure scalar
-  arithmetic over registered-unit literals, parentheses, and earlier typed
-  bindings, including coordinated multi-line value edits, renames, binding
-  additions/removals, variable-width/inserted/removed trivia, and suffix
-  line-ending shifts; a parallel declaration-only path for registered explicit
-  scalar annotations that also patches expected-type records across annotation,
-  RHS, cardinality, and trivia-only transitions; lazy shared editor snapshots, recursive
-  import-dependent invalidation, a VS Code persistent stdio client with document
+  absolute token anchors, and a strict token-changing partial recheck exposed as
+  `recheck_scalar_declaration_suffix_incrementally` that preserves the unchanged
+  prefix and reparses/semantically reanalyzes from the first scalar declaration at
+  or after the first changed declaration or standalone token-free trivia line.
+  Clean scalar documents may interleave fast bindings and registered explicit
+  annotations, switch declaration style in the affected suffix, and use numeric
+  literals, backward aliases, or pure scalar arithmetic over registered-unit
+  literals, parentheses, and earlier typed bindings. The path covers coordinated
+  multi-line value/type/unit edits, renames, declaration additions/removals,
+  complete clearing and trivia-only restart, variable-width/inserted/removed
+  trivia, and suffix line-ending shifts while patching inferred, expected, shared
+  semantic, syntax-count, and workflow-line records together; lazy shared editor
+  snapshots, recursive import-dependent invalidation, a VS Code persistent stdio client with document
   sync and direct protocol semantic tokens, request-ID-scoped protocol
   cancellation with cooperative workspace scan interruption, compiler-owned
   declaration and explicit Outline selection ranges, import-source isolation
@@ -252,9 +253,8 @@ separate.
   validation records, stdio tests, and optional VS Code source.
 - Not included: a stable public compatibility guarantee across EngLang releases
   or general partial parse/semantic recomputation beyond the bounded scalar
-  binding and homogeneous explicit-declaration contracts, including mixed
-  fast/explicit documents, forward/unresolved references, calls, workflow
-  expressions, token-bearing non-binding lines, and richer language constructs
+  declaration contract, including forward/unresolved references, calls, workflow
+  expressions, token-bearing non-declaration lines, and richer language constructs
   inside a changed document.
 - Next cleanup action: keep the implemented persistent service tested while its
   public maturity remains explicit.

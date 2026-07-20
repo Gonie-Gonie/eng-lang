@@ -1042,16 +1042,8 @@ pub struct SemanticOutput {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct IncrementalBindingAnalysis {
+pub(crate) struct IncrementalScalarDeclarationAnalysis {
     pub(crate) inferred_declarations: Vec<InferredDeclaration>,
-    pub(crate) typed_bindings: Vec<TypedBinding>,
-    pub(crate) hover_hints: Vec<HoverHint>,
-    pub(crate) type_infos: Vec<TypeInfo>,
-    pub(crate) unit_derivations: Vec<UnitDerivation>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub(crate) struct IncrementalExplicitScalarAnalysis {
     pub(crate) expected_types: Vec<ExpectedType>,
     pub(crate) typed_bindings: Vec<TypedBinding>,
     pub(crate) hover_hints: Vec<HoverHint>,
@@ -1059,28 +1051,18 @@ pub(crate) struct IncrementalExplicitScalarAnalysis {
     pub(crate) unit_derivations: Vec<UnitDerivation>,
 }
 
-/// Analyzes a side-effect-free scalar binding suffix against a trusted prefix environment.
+/// Analyzes a side-effect-free scalar declaration suffix against a trusted prefix environment.
 ///
-/// The compiler owns the validation around this helper. Accepted expressions are numeric literals,
-/// backward aliases, or pure scalar arithmetic over registered-unit literals and backward scalar
-/// references. The arithmetic grammar is deliberately shared with component parameter validation
-/// so calls and workflow expressions cannot enter this local semantic path. An empty suffix is
-/// accepted so the caller can remove the final affected bindings atomically.
-pub(crate) fn analyze_incremental_scalar_bindings(
+/// Fast bindings and explicit declarations may be interleaved. Accepted expressions are numeric
+/// literals, backward aliases, or pure scalar arithmetic over registered-unit literals and backward
+/// scalar references. The arithmetic grammar is deliberately shared with component parameter
+/// validation so calls and workflow expressions cannot enter this local semantic path. An empty
+/// suffix is accepted so the caller can remove the final affected declarations atomically.
+pub(crate) fn analyze_incremental_scalar_declarations(
     program: &ParsedProgram,
     prefix_typed_bindings: &[TypedBinding],
-) -> Option<IncrementalBindingAnalysis> {
-    let bindings = program
-        .items
-        .iter()
-        .map(|item| {
-            let AstItem::FastBinding(binding) = item else {
-                return None;
-            };
-            (binding.context == ParseContext::TopLevel).then_some(binding)
-        })
-        .collect::<Option<Vec<_>>>()?;
-    if bindings.len()
+) -> Option<IncrementalScalarDeclarationAnalysis> {
+    if program.items.len()
         != program
             .lines
             .iter()
@@ -1092,6 +1074,7 @@ pub(crate) fn analyze_incremental_scalar_bindings(
 
     let mut diagnostics = Vec::new();
     let mut inferred_declarations = Vec::new();
+    let mut expected_types = Vec::new();
     let prefix_count = prefix_typed_bindings.len();
     let mut typed_bindings = prefix_typed_bindings.to_vec();
     let mut hover_hints = Vec::new();
@@ -1102,38 +1085,70 @@ pub(crate) fn analyze_incremental_scalar_bindings(
     let mut ml_infos = Vec::new();
     let mut db_reads = Vec::new();
     let mut timeseries_kernels = Vec::new();
+    let mut fast_binding_count = 0usize;
+    let mut explicit_declaration_count = 0usize;
 
-    for binding in &bindings {
-        if !supports_incremental_scalar_expression(&binding.expression, &typed_bindings) {
-            return None;
+    for item in &program.items {
+        match item {
+            AstItem::FastBinding(binding) if binding.context == ParseContext::TopLevel => {
+                if !supports_incremental_scalar_expression(&binding.expression, &typed_bindings) {
+                    return None;
+                }
+                let mut accum = SemanticAccum {
+                    diagnostics: &mut diagnostics,
+                    inferred_declarations: &mut inferred_declarations,
+                    typed_bindings: &mut typed_bindings,
+                    scoped_bindings: Vec::new(),
+                    hover_hints: &mut hover_hints,
+                    type_infos: &mut type_infos,
+                    unit_derivations: &mut unit_derivations,
+                    integrations: &mut integrations,
+                    uncertainty_infos: &mut uncertainty_infos,
+                    ml_infos: &mut ml_infos,
+                    functions: &[],
+                    classes: &[],
+                    class_objects: &[],
+                    db_reads: &mut db_reads,
+                    timeseries_kernels: &mut timeseries_kernels,
+                };
+                analyze_fast_binding(binding, &mut accum);
+                fast_binding_count = fast_binding_count.checked_add(1)?;
+            }
+            AstItem::ExplicitDecl(declaration) if declaration.context == ParseContext::TopLevel => {
+                let expression = declaration.expression.as_deref()?;
+                if !crate::quantities::all_quantity_completions()
+                    .iter()
+                    .any(|quantity| quantity.quantity_kind == declaration.type_name)
+                    || !supports_incremental_scalar_expression(expression, &typed_bindings)
+                {
+                    return None;
+                }
+                analyze_explicit_decl(
+                    declaration,
+                    ExplicitAnalysisOutputs {
+                        diagnostics: &mut diagnostics,
+                        expected_types: &mut expected_types,
+                        hover_hints: &mut hover_hints,
+                        typed_bindings: &mut typed_bindings,
+                        type_infos: &mut type_infos,
+                        unit_derivations: &mut unit_derivations,
+                        inferred_declarations: &mut inferred_declarations,
+                    },
+                );
+                explicit_declaration_count = explicit_declaration_count.checked_add(1)?;
+            }
+            _ => return None,
         }
-        let mut accum = SemanticAccum {
-            diagnostics: &mut diagnostics,
-            inferred_declarations: &mut inferred_declarations,
-            typed_bindings: &mut typed_bindings,
-            scoped_bindings: Vec::new(),
-            hover_hints: &mut hover_hints,
-            type_infos: &mut type_infos,
-            unit_derivations: &mut unit_derivations,
-            integrations: &mut integrations,
-            uncertainty_infos: &mut uncertainty_infos,
-            ml_infos: &mut ml_infos,
-            functions: &[],
-            classes: &[],
-            class_objects: &[],
-            db_reads: &mut db_reads,
-            timeseries_kernels: &mut timeseries_kernels,
-        };
-        analyze_fast_binding(binding, &mut accum);
     }
 
-    let binding_count = bindings.len();
+    let declaration_count = fast_binding_count.checked_add(explicit_declaration_count)?;
     if !diagnostics.is_empty()
-        || inferred_declarations.len() != binding_count
-        || typed_bindings.len() != prefix_count.checked_add(binding_count)?
-        || hover_hints.len() != binding_count
-        || type_infos.len() != binding_count
-        || unit_derivations.len() != binding_count
+        || inferred_declarations.len() != fast_binding_count
+        || expected_types.len() != explicit_declaration_count
+        || typed_bindings.len() != prefix_count.checked_add(declaration_count)?
+        || hover_hints.len() != declaration_count
+        || type_infos.len() != declaration_count
+        || unit_derivations.len() != declaration_count
         || !integrations.is_empty()
         || !uncertainty_infos.is_empty()
         || !ml_infos.is_empty()
@@ -1144,8 +1159,9 @@ pub(crate) fn analyze_incremental_scalar_bindings(
         return None;
     }
 
-    Some(IncrementalBindingAnalysis {
+    Some(IncrementalScalarDeclarationAnalysis {
         inferred_declarations,
+        expected_types,
         typed_bindings: typed_bindings.split_off(prefix_count),
         hover_hints,
         type_infos,
@@ -1153,82 +1169,27 @@ pub(crate) fn analyze_incremental_scalar_bindings(
     })
 }
 
-/// Analyzes a suffix containing only explicit top-level scalar declarations.
+pub(crate) type IncrementalBindingAnalysis = IncrementalScalarDeclarationAnalysis;
+
+pub(crate) fn analyze_incremental_scalar_bindings(
+    program: &ParsedProgram,
+    prefix_typed_bindings: &[TypedBinding],
+) -> Option<IncrementalBindingAnalysis> {
+    let analysis = analyze_incremental_scalar_declarations(program, prefix_typed_bindings)?;
+    analysis.expected_types.is_empty().then_some(analysis)
+}
+
+pub(crate) type IncrementalExplicitScalarAnalysis = IncrementalScalarDeclarationAnalysis;
+
 pub(crate) fn analyze_incremental_explicit_scalar_declarations(
     program: &ParsedProgram,
     prefix_typed_bindings: &[TypedBinding],
 ) -> Option<IncrementalExplicitScalarAnalysis> {
-    let declarations = program
-        .items
-        .iter()
-        .map(|item| {
-            let AstItem::ExplicitDecl(declaration) = item else {
-                return None;
-            };
-            (declaration.context == ParseContext::TopLevel).then_some(declaration)
-        })
-        .collect::<Option<Vec<_>>>()?;
-    if declarations.len()
-        != program
-            .lines
-            .iter()
-            .filter(|line| !line.tokens.is_empty())
-            .count()
-    {
-        return None;
-    }
-
-    let mut diagnostics = Vec::new();
-    let mut expected_types = Vec::new();
-    let prefix_count = prefix_typed_bindings.len();
-    let mut typed_bindings = prefix_typed_bindings.to_vec();
-    let mut hover_hints = Vec::new();
-    let mut type_infos = Vec::new();
-    let mut unit_derivations = Vec::new();
-    let mut inferred_declarations = Vec::new();
-
-    for declaration in &declarations {
-        let expression = declaration.expression.as_deref()?;
-        if !crate::quantities::all_quantity_completions()
-            .iter()
-            .any(|quantity| quantity.quantity_kind == declaration.type_name)
-            || !supports_incremental_scalar_expression(expression, &typed_bindings)
-        {
-            return None;
-        }
-        analyze_explicit_decl(
-            declaration,
-            ExplicitAnalysisOutputs {
-                diagnostics: &mut diagnostics,
-                expected_types: &mut expected_types,
-                hover_hints: &mut hover_hints,
-                typed_bindings: &mut typed_bindings,
-                type_infos: &mut type_infos,
-                unit_derivations: &mut unit_derivations,
-                inferred_declarations: &mut inferred_declarations,
-            },
-        );
-    }
-
-    let declaration_count = declarations.len();
-    if !diagnostics.is_empty()
-        || expected_types.len() != declaration_count
-        || typed_bindings.len() != prefix_count.checked_add(declaration_count)?
-        || hover_hints.len() != declaration_count
-        || type_infos.len() != declaration_count
-        || unit_derivations.len() != declaration_count
-        || !inferred_declarations.is_empty()
-    {
-        return None;
-    }
-
-    Some(IncrementalExplicitScalarAnalysis {
-        expected_types,
-        typed_bindings: typed_bindings.split_off(prefix_count),
-        hover_hints,
-        type_infos,
-        unit_derivations,
-    })
+    let analysis = analyze_incremental_scalar_declarations(program, prefix_typed_bindings)?;
+    analysis
+        .inferred_declarations
+        .is_empty()
+        .then_some(analysis)
 }
 
 pub(crate) fn supports_incremental_scalar_expression(
