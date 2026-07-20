@@ -12,7 +12,7 @@ use crate::ast::{
     WhereBindingDecl, WhereBlockDecl, WherePredicateDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 use crate::lexer::{lex_line, lex_line_in_source, Keyword, Symbol, Token, TokenKind};
-use crate::source::{source_lines, SourceSpan};
+use crate::source::{source_lines, SourceLine, SourceSpan};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ParseContext {
@@ -224,6 +224,29 @@ impl ParsedProgram {
 
 pub fn parse_source(source: &str) -> ParsedProgram {
     parse_source_in_source(source, SourceSpan::ROOT_SOURCE_ID)
+}
+
+pub(crate) fn parse_top_level_source_line(source_line: &SourceLine) -> ParsedProgram {
+    let tokens = lex_line(source_line.line, source_line.start, &source_line.text);
+    let mut items = Vec::new();
+    if !tokens.is_empty() {
+        parse_line_items(
+            &mut items,
+            &tokens,
+            &source_line.text,
+            ParseContext::TopLevel,
+            None,
+        );
+    }
+    ParsedProgram {
+        lines: vec![ParsedLine {
+            line: source_line.line,
+            text: source_line.text.clone(),
+            tokens,
+            context: ParseContext::TopLevel,
+        }],
+        items,
+    }
 }
 
 pub(crate) fn parse_source_in_source(source: &str, source_id: usize) -> ParsedProgram {

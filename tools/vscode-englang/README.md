@@ -19,6 +19,9 @@ embedding compiler logic in JavaScript.
 - exact-source plus conservative token-free-trivia compiler report reuse across
   completion, diagnostics, hover, semantic tokens, navigation, and review
   decorations, with lazy snapshot projection and recursive open-import invalidation
+- strict token-changing partial parse/semantic recheck for the final numeric
+  binding in clean binding-only documents, with full-analysis fallback outside
+  that contract
 - debounced diagnostics for unsaved buffers after a short typing pause,
   including open dependent EngLang files when an imported buffer changes
 - debounced role-aware color refresh and stale decoration clearing across open
@@ -228,11 +231,15 @@ the shared editor snapshot only when a snapshot-backed feature first needs it.
 For a changed source, it can also retarget the prior report when the complete
 token stream and absolute spans are unchanged and every token-bearing line is
 byte-identical. This narrow path covers edits to comment-only and blank lines;
-the source-dependent snapshot is rebuilt lazily. Token, anchored-line,
-cache-bearing, and source-position changes run a full compiler analysis.
+the source-dependent snapshot is rebuilt lazily. A clean document containing
+only top-level numeric bindings can also reparse and semantically reanalyze just
+its changed final logical line. The server verifies that the isolated old line
+owns the final report records before patching them. Earlier-line, renamed,
+dependent, diagnostic, import, cache-bearing, richer-language, and
+source-position changes run a full compiler analysis.
 Changing an open import hard-invalidates its recursive open dependents, while
-unrelated document analyses remain cached. This is not general partial parse or
-semantic recomputation inside a changed document.
+unrelated document analyses remain cached. This remains a narrow partial path,
+not general incremental parse or semantic recomputation.
 The client keeps all modified open EngLang documents synchronized in that session. Static
 imports resolve open text before disk, so a changed declaration or import does
 not require a save. Saved workspace files are included only when their static

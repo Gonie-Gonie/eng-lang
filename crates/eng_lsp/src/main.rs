@@ -10,8 +10,8 @@ use std::time::{Duration, Instant};
 
 use eng_compiler::{
     bundled_module_registry, check_source_with_import_overrides, format_source, parse_source,
-    retarget_check_report_for_token_stable_trivia, AstItem, CheckOptions, CheckReport,
-    ImportSourceOverrides, ParseContext,
+    recheck_terminal_numeric_binding_incrementally, retarget_check_report_for_token_stable_trivia,
+    AstItem, CheckOptions, CheckReport, ImportSourceOverrides, ParseContext,
 };
 use eng_lsp::{
     completion_items_at, completion_items_for_path_position, completion_items_for_source_position,
@@ -1069,6 +1069,7 @@ struct DocumentAnalysisCache {
     hits: usize,
     misses: usize,
     trivia_reuses: usize,
+    terminal_binding_reuses: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -1140,6 +1141,27 @@ impl DocumentState {
         Some(analysis)
     }
 
+    fn recheck_terminal_numeric_binding(&self, source: &str) -> Option<CachedDocumentAnalysis> {
+        let mut cache = self
+            .analysis_cache
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let previous = cache.analysis.as_ref()?;
+        let report = Arc::new(recheck_terminal_numeric_binding_incrementally(
+            &previous.report,
+            &previous.source,
+            source,
+        )?);
+        let analysis = CachedDocumentAnalysis {
+            source: source.to_owned(),
+            report,
+            snapshot: None,
+        };
+        cache.analysis = Some(analysis.clone());
+        cache.terminal_binding_reuses += 1;
+        Some(analysis)
+    }
+
     fn store_analysis(&self, analysis: &CachedDocumentAnalysis) {
         let mut cache = self
             .analysis_cache
@@ -1205,6 +1227,14 @@ impl DocumentState {
             analysis.source.clone(),
             Arc::clone(analysis.snapshot.as_ref()?),
         ))
+    }
+
+    #[cfg(test)]
+    fn terminal_binding_reuse_count(&self) -> usize {
+        self.analysis_cache
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .terminal_binding_reuses
     }
 }
 
@@ -6718,6 +6748,9 @@ fn analysis_for_open_documents(
         if let Some(analysis) = state.reuse_analysis_for_token_stable_trivia(source) {
             return analysis;
         }
+        if let Some(analysis) = state.recheck_terminal_numeric_binding(source) {
+            return analysis;
+        }
     }
     let import_overrides = import_source_overrides_from_documents(documents);
     let report = Arc::new(check_source_with_import_overrides(
@@ -10141,6 +10174,92 @@ mod tests {
         );
 
         std::fs::remove_dir_all(&root).expect("trivia cache fixture should be removed");
+    }
+
+    #[test]
+    fn terminal_numeric_binding_edits_use_incremental_compiler_recheck() {
+        let root = std::env::temp_dir().join(format!(
+            "eng_lsp_terminal_binding_analysis_cache_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("incremental binding fixture should be created");
+        let path = root.join("current.eng");
+        let initial_source = "length = 2 m\nheat_rate = 2 kW\n";
+        std::fs::write(&path, initial_source)
+            .expect("incremental binding source should be written");
+        let path = path
+            .canonicalize()
+            .expect("incremental binding source should exist");
+        let uri = file_uri_from_path(&path);
+        let mut documents = Documents::new();
+        documents.insert(
+            uri.clone(),
+            DocumentState::new(initial_source.to_owned(), Some(1)),
+        );
+
+        let _initial = snapshot_for_open_documents(&path, initial_source, &documents);
+        let (_, initial_cached_snapshot) = documents[&uri]
+            .analysis_cache_snapshot()
+            .expect("initial snapshot should be cached");
+        assert_eq!(documents[&uri].terminal_binding_reuse_count(), 0);
+
+        let incremental_source = "length = 2 m\nheat_rate = 1800 W\n";
+        let incremental_change = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 2 },
+                "contentChanges": [{ "text": incremental_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&incremental_change, &documents)
+                .expect("terminal binding change should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+
+        let incremental = snapshot_for_open_documents(&path, incremental_source, &documents);
+        assert_eq!(incremental, snapshot_for_source(&path, incremental_source));
+        let (_, incremental_cached_snapshot) = documents[&uri]
+            .analysis_cache_snapshot()
+            .expect("incremental snapshot should be cached");
+        assert!(!Arc::ptr_eq(
+            &initial_cached_snapshot,
+            &incremental_cached_snapshot
+        ));
+        assert_eq!(documents[&uri].terminal_binding_reuse_count(), 1);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 2, 0, true, true)
+        );
+
+        let fallback_source = "length = 3 m\nheat_rate = 1800 W\n";
+        let fallback_change = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 3 },
+                "contentChanges": [{ "text": fallback_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&fallback_change, &documents)
+                .expect("non-terminal change should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, fallback_source, &documents),
+            snapshot_for_source(&path, fallback_source)
+        );
+        assert_eq!(documents[&uri].terminal_binding_reuse_count(), 1);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 3, 0, true, true),
+            "a non-terminal edit must fall back to a fresh compiler report"
+        );
+
+        std::fs::remove_dir_all(&root).expect("incremental binding fixture should be removed");
     }
 
     #[test]

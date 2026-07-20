@@ -550,6 +550,240 @@ pub fn retarget_check_report_for_token_stable_trivia(
     Some(reused)
 }
 
+/// Rechecks one terminal numeric binding without reparsing or reanalyzing the preceding document.
+///
+/// This first token-changing incremental path is intentionally strict. Both sources must contain
+/// only successful top-level numeric bindings, exactly the final logical line may change, and the
+/// binding name must remain stable. The compiler reparses and semantically analyzes only the old
+/// and new final lines, verifies that the old isolated result exactly owns the final report records,
+/// and patches those records. Imports, diagnostics, caches, dependent expressions, richer language
+/// constructs, and edits that move any later token return `None` so the caller can run a full check.
+///
+/// The caller must preserve the source path, check options, argument overrides, and import
+/// environment, just as for [`retarget_check_report_for_token_stable_trivia`].
+pub fn recheck_terminal_numeric_binding_incrementally(
+    report: &CheckReport,
+    previous_source: &str,
+    source: &str,
+) -> Option<CheckReport> {
+    if report.source_hash != hash_text(previous_source)
+        || report.source_lines
+            != previous_source
+                .lines()
+                .map(str::to_owned)
+                .collect::<Vec<_>>()
+    {
+        return None;
+    }
+
+    let previous_lines = source::source_lines(previous_source);
+    let source_lines = source::source_lines(source);
+    let (previous_line, source_line) = previous_lines.last().zip(source_lines.last())?;
+    if previous_lines.len() != source_lines.len()
+        || report.syntax_summary.lines != previous_lines.len()
+        || previous_line.line != source_line.line
+        || previous_line.start != source_line.start
+        || previous_line.text == source_line.text
+        || previous_source.get(..previous_line.start)? != source.get(..source_line.start)?
+        || previous_source.get(previous_line.start + previous_line.text.len()..)?
+            != source.get(source_line.start + source_line.text.len()..)?
+    {
+        return None;
+    }
+
+    let empty_semantic_program = semantic::analyze(&ParsedProgram {
+        lines: Vec::new(),
+        items: Vec::new(),
+    })
+    .semantic_program;
+    let previous_fragment =
+        terminal_numeric_binding_fragment(previous_line, &empty_semantic_program)?;
+    let source_fragment = terminal_numeric_binding_fragment(source_line, &empty_semantic_program)?;
+    if previous_fragment.binding.name != source_fragment.binding.name
+        || !report_has_incremental_numeric_binding_shape(
+            report,
+            &previous_fragment,
+            &empty_semantic_program,
+        )
+    {
+        return None;
+    }
+
+    let mut reused = report.clone();
+    let semantic = &mut reused.semantic_program;
+    *reused.inferred_declarations.last_mut()? = source_fragment
+        .semantic_output
+        .inferred_declarations
+        .first()?
+        .clone();
+    *semantic.typed_bindings.last_mut()? = source_fragment
+        .semantic_output
+        .semantic_program
+        .typed_bindings
+        .first()?
+        .clone();
+    *semantic.hover_hints.last_mut()? = source_fragment
+        .semantic_output
+        .semantic_program
+        .hover_hints
+        .first()?
+        .clone();
+    *semantic.type_infos.last_mut()? = source_fragment
+        .semantic_output
+        .semantic_program
+        .type_infos
+        .first()?
+        .clone();
+    *semantic.unit_derivations.last_mut()? = source_fragment
+        .semantic_output
+        .semantic_program
+        .unit_derivations
+        .first()?
+        .clone();
+    reused.syntax_summary.tokens = reused
+        .syntax_summary
+        .tokens
+        .checked_sub(previous_fragment.syntax_summary.tokens)?
+        .checked_add(source_fragment.syntax_summary.tokens)?;
+    reused.source_hash = hash_text(source);
+    reused.source_lines = source.lines().map(str::to_owned).collect();
+    Some(reused)
+}
+
+struct TerminalNumericBindingFragment {
+    binding: FastBinding,
+    semantic_output: semantic::SemanticOutput,
+    syntax_summary: SyntaxSummary,
+}
+
+fn terminal_numeric_binding_fragment(
+    source_line: &source::SourceLine,
+    empty_semantic_program: &SemanticProgram,
+) -> Option<TerminalNumericBindingFragment> {
+    let parsed = parser::parse_top_level_source_line(source_line);
+    let syntax_summary = parsed.summary();
+    if syntax_summary.ast_items != 1 || syntax_summary.fast_bindings != 1 {
+        return None;
+    }
+    let AstItem::FastBinding(binding) = parsed.items.first()? else {
+        return None;
+    };
+    quantities::parse_numeric_literal(&binding.expression)?;
+    let binding = binding.clone();
+    let semantic_output = semantic::analyze(&parsed);
+    if !semantic_output.diagnostics.is_empty()
+        || semantic_output.inferred_declarations.len() != 1
+        || !semantic_program_has_only_numeric_binding_records(
+            &semantic_output.semantic_program,
+            1,
+            empty_semantic_program,
+        )
+    {
+        return None;
+    }
+    Some(TerminalNumericBindingFragment {
+        binding,
+        semantic_output,
+        syntax_summary,
+    })
+}
+
+fn report_has_incremental_numeric_binding_shape(
+    report: &CheckReport,
+    fragment: &TerminalNumericBindingFragment,
+    empty_semantic_program: &SemanticProgram,
+) -> bool {
+    let binding_count = report.syntax_summary.fast_bindings;
+    if binding_count == 0
+        || report.source_files.len() != 1
+        || report.source_files[0].source_id != SourceSpan::ROOT_SOURCE_ID
+        || !report.diagnostics.is_empty()
+        || report.syntax_summary.ast_items != binding_count
+        || report.inferred_declarations.len() != binding_count
+        || !semantic_program_has_only_numeric_binding_records(
+            &report.semantic_program,
+            binding_count,
+            empty_semantic_program,
+        )
+    {
+        return false;
+    }
+
+    let mut names = HashSet::new();
+    if !report.inferred_declarations.iter().all(|declaration| {
+        quantities::parse_numeric_literal(&declaration.expression).is_some()
+            && names.insert(declaration.name.as_str())
+    }) {
+        return false;
+    }
+    if !report
+        .inferred_declarations
+        .iter()
+        .zip(&report.semantic_program.typed_bindings)
+        .zip(&report.semantic_program.hover_hints)
+        .zip(&report.semantic_program.type_infos)
+        .zip(&report.semantic_program.unit_derivations)
+        .all(
+            |((((declaration, binding), hover), type_info), derivation)| {
+                declaration.name == binding.name
+                    && declaration.name == hover.name
+                    && declaration.name == type_info.name
+                    && declaration.name == derivation.name
+                    && declaration.line == binding.line
+                    && declaration.line == hover.line
+                    && declaration.line == type_info.line
+                    && declaration.line == derivation.line
+            },
+        )
+    {
+        return false;
+    }
+
+    report.inferred_declarations.last() == fragment.semantic_output.inferred_declarations.first()
+        && report.semantic_program.typed_bindings.last()
+            == fragment
+                .semantic_output
+                .semantic_program
+                .typed_bindings
+                .first()
+        && report.semantic_program.hover_hints.last()
+            == fragment
+                .semantic_output
+                .semantic_program
+                .hover_hints
+                .first()
+        && report.semantic_program.type_infos.last()
+            == fragment.semantic_output.semantic_program.type_infos.first()
+        && report.semantic_program.unit_derivations.last()
+            == fragment
+                .semantic_output
+                .semantic_program
+                .unit_derivations
+                .first()
+}
+
+fn semantic_program_has_only_numeric_binding_records(
+    program: &SemanticProgram,
+    binding_count: usize,
+    empty: &SemanticProgram,
+) -> bool {
+    if program.typed_bindings.len() != binding_count
+        || program.hover_hints.len() != binding_count
+        || program.type_infos.len() != binding_count
+        || program.unit_derivations.len() != binding_count
+    {
+        return false;
+    }
+
+    let mut residue = program.clone();
+    residue.typed_bindings.clear();
+    residue.hover_hints.clear();
+    residue.type_infos.clear();
+    residue.unit_derivations.clear();
+    residue.workflow = empty.workflow.clone();
+    residue == *empty
+}
+
 fn anchored_tokens(source: &str) -> Vec<Token> {
     source::source_lines(source)
         .into_iter()
@@ -9001,6 +9235,100 @@ mod tests {
             &previous,
             "value = 20 kW\n# alpha\n",
             "value = 20 kW\n# bravo\n"
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn incrementally_rechecks_terminal_numeric_binding_with_fresh_equivalence() {
+        let previous_source = "length = 2 m\r\nheat_rate = 2 kW\r\n";
+        let source = "length = 2 m\r\nheat_rate = 1800 W\r\n";
+        let previous = check_source(
+            "incremental-binding.eng",
+            previous_source,
+            &CheckOptions::default(),
+        );
+        assert!(previous.diagnostics.is_empty());
+
+        let reused =
+            recheck_terminal_numeric_binding_incrementally(&previous, previous_source, source)
+                .expect("the changed final numeric binding should be rechecked incrementally");
+        let fresh = check_source("incremental-binding.eng", source, &CheckOptions::default());
+
+        assert_eq!(reused.source_path, fresh.source_path);
+        assert_eq!(reused.source_files, fresh.source_files);
+        assert_eq!(reused.source_hash, fresh.source_hash);
+        assert_eq!(reused.source_lines, fresh.source_lines);
+        assert_eq!(reused.diagnostics, fresh.diagnostics);
+        assert_eq!(reused.inferred_declarations, fresh.inferred_declarations);
+        assert_eq!(reused.syntax_summary, fresh.syntax_summary);
+        assert_eq!(reused.semantic_program, fresh.semantic_program);
+        assert_eq!(
+            reused.quantity_completion_count,
+            fresh.quantity_completion_count
+        );
+        assert_eq!(reused.unit_info_count, fresh.unit_info_count);
+        assert_eq!(review_json(&reused), review_json(&fresh));
+        assert_eq!(
+            encode_bytecode(&build_bytecode_program(&reused, source)),
+            encode_bytecode(&build_bytecode_program(&fresh, source))
+        );
+        let expression_span = reused
+            .inferred_declarations
+            .last()
+            .expect("changed declaration")
+            .expression_span;
+        assert_eq!(
+            source.get(expression_span.start..expression_span.end),
+            Some("1800 W")
+        );
+    }
+
+    #[test]
+    fn terminal_numeric_incremental_recheck_uses_strict_fallbacks() {
+        let previous_source = "length = 2 m\nheat_rate = 2 kW\n";
+        let previous = check_source(
+            "incremental-binding.eng",
+            previous_source,
+            &CheckOptions::default(),
+        );
+
+        for unsupported in [
+            "length = 3 m\nheat_rate = 2 kW\n",
+            "length = 3 m\nheat_rate = 1800 W\n",
+            "length = 2 m\npower = 1800 W\n",
+            "length = 2 m\nheat_rate = length\n",
+            "length = 2 m\nheat_rate = 2 kW + 1 kW\n",
+            "length = 2 m\nheat_rate = 1800 W\n# trailing trivia\n",
+        ] {
+            assert!(
+                recheck_terminal_numeric_binding_incrementally(
+                    &previous,
+                    previous_source,
+                    unsupported,
+                )
+                .is_none(),
+                "unsupported edit should use a full check: {unsupported:?}"
+            );
+        }
+
+        let richer_source = "length = 2 m\nprint length\nheat_rate = 2 kW\n";
+        let richer = check_source(
+            "incremental-binding.eng",
+            richer_source,
+            &CheckOptions::default(),
+        );
+        assert!(recheck_terminal_numeric_binding_incrementally(
+            &richer,
+            richer_source,
+            "length = 2 m\nprint length\nheat_rate = 1800 W\n"
+        )
+        .is_none());
+
+        assert!(recheck_terminal_numeric_binding_incrementally(
+            &previous,
+            "length = 20 m\nheat_rate = 2 kW\n",
+            "length = 20 m\nheat_rate = 1800 W\n"
         )
         .is_none());
     }
