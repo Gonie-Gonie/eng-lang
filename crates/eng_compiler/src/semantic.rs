@@ -1169,29 +1169,6 @@ pub(crate) fn analyze_incremental_scalar_declarations(
     })
 }
 
-pub(crate) type IncrementalBindingAnalysis = IncrementalScalarDeclarationAnalysis;
-
-pub(crate) fn analyze_incremental_scalar_bindings(
-    program: &ParsedProgram,
-    prefix_typed_bindings: &[TypedBinding],
-) -> Option<IncrementalBindingAnalysis> {
-    let analysis = analyze_incremental_scalar_declarations(program, prefix_typed_bindings)?;
-    analysis.expected_types.is_empty().then_some(analysis)
-}
-
-pub(crate) type IncrementalExplicitScalarAnalysis = IncrementalScalarDeclarationAnalysis;
-
-pub(crate) fn analyze_incremental_explicit_scalar_declarations(
-    program: &ParsedProgram,
-    prefix_typed_bindings: &[TypedBinding],
-) -> Option<IncrementalExplicitScalarAnalysis> {
-    let analysis = analyze_incremental_scalar_declarations(program, prefix_typed_bindings)?;
-    analysis
-        .inferred_declarations
-        .is_empty()
-        .then_some(analysis)
-}
-
 pub(crate) fn supports_incremental_scalar_expression(
     expression: &str,
     available_bindings: &[TypedBinding],

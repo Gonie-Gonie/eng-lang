@@ -244,9 +244,11 @@ separate.
   multi-line value/type/unit edits, renames, declaration additions/removals,
   complete clearing and trivia-only restart, variable-width/inserted/removed
   trivia, and suffix line-ending shifts while patching inferred, expected, shared
-  semantic, syntax-count, and workflow-line records together; lazy shared editor
-  snapshots, recursive import-dependent invalidation, a VS Code persistent stdio client with document
-  sync and direct protocol semantic tokens, request-ID-scoped protocol
+  semantic, syntax-count, and workflow-line records together. The older
+  fast-binding-only and explicit-declaration-only APIs are mode-limited
+  compatibility wrappers over this engine; lazy shared editor snapshots,
+  recursive import-dependent invalidation, a VS Code persistent stdio client
+  with document sync and direct protocol semantic tokens, request-ID-scoped protocol
   cancellation with cooperative workspace scan interruption, compiler-owned
   declaration and explicit Outline selection ranges, import-source isolation
   across diagnostics/semantic overlays/hover fallback, source-origin-aware
