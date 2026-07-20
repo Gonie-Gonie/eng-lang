@@ -19,10 +19,10 @@ embedding compiler logic in JavaScript.
 - exact-source plus conservative token-free-trivia compiler report reuse across
   completion, diagnostics, hover, semantic tokens, navigation, and review
   decorations, with lazy snapshot projection and recursive open-import invalidation
-- strict token-changing partial parse/semantic recheck for one scalar binding
-  and the suffix affected by source positions or dependencies in documents
-  containing only numeric literals and backward aliases, with full-analysis
-  fallback outside that contract
+- strict token-changing partial parse/semantic recheck from the first changed
+  scalar binding through the affected suffix in documents containing only numeric
+  literals and backward aliases, including coordinated multi-line edits and
+  renames, with full-analysis fallback outside that contract
 - debounced diagnostics for unsaved buffers after a short typing pause,
   including open dependent EngLang files when an imported buffer changes
 - debounced role-aware color refresh and stale decoration clearing across open
@@ -233,13 +233,14 @@ For a changed source, it can also retarget the prior report when the complete
 token stream and absolute spans are unchanged and every token-bearing line is
 byte-identical. This narrow path covers edits to comment-only and blank lines;
 the source-dependent snapshot is rebuilt lazily. In a document containing only
-top-level numeric literals and backward scalar aliases, one changed binding
-preserves the preceding report and reparses/semantically reanalyzes that line plus
-every later binding whose absolute span or inferred type may depend on it. The
-server verifies the old suffix against the corresponding report records before
-patching them. Multi-line, renamed, unresolved or compound-expression,
-diagnostic, import, cache-bearing, richer-language, line-count, and line-ending
-changes run a full compiler analysis.
+top-level numeric literals and backward scalar aliases, one or more changed
+binding lines preserve the report before the first change and reparse/semantically
+reanalyze that suffix once. Coordinated declaration and alias renames are accepted
+when names remain unique and aliases resolve backward in source order. The server
+verifies the old suffix against the corresponding report records before patching
+them. Changed trivia lines, incomplete or duplicate renames, unresolved or
+compound expressions, diagnostics, imports, caches, richer language, line-count,
+and line-ending changes run a full compiler analysis.
 Changing an open import hard-invalidates its recursive open dependents, while
 unrelated document analyses remain cached. This remains a narrow partial path,
 not general incremental parse or semantic recomputation.

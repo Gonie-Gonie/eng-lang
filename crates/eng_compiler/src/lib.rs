@@ -553,14 +553,15 @@ pub fn retarget_check_report_for_token_stable_trivia(
 /// Rechecks one scalar binding and the suffix affected by source positions or dependencies.
 ///
 /// This token-changing incremental path is intentionally strict. Both sources must contain only
-/// successful top-level scalar bindings and trivia, exactly one logical line may change, line
-/// endings and binding names must remain stable, and every expression must be either a numeric
-/// literal or a backward alias to an earlier binding. The compiler preserves the preceding report
-/// records, then reparses and semantically reanalyzes only the changed binding and later bindings
-/// whose spans or inferred types may depend on it. It verifies the old suffix result against the
-/// prior report before patching. Imports, diagnostics, caches, compound expressions, richer language
-/// constructs, line-count or line-ending changes, and multi-line edits return `None` so the caller
-/// can run a full check.
+/// successful top-level scalar bindings and trivia, every changed logical line must remain a
+/// binding line, line endings and binding line identities must remain stable, and every expression
+/// must be either a numeric literal or a backward alias to an earlier binding. Coordinated binding
+/// renames are accepted when the resulting names stay unique and aliases resolve in source order.
+/// The compiler preserves the preceding report records, then reparses and semantically reanalyzes
+/// only the first changed binding and its suffix. It verifies the old suffix result against the prior
+/// report before patching. Imports, diagnostics, caches, compound expressions, changed trivia lines,
+/// richer language constructs, and line-count or line-ending changes return `None` so the caller can
+/// run a full check.
 ///
 /// The caller must preserve the source path, check options, argument overrides, and import
 /// environment, just as for [`retarget_check_report_for_token_stable_trivia`].
@@ -586,7 +587,7 @@ pub fn recheck_scalar_binding_suffix_incrementally(
     {
         return None;
     }
-    let mut changed_index = None;
+    let mut changed_indices = Vec::new();
     for (index, (previous_line, source_line)) in
         previous_lines.iter().zip(&source_lines).enumerate()
     {
@@ -596,11 +597,11 @@ pub fn recheck_scalar_binding_suffix_incrementally(
         {
             return None;
         }
-        if previous_line.text != source_line.text && changed_index.replace(index).is_some() {
-            return None;
+        if previous_line.text != source_line.text {
+            changed_indices.push(index);
         }
     }
-    let changed_index = changed_index?;
+    let changed_index = *changed_indices.first()?;
     if previous_lines[changed_index].start != source_lines[changed_index].start {
         return None;
     }
@@ -621,11 +622,22 @@ pub fn recheck_scalar_binding_suffix_incrementally(
     if previous_changed.line != previous_lines[changed_index].line
         || source_changed.line != source_lines[changed_index].line
         || previous_suffix.bindings.len() != source_suffix.bindings.len()
+        || !changed_indices.iter().all(|index| {
+            let line = previous_lines[*index].line;
+            previous_suffix
+                .bindings
+                .iter()
+                .any(|binding| binding.line == line)
+                && source_suffix
+                    .bindings
+                    .iter()
+                    .any(|binding| binding.line == line)
+        })
         || !previous_suffix
             .bindings
             .iter()
             .zip(&source_suffix.bindings)
-            .all(|(previous, source)| previous.name == source.name && previous.line == source.line)
+            .all(|(previous, source)| previous.line == source.line)
     {
         return None;
     }
@@ -636,6 +648,17 @@ pub fn recheck_scalar_binding_suffix_incrementally(
         .position(|declaration| {
             declaration.line == previous_changed.line && declaration.name == previous_changed.name
         })?;
+    let mut source_names = HashSet::new();
+    if !report.inferred_declarations[..first_record]
+        .iter()
+        .all(|declaration| source_names.insert(declaration.name.as_str()))
+        || !source_suffix
+            .bindings
+            .iter()
+            .all(|binding| source_names.insert(binding.name.as_str()))
+    {
+        return None;
+    }
     let prefix_typed_bindings = report.semantic_program.typed_bindings.get(..first_record)?;
     let previous_analysis = semantic::analyze_incremental_scalar_bindings(
         &previous_suffix.program,
@@ -9414,6 +9437,36 @@ mod tests {
             .find(|binding| binding.name == "heat_rate_alias")
             .expect("transitive alias type");
         assert_eq!(alias_type.semantic_type, ratio_type.semantic_type);
+
+        let renamed_source = "# inputs\r\nheat_rate = 1800 W\r\nfactor = 2\r\nscaled_ratio = factor\r\nheat_rate_alias = scaled_ratio\r\n";
+        let renamed_reused = recheck_scalar_binding_suffix_incrementally(
+            &alias_reused,
+            alias_source,
+            renamed_source,
+        )
+        .expect("coordinated scalar binding renames should recheck one suffix");
+        let renamed_fresh = check_source(
+            "incremental-binding.eng",
+            renamed_source,
+            &CheckOptions::default(),
+        );
+        assert_eq!(renamed_reused.source_hash, renamed_fresh.source_hash);
+        assert_eq!(renamed_reused.source_lines, renamed_fresh.source_lines);
+        assert_eq!(renamed_reused.diagnostics, renamed_fresh.diagnostics);
+        assert_eq!(
+            renamed_reused.inferred_declarations,
+            renamed_fresh.inferred_declarations
+        );
+        assert_eq!(renamed_reused.syntax_summary, renamed_fresh.syntax_summary);
+        assert_eq!(
+            renamed_reused.semantic_program,
+            renamed_fresh.semantic_program
+        );
+        assert_eq!(review_json(&renamed_reused), review_json(&renamed_fresh));
+        assert_eq!(
+            encode_bytecode(&build_bytecode_program(&renamed_reused, renamed_source)),
+            encode_bytecode(&build_bytecode_program(&renamed_fresh, renamed_source))
+        );
     }
 
     #[test]
@@ -9426,8 +9479,6 @@ mod tests {
         );
 
         for unsupported in [
-            "length = 3 m\nheat_rate = 1800 W\n",
-            "distance = 3 m\nheat_rate = 2 kW\n",
             "length = 2 m\nheat_rate = missing\n",
             "length = 2 m\nheat_rate = 2 kW + 1 kW\n",
             "length = 2 m\nheat_rate = 1800 W\n# trailing trivia\n",
@@ -9454,6 +9505,40 @@ mod tests {
             &richer,
             richer_source,
             "length = 2 m\nprint length\nheat_rate = 1800 W\n"
+        )
+        .is_none());
+
+        let alias_source = "length = 2 m\nlength_copy = length\n";
+        let alias_report = check_source(
+            "incremental-binding.eng",
+            alias_source,
+            &CheckOptions::default(),
+        );
+        for unsupported in [
+            "distance = 2 m\nlength_copy = length\n",
+            "distance = 2 m\ndistance = distance\n",
+        ] {
+            assert!(
+                recheck_scalar_binding_suffix_incrementally(
+                    &alias_report,
+                    alias_source,
+                    unsupported,
+                )
+                .is_none(),
+                "incomplete or duplicate rename should use a full check: {unsupported:?}"
+            );
+        }
+
+        let trivia_source = "# alpha\nlength = 2 m\nheat_rate = 2 kW\n";
+        let trivia_report = check_source(
+            "incremental-binding.eng",
+            trivia_source,
+            &CheckOptions::default(),
+        );
+        assert!(recheck_scalar_binding_suffix_incrementally(
+            &trivia_report,
+            trivia_source,
+            "# bravo\nlength = 3 m\nheat_rate = 2 kW\n"
         )
         .is_none());
 

@@ -10258,12 +10258,36 @@ mod tests {
             (0, 3, 0, true, true)
         );
 
-        let fallback_source =
-            "heat_rate = 1800 W\nratio = 1\nheat_rate_copy = heat_rate + heat_rate\n";
-        let fallback_change = json!({
+        let renamed_source = "heat_rate = 1800 W\nfactor = 2\nscaled_ratio = factor\n";
+        let renamed_change = json!({
             "method": "textDocument/didChange",
             "params": {
                 "textDocument": { "uri": uri, "version": 4 },
+                "contentChanges": [{ "text": renamed_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&renamed_change, &documents)
+                .expect("coordinated binding rename should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, renamed_source, &documents),
+            snapshot_for_source(&path, renamed_source)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 3);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 4, 0, true, true)
+        );
+
+        let fallback_source =
+            "heat_rate = 1800 W\nfactor = 2\nscaled_ratio = heat_rate + heat_rate\n";
+        let fallback_change = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 5 },
                 "contentChanges": [{ "text": fallback_source }]
             }
         });
@@ -10277,10 +10301,10 @@ mod tests {
             snapshot_for_open_documents(&path, fallback_source, &documents),
             snapshot_for_source(&path, fallback_source)
         );
-        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 2);
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 3);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
-            (0, 4, 0, true, true),
+            (0, 5, 0, true, true),
             "a compound expression edit must fall back to a fresh compiler report"
         );
 
