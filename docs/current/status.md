@@ -135,10 +135,13 @@ review material. It is not a broad solver claim.
   names remain unique and every reference resolves backward in source order.
   Scalar binding additions/removals, complete clearing, and restart from
   trivia-only text update semantic vectors, syntax counts, and the first workflow
-  line together. Token-bearing non-binding lines, incomplete or duplicate renames,
-  forward or unresolved references, dimensionally incompatible arithmetic, calls,
-  workflow expressions, diagnostics, imports, caches, and richer language use full
-  analysis.
+  line together. Declaration-only documents with registered explicit scalar
+  quantity annotations and the same pure RHS grammar use a separate suffix path
+  that also patches expected types across type/unit/RHS edits, additions, clearing,
+  and trivia-only restart. Token-bearing non-binding lines, incomplete or duplicate
+  renames, forward or unresolved references, dimensionally incompatible
+  arithmetic, calls, workflow expressions, mixed fast/explicit documents,
+  diagnostics, imports, caches, and richer language use full analysis.
   Source changes invalidate recursive open import dependents while preserving
   the changed document as a candidate for these narrow reuse paths. This is not
   general partial parsing or a public cross-release protocol commitment.

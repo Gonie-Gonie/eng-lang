@@ -702,6 +702,311 @@ pub fn recheck_scalar_binding_suffix_incrementally(
     Some(reused)
 }
 
+/// Rechecks an explicit scalar declaration and the declaration-only suffix it affects.
+///
+/// Both sources must contain only successful top-level explicit declarations with registered
+/// scalar quantity types, pure scalar expressions, and token-free trivia. This path preserves the
+/// records before the first changed declaration and patches expected-type, typed-binding, hover,
+/// type-info, unit-derivation, syntax-count, and workflow-line records together. Mixed fast and
+/// explicit declarations, calls, diagnostics, imports, caches, and richer constructs return `None`.
+pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
+    report: &CheckReport,
+    previous_source: &str,
+    source: &str,
+) -> Option<CheckReport> {
+    if report.source_hash != hash_text(previous_source)
+        || report.source_lines
+            != previous_source
+                .lines()
+                .map(str::to_owned)
+                .collect::<Vec<_>>()
+    {
+        return None;
+    }
+
+    let previous_lines = source::source_lines(previous_source);
+    let source_lines = source::source_lines(source);
+    if report.syntax_summary.lines != previous_lines.len() {
+        return None;
+    }
+    let mut changed_index = None;
+    for index in 0..previous_lines.len().min(source_lines.len()) {
+        if previous_lines[index].text != source_lines[index].text
+            || source_line_ending(previous_source, &previous_lines, index)?
+                != source_line_ending(source, &source_lines, index)?
+        {
+            changed_index = Some(index);
+            break;
+        }
+    }
+    let changed_index = changed_index.or_else(|| {
+        (previous_lines.len() != source_lines.len())
+            .then_some(previous_lines.len().min(source_lines.len()))
+    })?;
+
+    let empty_semantic_program = semantic::analyze(&ParsedProgram {
+        lines: Vec::new(),
+        items: Vec::new(),
+    })
+    .semantic_program;
+    if !report_has_incremental_explicit_scalar_shape(report, &empty_semantic_program) {
+        return None;
+    }
+
+    let previous_suffix =
+        parse_explicit_scalar_declaration_suffix(&previous_lines[changed_index..])?;
+    let source_suffix = parse_explicit_scalar_declaration_suffix(&source_lines[changed_index..])?;
+    if previous_suffix.declarations.is_empty() && source_suffix.declarations.is_empty() {
+        return None;
+    }
+
+    let first_record = if let Some(previous_changed) = previous_suffix.declarations.first() {
+        report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .position(|binding| {
+                binding.line == previous_changed.line && binding.name == previous_changed.name
+            })?
+    } else {
+        report.semantic_program.typed_bindings.len()
+    };
+    let mut source_names = HashSet::new();
+    if !report.semantic_program.typed_bindings[..first_record]
+        .iter()
+        .all(|binding| source_names.insert(binding.name.as_str()))
+        || !source_suffix
+            .declarations
+            .iter()
+            .all(|declaration| source_names.insert(declaration.name.as_str()))
+    {
+        return None;
+    }
+
+    let prefix_typed_bindings = report.semantic_program.typed_bindings.get(..first_record)?;
+    let previous_analysis = semantic::analyze_incremental_explicit_scalar_declarations(
+        &previous_suffix.program,
+        prefix_typed_bindings,
+    )?;
+    let source_analysis = semantic::analyze_incremental_explicit_scalar_declarations(
+        &source_suffix.program,
+        prefix_typed_bindings,
+    )?;
+    if first_record.checked_add(previous_suffix.declarations.len())?
+        != report.semantic_program.typed_bindings.len()
+        || !incremental_explicit_scalar_analysis_matches_report(
+            report,
+            first_record,
+            &previous_analysis,
+        )
+    {
+        return None;
+    }
+
+    let mut reused = report.clone();
+    let semantic = &mut reused.semantic_program;
+    semantic.expected_types.truncate(first_record);
+    semantic
+        .expected_types
+        .extend(source_analysis.expected_types);
+    semantic.typed_bindings.truncate(first_record);
+    semantic
+        .typed_bindings
+        .extend(source_analysis.typed_bindings);
+    semantic.hover_hints.truncate(first_record);
+    semantic.hover_hints.extend(source_analysis.hover_hints);
+    semantic.type_infos.truncate(first_record);
+    semantic.type_infos.extend(source_analysis.type_infos);
+    semantic.unit_derivations.truncate(first_record);
+    semantic
+        .unit_derivations
+        .extend(source_analysis.unit_derivations);
+    reused.syntax_summary.tokens = reused
+        .syntax_summary
+        .tokens
+        .checked_sub(previous_suffix.token_count)?
+        .checked_add(source_suffix.token_count)?;
+    reused.syntax_summary.ast_items = reused
+        .syntax_summary
+        .ast_items
+        .checked_sub(previous_suffix.declarations.len())?
+        .checked_add(source_suffix.declarations.len())?;
+    reused.syntax_summary.explicit_declarations = reused
+        .syntax_summary
+        .explicit_declarations
+        .checked_sub(previous_suffix.declarations.len())?
+        .checked_add(source_suffix.declarations.len())?;
+    reused.syntax_summary.lines = source_lines.len();
+    if first_record == 0 {
+        semantic.workflow.line = source_suffix
+            .declarations
+            .first()
+            .map(|declaration| declaration.line)
+            .unwrap_or(1);
+    }
+    reused.source_hash = hash_text(source);
+    reused.source_lines = source.lines().map(str::to_owned).collect();
+    Some(reused)
+}
+
+struct ParsedExplicitScalarSuffix {
+    program: ParsedProgram,
+    declarations: Vec<ExplicitDecl>,
+    token_count: usize,
+}
+
+fn parse_explicit_scalar_declaration_suffix(
+    lines: &[source::SourceLine],
+) -> Option<ParsedExplicitScalarSuffix> {
+    let mut program = ParsedProgram {
+        lines: Vec::with_capacity(lines.len()),
+        items: Vec::new(),
+    };
+    for line in lines {
+        let mut parsed = parser::parse_top_level_source_line(line);
+        if parsed.lines.len() != 1 {
+            return None;
+        }
+        let token_bearing = !parsed.lines[0].tokens.is_empty();
+        if (token_bearing && parsed.items.len() != 1)
+            || (!token_bearing && !parsed.items.is_empty())
+        {
+            return None;
+        }
+        program.lines.append(&mut parsed.lines);
+        program.items.append(&mut parsed.items);
+    }
+
+    let syntax_summary = program.summary();
+    let declarations = program
+        .items
+        .iter()
+        .map(|item| {
+            let AstItem::ExplicitDecl(declaration) = item else {
+                return None;
+            };
+            Some(declaration.clone())
+        })
+        .collect::<Option<Vec<_>>>()?;
+    if syntax_summary.ast_items != syntax_summary.explicit_declarations {
+        return None;
+    }
+    Some(ParsedExplicitScalarSuffix {
+        program,
+        declarations,
+        token_count: syntax_summary.tokens,
+    })
+}
+
+fn report_has_incremental_explicit_scalar_shape(
+    report: &CheckReport,
+    empty_semantic_program: &SemanticProgram,
+) -> bool {
+    let declaration_count = report.syntax_summary.explicit_declarations;
+    if report.source_files.len() != 1
+        || report.source_files[0].source_id != SourceSpan::ROOT_SOURCE_ID
+        || !report.diagnostics.is_empty()
+        || report.syntax_summary.ast_items != declaration_count
+        || report.syntax_summary.fast_bindings != 0
+        || !report.inferred_declarations.is_empty()
+        || !semantic_program_has_only_explicit_scalar_records(
+            &report.semantic_program,
+            declaration_count,
+            empty_semantic_program,
+        )
+    {
+        return false;
+    }
+
+    let mut names = HashSet::new();
+    report
+        .semantic_program
+        .expected_types
+        .iter()
+        .zip(&report.semantic_program.typed_bindings)
+        .zip(&report.semantic_program.hover_hints)
+        .zip(&report.semantic_program.type_infos)
+        .zip(&report.semantic_program.unit_derivations)
+        .enumerate()
+        .all(
+            |(index, ((((expected, binding), hover), type_info), derivation))| {
+                expected.name == binding.name
+                    && expected.name == hover.name
+                    && expected.name == type_info.name
+                    && expected.name == derivation.name
+                    && expected.line == binding.line
+                    && expected.line == hover.line
+                    && expected.line == type_info.line
+                    && expected.line == derivation.line
+                    && names.insert(expected.name.as_str())
+                    && crate::quantities::all_quantity_completions()
+                        .iter()
+                        .any(|quantity| {
+                            quantity.quantity_kind == binding.semantic_type.quantity_kind
+                        })
+                    && derivation.expression.as_deref().is_some_and(|expression| {
+                        semantic::supports_incremental_scalar_expression(
+                            expression,
+                            &report.semantic_program.typed_bindings[..index],
+                        )
+                    })
+            },
+        )
+}
+
+fn semantic_program_has_only_explicit_scalar_records(
+    program: &SemanticProgram,
+    declaration_count: usize,
+    empty: &SemanticProgram,
+) -> bool {
+    if program.expected_types.len() != declaration_count
+        || program.typed_bindings.len() != declaration_count
+        || program.hover_hints.len() != declaration_count
+        || program.type_infos.len() != declaration_count
+        || program.unit_derivations.len() != declaration_count
+    {
+        return false;
+    }
+
+    let mut residue = program.clone();
+    residue.expected_types.clear();
+    residue.typed_bindings.clear();
+    residue.hover_hints.clear();
+    residue.type_infos.clear();
+    residue.unit_derivations.clear();
+    residue.workflow = empty.workflow.clone();
+    residue == *empty
+}
+
+fn incremental_explicit_scalar_analysis_matches_report(
+    report: &CheckReport,
+    first_record: usize,
+    analysis: &semantic::IncrementalExplicitScalarAnalysis,
+) -> bool {
+    let Some(end) = first_record.checked_add(analysis.typed_bindings.len()) else {
+        return false;
+    };
+    report
+        .semantic_program
+        .expected_types
+        .get(first_record..end)
+        == Some(analysis.expected_types.as_slice())
+        && report
+            .semantic_program
+            .typed_bindings
+            .get(first_record..end)
+            == Some(analysis.typed_bindings.as_slice())
+        && report.semantic_program.hover_hints.get(first_record..end)
+            == Some(analysis.hover_hints.as_slice())
+        && report.semantic_program.type_infos.get(first_record..end)
+            == Some(analysis.type_infos.as_slice())
+        && report
+            .semantic_program
+            .unit_derivations
+            .get(first_record..end)
+            == Some(analysis.unit_derivations.as_slice())
+}
+
 fn source_line_ending<'a>(
     source: &'a str,
     lines: &[source::SourceLine],
@@ -9592,6 +9897,172 @@ mod tests {
                 "Length"
             );
         }
+    }
+
+    #[test]
+    fn incrementally_rechecks_explicit_scalar_declarations_with_fresh_equivalence() {
+        fn assert_fresh_equivalent(reused: &CheckReport, fresh: &CheckReport, source: &str) {
+            assert_eq!(reused.source_path, fresh.source_path);
+            assert_eq!(reused.source_files, fresh.source_files);
+            assert_eq!(reused.source_hash, fresh.source_hash);
+            assert_eq!(reused.source_lines, fresh.source_lines);
+            assert_eq!(reused.diagnostics, fresh.diagnostics);
+            assert_eq!(reused.inferred_declarations, fresh.inferred_declarations);
+            assert_eq!(reused.syntax_summary, fresh.syntax_summary);
+            assert_eq!(reused.semantic_program, fresh.semantic_program);
+            assert_eq!(
+                reused.quantity_completion_count,
+                fresh.quantity_completion_count
+            );
+            assert_eq!(reused.unit_info_count, fresh.unit_info_count);
+            assert_eq!(review_json(reused), review_json(fresh));
+            assert_eq!(
+                encode_bytecode(&build_bytecode_program(reused, source)),
+                encode_bytecode(&build_bytecode_program(fresh, source))
+            );
+        }
+
+        let previous_source = concat!(
+            "length: Length [m] = 2 m\n",
+            "# explicit scalars\n",
+            "scale: Ratio [1] = (1 + 1) / 2\n",
+            "heat_rate: HeatRate [kW] = (2 kW + 500 W) * scale\n",
+        );
+        let source = concat!(
+            "length: Length [m] = 2 m\n",
+            "# explicit scalar inputs expanded\n",
+            "scale: Ratio [1] = (3 - 1) / 2\n",
+            "heat_rate: HeatRate [W] = (1800 W + 200 W) / scale\n",
+        );
+        let previous = check_source(
+            "incremental-explicit.eng",
+            previous_source,
+            &CheckOptions::default(),
+        );
+        assert!(
+            previous.diagnostics.is_empty(),
+            "unexpected explicit fixture diagnostics: {:#?}",
+            previous.diagnostics
+        );
+        assert_eq!(previous.semantic_program.expected_types.len(), 3);
+        assert!(previous.inferred_declarations.is_empty());
+
+        let reused = recheck_explicit_scalar_declaration_suffix_incrementally(
+            &previous,
+            previous_source,
+            source,
+        )
+        .expect("changed explicit scalar declarations should recheck one suffix");
+        let fresh = check_source("incremental-explicit.eng", source, &CheckOptions::default());
+        assert_fresh_equivalent(&reused, &fresh, source);
+        assert_eq!(
+            reused.semantic_program.typed_bindings.first(),
+            previous.semantic_program.typed_bindings.first(),
+            "the explicit declaration before changed trivia should remain exact"
+        );
+        let heat_rate = reused
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "heat_rate")
+            .expect("changed explicit heat-rate binding");
+        assert_eq!(heat_rate.semantic_type.display_unit, "W");
+
+        let appended_source = concat!(
+            "length: Length [m] = 2 m\n",
+            "# explicit scalar inputs expanded\n",
+            "scale: Ratio [1] = (3 - 1) / 2\n",
+            "heat_rate: HeatRate [W] = (1800 W + 200 W) / scale\n",
+            "backup_heat_rate: HeatRate [W] = (heat_rate + 100 W) * scale\n",
+        );
+        let appended = recheck_explicit_scalar_declaration_suffix_incrementally(
+            &reused,
+            source,
+            appended_source,
+        )
+        .expect("an appended explicit scalar should extend every semantic vector");
+        let appended_fresh = check_source(
+            "incremental-explicit.eng",
+            appended_source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(&appended, &appended_fresh, appended_source);
+        assert_eq!(appended.syntax_summary.explicit_declarations, 4);
+
+        let cleared_source = "# explicit scalars cleared\r\n";
+        let cleared = recheck_explicit_scalar_declaration_suffix_incrementally(
+            &appended,
+            appended_source,
+            cleared_source,
+        )
+        .expect("removing every explicit scalar should clear its semantic vectors");
+        let cleared_fresh = check_source(
+            "incremental-explicit.eng",
+            cleared_source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(&cleared, &cleared_fresh, cleared_source);
+        assert!(cleared.semantic_program.expected_types.is_empty());
+        assert_eq!(cleared.semantic_program.workflow.line, 1);
+
+        let restarted_source = concat!(
+            "# explicit scalars cleared\r\n",
+            "distance: Length [m] = 3 m\r\n",
+        );
+        let restarted = recheck_explicit_scalar_declaration_suffix_incrementally(
+            &cleared,
+            cleared_source,
+            restarted_source,
+        )
+        .expect("an explicit scalar should restart a trivia-only report");
+        let restarted_fresh = check_source(
+            "incremental-explicit.eng",
+            restarted_source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(&restarted, &restarted_fresh, restarted_source);
+        assert_eq!(restarted.semantic_program.workflow.line, 2);
+    }
+
+    #[test]
+    fn explicit_scalar_incremental_recheck_uses_strict_fallbacks() {
+        let previous_source = concat!(
+            "length: Length [m] = 2 m\n",
+            "heat_rate: HeatRate [kW] = 2 kW\n",
+        );
+        let previous = check_source(
+            "incremental-explicit.eng",
+            previous_source,
+            &CheckOptions::default(),
+        );
+
+        for unsupported in [
+            "length: Length [m] = 2 m\nheat_rate: HeatRate [kW] = missing\n",
+            "length: Length [m] = 2 m\nheat_rate: HeatRate [kW] = sqrt(4)\n",
+            "length: Length [m] = 2 m\nheat_rate = 2 kW\n",
+            "length: CustomScalar [m] = 2 m\nheat_rate: HeatRate [kW] = 2 kW\n",
+            "length: Length [m]\nheat_rate: HeatRate [kW] = 2 kW\n",
+            "length: Length [m] = 2 m\nheat_rate: HeatRate [kW] = 2 kW\n# trailing trivia\n",
+            "copy: HeatRate [kW] = heat_rate\nheat_rate: HeatRate [kW] = 2 kW\n",
+            "length: Length [m] = 2 m\nlength: HeatRate [kW] = 2 kW\n",
+        ] {
+            assert!(
+                recheck_explicit_scalar_declaration_suffix_incrementally(
+                    &previous,
+                    previous_source,
+                    unsupported,
+                )
+                .is_none(),
+                "unsupported explicit edit should use a full check: {unsupported:?}"
+            );
+        }
+
+        assert!(recheck_explicit_scalar_declaration_suffix_incrementally(
+            &previous,
+            "length: Length [m] = 20 m\nheat_rate: HeatRate [kW] = 2 kW\n",
+            "length: Length [m] = 20 m\nheat_rate: HeatRate [W] = 1800 W\n",
+        )
+        .is_none());
     }
 
     #[test]

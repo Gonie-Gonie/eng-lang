@@ -19,12 +19,12 @@ embedding compiler logic in JavaScript.
 - exact-source plus conservative token-free-trivia compiler report reuse across
   completion, diagnostics, hover, semantic tokens, navigation, and review
   decorations, with lazy snapshot projection and recursive open-import invalidation
-- strict token-changing partial parse/semantic recheck from the first changed
-  scalar binding through the affected suffix in documents containing only numeric
-  literals, backward aliases, and pure scalar arithmetic over registered-unit
-  literals and earlier bindings, including coordinated multi-line edits and
-  renames, binding additions/removals, resized/inserted/removed standalone trivia,
-  and suffix line-ending shifts, with full-analysis fallback outside that contract
+- strict token-changing partial parse/semantic recheck for homogeneous scalar-only
+  documents: fast-binding suffixes support literals, backward aliases, and pure
+  registered-unit arithmetic, while explicit-declaration suffixes also patch their
+  annotation-owned semantic records; both support coordinated edits, additions,
+  removals, resized/inserted/removed standalone trivia, and suffix line-ending
+  shifts, with full-analysis fallback outside those contracts
 - debounced diagnostics for unsaved buffers after a short typing pause,
   including open dependent EngLang files when an imported buffer changes
 - debounced role-aware color refresh and stale decoration clearing across open
@@ -247,10 +247,15 @@ source order. The server verifies the old suffix against the corresponding repor
 records before patching them. Scalar bindings can be inserted or removed,
 including clearing all bindings and restarting from a trivia-only report;
 semantic vectors, syntax counts, and the first workflow line are updated together.
+Declaration-only documents with registered explicit scalar quantity annotations
+and the same pure RHS expression grammar use a parallel suffix path. It patches
+expected types, typed bindings, hovers, type information, unit derivations, syntax
+counts, and the first workflow line together across annotation/RHS edits,
+declaration addition/removal, complete clearing, and trivia-only restart.
 Token-bearing non-binding lines, incomplete or duplicate renames, forward or
 unresolved references, dimensionally incompatible arithmetic, calls, workflow
-expressions, diagnostics, imports, caches, and richer language run a full compiler
-analysis.
+expressions, mixed fast/explicit declaration documents, diagnostics, imports,
+caches, and richer language run a full compiler analysis.
 Changing an open import hard-invalidates its recursive open dependents, while
 unrelated document analyses remain cached. This remains a narrow partial path,
 not general incremental parse or semantic recomputation.

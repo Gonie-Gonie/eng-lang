@@ -10,6 +10,7 @@ use std::time::{Duration, Instant};
 
 use eng_compiler::{
     bundled_module_registry, check_source_with_import_overrides, format_source, parse_source,
+    recheck_explicit_scalar_declaration_suffix_incrementally,
     recheck_scalar_binding_suffix_incrementally, retarget_check_report_for_token_stable_trivia,
     AstItem, CheckOptions, CheckReport, ImportSourceOverrides, ParseContext,
 };
@@ -1147,11 +1148,16 @@ impl DocumentState {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let previous = cache.analysis.as_ref()?;
-        let report = Arc::new(recheck_scalar_binding_suffix_incrementally(
-            &previous.report,
-            &previous.source,
-            source,
-        )?);
+        let report = Arc::new(
+            recheck_scalar_binding_suffix_incrementally(&previous.report, &previous.source, source)
+                .or_else(|| {
+                    recheck_explicit_scalar_declaration_suffix_incrementally(
+                        &previous.report,
+                        &previous.source,
+                        source,
+                    )
+                })?,
+        );
         let analysis = CachedDocumentAnalysis {
             source: source.to_owned(),
             report,
@@ -10509,6 +10515,126 @@ mod tests {
         );
 
         std::fs::remove_dir_all(&root).expect("incremental binding fixture should be removed");
+    }
+
+    #[test]
+    fn explicit_scalar_declaration_edits_use_incremental_compiler_recheck() {
+        let root = std::env::temp_dir().join(format!(
+            "eng_lsp_explicit_scalar_analysis_cache_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("explicit scalar fixture should be created");
+        let path = root.join("current.eng");
+        let initial_source = concat!(
+            "length: Length [m] = 2 m\n",
+            "# explicit scalars\n",
+            "scale: Ratio [1] = (1 + 1) / 2\n",
+            "heat_rate: HeatRate [kW] = (2 kW + 500 W) * scale\n",
+        );
+        std::fs::write(&path, initial_source).expect("explicit scalar source should be written");
+        let path = path
+            .canonicalize()
+            .expect("explicit scalar source should exist");
+        let uri = file_uri_from_path(&path);
+        let mut documents = Documents::new();
+        documents.insert(
+            uri.clone(),
+            DocumentState::new(initial_source.to_owned(), Some(1)),
+        );
+
+        let _initial = snapshot_for_open_documents(&path, initial_source, &documents);
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 0);
+
+        let changed_source = concat!(
+            "length: Length [m] = 2 m\n",
+            "# explicit scalar inputs expanded\n",
+            "scale: Ratio [1] = (3 - 1) / 2\n",
+            "heat_rate: HeatRate [W] = (1800 W + 200 W) / scale\n",
+        );
+        let changed_notification = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 2 },
+                "contentChanges": [{ "text": changed_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&changed_notification, &documents)
+                .expect("explicit scalar change should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, changed_source, &documents),
+            snapshot_for_source(&path, changed_source)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 1);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 2, 0, true, true)
+        );
+
+        let appended_source = concat!(
+            "length: Length [m] = 2 m\n",
+            "# explicit scalar inputs expanded\n",
+            "scale: Ratio [1] = (3 - 1) / 2\n",
+            "heat_rate: HeatRate [W] = (1800 W + 200 W) / scale\n",
+            "backup_heat_rate: HeatRate [W] = (heat_rate + 100 W) * scale\n",
+        );
+        let appended_notification = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 3 },
+                "contentChanges": [{ "text": appended_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&appended_notification, &documents)
+                .expect("appended explicit scalar should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, appended_source, &documents),
+            snapshot_for_source(&path, appended_source)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 2);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 3, 0, true, true)
+        );
+
+        let fallback_source = concat!(
+            "length: Length [m] = 2 m\n",
+            "scale: Ratio [1] = sqrt(4)\n",
+            "heat_rate: HeatRate [W] = 2 kW\n",
+        );
+        let fallback_notification = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 4 },
+                "contentChanges": [{ "text": fallback_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&fallback_notification, &documents)
+                .expect("explicit function expression should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, fallback_source, &documents),
+            snapshot_for_source(&path, fallback_source)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 2);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 4, 0, true, true),
+            "function calls should use a fresh compiler report"
+        );
+
+        std::fs::remove_dir_all(&root).expect("explicit scalar fixture should be removed");
     }
 
     #[test]
