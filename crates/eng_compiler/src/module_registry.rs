@@ -23,6 +23,13 @@ pub struct ModuleRegistryEntry {
 }
 
 impl ModuleRegistryEntry {
+    pub fn is_public_api(&self) -> bool {
+        matches!(
+            self.status.as_str(),
+            "supported" | "supported_narrow" | "native_preview"
+        )
+    }
+
     pub fn status_label(&self) -> &'static str {
         module_status_label(&self.status)
     }
@@ -527,6 +534,28 @@ mod tests {
                 && module.examples.iter().all(|value| !value.is_empty())
                 && module.tests.iter().all(|value| !value.is_empty())
         }));
+    }
+
+    #[test]
+    fn bundled_registry_distinguishes_public_api_modules() {
+        let registry = bundled_module_registry().expect("bundled registry should parse");
+
+        for name in ["eng.path", "eng.net", "eng.uncertainty"] {
+            let module = registry
+                .modules
+                .iter()
+                .find(|module| module.name == name)
+                .unwrap_or_else(|| panic!("{name} should be registered"));
+            assert!(module.is_public_api(), "{name} should be public");
+        }
+        for name in ["eng.building", "eng.system", "eng.ml"] {
+            let module = registry
+                .modules
+                .iter()
+                .find(|module| module.name == name)
+                .unwrap_or_else(|| panic!("{name} should be registered"));
+            assert!(!module.is_public_api(), "{name} should not be public");
+        }
     }
 
     #[test]

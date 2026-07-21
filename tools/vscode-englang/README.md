@@ -608,6 +608,10 @@ used by editor contract checks. Builtin first-paint roles come from
 grammar list. Generic type completions keep their public labels
 visible, but insert editable snippets such as `Array[T]` and
 `LinearOperator[From -> To]` so type arguments can be replaced immediately.
+Stdlib module completion includes only public `supported`,
+`supported_narrow`, and `native_preview` modules. Planned and internal
+modules remain recognized for precise diagnostics and semantic coloring when
+they are written explicitly, but are not suggested as usable APIs.
 The generated completion metadata also carries plain insert text and VS Code
 snippet insert text for common helper and workflow completions such as
 `file(...)`, `read text`, `http get`, `check coverage`, `fill missing`, and

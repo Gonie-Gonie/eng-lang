@@ -7026,6 +7026,11 @@ function Assert-VscodeExtensionContract {
     if ([string]$ReadJsonCompletion.detail -ne "eng.io direct JSON read") {
         throw "generated VS Code editor metadata read json completion must use direct JSON wording"
     }
+    foreach ($UnavailableModuleCompletion in @("eng.building", "eng.system", "eng.ml")) {
+        if ($MetadataCompletionLabels -contains $UnavailableModuleCompletion) {
+            throw "generated VS Code completion items must not advertise planned/internal module $UnavailableModuleCompletion"
+        }
+    }
     if (($EditorMetadata.completion_items | Where-Object { [string]$_.detail -like "Internal planned:*" }).Count -gt 0) {
         throw "generated VS Code module completion details should say Internal target, not Internal planned"
     }

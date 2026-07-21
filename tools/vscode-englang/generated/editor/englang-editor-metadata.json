@@ -1962,12 +1962,6 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Planned: Building, zone, and construction object vocabulary before domain simulation adapters.",
-                                 "kind":  "stdlib",
-                                 "label":  "eng.building",
-                                 "lsp_kind":  9
-                             },
-                             {
                                  "detail":  "Native: Explicit cache keys, pinned network response materialization/replay, verified native case-result cache materialization/replay/repair, hit/miss records, stale diagnostics, review/run-log summaries, and manifest-path invalidation.",
                                  "kind":  "stdlib",
                                  "label":  "eng.cache",
@@ -2007,12 +2001,6 @@
                                  "detail":  "Supported: Structured runtime messages and run-log records.",
                                  "kind":  "stdlib",
                                  "label":  "eng.log",
-                                 "lsp_kind":  9
-                             },
-                             {
-                                 "detail":  "Internal: Data-driven modeling vocabulary, target contracts, model specs, and model-card artifacts.",
-                                 "kind":  "stdlib",
-                                 "label":  "eng.ml",
                                  "lsp_kind":  9
                              },
                              {
@@ -2153,12 +2141,6 @@
                                  "detail":  "eng.stats sum(series: TimeSeries) -\u003e Quantity",
                                  "kind":  "stdlib",
                                  "label":  "sum(...)",
-                                 "lsp_kind":  9
-                             },
-                             {
-                                 "detail":  "Internal target: Solver-facing adapters and metadata, not the public identity of stdlib.",
-                                 "kind":  "stdlib",
-                                 "label":  "eng.system",
                                  "lsp_kind":  9
                              },
                              {
@@ -2832,7 +2814,7 @@
                                  "lsp_kind":  11
                              }
                          ],
-    "completion_items_count":  456,
+    "completion_items_count":  453,
     "format":  "eng-lsp-editor-metadata-v2",
     "semantic_token_legend":  {
                                   "token_modifiers":  [

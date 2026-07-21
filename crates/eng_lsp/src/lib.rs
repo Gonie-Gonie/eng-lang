@@ -10225,6 +10225,8 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
     for module in bundled_module_registry()
         .map(|registry| registry.modules)
         .unwrap_or_default()
+        .into_iter()
+        .filter(|module| module.is_public_api())
     {
         push_completion(
             &mut items,
@@ -14191,6 +14193,22 @@ print "done"
                 .any(|completion| completion["label"] == "datetime"),
             "unsupported datetime constructor must not be advertised"
         );
+        for label in ["eng.path", "eng.net", "eng.uncertainty"] {
+            assert!(
+                completion_items
+                    .iter()
+                    .any(|completion| completion["label"] == label),
+                "public stdlib module {label} should be advertised"
+            );
+        }
+        for label in ["eng.building", "eng.system", "eng.ml"] {
+            assert!(
+                !completion_items
+                    .iter()
+                    .any(|completion| completion["label"] == label),
+                "planned/internal stdlib module {label} must not be advertised"
+            );
+        }
         let syntax_catalog = &metadata["syntax_catalog"];
         assert_eq!(syntax_catalog["keywords"][0], COMPLETION_KEYWORDS[0]);
         assert_eq!(
