@@ -88,7 +88,7 @@ tests = ["cargo test -p eng_compiler sample_generation", "cargo test -p eng_runt
 [module."eng.case"]
 status = "native_preview"
 backing = "compiler_runtime_builtin"
-purpose = "Native CaseTable, CaseOutput, CaseRunResult, and CaseResultCollection stages with template rendering, explicit sequential or bounded parallel typed calculations, deterministic worker slots, lifecycle hooks, calculation-hash/result-SHA resume, verified local result-cache replay, manifests, status summaries, and process-adapter enrichment."
+purpose = "CaseTable, CaseOutput, CaseRunResult, and CaseResultCollection stages with template rendering, explicit sequential or bounded parallel typed calculations, deterministic worker slots, lifecycle hooks, calculation-hash/result-SHA resume, verified local result-cache replay, manifests, status summaries, and process-adapter enrichment."
 artifacts = ["typed_payload.case_tables", "typed_payload.case_manifests", "typed_payload.case_diagnostics", "object_store.CaseTable", "object_store.CaseOutput", "object_store.CaseRunResult", "object_store.CaseResultCollection", "native_case_result", "native_case_run_manifest", "cache_manifest", "case_manifest", "output_manifest"]
 diagnostics = ["E-CASE-ID-DUPLICATE", "E-CASE-DIR-COLLISION", "E-CASE-OUTPUT-MISSING", "E-CASE-STEP-FAILED"]
 examples = ["examples/workflows/02_native_surrogate_case_workflow"]
@@ -124,7 +124,7 @@ tests = ["cargo test -p eng_compiler records_data_driven_modeling_metadata", "ca
 [module."eng.db"]
 status = "native_preview"
 backing = "compiler_runtime_builtin"
-purpose = "Native SQLite append/upsert/replace writes plus typed SQLite table readback with schema mapping, DB manifests, hashes, transaction status, and reviewable side-effect/read records."
+purpose = "SQLite append/upsert/replace writes plus typed SQLite table readback with schema mapping, DB manifests, hashes, transaction status, and reviewable side-effect/read records."
 artifacts = ["typed_payload.db_manifests", "typed_payload.structured_reads", "db_write_manifest", "sqlite_database", "review.external_boundaries"]
 diagnostics = ["E-DB-CONNECT", "E-DB-SCHEMA-MISMATCH", "E-DB-READ-001", "E-DB-KEY-MISSING", "E-DB-TRANSACTION-FAILED", "E-DB-SAFE-PROFILE", "W-PROFILE-REPRO-DB"]
 examples = ["examples/workflows/02_native_surrogate_case_workflow"]
@@ -170,7 +170,7 @@ symbols = ["rmse(left: TimeSeries, right: TimeSeries) -> Quantity"]
 [module."eng.template"]
 status = "native_preview"
 backing = "compiler_runtime_builtin"
-purpose = "Native text template rendering with {{name}} placeholders, typed/unit value formatting, render manifests, and output-boundary enforcement."
+purpose = "Text template rendering with {{name}} placeholders, typed/unit value formatting, render manifests, and output-boundary enforcement."
 artifacts = ["typed_payload.render_manifests", "template_render_manifest", "review.render_manifests", "output_manifest"]
 diagnostics = ["E-RENDER-CALL-001", "E-TEMPLATE-MISSING-VALUE"]
 examples = ["examples/workflows/02_native_surrogate_case_workflow"]
@@ -234,7 +234,7 @@ tests = ["cargo test -p eng_runtime system"]
 [module."eng.ml"]
 status = "internal"
 backing = "compiler_runtime_builtin"
-purpose = "Internal data-driven modeling vocabulary, target contracts, model specs, and model-card artifacts."
+purpose = "Data-driven modeling vocabulary, target contracts, model specs, and model-card artifacts."
 artifacts = ["typed_payload.ml", "typed_payload.model_specs", "typed_payload.model_cards"]
 diagnostics = ["E-MODEL-FEATURE-MISSING", "E-MODEL-TARGET-MISSING", "E-MODEL-CARD-MISSING"]
 examples = ["examples/internal/05_data_driven_modeling"]

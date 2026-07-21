@@ -280,6 +280,21 @@ fn is_module_registry_diagnostic_code(value: &str) -> bool {
         })
 }
 
+fn purpose_repeats_status(status: &str, purpose: &str) -> bool {
+    let repeated_word = match status {
+        "supported" | "supported_narrow" => "supported",
+        "native_preview" => "native",
+        "planned" => "planned",
+        "internal_planned" | "internal" => "internal",
+        _ => return false,
+    };
+    purpose
+        .split_whitespace()
+        .next()
+        .map(|word| word.trim_end_matches(|character: char| character.is_ascii_punctuation()))
+        .is_some_and(|word| word.eq_ignore_ascii_case(repeated_word))
+}
+
 fn registry_error(line: usize, message: &str) -> ModuleRegistryError {
     ModuleRegistryError {
         line,
@@ -311,6 +326,14 @@ impl PartialModuleRegistryEntry {
         let purpose = self
             .purpose
             .ok_or_else(|| registry_error(line, "module is missing purpose"))?;
+        if purpose_repeats_status(&status, &purpose) {
+            return Err(registry_error(
+                line,
+                &format!(
+                    "module purpose must describe the capability without repeating status `{status}`"
+                ),
+            ));
+        }
         let artifacts = self
             .artifacts
             .ok_or_else(|| registry_error(line, "module is missing artifacts"))?;
@@ -522,6 +545,26 @@ tests = []
         )
         .expect_err("placeholder diagnostics should fail");
         assert!(error.message.contains("must use an E-/W- diagnostic code"));
+    }
+
+    #[test]
+    fn registry_rejects_status_repeated_in_user_facing_purpose() {
+        let error = parse_module_registry(
+            r#"
+[module."eng.case"]
+status = "native_preview"
+backing = "compiler_runtime_builtin"
+purpose = "Native: case execution."
+artifacts = []
+diagnostics = []
+examples = []
+tests = []
+"#,
+        )
+        .expect_err("status-prefixed purpose should fail");
+        assert!(error
+            .message
+            .contains("without repeating status `native_preview`"));
     }
 
     #[test]
