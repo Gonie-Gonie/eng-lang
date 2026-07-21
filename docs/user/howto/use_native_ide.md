@@ -176,7 +176,9 @@ Right Sidebar
   per-highlight copy actions from the latest buffer analysis. It also lists
   semantic references requested from the caret, reports reference/file counts,
   and lets each current-file read/write or workspace location open at its exact
-  source range. The Network
+  source range. The Review tab's Semantic Diff section accepts a full
+  `review.json` or bare `review_document` baseline, shows changed
+  section hashes and item rows, and recomputes after each later run. The Network
   tab summarizes network boundaries, network events, cache events, hashes, and
   cache keys for workflows that use `eng.net` or `eng.cache`. Uncertain scalar
   bindings also appear in the variable view with their representation and

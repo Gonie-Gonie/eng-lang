@@ -8278,6 +8278,20 @@ function Invoke-IdeCheck {
     if (-not $IdeUiSource.Contains("Review Fingerprint")) {
         throw "Native IDE review panel must label semantic_hash as Review Fingerprint"
     }
+    foreach ($RequiredNativeIdeReviewDiffUiToken in @(
+        "function renderReviewSemanticDiff",
+        "function renderReviewDiffResult",
+        "function renderReviewDiffItems",
+        "function loadReviewBaseline",
+        "function scheduleReviewDiffRefresh",
+        'call("ide_review_diff", { previous, current })',
+        'id="reviewBaselineInput"',
+        "Advanced semantic diff data"
+    )) {
+        if (-not $IdeUiSource.Contains($RequiredNativeIdeReviewDiffUiToken)) {
+            throw "Native IDE semantic diff panel missing token $RequiredNativeIdeReviewDiffUiToken"
+        }
+    }
     if (-not $IdeUiSource.Contains("Response Source") -or -not $IdeUiSource.Contains("response_source") -or -not $IdeUiSource.Contains("responseSource")) {
         throw "Native IDE network panel must label response source separately from generic status"
     }
@@ -8424,10 +8438,25 @@ function Invoke-IdeCheck {
             throw "Native IDE CSS missing workspace symbol style $WorkspaceSymbolStyle"
         }
     }
+    foreach ($ReviewDiffStyle in @(".review-diff-toolbar", ".review-diff-command", ".review-baseline-name", ".review-diff-items")) {
+        if (-not $IdeUiStyles.Contains($ReviewDiffStyle)) {
+            throw "Native IDE CSS missing review diff style $ReviewDiffStyle"
+        }
+    }
     if ($IdeUiSource.Contains("byteOffsetToCodeUnit(line, startByte)") -or $IdeUiSource.Contains("byteOffsetToCodeUnit(lineRange.text, startByte)")) {
         throw "Native IDE semantic token ranges must use LSP UTF-16 offsets directly"
     }
     $IdeMainSource = Get-Content -LiteralPath $TauriMainPath -Raw
+    foreach ($RequiredNativeIdeReviewDiffBackendToken in @(
+        "fn ide_review_diff",
+        "review_semantic_diff(&previous, &current)",
+        "MAX_NATIVE_IDE_REVIEW_DOCUMENT_BYTES",
+        "native_ide_review_diff_uses_shared_review_contract"
+    )) {
+        if (-not $IdeMainSource.Contains($RequiredNativeIdeReviewDiffBackendToken)) {
+            throw "Native IDE semantic diff backend missing token $RequiredNativeIdeReviewDiffBackendToken"
+        }
+    }
     foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "document_symbols", "document_symbols_lsp_json", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_items", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completions_use_lsp_editor_items", "check_view_surfaces_lsp_semantic_tokens", "ide_definition", "--workspace-definition-stdin", "ide_document_highlights", "--document-highlights-stdin", "ide_code_actions", "--code-actions-stdin", "parse_code_actions_output", "run_lsp_source_query", "ide_prepare_rename", "--workspace-prepare-rename-stdin", "parse_prepare_rename_output", "ide_references", "--workspace-references-stdin", "ide_rename", "--workspace-rename-stdin", "workspace_navigation_payload", "parse_rename_output", "ide_workspace_symbols", "--workspace-symbols-stdin", "workspace_document_payload", "run_lsp_query", "parse_workspace_symbols_output", "workspace_symbol_output_accepts_complete_workspace_locations", "run_lsp_position_query", "parse_document_highlights_output", "bundled_lsp_executable", "parse_definition_output", "Stdio::piped()", "definition_output_accepts_null_and_complete_locations", "document_highlight_output_accepts_complete_read_and_write_ranges", "code_action_output_accepts_diagnostic_bound_insertions", "rename_output_accepts_complete_multi_file_edits", "one-line EngLang statement such as", "cd <dir>", "diagnostic_view_from_lsp", "diagnostic_view_from_parts", 'range_text: format!("L{line}:C{column}-C{end_column}")', 'include_str!("../ui/app.js")', 'include_str!("main.rs")')) {
         if (-not $IdeMainSource.Contains($RequiredIdeBackendToken)) {
             throw "Native IDE backend missing contract token $RequiredIdeBackendToken"

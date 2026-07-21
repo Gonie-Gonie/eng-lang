@@ -29,8 +29,8 @@ and next cleanup action.
 - Main internal: bar/histogram variants, DateTime-indexed TimeSeries coverage
   artifacts, richer report metadata, and the normalized `review_document`
   projection.
-- Next cleanup: route more report/IDE panels through ReviewDocument and add
-  a native semantic diff panel after the CLI diff payload stabilizes.
+- Next cleanup: route more report panels through ReviewDocument and project
+  runtime-updated values into that normalized document.
 
 ## T4 System / Equation
 

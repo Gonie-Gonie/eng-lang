@@ -11,6 +11,7 @@ mod module_registry;
 mod net;
 mod parser;
 mod quantities;
+mod review_diff;
 mod schema;
 mod semantic;
 mod source;
@@ -62,6 +63,9 @@ pub use net::{
 pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSummary};
 pub use quantities::{
     all_quantity_completions, normalize_unit, parse_numeric_literal, QuantityCompletion,
+};
+pub use review_diff::{
+    extract_review_document, review_semantic_diff, ReviewDocumentError, ReviewSemanticDiffError,
 };
 pub use schema::{
     ConfigPromotion, ConfigTypeMismatch, CsvPromotion, MissingPolicy, SchemaColumn,

@@ -77,8 +77,9 @@ Current coverage:
   official example smoke paths, especially
   `examples/official/09_command_where_with/main.eng` through
   `examples/official/16_test_assert_golden/main.eng`.
-- `eng review` semantic diff unit tests live in
-  `crates/eng_cli/src/main.rs`.
+- Shared ReviewDocument extraction, validation, and semantic diff unit tests
+  live in `crates/eng_compiler/src/review_diff.rs`; CLI parser and
+  call-site coverage remains in `crates/eng_cli/src/main.rs`.
 - The example smoke runs `eng review --output`, `eng review --against`,
   and `eng review diff <old> <new>` through the built CLI binary. It asserts
   that `static_review.json` and `semantic_diff.json` are written and
@@ -88,8 +89,10 @@ Current coverage:
   in the repo workspace.
 - IDE bootstrap exposes `stdlib/eng/modules.toml` entries to the Modules panel
   with status, backing, purpose, and artifact metadata.
-
-Remaining gap: a native IDE semantic diff panel is still planned.
+- IDE command tests verify that wrapped and bare ReviewDocuments reach the
+  shared engine and reject incomplete input. `ide-check` also guards the
+  baseline picker, automatic refresh path, section/item renderer, and bounded
+  Tauri command wiring.
 
 ## Checklist 9.3: Composite Module Tests
 

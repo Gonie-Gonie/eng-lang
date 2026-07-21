@@ -4,6 +4,7 @@ const RUN_HISTORY_LIMIT = 40;
 const RUN_HISTORY_STORAGE_PREFIX = "englang.nativeIde.runHistory.v1:";
 const LIVE_CHECK_DELAY_MS = 350;
 const WORKSPACE_SYMBOL_DELAY_MS = 160;
+const MAX_REVIEW_BASELINE_BYTES = 8 * 1024 * 1024;
 const EDITOR_INDENT = "    ";
 const EDITOR_PAIR_CLOSE = { "{": "}", "[": "]", "(": ")", "\"": "\"" };
 const EDITOR_PAIR_OPEN = { "}": "{", "]": "[", ")": "(", "\"": "\"" };
@@ -141,6 +142,12 @@ const state = {
   plotSpec: null,
   reportTitle: "",
   inspectors: emptyInspectors(),
+  reviewBaseline: null,
+  reviewBaselineName: "",
+  reviewDiff: null,
+  reviewDiffCurrentHash: "",
+  reviewDiffPending: false,
+  reviewDiffError: "",
   profile: "normal",
   runHistory: [],
   terminalEntries: [{ kind: "info", text: "Ready." }],
@@ -180,6 +187,7 @@ let documentHighlightRequestRevision = 0;
 let quickFixRequestRevision = 0;
 let renameRequestRevision = 0;
 let workspaceSymbolRequestRevision = 0;
+let reviewDiffRevision = 0;
 let workspaceSymbolTimer = null;
 let nativeAppWindow = null;
 let nativeCloseListenerBound = false;
@@ -429,6 +437,99 @@ function escapeRegExp(value) {
 async function call(cmd, args = {}) {
   if (!invoke) throw new Error("Tauri invoke API is not available");
   return await invoke(cmd, args);
+}
+
+function currentReviewDocument() {
+  const document = state.inspectors?.reviewDocument;
+  return document && typeof document === "object" && !Array.isArray(document) ? document : null;
+}
+
+function reviewSemanticHash(document = currentReviewDocument()) {
+  return String(document?.semantic_hash ?? document?.semanticHash ?? "");
+}
+
+function invalidateReviewDiff() {
+  reviewDiffRevision += 1;
+  state.reviewDiff = null;
+  state.reviewDiffCurrentHash = "";
+  state.reviewDiffPending = false;
+  state.reviewDiffError = "";
+}
+
+function scheduleReviewDiffRefresh() {
+  invalidateReviewDiff();
+  if (!state.reviewBaseline || !reviewSemanticHash()) return;
+  state.reviewDiffPending = true;
+  queueMicrotask(() => void refreshReviewDiff());
+}
+
+async function loadReviewBaseline(event) {
+  const input = event.currentTarget;
+  const file = input.files?.[0];
+  input.value = "";
+  if (!file) return;
+  if (file.size > MAX_REVIEW_BASELINE_BYTES) {
+    invalidateReviewDiff();
+    state.reviewBaseline = null;
+    state.reviewBaselineName = "";
+    state.reviewDiffError = file.name + " exceeds the 8 MiB review baseline limit.";
+    render();
+    return;
+  }
+
+  let previous;
+  try {
+    previous = JSON.parse(await file.text());
+  } catch (error) {
+    invalidateReviewDiff();
+    state.reviewBaseline = null;
+    state.reviewBaselineName = "";
+    state.reviewDiffError = "Could not parse " + file.name + ": " + compactText(String(error), 100);
+    render();
+    return;
+  }
+
+  invalidateReviewDiff();
+  state.reviewBaseline = previous;
+  state.reviewBaselineName = file.name;
+  await refreshReviewDiff();
+}
+
+async function refreshReviewDiff() {
+  const previous = state.reviewBaseline;
+  const current = currentReviewDocument();
+  if (!previous || !reviewSemanticHash(current)) {
+    state.reviewDiffPending = false;
+    render();
+    return;
+  }
+
+  const revision = ++reviewDiffRevision;
+  state.reviewDiffPending = true;
+  state.reviewDiffError = "";
+  render();
+  try {
+    const diff = await call("ide_review_diff", { previous, current });
+    if (revision !== reviewDiffRevision) return;
+    state.reviewDiff = diff;
+    state.reviewDiffCurrentHash = reviewSemanticHash(current);
+    state.reviewDiffPending = false;
+    state.status = "Compared review against " + state.reviewBaselineName;
+  } catch (error) {
+    if (revision !== reviewDiffRevision) return;
+    state.reviewDiff = null;
+    state.reviewDiffCurrentHash = "";
+    state.reviewDiffPending = false;
+    state.reviewDiffError = compactText(String(error), 180);
+  }
+  render();
+}
+
+function clearReviewBaseline() {
+  invalidateReviewDiff();
+  state.reviewBaseline = null;
+  state.reviewBaselineName = "";
+  render();
 }
 
 function applyCheck(check, source = state.source) {
@@ -911,7 +1012,9 @@ function icon(name) {
     save: '<path d="M5 5h12l2 2v12H5z"/><path d="M8 5v5h8V5"/><path d="M8 19v-5h8v5"/>',
     file: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v6h5"/>',
     folder: '<path d="M3 6h7l2 2h9v10H3z"/><path d="M3 8h18"/>',
-    chart: '<path d="M4 19h16"/><path d="M7 16v-5"/><path d="M12 16V7"/><path d="M17 16v-8"/>'
+    chart: '<path d="M4 19h16"/><path d="M7 16v-5"/><path d="M12 16V7"/><path d="M17 16v-8"/>',
+    compare: '<path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>',
+    close: '<path d="m6 6 12 12"/><path d="m18 6-12 12"/>'
   };
   return `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${paths[name] || ""}</svg>`;
 }
@@ -1053,6 +1156,7 @@ function bind() {
     };
   });
   bindVariableActions(document);
+  bindReviewDiffActions(document);
   document.querySelectorAll("[data-workflow-node-id]").forEach((node) => {
     node.onclick = (event) => {
       if (event.target.closest("[data-source-line]")) return;
@@ -1819,6 +1923,15 @@ function bindVariableActions(root) {
   });
 }
 
+function bindReviewDiffActions(root) {
+  const input = root.querySelector("#reviewBaselineInput");
+  const choose = root.querySelector("#reviewBaselineBtn");
+  const clear = root.querySelector("#reviewBaselineClearBtn");
+  if (choose && input) choose.onclick = () => input.click();
+  if (input) input.onchange = (event) => void loadReviewBaseline(event);
+  if (clear) clear.onclick = clearReviewBaseline;
+}
+
 function bindSourceLineButtons(root) {
   root.querySelectorAll("[data-source-line]").forEach((button) => {
     button.onclick = () => selectSourceLine(
@@ -1940,6 +2053,7 @@ async function openFile(path) {
     state.args = [];
     state.artifacts = [];
     state.inspectors = emptyInspectors();
+    invalidateReviewDiff();
     state.completionItems = [];
     state.plotSpec = null;
     state.reportTitle = "";
@@ -2341,6 +2455,7 @@ function applyRun(result, options = {}) {
     state.inspectors = result.inspectors ?? state.inspectors ?? emptyInspectors();
     state.plotSpec = hasPlotData(result.plotSpec) ? result.plotSpec : null;
     state.reportTitle = result.reportTitle ?? "";
+    scheduleReviewDiffRefresh();
     if (state.plotSpec) state.sideTab = "plot";
   }
 }
@@ -2737,6 +2852,7 @@ async function switchTab(path) {
   state.args = [];
   state.artifacts = [];
   state.inspectors = emptyInspectors();
+  invalidateReviewDiff();
   state.completionItems = [];
   state.plotSpec = null;
   state.reportTitle = "";
@@ -3011,6 +3127,7 @@ async function closeTab(path, force = false) {
   state.args = [];
   state.artifacts = [];
   state.inspectors = emptyInspectors();
+  invalidateReviewDiff();
   state.completionItems = [];
   state.plotSpec = null;
   state.reportTitle = "";
@@ -4079,6 +4196,7 @@ function renderReviewPanel() {
       <span class="badge">Risk ${risks.length}</span>
     </div>
     <div class="scroll">
+      ${renderReviewSemanticDiff(doc)}
       <table class="var-table">
         <thead><tr><th>Area</th><th>Count</th></tr></thead>
         <tbody>
@@ -4123,6 +4241,154 @@ function renderReviewPanel() {
       ${renderReviewRisks(risks)}
       ${advancedDataToggle("Advanced review data", doc)}
     </div>
+  `;
+}
+
+function renderReviewSemanticDiff(doc) {
+  const currentHash = reviewSemanticHash(doc);
+  const diff = state.reviewDiffCurrentHash === currentHash ? state.reviewDiff : null;
+  const hasBaseline = Boolean(state.reviewBaseline);
+  const baselineLabel = state.reviewBaselineName || "No baseline";
+  let body = "";
+  if (state.reviewDiffError) {
+    body = `<div class="empty-state error">${escapeHtml(state.reviewDiffError)}</div>`;
+  } else if (!hasBaseline) {
+    body = `<div class="empty-state">No baseline selected.</div>`;
+  } else if (!currentHash) {
+    body = `<div class="empty-state">Current review unavailable.</div>`;
+  } else if (state.reviewDiffPending) {
+    body = `<div class="empty-state">Comparing reviews...</div>`;
+  } else if (!diff) {
+    body = `<div class="empty-state">Comparison unavailable.</div>`;
+  } else {
+    body = renderReviewDiffResult(diff);
+  }
+
+  return `
+    <div class="panel-title compact">Semantic Diff</div>
+    <div class="review-diff-toolbar">
+      <input id="reviewBaselineInput" type="file" accept=".json,application/json" hidden>
+      <button id="reviewBaselineBtn" class="review-diff-command" title="Choose a saved ReviewDocument to compare">
+        ${icon("compare")}
+        <span>${hasBaseline ? "Change baseline" : "Compare"}</span>
+      </button>
+      ${hasBaseline ? `
+        <button id="reviewBaselineClearBtn" class="review-diff-clear" title="Clear review baseline" aria-label="Clear review baseline">
+          ${icon("close")}
+        </button>
+      ` : ""}
+      <span class="review-baseline-name" title="${escapeAttr(baselineLabel)}">${escapeHtml(baselineLabel)}</span>
+    </div>
+    ${body}
+  `;
+}
+
+function reviewDiffTotals(sectionChanges) {
+  return sectionChanges.reduce((totals, section) => {
+    totals.added += arrayOrEmpty(section?.added).length;
+    totals.removed += arrayOrEmpty(section?.removed).length;
+    totals.changed += arrayOrEmpty(section?.changed).length;
+    return totals;
+  }, { added: 0, removed: 0, changed: 0 });
+}
+
+function renderReviewDiffResult(diff) {
+  const changedSections = arrayOrEmpty(diff?.changed_sections ?? diff?.changedSections);
+  const sectionChanges = arrayOrEmpty(diff?.section_changes ?? diff?.sectionChanges);
+  const itemChangesBySection = new Map(sectionChanges.map((section) => [
+    String(section?.section || ""),
+    section
+  ]));
+  const totals = reviewDiffTotals(sectionChanges);
+  const status = String(diff?.status || "-");
+  const rows = changedSections.map((section) => {
+    const name = String(section?.section || "-");
+    const items = itemChangesBySection.get(name) || {};
+    const added = arrayOrEmpty(items.added).length;
+    const removed = arrayOrEmpty(items.removed).length;
+    const changed = arrayOrEmpty(items.changed).length;
+    return `
+      <tr>
+        <td><strong>${escapeHtml(name)}</strong></td>
+        <td><code title="${escapeAttr(section?.before ?? "-")}">${escapeHtml(compactText(section?.before ?? "-", 18))}</code></td>
+        <td><code title="${escapeAttr(section?.after ?? "-")}">${escapeHtml(compactText(section?.after ?? "-", 18))}</code></td>
+        <td>+${added} / -${removed} / ~${changed}</td>
+      </tr>
+    `;
+  }).join("");
+  const sectionTable = rows
+    ? `
+      <table class="var-table review-diff-table">
+        <thead><tr><th>Section</th><th>Before</th><th>After</th><th>Items</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `
+    : `<div class="empty-state">No semantic changes.</div>`;
+
+  return `
+    <div class="badges review-diff-badges">
+      <span class="badge ${status === "changed" ? "warn" : ""}">Status ${escapeHtml(status)}</span>
+      <span class="badge">Sections ${changedSections.length}</span>
+      <span class="badge">Added ${totals.added}</span>
+      <span class="badge">Removed ${totals.removed}</span>
+      <span class="badge">Changed ${totals.changed}</span>
+    </div>
+    ${sectionTable}
+    ${renderReviewDiffItems(sectionChanges)}
+    ${advancedDataToggle("Advanced semantic diff data", diff)}
+  `;
+}
+
+function reviewDiffItemSummary(kind, row) {
+  if (kind === "changed") {
+    return compactText(
+      compactObjectSummary(row?.before) + " -> " + compactObjectSummary(row?.after),
+      180
+    );
+  }
+  return compactText(compactObjectSummary(row?.item), 180);
+}
+
+function renderReviewDiffItems(sectionChanges) {
+  const changes = [];
+  for (const section of sectionChanges) {
+    for (const [kind, items] of [
+      ["added", section?.added],
+      ["removed", section?.removed],
+      ["changed", section?.changed]
+    ]) {
+      for (const item of arrayOrEmpty(items)) {
+        changes.push({ section: section?.section || "-", kind, item });
+      }
+    }
+  }
+  if (!changes.length) {
+    return `<div class="empty-state">No item-level array changes.</div>`;
+  }
+
+  const visible = changes.slice(0, 200);
+  const rows = visible.map(({ section, kind, item }) => {
+    const label = kind === "added" ? "Added" : (kind === "removed" ? "Removed" : "Changed");
+    const badgeClass = kind === "removed" ? "bad" : (kind === "changed" ? "warn" : "");
+    return `
+      <tr>
+        <td><span class="badge ${badgeClass}">${label}</span></td>
+        <td>${escapeHtml(section)}</td>
+        <td><code>${escapeHtml(item?.key || "-")}</code></td>
+        <td>${escapeHtml(reviewDiffItemSummary(kind, item))}</td>
+      </tr>
+    `;
+  }).join("");
+  const notice = changes.length > visible.length
+    ? `<div class="empty-state">Showing first ${visible.length} of ${changes.length} item changes.</div>`
+    : "";
+  return `
+    <div class="panel-title compact">Item Changes</div>
+    <table class="var-table review-diff-items">
+      <thead><tr><th>Change</th><th>Section</th><th>Item</th><th>Detail</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    ${notice}
   `;
 }
 

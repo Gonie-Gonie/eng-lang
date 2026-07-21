@@ -629,6 +629,12 @@ The native IDE Review panel consumes the same `review_document` data for root
 counts, semantic hashes, workflow module rows, variable/quantity rows, unit
 derivations, schemas, time axes, calculation traces, report outputs,
 validations, side effects, external boundaries, fallbacks, and risk entries.
+Its Semantic Diff section accepts either a full `review.json` artifact or a
+bare `review_document`. The bounded Tauri command calls the same
+compiler-owned diff function as both CLI forms, then the panel renders changed
+section hashes and item-level added, removed, and changed rows. The selected
+baseline remains loaded for the IDE session and is compared again when a later
+run updates the current review.
 
 ## Uncertainty Metadata
 

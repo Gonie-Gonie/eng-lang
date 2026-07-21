@@ -10,8 +10,8 @@ use std::sync::Mutex;
 
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, bundled_module_registry, check_source,
-    check_source_with_import_overrides, format_source, CheckOptions, CheckReport,
-    ImportSourceOverrides, Severity,
+    check_source_with_import_overrides, format_source, review_semantic_diff, CheckOptions,
+    CheckReport, ImportSourceOverrides, Severity,
 };
 use eng_runtime::{run_file, run_source, ExecutionProfile, RunOptions, RuntimeError};
 use serde::{Deserialize, Serialize};
@@ -29,6 +29,7 @@ const MAX_NATIVE_IDE_WORKSPACE_DOCUMENT_TOTAL_BYTES: usize = 16 * 1024 * 1024;
 const MAX_NATIVE_IDE_SAVE_FILES: usize = 128;
 const MAX_NATIVE_IDE_SAVE_FILE_BYTES: usize = 4 * 1024 * 1024;
 const MAX_NATIVE_IDE_SAVE_TOTAL_BYTES: usize = 16 * 1024 * 1024;
+const MAX_NATIVE_IDE_REVIEW_DOCUMENT_BYTES: usize = 8 * 1024 * 1024;
 const MAX_NATIVE_IDE_WORKSPACE_QUERY_BYTES: usize = 512;
 const WORKSPACE_OPEN_DOCUMENT_FORMAT: &str = "eng-lsp-open-documents-v1";
 
@@ -405,6 +406,19 @@ fn ide_open_file(path: String) -> Result<FileView, String> {
         path: relative_to(&root, &path),
         source: read_utf8(&path)?,
     })
+}
+
+#[tauri::command]
+fn ide_review_diff(previous: Value, current: Value) -> Result<Value, String> {
+    for (label, document) in [("Previous", &previous), ("Current", &current)] {
+        let size = serde_json::to_vec(document)
+            .map_err(|error| format!("{label} review could not be serialized: {error}"))?
+            .len();
+        if size > MAX_NATIVE_IDE_REVIEW_DOCUMENT_BYTES {
+            return Err(format!("{label} review exceeded the 8 MiB limit."));
+        }
+    }
+    review_semantic_diff(&previous, &current).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -1202,6 +1216,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             ide_bootstrap,
             ide_open_file,
+            ide_review_diff,
             ide_save_file,
             ide_save_files,
             ide_check,
@@ -5207,6 +5222,46 @@ mod tests {
         assert_eq!(found, root);
 
         fs::remove_dir_all(found).unwrap();
+    }
+
+    #[test]
+    fn native_ide_review_diff_uses_shared_review_contract() {
+        let previous = json!({
+            "review_document": {
+                "semantic_hash": "before",
+                "section_hashes": { "calculations": "old" },
+                "calculations": [{
+                    "kind": "binding",
+                    "name": "Q_total",
+                    "expression": "Q + 1 kW"
+                }]
+            }
+        });
+        let current = json!({
+            "semantic_hash": "after",
+            "section_hashes": { "calculations": "new" },
+            "calculations": [{
+                "kind": "binding",
+                "name": "Q_total",
+                "expression": "Q + 2 kW"
+            }]
+        });
+
+        let diff = ide_review_diff(previous, current).expect("native IDE semantic diff");
+
+        assert_eq!(diff["status"], "changed");
+        assert_eq!(diff["changed_sections"][0]["section"], "calculations");
+        assert_eq!(
+            diff["section_changes"][0]["changed"][0]["key"],
+            "binding:name:Q_total"
+        );
+        let error = ide_review_diff(
+            json!({ "section_hashes": {} }),
+            json!({ "semantic_hash": "current", "section_hashes": {} }),
+        )
+        .expect_err("invalid baseline");
+        assert!(error.contains("invalid previous review"));
+        assert!(error.contains("semantic_hash"));
     }
 
     #[test]

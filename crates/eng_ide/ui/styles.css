@@ -1528,6 +1528,60 @@ button:hover {
   padding: 7px 10px;
 }
 
+.review-diff-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+  background: #fff;
+}
+
+.review-diff-command,
+.review-diff-clear {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 27px;
+}
+
+.review-diff-command .icon,
+.review-diff-clear .icon {
+  width: 15px;
+  height: 15px;
+}
+
+.review-diff-clear {
+  width: 27px;
+  padding: 0;
+}
+
+.review-baseline-name {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: var(--muted);
+  font: 11px Consolas, "Cascadia Mono", monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-diff-badges {
+  border-bottom: 1px solid var(--border);
+}
+
+.review-diff-table code {
+  white-space: nowrap;
+}
+
+.review-diff-items td:last-child {
+  min-width: 180px;
+  overflow-wrap: anywhere;
+}
+
 .source-breadcrumbs {
   display: flex;
   flex-wrap: wrap;

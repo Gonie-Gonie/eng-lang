@@ -185,13 +185,13 @@ risk and fallback entries
 ```
 
 The current static review document records `semantic_hash` plus per-section
-hashes. `eng review --against` uses those hashes for a CLI-only meaning-level
+hashes. `eng review --against` uses those hashes for a native meaning-level
 comparison without relying on line-by-line source diffs. The payload includes
 `section_changes[]` with added, removed, and changed array entries for
 ReviewDocument sections such as calculations, validations, units/quantities,
 side effects, external boundaries, fallbacks, and risks. The standalone
-`eng review diff` command compares two saved ReviewDocuments through the same
-native diff engine. A native IDE diff panel remains planned.
+`eng review diff` command and the IDE Review panel compare saved
+ReviewDocuments through the same compiler-owned native diff engine.
 
 ## CLI And IDE Targets
 
@@ -226,8 +226,10 @@ semantic diff panel
 The current IDE Review inspector consumes `review_document` directly for root
 counts, semantic hashes, variables/symbols, unit derivations, schemas, time
 axes, calculation traces, report outputs, validations, side effects, external
-boundaries, fallbacks, and risks. The next cleanup is to add a native semantic
-diff panel once richer diff payloads exist.
+boundaries, fallbacks, and risks. Its Semantic Diff section accepts a full
+`review.json` artifact or bare `review_document`, shows section-hash and
+item-level changes, and automatically recomputes against the selected baseline
+after a later run updates the current ReviewDocument.
 
 ## Completion Checklist
 

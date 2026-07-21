@@ -6,7 +6,10 @@ use std::time::Instant;
 mod example_smoke;
 mod jit_bench;
 
-use eng_compiler::{check_file, format_source, review_json, ArgOverride, CheckOptions, Severity};
+use eng_compiler::{
+    check_file, extract_review_document, format_source, review_json, review_semantic_diff,
+    ArgOverride, CheckOptions, Severity,
+};
 use eng_runtime::{
     build_standalone, create_project, doctor, run_file, BuildOptions, ExecutionProfile, RunOptions,
     RuntimeError,
@@ -355,8 +358,10 @@ fn command_review(args: Vec<String>) -> ExitCode {
         .cloned()
         .unwrap_or(serde_json::Value::Null);
     let semantic_diff = match against_path.as_deref() {
-        Some(path) => match read_review_document(path) {
-            Ok(previous) => Some(review_semantic_diff(&previous, &document)),
+        Some(path) => match read_review_document(path).and_then(|previous| {
+            review_semantic_diff(&previous, &document).map_err(|error| error.to_string())
+        }) {
+            Ok(diff) => Some(diff),
             Err(message) => {
                 eprintln!("{message}");
                 return ExitCode::from(1);
@@ -426,7 +431,13 @@ fn command_review_diff(args: &[String]) -> ExitCode {
             return ExitCode::from(1);
         }
     };
-    let diff = review_semantic_diff(&previous, &current);
+    let diff = match review_semantic_diff(&previous, &current) {
+        Ok(diff) => diff,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
     let output_path = match options.output_dir.as_deref() {
         Some(output_dir) => match write_semantic_diff_output(Path::new(output_dir), &diff) {
             Ok(path) => Some(path),
@@ -1223,179 +1234,12 @@ pub(crate) fn print_diagnostics(report: &eng_compiler::CheckReport) {
 
 fn read_review_document(path: &str) -> Result<serde_json::Value, String> {
     let text = std::fs::read_to_string(path)
-        .map_err(|error| format!("failed to read baseline review `{path}`: {error}"))?;
+        .map_err(|error| format!("failed to read review document `{path}`: {error}"))?;
     let value = serde_json::from_str::<serde_json::Value>(&text)
-        .map_err(|error| format!("failed to parse baseline review `{path}`: {error}"))?;
-    Ok(value.get("review_document").cloned().unwrap_or(value))
-}
-
-fn review_semantic_diff(
-    previous: &serde_json::Value,
-    current: &serde_json::Value,
-) -> serde_json::Value {
-    let previous_hash = json_string(previous, "semantic_hash");
-    let current_hash = json_string(current, "semantic_hash");
-    let changed_sections = review_changed_sections(previous, current);
-    let section_changes = review_section_changes(previous, current, &changed_sections);
-    let status = if previous_hash.is_some()
-        && current_hash.is_some()
-        && previous_hash == current_hash
-        && changed_sections.is_empty()
-    {
-        "unchanged"
-    } else {
-        "changed"
-    };
-    serde_json::json!({
-        "format": "eng-review-semantic-diff-preview-1",
-        "status": status,
-        "semantic_hash_before": previous_hash,
-        "semantic_hash_after": current_hash,
-        "changed_sections": changed_sections,
-        "section_changes": section_changes
-    })
-}
-
-fn review_section_changes(
-    previous: &serde_json::Value,
-    current: &serde_json::Value,
-    changed_sections: &[serde_json::Value],
-) -> Vec<serde_json::Value> {
-    changed_sections
-        .iter()
-        .filter_map(|row| json_string(row, "section"))
-        .filter_map(|section| review_array_section_change(section, previous, current))
-        .collect()
-}
-
-fn review_array_section_change(
-    section: &str,
-    previous: &serde_json::Value,
-    current: &serde_json::Value,
-) -> Option<serde_json::Value> {
-    let previous_items = previous
-        .get(section)
-        .and_then(serde_json::Value::as_array)
-        .map(Vec::as_slice)
-        .unwrap_or(&[]);
-    let current_items = current
-        .get(section)
-        .and_then(serde_json::Value::as_array)
-        .map(Vec::as_slice)
-        .unwrap_or(&[]);
-    if previous_items.is_empty() && current_items.is_empty() {
-        return None;
-    }
-
-    let previous_map = review_item_map(section, previous_items);
-    let current_map = review_item_map(section, current_items);
-    let mut added = Vec::new();
-    let mut removed = Vec::new();
-    let mut changed = Vec::new();
-
-    for (key, current_item) in &current_map {
-        match previous_map.get(key) {
-            None => added.push(review_diff_item(key, current_item)),
-            Some(previous_item) if *previous_item != *current_item => {
-                changed.push(serde_json::json!({
-                    "key": key,
-                    "before": *previous_item,
-                    "after": *current_item
-                }));
-            }
-            _ => {}
-        }
-    }
-    for (key, previous_item) in &previous_map {
-        if !current_map.contains_key(key) {
-            removed.push(review_diff_item(key, previous_item));
-        }
-    }
-
-    if added.is_empty() && removed.is_empty() && changed.is_empty() {
-        return None;
-    }
-    Some(serde_json::json!({
-        "section": section,
-        "added": added,
-        "removed": removed,
-        "changed": changed
-    }))
-}
-
-fn review_item_map<'a>(
-    section: &str,
-    items: &'a [serde_json::Value],
-) -> std::collections::BTreeMap<String, &'a serde_json::Value> {
-    let mut map = std::collections::BTreeMap::new();
-    for (index, item) in items.iter().enumerate() {
-        let key = review_item_key(section, item, index);
-        map.insert(key, item);
-    }
-    map
-}
-
-fn review_diff_item(key: &str, item: &serde_json::Value) -> serde_json::Value {
-    serde_json::json!({
-        "key": key,
-        "item": item
-    })
-}
-
-fn review_item_key(section: &str, item: &serde_json::Value, index: usize) -> String {
-    let kind = json_string(item, "kind").unwrap_or(section);
-    for field in ["name", "binding", "target", "source"] {
-        if let Some(value) = json_string(item, field) {
-            return format!("{kind}:{field}:{value}");
-        }
-    }
-    if let Some(line) = item.get("line").and_then(serde_json::Value::as_u64) {
-        return format!("{kind}:line:{line}");
-    }
-    if let Some(line) = item.get("source_line").and_then(serde_json::Value::as_u64) {
-        return format!("{kind}:source_line:{line}");
-    }
-    if let Some(expression) = json_string(item, "expression") {
-        return format!("{kind}:expression:{expression}");
-    }
-    if let Some(category) = json_string(item, "category") {
-        return format!("{kind}:category:{category}:{index}");
-    }
-    format!("{section}:{index}")
-}
-
-fn review_changed_sections(
-    previous: &serde_json::Value,
-    current: &serde_json::Value,
-) -> Vec<serde_json::Value> {
-    let mut sections = Vec::new();
-    let previous_hashes = previous
-        .get("section_hashes")
-        .and_then(serde_json::Value::as_object);
-    let current_hashes = current
-        .get("section_hashes")
-        .and_then(serde_json::Value::as_object);
-    let section_names = previous_hashes
-        .into_iter()
-        .flat_map(|hashes| hashes.keys().cloned())
-        .chain(
-            current_hashes
-                .into_iter()
-                .flat_map(|hashes| hashes.keys().cloned()),
-        )
-        .collect::<std::collections::BTreeSet<_>>();
-    for section in section_names {
-        let previous_hash = previous_hashes.and_then(|hashes| hashes.get(&section));
-        let current_hash = current_hashes.and_then(|hashes| hashes.get(&section));
-        if previous_hash != current_hash {
-            sections.push(serde_json::json!({
-                "section": section,
-                "before": previous_hash.cloned().unwrap_or(serde_json::Value::Null),
-                "after": current_hash.cloned().unwrap_or(serde_json::Value::Null)
-            }));
-        }
-    }
-    sections
+        .map_err(|error| format!("failed to parse review document `{path}`: {error}"))?;
+    extract_review_document(&value)
+        .cloned()
+        .map_err(|error| format!("invalid review document `{path}`: {error}"))
 }
 
 fn write_static_review_outputs(
@@ -1634,7 +1478,7 @@ mod tests {
             ]
         });
 
-        let diff = review_semantic_diff(&previous, &current);
+        let diff = review_semantic_diff(&previous, &current).expect("semantic diff");
 
         assert_eq!(diff["status"], "changed");
         assert_eq!(diff["changed_sections"][0]["section"], "calculations");
@@ -1697,7 +1541,7 @@ mod tests {
             ]
         });
 
-        let diff = review_semantic_diff(&previous, &current);
+        let diff = review_semantic_diff(&previous, &current).expect("semantic diff");
 
         assert_eq!(diff["status"], "changed");
         assert_eq!(diff["changed_sections"][0]["section"], "workflow_modules");
@@ -1726,7 +1570,7 @@ mod tests {
         });
         let current = previous.clone();
 
-        let diff = review_semantic_diff(&previous, &current);
+        let diff = review_semantic_diff(&previous, &current).expect("semantic diff");
 
         assert_eq!(diff["status"], "unchanged");
         assert_eq!(diff["changed_sections"].as_array().map(Vec::len), Some(0));
@@ -1753,7 +1597,7 @@ mod tests {
             "section_hashes": {}
         });
 
-        let diff = review_semantic_diff(&previous, &current);
+        let diff = review_semantic_diff(&previous, &current).expect("semantic diff");
 
         assert_eq!(diff["status"], "changed");
         assert_eq!(diff["changed_sections"][0]["section"], "calculations");
