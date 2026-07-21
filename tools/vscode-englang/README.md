@@ -21,8 +21,9 @@ embedding compiler logic in JavaScript.
   decorations, with lazy snapshot projection and recursive open-import invalidation
 - strict token-changing partial parse/semantic recheck for scalar documents with
   fast, explicit, and pure scalar `const` declarations plus unchanged supported
-  `use/import eng.*` module prefixes; the shared suffix supports literals,
-  backward aliases, pure registered-unit arithmetic, coordinated edits,
+  `use/import eng.*` module prefixes or static imports whose recursively
+  imported definitions are pure registered scalar constants; the shared suffix
+  supports literals, backward aliases, pure registered-unit arithmetic, coordinated edits,
   additions/removals, resized/inserted/removed standalone trivia, and line-ending
   shifts, with full-analysis fallback outside that contract
 - debounced diagnostics for unsaved buffers after a short typing pause,
@@ -239,8 +240,10 @@ byte-identical. This narrow path covers edits to comment-only and blank lines;
 the source-dependent snapshot is rebuilt lazily. In a document containing only
 top-level fast scalar bindings, registered explicit scalar declarations, pure
 top-level scalar `const` declarations, unchanged supported `use/import eng.*`
-module declarations before the affected suffix, and compiler-validated pure
-scalar expressions using numeric or registered-unit literals, backward aliases,
+module declarations, or unchanged static imports whose recursively imported
+definitions are only pure registered scalar constants before the affected
+suffix, compiler-validated pure scalar expressions using numeric or
+registered-unit literals, backward aliases,
 parentheses, `+`, `-`, `*`, `/`, and earlier typed bindings, changed declaration
 lines or standalone token-free trivia preserve the report before the first
 declaration at or after the first change and reparse and semantically reanalyze
@@ -254,11 +257,14 @@ records before patching inferred declarations, constants, expected types, typed
 bindings, hovers, type information, unit derivations, syntax counts, and the first
 workflow line together. Declarations can be inserted or removed, including
 clearing all scalar declarations and restarting from a trivia-only report.
+Imported constants retain their original source ownership and remain available
+to backward root aliases and arithmetic. Changing an open imported module
+invalidates the dependent report before any further reuse.
 Token-bearing non-declaration lines, incomplete or duplicate renames, forward or unresolved
 references, dimensionally incompatible arithmetic, calls, non-scalar constants,
-workflow expressions, diagnostics, file imports, import-line edits, imports
-inside the affected suffix, caches, and richer language run a full compiler
-analysis.
+workflow expressions, diagnostics, static imports that contribute functions or
+other definitions, import-line edits, imports inside the affected suffix,
+caches, and richer language run a full compiler analysis.
 Changing an open import hard-invalidates its recursive open dependents, while
 unrelated document analyses remain cached. This remains a narrow partial path,
 not general incremental parse or semantic recomputation.

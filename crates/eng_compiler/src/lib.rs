@@ -557,21 +557,23 @@ pub fn retarget_check_report_for_token_stable_trivia(
 /// [`recheck_scalar_declaration_suffix_incrementally`].
 ///
 /// This token-changing incremental path is intentionally strict. Apart from unchanged supported
-/// `eng.*` module imports in the preserved prefix, both sources must contain only successful
-/// top-level scalar bindings and trivia. Expressions may be numeric literals, backward aliases, or
-/// pure scalar `+`, `-`, `*`, and `/` arithmetic over registered-unit literals, parentheses, and
-/// earlier scalar bindings.
+/// `eng.*` module imports and static file imports whose imported definitions are only pure
+/// registered scalar constants, both root sources must contain only successful top-level scalar
+/// bindings and trivia. Expressions may be numeric literals, backward aliases, or pure scalar
+/// `+`, `-`, `*`, and `/` arithmetic over registered-unit literals, parentheses, and earlier
+/// scalar bindings.
 /// Changed logical lines may remain bindings or token-free trivia, including inserted or removed
 /// trivia and line-ending changes. Coordinated binding renames are accepted when the resulting names
 /// stay unique and aliases resolve in source order. The compiler preserves report records before the
 /// first binding at or after the first raw-line difference, then reparses and semantically reanalyzes
 /// that suffix. Binding additions and removals update all scalar semantic vectors, syntax counts, and
 /// the top-level workflow line atomically. The compiler verifies the old suffix result against the
-/// prior report before patching. Unchanged supported `eng.*` module imports may precede the affected
-/// suffix. File imports, import edits, diagnostics, caches, calls, workflow expressions, richer
-/// language constructs, and edits without an affected binding return `None` so the caller can run a
-/// normal check or another reuse path. Top-level `const` declarations are accepted only by the
-/// unified [`recheck_scalar_declaration_suffix_incrementally`] entry point.
+/// prior report before patching. Eligible imports may precede the affected suffix and preserve their
+/// exact source ownership and semantic records. Static imports with other definitions, import edits,
+/// diagnostics, caches, calls, workflow expressions, richer language constructs, and edits without
+/// an affected binding return `None` so the caller can run a normal check or another reuse path.
+/// Root top-level `const` declarations are accepted only by the unified
+/// [`recheck_scalar_declaration_suffix_incrementally`] entry point.
 ///
 /// The caller must preserve the source path, check options, argument overrides, and import
 /// environment, just as for [`retarget_check_report_for_token_stable_trivia`].
@@ -593,12 +595,13 @@ pub fn recheck_scalar_binding_suffix_incrementally(
 /// This compatibility entry point retains the explicit-declaration-only contract. New integrations
 /// should use [`recheck_scalar_declaration_suffix_incrementally`] when fast bindings may be present.
 ///
-/// Apart from unchanged supported `eng.*` module imports in the preserved prefix, both sources must
-/// contain only successful top-level explicit declarations with registered scalar quantity types,
-/// pure scalar expressions, and token-free trivia. This path preserves the records before the first
-/// changed declaration and patches expected-type, typed-binding, hover, type-info, unit-derivation,
-/// syntax-count, and workflow-line records together. Mixed fast, explicit, or `const` declarations,
-/// calls, diagnostics, file imports, import edits, caches, and richer constructs return `None`.
+/// Apart from unchanged supported `eng.*` module imports and static file imports whose imported
+/// definitions are only pure registered scalar constants, both root sources must contain only
+/// successful top-level explicit declarations with registered scalar quantity types, pure scalar
+/// expressions, and token-free trivia. This path preserves the records before the first changed
+/// declaration and patches expected-type, typed-binding, hover, type-info, unit-derivation,
+/// syntax-count, and workflow-line records together. Root fast bindings, root `const` declarations,
+/// calls, diagnostics, ineligible or edited imports, caches, and richer constructs return `None`.
 pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
     report: &CheckReport,
     previous_source: &str,
@@ -621,9 +624,11 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// The compiler preserves all records before the first declaration at or after the first raw-line
 /// difference, verifies the old suffix against the prior report, then patches inferred, constant,
 /// expected, typed, hover, type-info, unit-derivation, syntax, and workflow records as one
-/// transaction. Unchanged supported `eng.*` module imports may precede the affected suffix and keep
-/// their exact syntax and semantic records. File imports, import edits, diagnostics, calls, caches,
-/// richer workflow constructs, unresolved or duplicate names, and edits without an affected
+/// transaction. Unchanged supported `eng.*` module imports and static file imports whose
+/// recursively imported definitions are only pure registered scalar constants may precede the
+/// affected suffix. Their exact source ownership, import records, and constant environment are
+/// preserved. Static imports with functions or other definitions, import edits, diagnostics, calls,
+/// caches, richer workflow constructs, unresolved or duplicate names, and edits without an affected
 /// declaration return `None` for a normal full check.
 ///
 /// The caller must preserve the source path, check options, argument overrides, and import
@@ -707,17 +712,24 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
         items: Vec::new(),
     })
     .semantic_program;
-    if !report_has_incremental_scalar_declaration_shape(
+    let report_shape = incremental_scalar_report_shape(
         report,
         previous_prefix.imports.len(),
         &empty_semantic_program,
-    ) || !incremental_scalar_prefix_matches_report(report, &previous_prefix, &previous_suffix)
-        || !mode.accepts(
-            report.syntax_summary.fast_bindings,
-            report.syntax_summary.explicit_declarations,
-            report.syntax_summary.const_declarations,
-        )
-    {
+    )?;
+    if !incremental_scalar_prefix_matches_report(
+        report,
+        &previous_prefix,
+        &previous_suffix,
+        report_shape,
+    ) || !mode.accepts(
+        report.syntax_summary.fast_bindings,
+        report.syntax_summary.explicit_declarations,
+        report
+            .syntax_summary
+            .const_declarations
+            .checked_sub(report_shape.imported_const_count)?,
+    ) {
         return None;
     }
     if !mode.accepts(
@@ -991,7 +1003,7 @@ fn parse_scalar_declaration_prefix(
             AstItem::Const(declaration) if declaration.context == ParseContext::TopLevel => {
                 const_declaration_count = const_declaration_count.checked_add(1)?;
             }
-            AstItem::Import(import) if incremental_stdlib_import_is_supported(import) => {
+            AstItem::Import(import) if incremental_import_is_supported(import) => {
                 imports.push(import.clone());
             }
             _ => return None,
@@ -1041,7 +1053,10 @@ fn parse_incremental_top_level_lines(lines: &[source::SourceLine]) -> Option<Par
     Some(program)
 }
 
-fn incremental_stdlib_import_is_supported(import: &ImportDecl) -> bool {
+fn incremental_import_is_supported(import: &ImportDecl) -> bool {
+    if import.kind == "file" {
+        return !import.target.trim().is_empty();
+    }
     if !matches!(import.kind.as_str(), "use" | "import")
         || !stdlib_module_import_target_is_valid(import.target.trim())
     {
@@ -1059,32 +1074,56 @@ fn incremental_stdlib_import_is_supported(import: &ImportDecl) -> bool {
     })
 }
 
-fn report_has_incremental_scalar_declaration_shape(
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct IncrementalScalarReportShape {
+    imported_const_count: usize,
+}
+
+fn incremental_scalar_report_shape(
     report: &CheckReport,
-    stdlib_import_count: usize,
+    import_count: usize,
     empty_semantic_program: &SemanticProgram,
-) -> bool {
-    let Some(annotated_declaration_count) = report
+) -> Option<IncrementalScalarReportShape> {
+    let imported_const_count = report
+        .semantic_program
+        .consts
+        .iter()
+        .take_while(|constant| constant.span.source_id != SourceSpan::ROOT_SOURCE_ID)
+        .count();
+    let annotated_declaration_count = report
         .syntax_summary
         .explicit_declarations
-        .checked_add(report.syntax_summary.const_declarations)
-    else {
-        return false;
-    };
-    let Some(declaration_count) = report
+        .checked_add(report.syntax_summary.const_declarations)?;
+    let declaration_count = report
         .syntax_summary
         .fast_bindings
-        .checked_add(annotated_declaration_count)
-    else {
-        return false;
-    };
-    let Some(ast_item_count) = declaration_count.checked_add(stdlib_import_count) else {
-        return false;
-    };
-    if report.source_files.len() != 1
-        || report.source_files[0].source_id != SourceSpan::ROOT_SOURCE_ID
+        .checked_add(annotated_declaration_count)?;
+    let ast_item_count = declaration_count.checked_add(import_count)?;
+    let root_source = report.source_files.first()?;
+    let source_ids = report
+        .source_files
+        .iter()
+        .map(|source| source.source_id)
+        .collect::<HashSet<_>>();
+    let imported_source_ids = report
+        .source_files
+        .iter()
+        .skip(1)
+        .map(|source| source.source_id)
+        .collect::<HashSet<_>>();
+    let file_import_count = report
+        .semantic_program
+        .imports
+        .iter()
+        .filter(|import| import.kind == "file")
+        .count();
+    if root_source.source_id != SourceSpan::ROOT_SOURCE_ID
+        || source_ids.len() != report.source_files.len()
+        || imported_source_ids.contains(&SourceSpan::ROOT_SOURCE_ID)
+        || (file_import_count == 0 && report.source_files.len() != 1)
+        || (file_import_count > 0 && report.source_files.len() == 1)
         || !report.diagnostics.is_empty()
-        || report.syntax_summary.imports != stdlib_import_count
+        || report.syntax_summary.imports != import_count
         || report.syntax_summary.ast_items != ast_item_count
         || report.inferred_declarations.len() != report.syntax_summary.fast_bindings
         || !semantic_program_has_only_scalar_declaration_records(
@@ -1092,29 +1131,88 @@ fn report_has_incremental_scalar_declaration_shape(
             declaration_count,
             annotated_declaration_count,
             report.syntax_summary.const_declarations,
-            stdlib_import_count,
+            import_count,
             empty_semantic_program,
         )
     {
-        return false;
+        return None;
+    }
+
+    if !report.semantic_program.consts[..imported_const_count]
+        .iter()
+        .all(|constant| {
+            imported_source_ids.contains(&constant.span.source_id)
+                && constant.importable
+                && constant.type_span.source_id == constant.span.source_id
+                && constant.expression_span.source_id == constant.span.source_id
+                && constant
+                    .unit_span
+                    .is_none_or(|span| span.source_id == constant.span.source_id)
+        })
+        || !report.semantic_program.consts[imported_const_count..]
+            .iter()
+            .all(|constant| {
+                constant.span.source_id == SourceSpan::ROOT_SOURCE_ID
+                    && constant.type_span.source_id == SourceSpan::ROOT_SOURCE_ID
+                    && constant.expression_span.source_id == SourceSpan::ROOT_SOURCE_ID
+                    && constant
+                        .unit_span
+                        .is_none_or(|span| span.source_id == SourceSpan::ROOT_SOURCE_ID)
+            })
+        || !report.semantic_program.expected_types[..imported_const_count]
+            .iter()
+            .all(|expected| imported_source_ids.contains(&expected.span.source_id))
+        || !report.semantic_program.expected_types[imported_const_count..]
+            .iter()
+            .all(|expected| expected.span.source_id == SourceSpan::ROOT_SOURCE_ID)
+        || !report.semantic_program.typed_bindings[..imported_const_count]
+            .iter()
+            .all(|binding| imported_source_ids.contains(&binding.span.source_id))
+        || !report.semantic_program.typed_bindings[imported_const_count..]
+            .iter()
+            .all(|binding| binding.span.source_id == SourceSpan::ROOT_SOURCE_ID)
+        || !report
+            .inferred_declarations
+            .iter()
+            .all(|declaration| declaration.expression_span.source_id == SourceSpan::ROOT_SOURCE_ID)
+    {
+        return None;
     }
 
     let expected_keys = report
         .semantic_program
         .expected_types
         .iter()
-        .map(|expected| (expected.name.as_str(), expected.line))
+        .map(|expected| {
+            (
+                expected.name.as_str(),
+                expected.span.source_id,
+                expected.line,
+            )
+        })
         .collect::<HashSet<_>>();
     let inferred_keys = report
         .inferred_declarations
         .iter()
-        .map(|declaration| (declaration.name.as_str(), declaration.line))
+        .map(|declaration| {
+            (
+                declaration.name.as_str(),
+                declaration.expression_span.source_id,
+                declaration.line,
+            )
+        })
         .collect::<HashSet<_>>();
     let const_keys = report
         .semantic_program
         .consts
         .iter()
-        .map(|declaration| (declaration.name.as_str(), declaration.line))
+        .map(|declaration| {
+            (
+                declaration.name.as_str(),
+                declaration.span.source_id,
+                declaration.line,
+            )
+        })
         .collect::<HashSet<_>>();
     if expected_keys.len() != report.semantic_program.expected_types.len()
         || inferred_keys.len() != report.inferred_declarations.len()
@@ -1122,7 +1220,7 @@ fn report_has_incremental_scalar_declaration_shape(
         || !const_keys.is_subset(&expected_keys)
         || !expected_keys.is_disjoint(&inferred_keys)
     {
-        return false;
+        return None;
     }
 
     let mut names = HashSet::new();
@@ -1135,15 +1233,23 @@ fn report_has_incremental_scalar_declaration_shape(
         .zip(&report.semantic_program.unit_derivations)
         .enumerate()
         .all(|(index, (((binding, hover), type_info), derivation))| {
-            let key = (binding.name.as_str(), binding.line);
+            let key = (binding.name.as_str(), binding.span.source_id, binding.line);
             let is_explicit = expected_keys.contains(&key);
             let is_inferred = inferred_keys.contains(&key);
+            let has_expected_owner = if index < imported_const_count {
+                imported_source_ids.contains(&binding.span.source_id) && const_keys.contains(&key)
+            } else {
+                binding.span.source_id == SourceSpan::ROOT_SOURCE_ID
+            };
             binding.name == hover.name
                 && binding.name == type_info.name
                 && binding.name == derivation.name
                 && binding.line == hover.line
                 && binding.line == type_info.line
                 && binding.line == derivation.line
+                && binding.span.source_id == hover.span.source_id
+                && binding.span.source_id == type_info.span.source_id
+                && has_expected_owner
                 && is_explicit != is_inferred
                 && names.insert(binding.name.as_str())
                 && (!is_explicit
@@ -1159,12 +1265,16 @@ fn report_has_incremental_scalar_declaration_shape(
                     )
                 })
         })
+        .then_some(IncrementalScalarReportShape {
+            imported_const_count,
+        })
 }
 
 fn incremental_scalar_prefix_matches_report(
     report: &CheckReport,
     prefix: &ParsedScalarDeclarationPrefix,
     suffix: &ParsedScalarDeclarationSuffix,
+    shape: IncrementalScalarReportShape,
 ) -> bool {
     prefix
         .fast_binding_count
@@ -1177,6 +1287,7 @@ fn incremental_scalar_prefix_matches_report(
         && prefix
             .const_declaration_count
             .checked_add(suffix.const_declaration_count)
+            .and_then(|count| count.checked_add(shape.imported_const_count))
             == Some(report.syntax_summary.const_declarations)
         && prefix.token_count.checked_add(suffix.token_count) == Some(report.syntax_summary.tokens)
         && prefix.imports.len() == report.semantic_program.imports.len()
@@ -1189,7 +1300,12 @@ fn incremental_scalar_prefix_matches_report(
                     && declaration.target_span == info.span
                     && declaration.kind == info.kind
                     && declaration.line == info.line
-                    && info.status == "declared"
+                    && info.status
+                        == if declaration.kind == "file" {
+                            "resolved_by_compiler"
+                        } else {
+                            "declared"
+                        }
             })
 }
 
@@ -1198,10 +1314,10 @@ fn semantic_program_has_only_scalar_declaration_records(
     declaration_count: usize,
     annotated_declaration_count: usize,
     const_declaration_count: usize,
-    stdlib_import_count: usize,
+    import_count: usize,
     empty: &SemanticProgram,
 ) -> bool {
-    if program.imports.len() != stdlib_import_count
+    if program.imports.len() != import_count
         || program.consts.len() != const_declaration_count
         || program.expected_types.len() != annotated_declaration_count
         || program.typed_bindings.len() != declaration_count
@@ -10223,7 +10339,7 @@ mod tests {
         })
         .semantic_program;
         assert!(
-            report_has_incremental_scalar_declaration_shape(&previous, 0, &empty_semantic_program,),
+            incremental_scalar_report_shape(&previous, 0, &empty_semantic_program).is_some(),
             "the successful mixed report should satisfy the incremental scalar shape"
         );
 
@@ -10382,7 +10498,7 @@ mod tests {
         })
         .semantic_program;
         assert!(
-            report_has_incremental_scalar_declaration_shape(&previous, 0, &empty_semantic_program,),
+            incremental_scalar_report_shape(&previous, 0, &empty_semantic_program).is_some(),
             "the successful const report should satisfy the incremental scalar shape"
         );
 
@@ -10620,6 +10736,200 @@ mod tests {
     }
 
     #[test]
+    fn incrementally_rechecks_scalar_suffix_after_static_const_imports() {
+        fn assert_fresh_equivalent(reused: &CheckReport, fresh: &CheckReport, source: &str) {
+            assert_eq!(reused.source_path, fresh.source_path);
+            assert_eq!(reused.source_files, fresh.source_files);
+            assert_eq!(reused.source_hash, fresh.source_hash);
+            assert_eq!(reused.source_lines, fresh.source_lines);
+            assert_eq!(reused.diagnostics, fresh.diagnostics);
+            assert_eq!(reused.inferred_declarations, fresh.inferred_declarations);
+            assert_eq!(reused.syntax_summary, fresh.syntax_summary);
+            assert_eq!(reused.semantic_program, fresh.semantic_program);
+            assert_eq!(
+                reused.quantity_completion_count,
+                fresh.quantity_completion_count
+            );
+            assert_eq!(reused.unit_info_count, fresh.unit_info_count);
+            assert_eq!(review_json(reused), review_json(fresh));
+            assert_eq!(
+                encode_bytecode(&build_bytecode_program(reused, source)),
+                encode_bytecode(&build_bytecode_program(fresh, source))
+            );
+        }
+
+        let root = std::env::temp_dir().join(format!(
+            "eng_compiler_incremental_static_const_import_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("file import fixture should be created");
+        std::fs::write(
+            root.join("base.eng"),
+            "const imported_length: Length [m] = 2 m\n",
+        )
+        .expect("base module should be written");
+        std::fs::write(
+            root.join("shared.eng"),
+            r#"use "base.eng"
+const imported_factor: Ratio [1] = 0.5
+const imported_adjusted: Length [m] = imported_length * imported_factor
+"#,
+        )
+        .expect("shared module should be written");
+        let main_path = root.join("main.eng");
+        let previous_source = r#"use "shared.eng"
+use eng.stats
+# root scalar declarations
+base = imported_adjusted
+const local_factor: Ratio [1] = 0.5
+adjusted: Length [m] = base * local_factor
+"#;
+        let source = r#"use "shared.eng"
+use eng.stats
+# root scalar declarations
+base = imported_adjusted
+const local_factor: Ratio [1] = 0.75
+adjusted: Length [cm] = base * local_factor
+total = adjusted + imported_length + 0 m
+"#;
+        std::fs::write(&main_path, previous_source).expect("root module should be written");
+        let previous = check_source(&main_path, previous_source, &CheckOptions::default());
+        assert!(
+            previous.diagnostics.is_empty(),
+            "unexpected file import diagnostics: {:#?}",
+            previous.diagnostics
+        );
+        assert_eq!(previous.source_files.len(), 3);
+        assert_eq!(previous.semantic_program.imports.len(), 2);
+        assert_eq!(previous.semantic_program.consts.len(), 4);
+        assert!(previous.semantic_program.consts[..3]
+            .iter()
+            .all(|constant| !constant.span.is_root_source()));
+        let previous_lines = source::source_lines(previous_source);
+        let previous_prefix = parse_scalar_declaration_prefix(&previous_lines[..4])
+            .expect("unchanged import and scalar prefix should parse");
+        let previous_suffix = parse_scalar_declaration_suffix(&previous_lines[4..])
+            .expect("changed scalar suffix should parse");
+        let empty_semantic_program = semantic::analyze(&ParsedProgram {
+            lines: Vec::new(),
+            items: Vec::new(),
+        })
+        .semantic_program;
+        let report_shape = incremental_scalar_report_shape(
+            &previous,
+            previous_prefix.imports.len(),
+            &empty_semantic_program,
+        )
+        .expect("static const import report should satisfy the incremental shape");
+        assert_eq!(report_shape.imported_const_count, 3);
+        assert!(incremental_scalar_prefix_matches_report(
+            &previous,
+            &previous_prefix,
+            &previous_suffix,
+            report_shape,
+        ));
+
+        let mut stale_import = previous.clone();
+        stale_import.semantic_program.imports[0].status = "stale".to_owned();
+        assert!(recheck_scalar_declaration_suffix_incrementally(
+            &stale_import,
+            previous_source,
+            source,
+        )
+        .is_none());
+        let mut stale_owner = previous.clone();
+        stale_owner.semantic_program.consts[0].span.source_id = SourceSpan::ROOT_SOURCE_ID;
+        assert!(recheck_scalar_declaration_suffix_incrementally(
+            &stale_owner,
+            previous_source,
+            source,
+        )
+        .is_none());
+
+        let reused =
+            recheck_scalar_declaration_suffix_incrementally(&previous, previous_source, source)
+                .expect("static scalar const imports should preserve the suffix fast path");
+        let fresh = check_source(&main_path, source, &CheckOptions::default());
+        assert_fresh_equivalent(&reused, &fresh, source);
+        assert_eq!(
+            &reused.semantic_program.consts[..3],
+            &previous.semantic_program.consts[..3]
+        );
+        assert_eq!(
+            &reused.semantic_program.typed_bindings[..3],
+            &previous.semantic_program.typed_bindings[..3]
+        );
+
+        let cleared_source = r#"use "shared.eng"
+use eng.stats
+# root scalar declarations cleared
+"#;
+        let cleared =
+            recheck_scalar_declaration_suffix_incrementally(&reused, source, cleared_source)
+                .expect("clearing root declarations should retain imported constants");
+        let cleared_fresh = check_source(&main_path, cleared_source, &CheckOptions::default());
+        assert_fresh_equivalent(&cleared, &cleared_fresh, cleared_source);
+        assert_eq!(cleared.semantic_program.consts.len(), 3);
+        assert_eq!(cleared.semantic_program.typed_bindings.len(), 3);
+        assert!(cleared.inferred_declarations.is_empty());
+
+        let restarted_source = r#"use "shared.eng"
+use eng.stats
+# root scalar declarations cleared
+copied_length = imported_adjusted
+result: Length [m] = copied_length + imported_length
+"#;
+        let restarted = recheck_scalar_declaration_suffix_incrementally(
+            &cleared,
+            cleared_source,
+            restarted_source,
+        )
+        .expect("root declarations should restart against imported constants");
+        let restarted_fresh = check_source(&main_path, restarted_source, &CheckOptions::default());
+        assert_fresh_equivalent(&restarted, &restarted_fresh, restarted_source);
+
+        let fast_previous_source = r#"use "shared.eng"
+fast_result = imported_adjusted
+"#;
+        let fast_source = r#"use "shared.eng"
+fast_result = imported_length
+"#;
+        let fast_previous =
+            check_source(&main_path, fast_previous_source, &CheckOptions::default());
+        let fast_reused = recheck_scalar_binding_suffix_incrementally(
+            &fast_previous,
+            fast_previous_source,
+            fast_source,
+        )
+        .expect("fast-only root declarations should ignore imported const declarations");
+        let fast_fresh = check_source(&main_path, fast_source, &CheckOptions::default());
+        assert_fresh_equivalent(&fast_reused, &fast_fresh, fast_source);
+
+        let explicit_previous_source = r#"use "shared.eng"
+explicit_result: Length [m] = imported_adjusted
+"#;
+        let explicit_source = r#"use "shared.eng"
+explicit_result: Length [cm] = imported_adjusted
+"#;
+        let explicit_previous = check_source(
+            &main_path,
+            explicit_previous_source,
+            &CheckOptions::default(),
+        );
+        let explicit_reused = recheck_explicit_scalar_declaration_suffix_incrementally(
+            &explicit_previous,
+            explicit_previous_source,
+            explicit_source,
+        )
+        .expect("explicit-only root declarations should ignore imported const declarations");
+        let explicit_fresh = check_source(&main_path, explicit_source, &CheckOptions::default());
+        assert_fresh_equivalent(&explicit_reused, &explicit_fresh, explicit_source);
+
+        std::fs::remove_dir_all(&root).expect("file import fixture should be removed");
+    }
+
+    #[test]
     fn scalar_const_incremental_recheck_uses_strict_fallbacks() {
         let previous_source = concat!(
             "base = 2 m\n",
@@ -10695,8 +11005,16 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).expect("file import fixture should be created");
         let module_path = root.join("shared.eng");
-        std::fs::write(&module_path, "const shared: Ratio = 0.5\n")
-            .expect("file import module should be written");
+        std::fs::write(
+            &module_path,
+            concat!(
+                "const shared: Ratio = 0.5\n",
+                "fn imported_gain(value: Ratio [1]) -> Ratio [1] {\n",
+                "    return value\n",
+                "}\n",
+            ),
+        )
+        .expect("file import module should be written");
         let main_path = root.join("main.eng");
         let file_import_source = r#"use "shared.eng"
 base = 2 m

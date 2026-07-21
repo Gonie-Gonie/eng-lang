@@ -11040,6 +11040,142 @@ mod tests {
     }
 
     #[test]
+    fn scalar_edits_after_static_const_import_reuse_and_invalidate_with_import_changes() {
+        let root = std::env::temp_dir().join(format!(
+            "eng_lsp_static_const_import_analysis_cache_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("static const import fixture should be created");
+        let module_path = root.join("shared.eng");
+        let initial_module_source = r#"const shared_length: Length [m] = 2 m
+const shared_factor: Ratio [1] = 0.5
+"#;
+        std::fs::write(&module_path, initial_module_source)
+            .expect("static const module should be written");
+        let path = root.join("current.eng");
+        let initial_source = r#"use "shared.eng"
+base = shared_length
+const local_factor: Ratio [1] = 0.5
+adjusted: Length [m] = base * local_factor
+"#;
+        std::fs::write(&path, initial_source).expect("importing source should be written");
+        let module_path = module_path
+            .canonicalize()
+            .expect("static const module should exist");
+        let path = path.canonicalize().expect("importing source should exist");
+        let module_uri = file_uri_from_path(&module_path);
+        let uri = file_uri_from_path(&path);
+        let mut documents = Documents::new();
+        documents.insert(
+            module_uri.clone(),
+            DocumentState::new(initial_module_source.to_owned(), Some(1)),
+        );
+        documents.insert(
+            uri.clone(),
+            DocumentState::new(initial_source.to_owned(), Some(1)),
+        );
+
+        let initial = snapshot_for_open_documents(&path, initial_source, &documents);
+        assert_eq!(initial, snapshot_for_source(&path, initial_source));
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 0);
+
+        let changed_source = r#"use "shared.eng"
+base = shared_length
+const local_factor: Ratio [1] = 0.75
+adjusted: Length [cm] = base * local_factor
+total = adjusted + shared_length + 0 m
+"#;
+        let changed_notification = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 2 },
+                "contentChanges": [{ "text": changed_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&changed_notification, &documents)
+                .expect("root scalar edit should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, changed_source, &documents),
+            snapshot_for_source(&path, changed_source)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 1);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 2, 0, true, true)
+        );
+
+        let changed_module_source = r#"const shared_length: Length [m] = 3 m
+const shared_factor: Ratio [1] = 0.6
+"#;
+        let module_notification = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": module_uri, "version": 2 },
+                "contentChanges": [{ "text": changed_module_source }]
+            }
+        });
+        let (changed_module_uri, changed_module_state) =
+            document_state_from_notification(&module_notification, &documents)
+                .expect("imported const edit should be accepted");
+        documents.insert(changed_module_uri.clone(), changed_module_state);
+        let affected = diagnostic_documents_after_change(&changed_module_uri, &documents);
+        assert!(affected
+            .iter()
+            .any(|(affected_uri, _)| affected_uri == &uri));
+        invalidate_dependent_document_analyses(&changed_module_uri, &affected);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 2, 0, false, false),
+            "an imported buffer edit must invalidate the dependent root report"
+        );
+
+        let overrides = import_source_overrides_from_documents(&documents);
+        assert_eq!(
+            snapshot_for_open_documents(&path, changed_source, &documents),
+            snapshot_for_source_with_import_overrides(&path, changed_source, &overrides)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 1);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 3, 0, true, true),
+            "the dependent root must rebuild against the changed import environment"
+        );
+
+        let resumed_source = r#"use "shared.eng"
+base = shared_length
+const local_factor: Ratio [1] = 0.9
+adjusted: Length [cm] = base * local_factor
+total = adjusted + shared_length + 0 m
+"#;
+        let resumed_notification = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 3 },
+                "contentChanges": [{ "text": resumed_source }]
+            }
+        });
+        let (resumed_uri, resumed_state) =
+            document_state_from_notification(&resumed_notification, &documents)
+                .expect("root scalar edit after import rebuild should be accepted");
+        documents.insert(resumed_uri.clone(), resumed_state);
+        let affected = diagnostic_documents_after_change(&resumed_uri, &documents);
+        invalidate_dependent_document_analyses(&resumed_uri, &affected);
+        let overrides = import_source_overrides_from_documents(&documents);
+        assert_eq!(
+            snapshot_for_open_documents(&path, resumed_source, &documents),
+            snapshot_for_source_with_import_overrides(&path, resumed_source, &overrides)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 2);
+
+        std::fs::remove_dir_all(&root).expect("static const import fixture should be removed");
+    }
+
+    #[test]
     fn changed_import_republishes_only_recursive_open_dependents() {
         let root = std::env::temp_dir().join(format!(
             "eng_lsp_open_import_diagnostics_{}",

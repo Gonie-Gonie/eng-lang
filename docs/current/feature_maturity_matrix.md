@@ -240,7 +240,10 @@ separate.
   Clean scalar documents may interleave fast bindings, registered explicit
   annotations, and pure top-level scalar `const` declarations; unchanged
   supported `use/import eng.*` module declarations may remain in the preserved
-  prefix, and fast and explicit forms may switch style in the affected suffix.
+  prefix, as may static imports whose recursively imported definitions are only
+  pure registered scalar constants. Those imported constants retain source
+  ownership and can seed backward root aliases and arithmetic. Fast and explicit
+  forms may switch style in the affected suffix.
   Expressions may use numeric
   literals, backward aliases, or pure scalar arithmetic over registered-unit
   literals, parentheses, and earlier typed bindings. The path covers coordinated
@@ -259,9 +262,10 @@ separate.
 - Not included: a stable public compatibility guarantee across EngLang releases
   or general partial parse/semantic recomputation beyond the bounded scalar
   declaration contract, including forward/unresolved references, calls, non-scalar
-  constants, workflow expressions, file imports, import-line edits, imports inside
-  the affected suffix, token-bearing non-declaration lines, and richer language
-  constructs inside a changed document.
+  constants, workflow expressions, static imports that contribute functions or
+  other definitions, import-line edits, imports inside the affected suffix,
+  token-bearing non-declaration lines, and richer language constructs inside a
+  changed document.
 - Next cleanup action: keep the implemented persistent service tested while its
   public maturity remains explicit.
 
