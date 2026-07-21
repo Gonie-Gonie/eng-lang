@@ -69,17 +69,19 @@ separate.
   results, and native IDE
   inspection for the current package workflows. `review.json.review_document`
   now normalizes semantic/section hashes, inputs, schemas, units/quantities,
-  time axes, symbols, derived values, calculations, report outputs,
-  validations, side effects, external boundaries, fallbacks, and risk entries.
+  time axes, symbols, derived values, calculations, table transforms, report
+  outputs, validations, side effects, external boundaries, caches, fallbacks,
+  and risk entries. Saved runs add source-matched runtime results and refresh
+  only the section hashes whose normalized content changed.
 - Evidence: official examples, artifact schemas, `artifacts-check`, report/
   review guide, `eng review`, shared compiler diff tests, and IDE smoke path
   covering normalized Review cockpit sections, semantic comparison, external
   boundaries, and side effects.
-- Not included: runtime-updated ReviewDocument values or a complete
-  risk/fallback taxonomy across all tracks.
-- Next cleanup action: route report HTML through the normalized
-  ReviewDocument before expanding semantic diff beyond the current item-level
-  payload.
+- Not included: complete runtime projection for every specialized solver,
+  assembly, model, and DB record family or a complete risk/fallback taxonomy
+  across all tracks.
+- Next cleanup action: route report HTML through the normalized ReviewDocument
+  and extend runtime rows to the remaining specialized record families.
 
 ### Measured-Vs-Simulated Validation
 

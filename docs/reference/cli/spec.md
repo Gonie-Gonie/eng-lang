@@ -296,8 +296,11 @@ risk rows
 ```
 
 `--json` prints only `review_document` as formatted JSON. This command does not
-execute the workflow, so runtime hashes, process exits, and generated file
-status still belong to `eng run --save-artifacts`.
+execute the workflow, so it emits the static compiler projection. Resolved
+runtime values, statuses, process exits, and generated file status belong to
+`eng run --save-artifacts`; its `build/result/review.json` adds
+`runtime_result` rows and `runtime_evidence`, refreshes hashes only for changed
+normalized sections, and marks the semantic hash scope `runtime_enriched`.
 
 `--output` writes `static_review.json` under the selected directory.
 `--against` accepts a full prior `review.json` or a bare
@@ -317,6 +320,8 @@ The comparison covers the union of old and new section hashes, so added,
 changed, and removed sections are all visible. Successful comparison returns
 exit code 0 whether the semantic status is `changed` or `unchanged`;
 invalid usage returns 2 and read/parse/write failures return 1.
+Static and runtime-enriched ReviewDocuments can be compared directly; runtime
+row changes appear as ordinary item-level section changes.
 
 ## `eng fmt <file.eng> [--check|--write]`
 

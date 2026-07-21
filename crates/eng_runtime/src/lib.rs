@@ -12,8 +12,9 @@ use std::time::{Duration, Instant};
 
 use eng_compiler::{
     build_bytecode, canonical_path_text, check_file, check_source,
-    classify_workflow_node_review_risk, parse_bytecode, review_json, timeseries_statistic_operands,
-    ArgOverride, CheckOptions, CheckReport, ReviewFallbackRecord,
+    classify_workflow_node_review_risk, parse_bytecode, refresh_runtime_review_document_hashes,
+    review_json, timeseries_statistic_operands, ArgOverride, CheckOptions, CheckReport,
+    ReviewFallbackRecord,
 };
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -13052,7 +13053,655 @@ fn runtime_review_json(input: RuntimeReviewInput<'_>) -> String {
     json.push_str("\n  ],\n  \"model_diagnostics\": [\n");
     json.push_str(&model_diagnostics_json(runtime_data, process_results));
     json.push_str("\n  ]\n}\n");
-    json
+    finalize_runtime_review_document(base_review, json, report, runtime_data)
+}
+
+fn finalize_runtime_review_document(
+    baseline_review: &str,
+    runtime_review: String,
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+) -> String {
+    let Ok(baseline) = serde_json::from_str::<Value>(baseline_review) else {
+        return runtime_review;
+    };
+    let Ok(mut review) = serde_json::from_str::<Value>(&runtime_review) else {
+        return runtime_review;
+    };
+    let Some(document) = review
+        .pointer_mut("/review_document")
+        .and_then(Value::as_object_mut)
+    else {
+        return runtime_review;
+    };
+
+    enrich_runtime_review_inputs(document, report);
+    enrich_runtime_review_schemas(document, runtime_data);
+    enrich_runtime_review_numeric_sections(document, runtime_data);
+    enrich_runtime_review_symbols(document, runtime_data);
+    enrich_runtime_review_time_axes(document, runtime_data);
+    enrich_runtime_review_calculations(document, runtime_data);
+    enrich_runtime_review_table_transforms(document, runtime_data);
+    enrich_runtime_review_outputs(document, runtime_data);
+    enrich_runtime_review_validations(document, runtime_data);
+
+    let runtime_status = if runtime_data
+        .validations
+        .iter()
+        .any(|validation| runtime_review_status_is_failure(&validation.status))
+        || runtime_data
+            .table_diagnostics
+            .iter()
+            .any(|diagnostic| runtime_review_status_is_failure(&diagnostic.status))
+        || runtime_data
+            .table_transforms
+            .iter()
+            .any(|transform| runtime_review_status_is_failure(&transform.status))
+        || review_document_has_runtime_failure(document)
+    {
+        "runtime_issues"
+    } else {
+        "runtime_ready"
+    };
+    document.insert(
+        "status".to_owned(),
+        Value::String(runtime_status.to_owned()),
+    );
+    document.insert(
+        "runtime_evidence".to_owned(),
+        json!({
+            "status": runtime_status,
+            "resolved_input_count": review_runtime_result_count(document, "inputs"),
+            "schema_result_count": review_runtime_result_count(document, "schemas"),
+            "numeric_value_count": runtime_data.numeric_values.len(),
+            "table_count": runtime_data.tables.len(),
+            "timeseries_count": runtime_data.time_series.len(),
+            "symbol_result_count": review_runtime_result_count(document, "symbols"),
+            "time_axis_count": review_runtime_result_count(document, "time_axes"),
+            "calculation_result_count": review_runtime_result_count(document, "calculations"),
+            "table_transform_count": review_runtime_result_count(document, "table_transforms"),
+            "report_output_count": review_runtime_result_count(document, "report_outputs"),
+            "validation_count": review_runtime_result_count(document, "validations")
+        }),
+    );
+
+    if refresh_runtime_review_document_hashes(&baseline, &mut review).is_err() {
+        return runtime_review;
+    }
+    serde_json::to_string_pretty(&review)
+        .map(|mut json| {
+            json.push('\n');
+            json
+        })
+        .unwrap_or(runtime_review)
+}
+
+fn runtime_review_status_is_failure(status: &str) -> bool {
+    let status = status.trim().to_ascii_lowercase();
+    status == "failed"
+        || status == "invalid"
+        || status == "error"
+        || status.contains("failure")
+        || status.contains("failed")
+}
+
+fn review_runtime_result_count(document: &serde_json::Map<String, Value>, section: &str) -> usize {
+    document
+        .get(section)
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| row.get("runtime_result").is_some_and(Value::is_object))
+                .count()
+        })
+        .unwrap_or(0)
+}
+
+fn review_document_has_runtime_failure(document: &serde_json::Map<String, Value>) -> bool {
+    [
+        "inputs",
+        "schemas",
+        "units_quantities",
+        "time_axes",
+        "symbols",
+        "derived_values",
+        "calculations",
+        "table_transforms",
+        "report_outputs",
+        "validations",
+        "side_effects",
+        "external_boundaries",
+        "caches",
+        "fallbacks",
+    ]
+    .iter()
+    .filter_map(|section| document.get(*section).and_then(Value::as_array))
+    .flatten()
+    .any(|row| {
+        row.get("runtime_result")
+            .and_then(|result| result.get("status"))
+            .and_then(Value::as_str)
+            .is_some_and(runtime_review_status_is_failure)
+            || row
+                .get("status")
+                .and_then(Value::as_str)
+                .is_some_and(runtime_review_status_is_failure)
+    })
+}
+
+fn review_document_rows_mut<'a>(
+    document: &'a mut serde_json::Map<String, Value>,
+    section: &str,
+) -> Option<&'a mut Vec<Value>> {
+    document.get_mut(section).and_then(Value::as_array_mut)
+}
+
+fn review_row_name(row: &Value) -> Option<&str> {
+    row.get("name")
+        .or_else(|| row.get("binding"))
+        .and_then(Value::as_str)
+}
+
+fn review_row_matches(row: &Value, name: &str, line: usize) -> bool {
+    review_row_name(row) == Some(name)
+        && (line == 0
+            || row
+                .get("line")
+                .and_then(Value::as_u64)
+                .is_none_or(|row_line| {
+                    usize::try_from(row_line).is_ok_and(|row_line| row_line == line)
+                }))
+}
+
+fn set_review_runtime_result(row: &mut Value, runtime_result: Value) {
+    if let Some(object) = row.as_object_mut() {
+        object.insert("runtime_result".to_owned(), runtime_result);
+    }
+}
+
+fn enrich_runtime_review_inputs(
+    document: &mut serde_json::Map<String, Value>,
+    report: &CheckReport,
+) {
+    let Some(rows) = review_document_rows_mut(document, "inputs") else {
+        return;
+    };
+    for row in rows {
+        if row.get("kind").and_then(Value::as_str) != Some("arg") {
+            continue;
+        }
+        let Some(name) = review_row_name(row).map(str::to_owned) else {
+            continue;
+        };
+        let Some(arg) = report
+            .semantic_program
+            .arg_values
+            .iter()
+            .find(|arg| arg.name == name)
+        else {
+            continue;
+        };
+        set_review_runtime_result(
+            row,
+            json!({
+                "provenance": "resolved_arg",
+                "value": if arg.redacted { "<redacted>" } else { arg.value.as_str() },
+                "source": arg.source,
+                "redacted": arg.redacted,
+                "status": "resolved"
+            }),
+        );
+    }
+}
+
+fn enrich_runtime_review_schemas(
+    document: &mut serde_json::Map<String, Value>,
+    runtime_data: &RuntimeData,
+) {
+    let Some(rows) = review_document_rows_mut(document, "schemas") else {
+        return;
+    };
+    for row in rows {
+        let Some(name) = review_row_name(row).map(str::to_owned) else {
+            continue;
+        };
+        let diagnostics = runtime_data
+            .table_diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.schema_name == name)
+            .collect::<Vec<_>>();
+        if diagnostics.is_empty() {
+            continue;
+        }
+        let status = if diagnostics
+            .iter()
+            .any(|diagnostic| runtime_review_status_is_failure(&diagnostic.status))
+        {
+            "failed"
+        } else {
+            "validated"
+        };
+        let tables = diagnostics
+            .iter()
+            .map(|diagnostic| {
+                json!({
+                    "binding": diagnostic.binding,
+                    "source": diagnostic.source,
+                    "source_hash": diagnostic.source_hash,
+                    "row_count": diagnostic.row_count,
+                    "column_count": diagnostic.column_count,
+                    "missing_cell_count": diagnostic.missing_cell_count,
+                    "parse_failure_count": diagnostic.parse_failure_count,
+                    "conversion_failure_count": diagnostic.conversion_failure_count,
+                    "status": diagnostic.status
+                })
+            })
+            .collect::<Vec<_>>();
+        set_review_runtime_result(
+            row,
+            json!({
+                "provenance": "runtime_table_diagnostics",
+                "status": status,
+                "tables": tables
+            }),
+        );
+    }
+}
+
+fn runtime_numeric_uncertainty_review_value(
+    uncertainty: &RuntimeNumericUncertaintyPayload,
+) -> Value {
+    json!({
+        "binding": uncertainty.binding,
+        "kind": uncertainty.kind,
+        "distribution": uncertainty.distribution,
+        "method": uncertainty.method,
+        "mean": uncertainty.mean,
+        "stddev": uncertainty.stddev,
+        "error": uncertainty.error,
+        "lower": uncertainty.lower,
+        "upper": uncertainty.upper,
+        "p05": uncertainty.p05,
+        "p50": uncertainty.p50,
+        "p95": uncertainty.p95,
+        "sample_count": uncertainty.sample_count,
+        "status": uncertainty.status
+    })
+}
+
+fn runtime_numeric_review_value(value: &RuntimeNumericValue) -> Value {
+    json!({
+        "provenance": "runtime_numeric_value",
+        "value": value.value,
+        "unit": value.display_unit,
+        "quantity_kind": value.quantity_kind,
+        "representation": value.representation,
+        "materialization": value.status,
+        "status": if value.value.is_some() { "computed" } else { "unavailable" },
+        "uncertainty": value
+            .uncertainty
+            .as_ref()
+            .map(runtime_numeric_uncertainty_review_value)
+    })
+}
+
+fn enrich_runtime_review_numeric_sections(
+    document: &mut serde_json::Map<String, Value>,
+    runtime_data: &RuntimeData,
+) {
+    for section in [
+        "units_quantities",
+        "symbols",
+        "derived_values",
+        "calculations",
+    ] {
+        let Some(rows) = review_document_rows_mut(document, section) else {
+            continue;
+        };
+        for row in rows {
+            let Some(name) = review_row_name(row).map(str::to_owned) else {
+                continue;
+            };
+            let line = row
+                .get("line")
+                .and_then(Value::as_u64)
+                .and_then(|line| usize::try_from(line).ok())
+                .unwrap_or(0);
+            let Some(value) = runtime_data
+                .numeric_values
+                .iter()
+                .find(|value| value.binding == name && (line == 0 || value.line == line))
+            else {
+                continue;
+            };
+            set_review_runtime_result(row, runtime_numeric_review_value(value));
+        }
+    }
+}
+
+fn enrich_runtime_review_symbols(
+    document: &mut serde_json::Map<String, Value>,
+    runtime_data: &RuntimeData,
+) {
+    let Some(rows) = review_document_rows_mut(document, "symbols") else {
+        return;
+    };
+    for row in rows {
+        let Some(name) = review_row_name(row).map(str::to_owned) else {
+            continue;
+        };
+        if let Some(table) = runtime_data
+            .tables
+            .iter()
+            .find(|table| review_row_matches(row, &table.binding, table.line))
+        {
+            set_review_runtime_result(
+                row,
+                json!({
+                    "provenance": "runtime_table",
+                    "schema": table.schema_name,
+                    "source": table.source,
+                    "source_hash": table.source_hash,
+                    "row_count": table.row_count,
+                    "column_count": table.columns.len(),
+                    "parse_failure_count": table.parse_failures.len(),
+                    "status": if table.parse_failures.is_empty() {
+                        "materialized"
+                    } else {
+                        "materialized_with_parse_failures"
+                    }
+                }),
+            );
+            continue;
+        }
+        if let Some(series) = runtime_data
+            .time_series
+            .iter()
+            .find(|series| series.name == name)
+        {
+            set_review_runtime_result(row, runtime_timeseries_review_value(series));
+        }
+    }
+}
+
+fn runtime_timeseries_review_value(series: &runtime_data::RuntimeTimeSeries) -> Value {
+    json!({
+        "provenance": "runtime_timeseries",
+        "axis": series.axis,
+        "x_unit": series.x_unit,
+        "quantity_kind": series.quantity_kind,
+        "unit": series.display_unit,
+        "source_table": series.source_table,
+        "source_expression": series.source_expression,
+        "point_count": series.points.len(),
+        "status": "materialized"
+    })
+}
+
+fn enrich_runtime_review_time_axes(
+    document: &mut serde_json::Map<String, Value>,
+    runtime_data: &RuntimeData,
+) {
+    let Some(rows) = review_document_rows_mut(document, "time_axes") else {
+        return;
+    };
+    for row in rows {
+        let Some(binding) = row.get("binding").and_then(Value::as_str) else {
+            continue;
+        };
+        let Some(axis) = runtime_data
+            .time_axes
+            .iter()
+            .find(|axis| axis.name == binding)
+        else {
+            continue;
+        };
+        set_review_runtime_result(
+            row,
+            json!({
+                "provenance": "runtime_time_axis",
+                "source_table": axis.source_table,
+                "source_column": axis.source_column,
+                "axis": axis.axis,
+                "unit": axis.unit,
+                "start": axis.start,
+                "end": axis.end,
+                "count": axis.count,
+                "nominal_step": axis.nominal_step,
+                "irregular": axis.irregular,
+                "missing_count": axis.missing_count,
+                "status": if axis.missing_count == 0 {
+                    "materialized"
+                } else {
+                    "gapped"
+                }
+            }),
+        );
+    }
+}
+
+fn runtime_statistics_review_value(statistics: &runtime_data::RuntimeStatistics) -> Value {
+    let values = statistics
+        .values
+        .iter()
+        .map(|value| {
+            json!({
+                "name": value.name,
+                "value": value.value,
+                "unit": value.unit
+            })
+        })
+        .collect::<Vec<_>>();
+    json!({
+        "provenance": "runtime_statistics",
+        "source": statistics.source,
+        "quantity_kind": statistics.quantity_kind,
+        "axis": statistics.axis,
+        "cache_key": statistics.cache_key,
+        "values": values,
+        "status": statistics.status
+    })
+}
+
+fn runtime_integration_review_value(integration: &runtime_data::RuntimeIntegration) -> Value {
+    json!({
+        "provenance": "runtime_integration",
+        "binding": integration.binding,
+        "source": integration.source,
+        "input_quantity": integration.input_quantity,
+        "over_axis": integration.over_axis,
+        "result_quantity": integration.result_quantity,
+        "value": integration.value,
+        "unit": integration.unit,
+        "method": integration.method,
+        "interval_count": integration.interval_count,
+        "status": integration.status
+    })
+}
+
+fn enrich_runtime_review_calculations(
+    document: &mut serde_json::Map<String, Value>,
+    runtime_data: &RuntimeData,
+) {
+    let Some(rows) = review_document_rows_mut(document, "calculations") else {
+        return;
+    };
+    for row in rows {
+        let kind = row
+            .get("kind")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
+        let Some(name) = review_row_name(row).map(str::to_owned) else {
+            continue;
+        };
+        match kind.as_str() {
+            "timeseries_statistics" => {
+                if let Some(statistics) = runtime_data
+                    .statistics
+                    .iter()
+                    .find(|statistics| statistics.source == name)
+                {
+                    set_review_runtime_result(row, runtime_statistics_review_value(statistics));
+                }
+            }
+            "timeseries_integration" => {
+                if let Some(integration) = runtime_data
+                    .integrations
+                    .iter()
+                    .find(|integration| integration.binding == name)
+                {
+                    set_review_runtime_result(row, runtime_integration_review_value(integration));
+                }
+            }
+            "timeseries_kernel" => {
+                if let Some(series) = runtime_data
+                    .time_series
+                    .iter()
+                    .find(|series| series.name == name)
+                {
+                    set_review_runtime_result(row, runtime_timeseries_review_value(series));
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+fn enrich_runtime_review_table_transforms(
+    document: &mut serde_json::Map<String, Value>,
+    runtime_data: &RuntimeData,
+) {
+    let Some(rows) = review_document_rows_mut(document, "table_transforms") else {
+        return;
+    };
+    for row in rows {
+        let Some(binding) = row.get("binding").and_then(Value::as_str) else {
+            continue;
+        };
+        let line = row
+            .get("line")
+            .and_then(Value::as_u64)
+            .and_then(|line| usize::try_from(line).ok())
+            .unwrap_or(0);
+        let Some(transform) = runtime_data.table_transforms.iter().find(|transform| {
+            transform.binding == binding && (line == 0 || transform.line == line)
+        }) else {
+            continue;
+        };
+        set_review_runtime_result(
+            row,
+            json!({
+                "provenance": "runtime_table_transform",
+                "operation": transform.operation,
+                "source_table": transform.source_table,
+                "secondary_table": transform.secondary_table,
+                "schema_name": transform.schema_name,
+                "input_row_count": transform.input_row_count,
+                "secondary_input_row_count": transform.secondary_input_row_count,
+                "output_row_count": transform.output_row_count,
+                "matched_row_count": transform.matched_row_indices.len(),
+                "row_diagnostic_count": transform.row_diagnostics.len(),
+                "reason": transform.reason,
+                "status": transform.status
+            }),
+        );
+    }
+}
+
+fn enrich_runtime_review_outputs(
+    document: &mut serde_json::Map<String, Value>,
+    runtime_data: &RuntimeData,
+) {
+    let Some(rows) = review_document_rows_mut(document, "report_outputs") else {
+        return;
+    };
+    for row in rows {
+        let kind = row
+            .get("kind")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
+        match kind.as_str() {
+            "summary" => {
+                let Some(source) = row.get("source").and_then(Value::as_str) else {
+                    continue;
+                };
+                if let Some(statistics) = runtime_data
+                    .statistics
+                    .iter()
+                    .find(|statistics| statistics.source == source)
+                {
+                    set_review_runtime_result(row, runtime_statistics_review_value(statistics));
+                }
+            }
+            "derived_quantity" => {
+                let Some(binding) = row.get("binding").and_then(Value::as_str) else {
+                    continue;
+                };
+                if let Some(integration) = runtime_data
+                    .integrations
+                    .iter()
+                    .find(|integration| integration.binding == binding)
+                {
+                    set_review_runtime_result(row, runtime_integration_review_value(integration));
+                }
+            }
+            "plot_candidate" => {
+                let Some(source) = row.get("source").and_then(Value::as_str) else {
+                    continue;
+                };
+                if let Some(series) = runtime_data
+                    .time_series
+                    .iter()
+                    .find(|series| series.name == source)
+                {
+                    set_review_runtime_result(row, runtime_timeseries_review_value(series));
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+fn enrich_runtime_review_validations(
+    document: &mut serde_json::Map<String, Value>,
+    runtime_data: &RuntimeData,
+) {
+    let Some(rows) = review_document_rows_mut(document, "validations") else {
+        return;
+    };
+    for row in rows {
+        let line = row
+            .get("line")
+            .and_then(Value::as_u64)
+            .and_then(|line| usize::try_from(line).ok())
+            .unwrap_or(0);
+        let expression = row
+            .get("expression")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let Some(validation) = runtime_data.validations.iter().find(|validation| {
+            (line == 0 || validation.line == line)
+                && (expression.is_empty() || validation.expression == expression)
+        }) else {
+            continue;
+        };
+        set_review_runtime_result(
+            row,
+            json!({
+                "provenance": "runtime_validation",
+                "expression": validation.expression,
+                "left": validation.left,
+                "operator": validation.operator,
+                "right": validation.right,
+                "left_value": validation.left_value,
+                "right_value": validation.right_value,
+                "unit": validation.unit,
+                "status": validation.status
+            }),
+        );
+    }
 }
 
 fn enrich_runtime_review_network_queries(base_review: &str, runtime_data: &RuntimeData) -> String {
@@ -18295,6 +18944,33 @@ mod tests {
     use std::net::TcpListener;
     use std::sync::mpsc;
 
+    #[test]
+    fn runtime_review_failure_scan_covers_boundaries_and_nested_results() {
+        let ready = json!({
+            "symbols": [{ "runtime_result": { "status": "computed" } }],
+            "external_boundaries": [{ "status": "completed" }]
+        });
+        assert!(!review_document_has_runtime_failure(
+            ready.as_object().expect("ready review")
+        ));
+
+        let failed_boundary = json!({
+            "external_boundaries": [{ "status": "failed" }]
+        });
+        assert!(review_document_has_runtime_failure(
+            failed_boundary.as_object().expect("failed boundary review")
+        ));
+
+        let failed_validation = json!({
+            "validations": [{ "runtime_result": { "status": "failed" } }]
+        });
+        assert!(review_document_has_runtime_failure(
+            failed_validation
+                .as_object()
+                .expect("failed validation review")
+        ));
+    }
+
     fn run_plan_has_node(run_plan: &Value, id: &str) -> bool {
         run_plan
             .pointer("/graph/nodes")
@@ -21035,6 +21711,96 @@ mod tests {
         );
         assert_eq!(error.get("display_unit").and_then(Value::as_str), Some("W"));
         assert_eq!(error.get("value").and_then(Value::as_f64), Some(1000.0));
+        let runtime_review: Value =
+            serde_json::from_str(&output.review_json).expect("runtime review json");
+        let review_document = runtime_review
+            .get("review_document")
+            .expect("runtime ReviewDocument");
+        assert_eq!(
+            review_document.get("status").and_then(Value::as_str),
+            Some("runtime_ready")
+        );
+        assert_eq!(
+            review_document
+                .get("semantic_hash_scope")
+                .and_then(Value::as_str),
+            Some("runtime_enriched")
+        );
+        let occupied_review = json_array_item_by_field(
+            &runtime_review,
+            "/review_document/symbols",
+            "name",
+            "occupied",
+        )
+        .expect("runtime symbol result");
+        assert_eq!(
+            occupied_review
+                .pointer("/runtime_result/value")
+                .and_then(Value::as_f64),
+            Some(90.0)
+        );
+        assert_eq!(
+            occupied_review
+                .pointer("/runtime_result/unit")
+                .and_then(Value::as_str),
+            Some("min")
+        );
+        let energy_review = json_array_item_by_field(
+            &runtime_review,
+            "/review_document/calculations",
+            "name",
+            "energy",
+        )
+        .expect("runtime calculation result");
+        assert_eq!(
+            energy_review
+                .pointer("/runtime_result/value")
+                .and_then(Value::as_f64),
+            Some(4.0)
+        );
+        let energy_output = json_array_item_by_field(
+            &runtime_review,
+            "/review_document/report_outputs",
+            "binding",
+            "energy",
+        )
+        .expect("runtime report output");
+        assert_eq!(
+            energy_output
+                .pointer("/runtime_result/status")
+                .and_then(Value::as_str),
+            Some("computed")
+        );
+
+        let source = fs::read_to_string(&source_path).expect("source");
+        let static_report = check_source(
+            &source_path,
+            &source,
+            &CheckOptions {
+                review: true,
+                require_args: true,
+                ..CheckOptions::default()
+            },
+        );
+        let static_review: Value =
+            serde_json::from_str(&review_json(&static_report)).expect("static review json");
+        let diff = eng_compiler::review_semantic_diff(&static_review, &runtime_review)
+            .expect("runtime semantic diff");
+        let changed_sections = diff
+            .get("changed_sections")
+            .and_then(Value::as_array)
+            .expect("changed sections");
+        for section in ["calculations", "report_outputs", "schemas", "symbols"] {
+            assert!(
+                changed_sections
+                    .iter()
+                    .any(|row| row.get("section").and_then(Value::as_str) == Some(section)),
+                "missing runtime ReviewDocument section {section}"
+            );
+        }
+        assert!(!changed_sections
+            .iter()
+            .any(|row| { row.get("section").and_then(Value::as_str) == Some("workflow_modules") }));
         assert!(output
             .stdout
             .contains("duration=90 min sum=6000 W energy=4.0 kWh rmse=1000 W"));
@@ -21822,6 +22588,26 @@ print "mode={args.mode}"
             .contains("\"source_columns\": [\"longitude\"]"));
         assert!(output.review_json.contains("\"operation\": \"derive\""));
         assert!(output.review_json.contains("\"derived_columns\""));
+        let review: Value = serde_json::from_str(&output.review_json).expect("review json");
+        let transform = json_array_item_by_field(
+            &review,
+            "/review_document/table_transforms",
+            "binding",
+            "station_plus",
+        )
+        .expect("runtime table transform review");
+        assert_eq!(
+            transform
+                .pointer("/runtime_result/output_row_count")
+                .and_then(Value::as_u64),
+            Some(2)
+        );
+        assert_eq!(
+            transform
+                .pointer("/runtime_result/status")
+                .and_then(Value::as_str),
+            Some("derived_columns")
+        );
         assert!(!virtual_path.exists());
     }
 
@@ -22554,6 +23340,34 @@ print "mode={args.mode}"
                 })
                 .count(),
             3
+        );
+        let review_json_value: Value =
+            serde_json::from_str(&output.review_json).expect("review json");
+        let review_validations = review_json_value
+            .pointer("/review_document/validations")
+            .and_then(Value::as_array)
+            .expect("ReviewDocument validations");
+        assert_eq!(review_validations.len(), 3);
+        assert!(
+            review_validations.iter().all(|validation| {
+                validation
+                    .pointer("/runtime_result/status")
+                    .and_then(Value::as_str)
+                    == Some("passed")
+            }),
+            "{review_validations:#?}"
+        );
+        assert!(review_validations.iter().all(|validation| {
+            validation
+                .pointer("/runtime_result/left_value")
+                .and_then(Value::as_f64)
+                .is_some()
+        }));
+        assert_eq!(
+            review_json_value
+                .pointer("/review_document/semantic_hash_scope")
+                .and_then(Value::as_str),
+            Some("runtime_enriched")
         );
         assert!(output.report_spec_json.contains("probability(Q < 7 kW)"));
         assert!(!virtual_path.exists());

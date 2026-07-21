@@ -4,8 +4,9 @@ Status: current public artifact family is stable for the v0.1.0 package scope.
 `review.json.review_document`, `eng review <file.eng>`, and the IDE Review
 inspector are the first supported normalized Review IR slice. `eng review
 --against` and `eng review diff <old> <new>` emit the same CLI item-level
-semantic diff payload; runtime-updated ReviewDocument values and a native IDE
-diff panel remain implementation targets.
+semantic diff payload. Saved runs enrich the same ReviewDocument rows with
+runtime values and statuses, and the native IDE exposes baseline selection plus
+section-hash and item-level comparison.
 
 ## Core Principle
 
@@ -42,20 +43,29 @@ package/IDE inspection.
 records:
 
 ```text
+format
+status
+workflow_signature
 semantic_hash
+semantic_hash_scope            runtime-enriched documents only
 section_hashes
+runtime_evidence               saved-run documents only
 root_contract
+workflow_modules
 inputs
 schemas
+config_promotions
 units_quantities
 time_axes
 symbols
 derived_values
 calculations
+table_transforms
 report_outputs
 validations
 side_effects
 external_boundaries
+caches
 fallbacks
 risks
 ```
@@ -184,14 +194,25 @@ generated artifact targets
 risk and fallback entries
 ```
 
-The current static review document records `semantic_hash` plus per-section
-hashes. `eng review --against` uses those hashes for a native meaning-level
-comparison without relying on line-by-line source diffs. The payload includes
-`section_changes[]` with added, removed, and changed array entries for
-ReviewDocument sections such as calculations, validations, units/quantities,
-side effects, external boundaries, fallbacks, and risks. The standalone
-`eng review diff` command and the IDE Review panel compare saved
-ReviewDocuments through the same compiler-owned native diff engine.
+`eng review` produces the compiler-owned static document. A saved run starts
+from that document, adds `runtime_result` to matching normalized rows in
+inputs, schemas, units/quantities, symbols, time axes, calculations, table
+transforms, report outputs, and validations, and records aggregate
+`runtime_evidence`. Runtime updates to boundaries, side effects, caches, and
+fallbacks remain in their existing normalized rows.
+
+The runtime finalizer compares each normalized section with the static
+baseline. It preserves static hashes for unchanged sections, refreshes only
+changed section hashes, and recomputes `semantic_hash` with
+`semantic_hash_scope = runtime_enriched`. `symbols` and `config_promotions` are
+part of the section-hash contract, so value or promotion changes cannot be
+hidden from semantic diff.
+
+`eng review --against` uses those hashes for a native meaning-level comparison
+without relying on line-by-line source diffs. The payload includes
+`section_changes[]` with added, removed, and changed array entries. The
+standalone `eng review diff` command and the native IDE Review panel compare
+saved ReviewDocuments through the same compiler-owned native diff engine.
 
 ## CLI And IDE Targets
 
@@ -223,13 +244,17 @@ risk and fallback panel
 semantic diff panel
 ```
 
-The current IDE Review inspector consumes `review_document` directly for root
-counts, semantic hashes, variables/symbols, unit derivations, schemas, time
-axes, calculation traces, report outputs, validations, side effects, external
-boundaries, fallbacks, and risks. Its Semantic Diff section accepts a full
-`review.json` artifact or bare `review_document`, shows section-hash and
-item-level changes, and automatically recomputes against the selected baseline
-after a later run updates the current ReviewDocument.
+The current native IDE Review inspector consumes `review_document` directly for
+root counts, semantic hashes, runtime inputs and values, variables/symbols,
+unit derivations, schemas, time axes, table transforms, calculation traces,
+report outputs, validations, side effects, external boundaries, fallbacks, and
+risks. Its Semantic Diff section accepts a full `review.json` artifact or bare
+`review_document`, shows section-hash and item-level changes, and automatically
+recomputes against the selected baseline after a later run updates the current
+ReviewDocument. The VS Code current-file Review panel uses the source-path and
+source-hash-matched last-run document when available, including runtime result
+and status columns; otherwise it falls back to the fresh static `eng review`
+document.
 
 ## Completion Checklist
 

@@ -724,6 +724,12 @@ function Invoke-WorkflowsTest {
             $WeatherResponseHash = "d7960daaab0788c185af699f9372660383e8a41cb1db1e8a020f75db80f5feff"
             $AllowedCacheStatuses = @("hit", "miss_offline_response_available", "offline_response_available", "miss_materialized")
             $AllowedCacheStatusDescription = "hit, offline-response available, or materialized miss"
+            Assert-Artifact (@("runtime_ready", "runtime_issues") -contains [string]$ReviewData.review_document.status) "Workflow 01 ReviewDocument must expose a runtime status"
+            Assert-ArtifactValue $ReviewData.review_document.semantic_hash_scope "runtime_enriched" "Workflow 01 ReviewDocument semantic hash scope"
+            Assert-Artifact ($null -ne $ReviewData.review_document.runtime_evidence) "Workflow 01 ReviewDocument missing runtime evidence"
+            Assert-Artifact ([int]$ReviewData.review_document.runtime_evidence.table_count -gt 0) "Workflow 01 ReviewDocument runtime evidence must count materialized tables"
+            Assert-Artifact (-not [string]::IsNullOrWhiteSpace([string]$ReviewData.review_document.section_hashes.symbols)) "Workflow 01 ReviewDocument missing symbols section hash"
+            Assert-Artifact (-not [string]::IsNullOrWhiteSpace([string]$ReviewData.review_document.section_hashes.config_promotions)) "Workflow 01 ReviewDocument missing config promotions section hash"
             if (-not $WorkflowSource.Contains("pinned_response_file") -or $WorkflowSource.Contains("offline_response_file")) {
                 throw "Workflow 01 native API args must expose pinned_response_file and not offline_response_file"
             }
@@ -789,6 +795,10 @@ function Invoke-WorkflowsTest {
             Assert-ArtifactValue $ReviewWeatherPromotion.schema_name "WeatherApiRecord" "Workflow 01 review weather schema"
             Assert-ArtifactValue $ReviewWeatherPromotion.source_format "json_records" "Workflow 01 review weather source format"
             Assert-ArtifactValue $ReviewWeatherPromotion.source_value "api_response.body" "Workflow 01 review weather source value"
+            $ReviewWeatherSymbol = @($ReviewData.review_document.symbols | Where-Object { [string]$_.name -eq "weather" }) | Select-Object -First 1
+            Assert-Artifact ($null -ne $ReviewWeatherSymbol) "Workflow 01 ReviewDocument missing weather symbol"
+            Assert-ArtifactValue $ReviewWeatherSymbol.runtime_result.status "materialized" "Workflow 01 ReviewDocument weather runtime status"
+            Assert-ArtifactValue $ReviewWeatherSymbol.runtime_result.row_count 2 "Workflow 01 ReviewDocument weather row count"
 
             $StandardWeatherArtifact = @($OutputManifestData.artifact_registry.generated_files | Where-Object { [string]$_.kind -eq "standard_file" -and [string]$_.path -eq "outputs/standard_weather_file.txt" }) | Select-Object -First 1
             Assert-Artifact ($null -ne $StandardWeatherArtifact) "Workflow 01 output manifest missing standard weather artifact"
@@ -5454,6 +5464,19 @@ function Assert-VscodeExtensionContract {
     if (-not $ReviewPanelSourceCombined.Contains("<h2>Review Fingerprint</h2>")) {
         throw "VS Code extension review panel must label semantic_hash as Review Fingerprint"
     }
+    foreach ($RequiredRuntimeReviewPanelToken in @(
+        "function reviewRuntimeSummary",
+        "runtime_evidence",
+        "runtime_result",
+        "Runtime values",
+        "loadLastRunReviewDocument",
+        "runtimeReviewMatchesDocument",
+        "lastRunReview ?? result.review"
+    )) {
+        if (-not $ReviewPanelSourceCombined.Contains($RequiredRuntimeReviewPanelToken) -and -not $CommandHandlersSource.Contains($RequiredRuntimeReviewPanelToken)) {
+            throw "VS Code runtime ReviewDocument panel missing token $RequiredRuntimeReviewPanelToken"
+        }
+    }
     if ($ReviewPanelSourceCombined.Contains("<h2>Semantic Hash</h2>")) {
         throw "VS Code extension review panel must not expose internal Semantic Hash wording"
     }
@@ -7210,6 +7233,28 @@ function Assert-VscodeExtensionContract {
     if ($CompilerSemanticSource.Contains('"expected_count" | "planned_count"') -or $RuntimeSource.Contains('"planned_count" if table.schema_name == "CaseOutput"')) {
         throw "compiler/runtime must not expose compatibility-only case_inputs.planned_count; use expected_count"
     }
+    $CompilerReviewDiffSource = Get-Content -LiteralPath (Join-Path $RepoRoot "crates\eng_compiler\src\review_diff.rs") -Raw
+    foreach ($RequiredRuntimeReviewContractToken in @(
+        "refresh_runtime_review_document_hashes",
+        "ReviewDocumentRefreshError",
+        '"semantic_hash_scope"',
+        '"runtime_enriched"'
+    )) {
+        if (-not $CompilerReviewDiffSource.Contains($RequiredRuntimeReviewContractToken)) {
+            throw "Compiler runtime ReviewDocument hash contract missing token $RequiredRuntimeReviewContractToken"
+        }
+    }
+    foreach ($RequiredRuntimeReviewProjectionToken in @(
+        "finalize_runtime_review_document",
+        "enrich_runtime_review_numeric_sections",
+        "enrich_runtime_review_table_transforms",
+        '"runtime_evidence"',
+        '"runtime_result"'
+    )) {
+        if (-not $RuntimeSource.Contains($RequiredRuntimeReviewProjectionToken)) {
+            throw "Runtime ReviewDocument projection missing token $RequiredRuntimeReviewProjectionToken"
+        }
+    }
     foreach ($RequiredCaseResultCollectionTableField in @("collected_count", "missing_count", "blocked_count", "status")) {
         $CaseResultCollectionTableField = @($EditorMetadata.syntax_catalog.case_result_collection_table_fields | Where-Object { $_.label -eq $RequiredCaseResultCollectionTableField }) | Select-Object -First 1
         if ($null -eq $CaseResultCollectionTableField) {
@@ -8290,6 +8335,18 @@ function Invoke-IdeCheck {
     )) {
         if (-not $IdeUiSource.Contains($RequiredNativeIdeReviewDiffUiToken)) {
             throw "Native IDE semantic diff panel missing token $RequiredNativeIdeReviewDiffUiToken"
+        }
+    }
+    foreach ($RequiredNativeIdeRuntimeReviewUiToken in @(
+        "function reviewRuntimeSummary",
+        "function renderReviewInputs",
+        "function renderReviewTableTransforms",
+        "Runtime Values",
+        "runtime_evidence",
+        "runtime_result"
+    )) {
+        if (-not $IdeUiSource.Contains($RequiredNativeIdeRuntimeReviewUiToken)) {
+            throw "Native IDE runtime ReviewDocument panel missing token $RequiredNativeIdeRuntimeReviewUiToken"
         }
     }
     if (-not $IdeUiSource.Contains("Response Source") -or -not $IdeUiSource.Contains("response_source") -or -not $IdeUiSource.Contains("responseSource")) {

@@ -546,33 +546,56 @@ operator-algebra, or component-coupled simulation solver.
 
 ```text
 review_document
+  format
+  status
+  workflow_signature
   semantic_hash
+  semantic_hash_scope            saved runtime document only
   section_hashes
+  runtime_evidence               saved runtime document only
   root_contract
   workflow_modules
   inputs
   schemas
+  config_promotions
   units_quantities
   time_axes
   symbols
   derived_values
   calculations
+  table_transforms
   report_outputs
   validations
   side_effects
   external_boundaries
+  caches
   fallbacks
   risks
 ```
 
 This projection gives reviewers one stable path for meaning-level inspection
-without replacing the detailed top-level sections. Calculation entries include
-input symbols, output quantity, unit-derivation steps, where expansions, and
-function calls when the compiler can infer them. External process declarations
-appear under `external_boundaries`; declared writes, CSV exports, and
-filesystem mutations appear under `side_effects`; allowed external failures
-and solver-preview limitations appear under `fallbacks`; warnings and
-review-sensitive boundaries appear under `risks` with a review `level`.
+without replacing the detailed top-level sections. `eng review` emits the
+static compiler projection. `eng run --save-artifacts` adds a nested
+`runtime_result` to matching rows for resolved Args, schema diagnostics,
+scalar and TimeSeries values, time axes, calculations, table transforms,
+report outputs, and validations. It also records aggregate counts under
+`runtime_evidence` and changes the root status to `runtime_ready` or
+`runtime_issues`.
+
+The runtime finalizer compares normalized sections with the static baseline,
+preserves unchanged section hashes, refreshes changed hashes, and recomputes
+the semantic hash with `semantic_hash_scope = runtime_enriched`. The static
+hash contract includes `symbols` and `config_promotions` in addition to the
+other listed sections. Runtime data therefore participates in the same native
+semantic diff instead of living only in parallel top-level arrays.
+
+Calculation entries include input symbols, output quantity, unit-derivation
+steps, where expansions, and function calls when the compiler can infer them.
+External process declarations appear under `external_boundaries`; declared
+writes, CSV exports, and filesystem mutations appear under `side_effects`;
+allowed external failures and solver-preview limitations appear under
+`fallbacks`; warnings and review-sensitive boundaries appear under `risks`
+with a review `level`.
 Network request/download boundary `source_span` values select the exact URL
 operand rather than the statement's first token; declared URL aliases keep the
 operand occurrence used by that boundary.
@@ -604,7 +627,9 @@ emit `source_path`. Paths inside the checked source tree are relative to the
 root source directory; external imports retain their absolute path. Editor
 clients resolve a relative path from the checked root source before opening the
 line and column. Root-owned spans omit the redundant path. The root
-`validation_count` is the exact number of records in `validations`.
+`validation_count` is the exact number of records in `validations`. Command
+clauses remain part of `expression`; for example, `validate mean(Q) between 4
+kW and 6 kW` is not shortened to only `mean(Q)`.
 
 The quick CLI view is:
 
@@ -625,16 +650,28 @@ ReviewDocument inputs, supports `--json`, and writes the same artifact when
 given `--output <dir>`. It compares the union of both section-hash sets so a
 section removed from the newer document is not lost.
 
+The standalone `eng review` command never executes the source and therefore
+does not invent runtime values. Compare its static document with a matching
+saved-run `review.json` to see execution-derived row changes through the same
+diff payload.
+
 The native IDE Review panel consumes the same `review_document` data for root
-counts, semantic hashes, workflow module rows, variable/quantity rows, unit
-derivations, schemas, time axes, calculation traces, report outputs,
-validations, side effects, external boundaries, fallbacks, and risk entries.
+counts, semantic hashes, workflow module rows, runtime inputs and values,
+variable/quantity rows, unit derivations, schemas, time axes, table transforms,
+calculation traces, report outputs, validations, side effects, external
+boundaries, fallbacks, and risk entries.
 Its Semantic Diff section accepts either a full `review.json` artifact or a
 bare `review_document`. The bounded Tauri command calls the same
 compiler-owned diff function as both CLI forms, then the panel renders changed
 section hashes and item-level added, removed, and changed rows. The selected
 baseline remains loaded for the IDE session and is compared again when a later
 run updates the current review.
+
+The VS Code current-file Review panel first runs static `eng review`, then uses
+the last-run `review.json` only when both its normalized source path and FNV-1a
+source hash match the open document. A matching artifact exposes runtime
+result/status columns; a missing or stale artifact leaves the panel on the
+fresh static document.
 
 ## Uncertainty Metadata
 

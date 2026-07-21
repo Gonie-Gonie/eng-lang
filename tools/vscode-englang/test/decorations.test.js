@@ -70,6 +70,7 @@ let timeAlignmentDecorationOptions;
 let fnv1a64;
 let fallbackReviewMatchesDocument;
 let reviewSourceUri;
+let runtimeReviewMatchesDocument;
 let timeAlignmentReportMatchesDocument;
 let renderReviewSummaryHtml;
 try {
@@ -90,6 +91,7 @@ try {
     fallbackReviewMatchesDocument,
     fnv1a64,
     reviewSourceUri,
+    runtimeReviewMatchesDocument,
     timeAlignmentReportMatchesDocument
   } = require("../commandHandlers"));
   ({ renderReviewSummaryHtml } = require("../reviewPanelRenderer"));
@@ -469,6 +471,33 @@ assert.strictEqual(
   ),
   false
 );
+const matchingRuntimeReview = {
+  source_path: sourcePath,
+  source_hash: fnv1a64(sourceText),
+  review_document: {
+    runtime_evidence: { numeric_value_count: 1 }
+  }
+};
+assert.strictEqual(
+  runtimeReviewMatchesDocument(matchingRuntimeReview, matchingDocument, workspaceRoot),
+  true
+);
+assert.strictEqual(
+  runtimeReviewMatchesDocument(
+    { ...matchingRuntimeReview, source_hash: fnv1a64(`${sourceText}stale`) },
+    matchingDocument,
+    workspaceRoot
+  ),
+  false
+);
+assert.strictEqual(
+  runtimeReviewMatchesDocument(
+    { ...matchingRuntimeReview, review_document: { status: "metadata_ready" } },
+    matchingDocument,
+    workspaceRoot
+  ),
+  false
+);
 assert.strictEqual(
   timeAlignmentReportMatchesDocument(
     { ...matchingReport, source_path: path.join(workspaceRoot, "other.eng") },
@@ -504,6 +533,58 @@ assert.match(reviewHtml, /pill good">pass<\/span>/);
 assert.match(reviewHtml, /data-source-path="rules\/Construction\.eng"/);
 assert.match(reviewHtml, /Construction\.eng L1:C5/);
 assert.match(reviewHtml, /openSourceLine", line, column, sourcePath/);
+
+const runtimeReviewHtml = renderReviewSummaryHtml({
+  review_document: {
+    status: "runtime_ready",
+    format: "eng-review-document-preview-1",
+    semantic_hash: "runtime-hash",
+    runtime_evidence: { numeric_value_count: 1 },
+    inputs: [{
+      kind: "arg",
+      name: "weather",
+      type: "CsvFile",
+      runtime_result: {
+        value: "data/weather.csv",
+        source: "default",
+        status: "resolved"
+      }
+    }],
+    symbols: [{
+      name: "occupied",
+      quantity_kind: "Duration",
+      display_unit: "min",
+      runtime_result: { value: 90, unit: "min", status: "computed" }
+    }],
+    table_transforms: [{
+      binding: "selected",
+      operation: "filter",
+      source_table: "weather",
+      runtime_result: { output_row_count: 2, status: "filtered" }
+    }],
+    validations: [{
+      kind: "command_validation",
+      target: "occupied",
+      expression: "occupied between 60 min and 120 min",
+      evaluation_phase: "runtime",
+      runtime_result: {
+        left_value: 90,
+        operator: "between",
+        right: "60 min and 120 min",
+        right_value: null,
+        unit: "min",
+        status: "passed"
+      }
+    }]
+  }
+}, "C:/workspace/main.eng", "nonce", []);
+assert.match(runtimeReviewHtml, /Runtime values 1/);
+assert.match(runtimeReviewHtml, /90 min/);
+assert.match(runtimeReviewHtml, /90 min between 60 min and 120 min/);
+assert.doesNotMatch(runtimeReviewHtml, /120 min min/);
+assert.match(runtimeReviewHtml, /2 rows/);
+assert.match(runtimeReviewHtml, /pill good">computed<\/span>/);
+assert.match(runtimeReviewHtml, /pill good">passed<\/span>/);
 
 const rootReviewUri = { fsPath: path.join(workspaceRoot, "main.eng") };
 assert.strictEqual(reviewSourceUri(rootReviewUri, undefined), rootReviewUri);

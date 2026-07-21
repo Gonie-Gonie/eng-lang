@@ -80,6 +80,12 @@ Current coverage:
 - Shared ReviewDocument extraction, validation, and semantic diff unit tests
   live in `crates/eng_compiler/src/review_diff.rs`; CLI parser and
   call-site coverage remains in `crates/eng_cli/src/main.rs`.
+- Compiler tests also prove deterministic runtime section rehashing, unchanged
+  static-hash preservation, and `symbols`/`config_promotions` hash coverage.
+- Runtime tests project declared-unit scalar results, schema/table evidence,
+  table-transform row counts, and validation outcomes into matching normalized
+  rows, then compare the static and runtime documents through the shared diff
+  engine.
 - The example smoke runs `eng review --output`, `eng review --against`,
   and `eng review diff <old> <new>` through the built CLI binary. It asserts
   that `static_review.json` and `semantic_diff.json` are written and
@@ -92,7 +98,9 @@ Current coverage:
 - IDE command tests verify that wrapped and bare ReviewDocuments reach the
   shared engine and reject incomplete input. `ide-check` also guards the
   baseline picker, automatic refresh path, section/item renderer, and bounded
-  Tauri command wiring.
+  Tauri command wiring. The same gate guards runtime value/status rendering in
+  the native IDE and source-hash-matched last-run projection in the VS Code
+  Review panel.
 
 ## Checklist 9.3: Composite Module Tests
 

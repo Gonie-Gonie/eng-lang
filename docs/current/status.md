@@ -244,10 +244,14 @@ is not mistaken for public module support.
   - Main status: `Supported` artifacts, `Internal` normalized IR slice
   - Current handling: keep current `review.json`/`report.html` public;
     `review.json.review_document`, `eng review`, and IDE Review inspector
-    cover the first risk/fallback/external-boundary slice.
+    cover the first risk/fallback/external-boundary slice. Saved runs add
+    nested runtime results for core inputs, schemas, scalar/TimeSeries values,
+    calculations, table transforms, outputs, and validations, then refresh
+    changed section hashes while preserving unchanged static hashes.
   - One compiler-owned item-level semantic diff payload is available through
-    `eng review --against`, `eng review diff`, and the native IDE Review panel;
-    runtime-updated ReviewDocument values remain planned.
+    `eng review --against`, `eng review diff`, and the native IDE Review panel.
+    Specialized solver, assembly, model, and DB runtime rows remain follow-up
+    projection work.
 - Composite workflow foundations
   - Public package: `Supported` side-effect primitives
   - Main status: `Supported` path/io/process/test/profile, promoted table

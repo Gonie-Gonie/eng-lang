@@ -29,8 +29,8 @@ and next cleanup action.
 - Main internal: bar/histogram variants, DateTime-indexed TimeSeries coverage
   artifacts, richer report metadata, and the normalized `review_document`
   projection.
-- Next cleanup: route more report panels through ReviewDocument and project
-  runtime-updated values into that normalized document.
+- Next cleanup: route more report panels through ReviewDocument and extend its
+  runtime projection to specialized solver, assembly, model, and DB records.
 
 ## T4 System / Equation
 

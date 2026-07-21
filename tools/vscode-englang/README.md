@@ -337,7 +337,11 @@ back to the matching source line. Validation result and rule locations are
 separate; a rule imported from another `.eng` file opens that file instead of
 reusing its line number in the root editor. The Last Run Artifacts section opens
 available `build/result` outputs directly, with the same availability labels as
-the artifact picker. `EngLang: Open Current File Review Data` runs the same
+the artifact picker. When the last-run `review.json` source path and source hash
+match the open buffer, the panel uses that runtime-enriched ReviewDocument and
+shows resolved values, row/point counts, validation results, and runtime status
+columns. Missing, unrelated, or stale artifacts leave the panel on the fresh
+static review. `EngLang: Open Current File Review Data` runs the same
 current-file review command and opens the normalized review data directly,
 without requiring a prior run. `EngLang: Open Last Run Review Data` opens the
 `build/result/review.json` artifact from the last saved run.

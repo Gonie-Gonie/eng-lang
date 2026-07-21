@@ -12,6 +12,7 @@ const {
 function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) {
   const doc = normalizedReviewDocument(review);
   const contract = doc.root_contract || doc.rootContract || {};
+  const runtimeEvidence = doc.runtime_evidence || doc.runtimeEvidence || {};
   const diagnostics = firstReviewArray(doc, review, "diagnostics");
   const inputs = reviewArray(doc, "inputs");
   const calculations = reviewArray(doc, "calculations");
@@ -218,6 +219,7 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
     <div class="badges">
       ${badge("Status", doc.status || "-")}
       ${badge("Diagnostics", diagnostics.length)}
+      ${badge("Runtime values", runtimeEvidence.numeric_value_count ?? runtimeEvidence.numericValueCount ?? 0)}
       ${badge("Native modules", nativeModuleCount)}
       ${badge("Planned", plannedModuleCount)}
       ${badge("Internal", internalModuleCount)}
@@ -249,7 +251,7 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
 
     <h2>Inputs</h2>
     ${renderReviewTable(
-      ["Line", "Name", "Kind", "Type", "Default", "Required"],
+      ["Line", "Name", "Kind", "Type", "Default", "Runtime", "Source", "Status", "Required"],
       inputs,
       "No inputs.",
       (input) => `<tr>
@@ -258,13 +260,16 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
         <td>${escapeHtml(reviewValue(input, "kind"))}</td>
         <td>${escapeHtml(reviewValue(input, "type"))}</td>
         <td><code>${escapeHtml(compactText(reviewValue(input, "default"), 110))}</code></td>
+        <td><code>${escapeHtml(reviewRuntimeSummary(input))}</code></td>
+        <td>${escapeHtml(reviewValue(reviewRuntimeResult(input), "source"))}</td>
+        <td>${statusPill(reviewRuntimeStatus(input))}</td>
         <td>${escapeHtml(String(input.required ?? false))}${input.redacted ? `<div class="muted">redacted</div>` : ""}</td>
       </tr>`
     )}
 
     <h2>Symbols</h2>
     ${renderReviewTable(
-      ["Line", "Name", "Quantity", "Unit", "Source"],
+      ["Line", "Name", "Quantity", "Unit", "Source", "Runtime", "Status"],
       symbols,
       "No symbols.",
       (symbol) => `<tr>
@@ -273,12 +278,14 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
         <td>${escapeHtml(reviewValue(symbol, "quantity_kind", "quantityKind"))}</td>
         <td>${escapeHtml(reviewValue(symbol, "display_unit", "displayUnit"))}</td>
         <td>${escapeHtml(reviewValue(symbol, "source"))}</td>
+        <td><code>${escapeHtml(reviewRuntimeSummary(symbol))}</code></td>
+        <td>${statusPill(reviewRuntimeStatus(symbol))}</td>
       </tr>`
     )}
 
     <h2>Schemas</h2>
     ${renderReviewTable(
-      ["Line", "Schema", "Columns", "Constraints", "Missing Policy"],
+      ["Line", "Schema", "Columns", "Constraints", "Missing Policy", "Runtime", "Status"],
       schemas,
       "No schemas.",
       (schema) => `<tr>
@@ -287,12 +294,14 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
         <td>${escapeHtml(columnSummary(reviewArray(schema, "columns"), 170))}</td>
         <td>${escapeHtml(schemaRuleSummary(reviewArray(schema, "constraints"), "text", 130))}</td>
         <td>${escapeHtml(schemaRuleSummary(reviewArray(schema, "missing_policies", "missingPolicies"), "policy", 130))}</td>
+        <td>${escapeHtml(reviewRuntimeSummary(schema))}</td>
+        <td>${statusPill(reviewRuntimeStatus(schema))}</td>
       </tr>`
     )}
 
     <h2>Units And Quantities</h2>
     ${renderReviewTable(
-      ["Line", "Name", "Quantity", "Source", "Display", "Derivation"],
+      ["Line", "Name", "Quantity", "Source", "Display", "Derivation", "Runtime", "Runtime Status"],
       units,
       "No unit or quantity records.",
       (unit) => `<tr>
@@ -302,12 +311,14 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
         <td>${escapeHtml(reviewValue(unit, "source_unit", "sourceUnit"))}</td>
         <td>${escapeHtml(reviewValue(unit, "display_unit", "displayUnit"))}<div class="muted">${escapeHtml(reviewValue(unit, "canonical_unit", "canonicalUnit"))}</div></td>
         <td>${escapeHtml(reviewList(reviewArray(unit, "derivation_steps", "derivationSteps"), 140))}</td>
+        <td><code>${escapeHtml(reviewRuntimeSummary(unit))}</code></td>
+        <td>${statusPill(reviewRuntimeStatus(unit))}</td>
       </tr>`
     )}
 
     <h2>Time Axes</h2>
     ${renderReviewTable(
-      ["Line", "Axis", "Binding", "Role", "Source"],
+      ["Line", "Axis", "Binding", "Role", "Source", "Runtime", "Status"],
       timeAxes,
       "No time axes.",
       (axis) => `<tr>
@@ -316,12 +327,14 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
         <td>${escapeHtml(reviewValue(axis, "binding"))}</td>
         <td>${escapeHtml(reviewValue(axis, "role"))}</td>
         <td>${escapeHtml(reviewValue(axis, "source"))}</td>
+        <td>${escapeHtml(reviewRuntimeSummary(axis))}</td>
+        <td>${statusPill(reviewRuntimeStatus(axis))}</td>
       </tr>`
     )}
 
     <h2>Derived Values</h2>
     ${renderReviewTable(
-      ["Line", "Name", "Expression", "Quantity", "Unit"],
+      ["Line", "Name", "Expression", "Quantity", "Unit", "Runtime", "Status"],
       derivedValues,
       "No derived values.",
       (derived) => `<tr>
@@ -330,6 +343,8 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
         <td><code>${escapeHtml(compactText(reviewValue(derived, "expression"), 150))}</code></td>
         <td>${escapeHtml(reviewValue(derived, "quantity_kind", "quantityKind"))}</td>
         <td>${escapeHtml(reviewValue(derived, "display_unit", "displayUnit"))}</td>
+        <td><code>${escapeHtml(reviewRuntimeSummary(derived))}</code></td>
+        <td>${statusPill(reviewRuntimeStatus(derived))}</td>
       </tr>`
     )}
 
@@ -393,7 +408,7 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
 
     <h2>Table Transforms</h2>
     ${renderReviewTable(
-      ["Line", "Binding", "Operation", "Source", "Predicates", "Status"],
+      ["Line", "Binding", "Operation", "Source", "Predicates", "Runtime", "Status"],
       tableTransforms,
       "No table transforms.",
       (transform) => `<tr>
@@ -402,13 +417,14 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
         <td>${escapeHtml(reviewValue(transform, "operation"))}</td>
         <td>${escapeHtml(reviewValue(transform, "source_table", "sourceTable"))}</td>
         <td>${escapeHtml(predicateSummary(reviewArray(transform, "predicates"), 160))}</td>
-        <td>${statusPill(reviewValue(transform, "status"))}</td>
+        <td>${escapeHtml(reviewRuntimeSummary(transform))}</td>
+        <td>${statusPill(reviewRuntimeStatus(transform))}</td>
       </tr>`
     )}
 
     <h2>Calculations</h2>
     ${renderReviewTable(
-      ["Line", "Name", "Expression", "Inputs", "Output"],
+      ["Line", "Name", "Expression", "Inputs", "Output", "Runtime", "Status"],
       calculations,
       "No calculations.",
       (calculation) => `<tr>
@@ -417,12 +433,14 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
         <td><code>${escapeHtml(compactText(reviewValue(calculation, "expression"), 130))}</code></td>
         <td>${escapeHtml(reviewList(reviewArray(calculation, "input_symbols", "inputSymbols"), 100))}</td>
         <td>${escapeHtml(reviewValue(calculation, "output_quantity", "outputQuantity"))}</td>
+        <td><code>${escapeHtml(reviewRuntimeSummary(calculation))}</code></td>
+        <td>${statusPill(reviewRuntimeStatus(calculation))}</td>
       </tr>`
     )}
 
     <h2>Report Outputs</h2>
     ${renderReviewTable(
-      ["Line", "Kind", "Source", "Quantity", "Status"],
+      ["Line", "Kind", "Source", "Quantity", "Runtime", "Status"],
       outputs,
       "No report outputs.",
       (outputItem) => `<tr>
@@ -430,13 +448,14 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
         <td><strong>${escapeHtml(reviewValue(outputItem, "kind"))}</strong></td>
         <td>${escapeHtml(reviewValue(outputItem, "source"))}</td>
         <td>${escapeHtml(reviewValue(outputItem, "quantity_kind", "quantityKind"))}</td>
-        <td>${statusPill(reviewValue(outputItem, "status"))}</td>
+        <td><code>${escapeHtml(reviewRuntimeSummary(outputItem))}</code></td>
+        <td>${statusPill(reviewRuntimeStatus(outputItem))}</td>
       </tr>`
     )}
 
     <h2>Validations</h2>
     ${renderReviewTable(
-      ["Result", "Rule", "Target", "Expression", "Kind", "Phase", "Status"],
+      ["Result", "Rule", "Target", "Expression", "Kind", "Phase", "Runtime Result", "Status"],
       validations,
       "No validations.",
       (validation) => `<tr>
@@ -446,7 +465,8 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
         <td>${escapeHtml(compactText(reviewValue(validation, "expression"), 140))}</td>
         <td>${escapeHtml(reviewValue(validation, "kind", "category"))}</td>
         <td>${escapeHtml(reviewValue(validation, "evaluation_phase", "evaluationPhase"))}</td>
-        <td>${statusPill(reviewValue(validation, "status"))}</td>
+        <td><code>${escapeHtml(reviewRuntimeSummary(validation))}</code></td>
+        <td>${statusPill(reviewRuntimeStatus(validation))}</td>
       </tr>`
     )}
 
@@ -597,6 +617,87 @@ function reviewValue(object, snakeKey, camelKey = snakeKey, fallback = "-") {
   }
   const value = object[snakeKey] ?? object[camelKey];
   return value === null || value === undefined || value === "" ? fallback : value;
+}
+
+function reviewRuntimeResult(item) {
+  const result = item?.runtime_result ?? item?.runtimeResult;
+  return result && typeof result === "object" && !Array.isArray(result) ? result : {};
+}
+
+function reviewRuntimeNumber(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    return String(value ?? "-");
+  }
+  if (number === 0) {
+    return "0";
+  }
+  return String(Number.parseFloat(number.toPrecision(8)));
+}
+
+function reviewRuntimeSummary(item, limit = 120) {
+  const result = reviewRuntimeResult(item);
+  const unit = reviewValue(result, "unit", "displayUnit", "");
+  const withUnit = (value) => unit ? String(value) + " " + unit : String(value);
+  if (result.left_value !== null && result.left_value !== undefined) {
+    const left = reviewRuntimeNumber(result.left_value);
+    const operator = reviewValue(result, "operator", "operator", "");
+    const rightIsText = result.right_value === null || result.right_value === undefined;
+    const right = rightIsText
+      ? reviewValue(result, "right", "right", "")
+      : reviewRuntimeNumber(result.right_value);
+    const comparison = rightIsText
+      ? [withUnit(left), operator, right].filter(Boolean).join(" ")
+      : withUnit([left, operator, right].filter(Boolean).join(" "));
+    return compactText(comparison, limit);
+  }
+  if (result.value !== null && result.value !== undefined) {
+    return compactText(withUnit(reviewRuntimeNumber(result.value)), limit);
+  }
+  const values = reviewArray(result, "values");
+  if (values.length) {
+    return compactText(values.map((value) => {
+      const valueUnit = reviewValue(value, "unit", "unit", "");
+      const rendered = reviewRuntimeNumber(value.value);
+      return reviewValue(value, "name") + "=" + rendered + (valueUnit ? " " + valueUnit : "");
+    }).join("; "), limit);
+  }
+  const tables = reviewArray(result, "tables");
+  if (tables.length) {
+    const rows = tables.reduce(
+      (sum, table) => sum + Number(table?.row_count ?? table?.rowCount ?? 0),
+      0
+    );
+    return tables.length + " table" + (tables.length === 1 ? "" : "s") + ", " + rows + " rows";
+  }
+  const outputRows = result.output_row_count ?? result.outputRowCount;
+  if (outputRows !== null && outputRows !== undefined) {
+    return outputRows + " rows";
+  }
+  const rows = result.row_count ?? result.rowCount;
+  if (rows !== null && rows !== undefined) {
+    return rows + " rows";
+  }
+  const points = result.point_count ?? result.pointCount;
+  if (points !== null && points !== undefined) {
+    return points + " points";
+  }
+  const count = result.count;
+  if (count !== null && count !== undefined) {
+    const start = result.start;
+    const end = result.end;
+    const span = start !== null && start !== undefined && end !== null && end !== undefined
+      ? reviewRuntimeNumber(start) + " -> " + reviewRuntimeNumber(end) + (unit ? " " + unit : "")
+      : "";
+    return compactText(count + " samples" + (span ? "; " + span : ""), limit);
+  }
+  return "-";
+}
+
+function reviewRuntimeStatus(item) {
+  const runtimeStatus = reviewValue(reviewRuntimeResult(item), "status", "status", "");
+  const status = runtimeStatus || reviewValue(item, "status", "status", "-");
+  return String(status).replaceAll("_", " ");
 }
 
 function countOrContract(items, contract, snakeKey, camelKey) {
@@ -785,7 +886,8 @@ function statusClass(value) {
     text.includes("fail") ||
     text.includes("high") ||
     text.includes("blocked") ||
-    text.includes("invalid")
+    text.includes("invalid") ||
+    text.includes("issues")
   ) {
     return "bad";
   }
@@ -803,8 +905,13 @@ function statusClass(value) {
     text.includes("supported") ||
     text.includes("native") ||
     text.includes("accepted") ||
+    text.includes("computed") ||
     text.includes("declared") ||
     text.includes("fixture") ||
+    text.includes("materialized") ||
+    text.includes("ready") ||
+    text.includes("resolved") ||
+    text.includes("validated") ||
     text === "pass" ||
     text.includes("passed") ||
     text.includes("ok")

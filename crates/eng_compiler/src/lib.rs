@@ -65,7 +65,8 @@ pub use quantities::{
     all_quantity_completions, normalize_unit, parse_numeric_literal, QuantityCompletion,
 };
 pub use review_diff::{
-    extract_review_document, review_semantic_diff, ReviewDocumentError, ReviewSemanticDiffError,
+    extract_review_document, refresh_runtime_review_document_hashes, review_semantic_diff,
+    ReviewDocumentError, ReviewDocumentRefreshError, ReviewSemanticDiffError,
 };
 pub use schema::{
     ConfigPromotion, ConfigTypeMismatch, CsvPromotion, MissingPolicy, SchemaColumn,
@@ -7210,9 +7211,13 @@ fn review_semantic_hash(report: &CheckReport) -> String {
     digest.push('|');
     digest.push_str(&review_section_digest(report, "schemas"));
     digest.push('|');
+    digest.push_str(&review_section_digest(report, "config_promotions"));
+    digest.push('|');
     digest.push_str(&review_section_digest(report, "units_quantities"));
     digest.push('|');
     digest.push_str(&review_section_digest(report, "time_axes"));
+    digest.push('|');
+    digest.push_str(&review_section_digest(report, "symbols"));
     digest.push('|');
     digest.push_str(&review_section_digest(report, "derived_values"));
     digest.push('|');
@@ -7248,6 +7253,7 @@ fn review_section_digest(report: &CheckReport, section: &str) -> String {
             "{:?}|{:?}|{:?}",
             program.schemas, program.csv_promotions, program.config_promotions
         ),
+        "config_promotions" => format!("{:?}", program.config_promotions),
         "units_quantities" => {
             format!(
                 "{:?}|{:?}",
@@ -7255,6 +7261,7 @@ fn review_section_digest(report: &CheckReport, section: &str) -> String {
             )
         }
         "time_axes" => format!("{:?}", program.axis_infos),
+        "symbols" => format!("{:?}|{:?}", program.typed_bindings, program.type_infos),
         "derived_values" => format!("{:?}", report.inferred_declarations),
         "calculations" => format!(
             "{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}",
@@ -7317,8 +7324,10 @@ fn push_review_section_hashes_json(json: &mut String, report: &CheckReport) {
         "workflow_modules",
         "inputs",
         "schemas",
+        "config_promotions",
         "units_quantities",
         "time_axes",
+        "symbols",
         "derived_values",
         "calculations",
         "table_transforms",
@@ -8533,6 +8542,21 @@ fn push_review_report_outputs_json(json: &mut String, report: &CheckReport) {
     json.push_str("\n    ],\n");
 }
 
+fn review_command_expression(command: &CommandStyleInfo) -> String {
+    let mut expression = command.target.clone();
+    for clause in &command.clauses {
+        if !expression.is_empty() {
+            expression.push(' ');
+        }
+        expression.push_str(&clause.name);
+        if !clause.value.is_empty() {
+            expression.push(' ');
+            expression.push_str(&clause.value);
+        }
+    }
+    expression
+}
+
 pub fn review_validation_records(report: &CheckReport) -> Vec<ReviewValidationRecord> {
     let mut records = Vec::new();
     for command in report
@@ -8541,10 +8565,11 @@ pub fn review_validation_records(report: &CheckReport) -> Vec<ReviewValidationRe
         .iter()
         .filter(|command| command.verb == "validate")
     {
+        let expression = review_command_expression(command);
         records.push(ReviewValidationRecord {
             kind: "command_validation".to_owned(),
             target: command.target.clone(),
-            expression: command.target.clone(),
+            expression,
             evaluation_phase: "runtime".to_owned(),
             status: if command.status == "lowered" {
                 "pending_runtime".to_owned()
@@ -20765,6 +20790,33 @@ with {
             .pointer("/review_document/section_hashes/workflow_modules")
             .and_then(serde_json::Value::as_str)
             .is_some());
+        assert!(value
+            .pointer("/review_document/section_hashes/symbols")
+            .and_then(serde_json::Value::as_str)
+            .is_some());
+        assert!(value
+            .pointer("/review_document/section_hashes/config_promotions")
+            .and_then(serde_json::Value::as_str)
+            .is_some());
+    }
+
+    #[test]
+    fn normalized_review_preserves_validation_clause_expression() {
+        let report = check_source(
+            "validation_between.eng",
+            "Q = normal(mean=5 kW, std=0.5 kW, samples=31)\nvalidate mean(Q) between 4 kW and 6 kW\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let review: serde_json::Value =
+            serde_json::from_str(&review_json(&report)).expect("review JSON");
+        assert_eq!(
+            review
+                .pointer("/review_document/validations/0/expression")
+                .and_then(serde_json::Value::as_str),
+            Some("mean(Q) between 4 kW and 6 kW")
+        );
     }
 
     #[test]

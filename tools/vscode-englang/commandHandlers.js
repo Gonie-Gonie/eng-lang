@@ -361,6 +361,9 @@ function createCommandHandlers(options = {}) {
       return;
     }
 
+    const root = workspaceRoot(result.document);
+    const lastRunReview = loadLastRunReviewDocument(result.document, root);
+
     const panel = vscode.window.createWebviewPanel(
       "englangReviewPanel",
       "EngLang Review",
@@ -371,10 +374,10 @@ function createCommandHandlers(options = {}) {
       }
     );
     panel.webview.html = renderReviewSummaryHtml(
-      result.review,
+      lastRunReview ?? result.review,
       result.document.uri.fsPath,
       reviewPanelNonce(),
-      reviewPanelArtifacts(workspaceRoot(result.document))
+      reviewPanelArtifacts(root)
     );
     panel.webview.onDidReceiveMessage((message) => {
       if (message?.type === "openSourceLine") {
@@ -2682,6 +2685,19 @@ function loadLastRunFallbackReview(document, root) {
   }
 }
 
+function loadLastRunReviewDocument(document, root) {
+  if (!document?.uri?.fsPath || !root) {
+    return undefined;
+  }
+  const reviewPath = path.join(root, ...LAST_RUN_REVIEW_RELATIVE_PATH);
+  try {
+    const review = JSON.parse(fs.readFileSync(reviewPath, "utf8"));
+    return runtimeReviewMatchesDocument(review, document, root) ? review : undefined;
+  } catch (_error) {
+    return undefined;
+  }
+}
+
 function timeAlignmentReportMatchesDocument(report, document, root) {
   if (!runArtifactMatchesDocument(report, document, root)) {
     return false;
@@ -2694,6 +2710,18 @@ function fallbackReviewMatchesDocument(review, document, root) {
     return false;
   }
   return Array.isArray(review.timeseries_fill ?? review.timeseriesFill);
+}
+
+function runtimeReviewMatchesDocument(review, document, root) {
+  if (!runArtifactMatchesDocument(review, document, root)) {
+    return false;
+  }
+  const documentReview = review.review_document ?? review.reviewDocument;
+  if (!documentReview || typeof documentReview !== "object" || Array.isArray(documentReview)) {
+    return false;
+  }
+  const evidence = documentReview.runtime_evidence ?? documentReview.runtimeEvidence;
+  return Boolean(evidence && typeof evidence === "object" && !Array.isArray(evidence));
 }
 
 function runArtifactMatchesDocument(artifact, document, root) {
@@ -2764,9 +2792,11 @@ module.exports = {
   fallbackReviewMatchesDocument,
   fnv1a64,
   loadLastRunFallbackReview,
+  loadLastRunReviewDocument,
   loadLastRunTimeAlignmentReport,
   reviewSourceUri,
   runArtifactMatchesDocument,
+  runtimeReviewMatchesDocument,
   stripWindowsExtendedPathPrefix,
   timeAlignmentReportMatchesDocument
 };

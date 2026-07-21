@@ -176,7 +176,10 @@ Right Sidebar
   per-highlight copy actions from the latest buffer analysis. It also lists
   semantic references requested from the caret, reports reference/file counts,
   and lets each current-file read/write or workspace location open at its exact
-  source range. The Review tab's Semantic Diff section accepts a full
+  source range. After execution, the Review tab displays resolved Args,
+  scalar/TimeSeries values, schema and table row counts, calculation/output
+  results, validation outcomes, and runtime statuses from the normalized
+  ReviewDocument. Its Semantic Diff section accepts a full
   `review.json` or bare `review_document` baseline, shows changed
   section hashes and item rows, and recomputes after each later run. The Network
   tab summarizes network boundaries, network events, cache events, hashes, and

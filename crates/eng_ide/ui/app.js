@@ -4174,11 +4174,14 @@ function renderWorkflowNativeEvidence(plan, processEvidence, nodes, edges) {
 function renderReviewPanel() {
   const doc = inspectorObject("reviewDocument");
   const contract = doc.root_contract || doc.rootContract || {};
+  const runtimeEvidence = doc.runtime_evidence || doc.runtimeEvidence || {};
+  const inputs = reviewArray(doc, "inputs");
   const symbols = reviewArray(doc, "symbols");
   const units = reviewArray(doc, "units_quantities", "unitsQuantities");
   const schemas = reviewArray(doc, "schemas");
   const timeAxes = reviewArray(doc, "time_axes", "timeAxes");
   const calculations = reviewArray(doc, "calculations");
+  const tableTransforms = reviewArray(doc, "table_transforms", "tableTransforms");
   const outputs = reviewArray(doc, "report_outputs", "reportOutputs");
   const validations = reviewArray(doc, "validations");
   const sideEffects = reviewArray(doc, "side_effects", "sideEffects");
@@ -4192,6 +4195,7 @@ function renderReviewPanel() {
       <span class="badge">Status ${escapeHtml(doc.status || "-")}</span>
       <span class="badge">Inputs ${escapeHtml(contract.input_count ?? contract.inputCount ?? 0)}</span>
       <span class="badge">Calc ${calculations.length}</span>
+      <span class="badge">Runtime Values ${escapeHtml(runtimeEvidence.numeric_value_count ?? runtimeEvidence.numericValueCount ?? 0)}</span>
       <span class="badge">Sections ${Object.keys(sectionHashes).length}</span>
       <span class="badge">Risk ${risks.length}</span>
     </div>
@@ -4217,6 +4221,8 @@ function renderReviewPanel() {
           <tr><td><code>${escapeHtml(doc.semantic_hash || doc.semanticHash || "-")}</code></td></tr>
         </tbody>
       </table>
+      <div class="panel-title compact">Inputs</div>
+      ${renderReviewInputs(inputs)}
       <div class="panel-title compact">Variables</div>
       ${renderReviewSymbols(symbols)}
       <div class="panel-title compact">Units</div>
@@ -4227,6 +4233,8 @@ function renderReviewPanel() {
       ${renderReviewTimeAxes(timeAxes)}
       <div class="panel-title compact">Calculations</div>
       ${renderReviewCalculations(calculations)}
+      <div class="panel-title compact">Table Transforms</div>
+      ${renderReviewTableTransforms(tableTransforms)}
       <div class="panel-title compact">Report Outputs</div>
       ${renderReviewOutputs(outputs)}
       <div class="panel-title compact">Validations</div>
@@ -4411,6 +4419,93 @@ function reviewList(value, limit = 90) {
   }).join("; "), limit);
 }
 
+function reviewRuntimeResult(item) {
+  const result = item?.runtime_result ?? item?.runtimeResult;
+  return result && typeof result === "object" && !Array.isArray(result) ? result : {};
+}
+
+function reviewRuntimeNumber(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return String(value ?? "-");
+  if (number === 0) return "0";
+  return String(Number.parseFloat(number.toPrecision(8)));
+}
+
+function reviewRuntimeSummary(item, limit = 120) {
+  const result = reviewRuntimeResult(item);
+  const unit = reviewValue(result, "unit", "displayUnit", "");
+  const withUnit = (value) => unit ? String(value) + " " + unit : String(value);
+  if (result.left_value !== null && result.left_value !== undefined) {
+    const left = reviewRuntimeNumber(result.left_value);
+    const operator = reviewValue(result, "operator", "operator", "");
+    const rightIsText = result.right_value === null || result.right_value === undefined;
+    const right = rightIsText
+      ? reviewValue(result, "right", "right", "")
+      : reviewRuntimeNumber(result.right_value);
+    const comparison = rightIsText
+      ? [withUnit(left), operator, right].filter(Boolean).join(" ")
+      : withUnit([left, operator, right].filter(Boolean).join(" "));
+    return compactText(comparison, limit);
+  }
+  if (result.value !== null && result.value !== undefined) {
+    return compactText(withUnit(reviewRuntimeNumber(result.value)), limit);
+  }
+  const values = reviewArray(result, "values");
+  if (values.length) {
+    return compactText(values.map((value) => {
+      const valueUnit = reviewValue(value, "unit", "unit", "");
+      const rendered = reviewRuntimeNumber(value.value);
+      return reviewValue(value, "name") + "=" + rendered + (valueUnit ? " " + valueUnit : "");
+    }).join("; "), limit);
+  }
+  const tables = reviewArray(result, "tables");
+  if (tables.length) {
+    const rows = tables.reduce((sum, table) => sum + Number(table?.row_count ?? table?.rowCount ?? 0), 0);
+    return tables.length + " table" + (tables.length === 1 ? "" : "s") + ", " + rows + " rows";
+  }
+  const outputRows = result.output_row_count ?? result.outputRowCount;
+  if (outputRows !== null && outputRows !== undefined) return outputRows + " rows";
+  const rows = result.row_count ?? result.rowCount;
+  if (rows !== null && rows !== undefined) return rows + " rows";
+  const points = result.point_count ?? result.pointCount;
+  if (points !== null && points !== undefined) return points + " points";
+  const count = result.count;
+  if (count !== null && count !== undefined) {
+    const start = result.start;
+    const end = result.end;
+    const span = start !== null && start !== undefined && end !== null && end !== undefined
+      ? reviewRuntimeNumber(start) + " -> " + reviewRuntimeNumber(end) + (unit ? " " + unit : "")
+      : "";
+    return compactText(count + " samples" + (span ? "; " + span : ""), limit);
+  }
+  return "-";
+}
+
+function reviewRuntimeStatus(item) {
+  const runtimeStatus = reviewValue(reviewRuntimeResult(item), "status", "status", "");
+  const status = runtimeStatus || reviewValue(item, "status", "status", "-");
+  return String(status).replaceAll("_", " ");
+}
+
+function renderReviewInputs(inputs) {
+  const rows = inputs.map((input) => `
+    <tr>
+      <td>${sourceLineButton(input)}</td>
+      <td><strong>${escapeHtml(reviewValue(input, "name"))}</strong><div class="muted">${escapeHtml(reviewValue(input, "kind"))}</div></td>
+      <td>${escapeHtml(reviewValue(input, "type"))}</td>
+      <td><code>${escapeHtml(reviewRuntimeSummary(input))}</code></td>
+      <td>${escapeHtml(reviewValue(reviewRuntimeResult(input), "source"))}</td>
+      <td>${escapeHtml(reviewRuntimeStatus(input))}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Line</th><th>Name</th><th>Type</th><th>Runtime Value</th><th>Source</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No inputs.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
 function renderReviewSymbols(symbols) {
   const rows = symbols.map((symbol) => `
     <tr>
@@ -4419,12 +4514,14 @@ function renderReviewSymbols(symbols) {
       <td>${escapeHtml(reviewValue(symbol, "quantity_kind", "quantityKind"))}</td>
       <td>${escapeHtml(reviewValue(symbol, "display_unit", "displayUnit"))}</td>
       <td>${escapeHtml(reviewValue(symbol, "source"))}</td>
+      <td><code>${escapeHtml(reviewRuntimeSummary(symbol))}</code></td>
+      <td>${escapeHtml(reviewRuntimeStatus(symbol))}</td>
     </tr>
   `).join("");
   return `
     <table class="var-table">
-      <thead><tr><th>Line</th><th>Name</th><th>Quantity</th><th>Unit</th><th>Source</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="5" class="muted">No variables.</td></tr>`}</tbody>
+      <thead><tr><th>Line</th><th>Name</th><th>Quantity</th><th>Unit</th><th>Source</th><th>Runtime</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" class="muted">No variables.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -4438,12 +4535,14 @@ function renderReviewUnits(units) {
       <td>${escapeHtml(reviewValue(unit, "canonical_unit", "canonicalUnit"))}</td>
       <td>${escapeHtml(reviewValue(unit, "display_unit", "displayUnit"))}</td>
       <td>${escapeHtml(reviewList(reviewArray(unit, "derivation_steps", "derivationSteps"), 120))}</td>
+      <td><code>${escapeHtml(reviewRuntimeSummary(unit))}</code></td>
+      <td>${escapeHtml(reviewRuntimeStatus(unit))}</td>
     </tr>
   `).join("");
   return `
     <table class="var-table">
-      <thead><tr><th>Line</th><th>Name</th><th>Source</th><th>Canonical</th><th>Display</th><th>Derivation</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="6" class="muted">No unit records.</td></tr>`}</tbody>
+      <thead><tr><th>Line</th><th>Name</th><th>Source</th><th>Canonical</th><th>Display</th><th>Derivation</th><th>Runtime</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="8" class="muted">No unit records.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -4456,12 +4555,14 @@ function renderReviewSchemas(schemas) {
       <td>${escapeHtml(columnSummary(reviewArray(schema, "columns")))}</td>
       <td>${escapeHtml(reviewList(reviewArray(schema, "missing_policies", "missingPolicies"), 120))}</td>
       <td>${escapeHtml(reviewList(reviewArray(schema, "constraints"), 120))}</td>
+      <td>${escapeHtml(reviewRuntimeSummary(schema))}</td>
+      <td>${escapeHtml(reviewRuntimeStatus(schema))}</td>
     </tr>
   `).join("");
   return `
     <table class="var-table">
-      <thead><tr><th>Line</th><th>Name</th><th>Columns</th><th>Missing</th><th>Constraints</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="5" class="muted">No schemas.</td></tr>`}</tbody>
+      <thead><tr><th>Line</th><th>Name</th><th>Columns</th><th>Missing</th><th>Constraints</th><th>Runtime</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" class="muted">No schemas.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -4598,12 +4699,14 @@ function renderReviewTimeAxes(timeAxes) {
       <td>${escapeHtml(reviewValue(axis, "binding"))}</td>
       <td>${escapeHtml(reviewValue(axis, "role"))}</td>
       <td>${escapeHtml(reviewValue(axis, "source"))}</td>
+      <td>${escapeHtml(reviewRuntimeSummary(axis))}</td>
+      <td>${escapeHtml(reviewRuntimeStatus(axis))}</td>
     </tr>
   `).join("");
   return `
     <table class="var-table">
-      <thead><tr><th>Line</th><th>Axis</th><th>Binding</th><th>Role</th><th>Source</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="5" class="muted">No time axes.</td></tr>`}</tbody>
+      <thead><tr><th>Line</th><th>Axis</th><th>Binding</th><th>Role</th><th>Source</th><th>Runtime</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" class="muted">No time axes.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -4617,12 +4720,33 @@ function renderReviewCalculations(calculations) {
       <td>${escapeHtml(reviewList(reviewArray(calculation, "input_symbols", "inputSymbols"), 80))}</td>
       <td>${escapeHtml(reviewValue(calculation, "output_quantity", "outputQuantity"))}</td>
       <td>${escapeHtml(reviewList(reviewArray(calculation, "unit_derivation", "unitDerivation"), 100))}</td>
+      <td><code>${escapeHtml(reviewRuntimeSummary(calculation))}</code></td>
+      <td>${escapeHtml(reviewRuntimeStatus(calculation))}</td>
     </tr>
   `).join("");
   return `
     <table class="artifact-table">
-      <thead><tr><th>Line</th><th>Name</th><th>Expression</th><th>Inputs</th><th>Output</th><th>Unit</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="6" class="muted">No calculations.</td></tr>`}</tbody>
+      <thead><tr><th>Line</th><th>Name</th><th>Expression</th><th>Inputs</th><th>Output</th><th>Unit</th><th>Runtime</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="8" class="muted">No calculations.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderReviewTableTransforms(transforms) {
+  const rows = transforms.map((transform) => `
+    <tr>
+      <td>${sourceLineButton(transform)}</td>
+      <td><strong>${escapeHtml(reviewValue(transform, "binding"))}</strong></td>
+      <td>${escapeHtml(reviewValue(transform, "operation"))}</td>
+      <td>${escapeHtml(reviewValue(transform, "source_table", "sourceTable"))}</td>
+      <td>${escapeHtml(reviewRuntimeSummary(transform))}</td>
+      <td>${escapeHtml(reviewRuntimeStatus(transform))}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Line</th><th>Name</th><th>Operation</th><th>Source</th><th>Runtime</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No table transforms.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -4635,13 +4759,14 @@ function renderReviewOutputs(outputs) {
       <td>${escapeHtml(reviewValue(output, "source"))}</td>
       <td>${escapeHtml(reviewValue(output, "quantity_kind", "quantityKind"))}</td>
       <td>${escapeHtml(reviewList(reviewArray(output, "statistics"), 100))}</td>
-      <td>${escapeHtml(reviewValue(output, "status"))}</td>
+      <td><code>${escapeHtml(reviewRuntimeSummary(output))}</code></td>
+      <td>${escapeHtml(reviewRuntimeStatus(output))}</td>
     </tr>
   `).join("");
   return `
     <table class="artifact-table">
-      <thead><tr><th>Line</th><th>Kind</th><th>Source</th><th>Quantity</th><th>Stats</th><th>Status</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="6" class="muted">No report outputs.</td></tr>`}</tbody>
+      <thead><tr><th>Line</th><th>Kind</th><th>Source</th><th>Quantity</th><th>Stats</th><th>Runtime</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" class="muted">No report outputs.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -4652,14 +4777,15 @@ function renderReviewValidations(validations) {
       <td>${sourceLineButton(validation)}</td>
       <td><strong>${escapeHtml(reviewValue(validation, "target", "name"))}</strong></td>
       <td>${escapeHtml(reviewValue(validation, "kind", "category"))}</td>
-      <td>${escapeHtml(reviewValue(validation, "status"))}</td>
-      <td>${escapeHtml(compactText(reviewValue(validation, "reason", "summary"), 110))}</td>
+      <td>${escapeHtml(compactText(reviewValue(validation, "expression"), 100))}</td>
+      <td><code>${escapeHtml(reviewRuntimeSummary(validation))}</code></td>
+      <td>${escapeHtml(reviewRuntimeStatus(validation))}</td>
     </tr>
   `).join("");
   return `
     <table class="artifact-table">
-      <thead><tr><th>Line</th><th>Target</th><th>Kind</th><th>Status</th><th>Reason</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="5" class="muted">No validations.</td></tr>`}</tbody>
+      <thead><tr><th>Line</th><th>Target</th><th>Kind</th><th>Expression</th><th>Runtime Result</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No validations.</td></tr>`}</tbody>
     </table>
   `;
 }

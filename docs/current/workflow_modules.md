@@ -174,7 +174,9 @@ reason, `typed_payload.table_transforms[]` records filter/select/derive/sort/req
 counts, Date/DateTime predicate comparison evidence, selected columns,
 derived columns, sort keys, predicates, join keys, matched pair counts, row
 diagnostics, status, and reason,
-`review_document.table_transforms[]` records the static transform contract,
+`review_document.table_transforms[]` records the static transform contract and
+adds runtime input/output row counts, matched-row counts, status, and reason
+under `runtime_result` after execution,
 `typed_payload.sample_tables[]` records deterministic generated and promoted
 sample/case table metadata, and `typed_payload.case_manifests[]` records one case manifest per
 sample row with process-output enrichment from generated `case_manifest.json`

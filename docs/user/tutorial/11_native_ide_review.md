@@ -18,16 +18,20 @@ eng.exe ide examples/official/01_csv_plot/main.eng
 
 When you run the file from the IDE, it should show diagnostics, runtime
 objects, generated artifacts, schema metadata, unit conversions, TimeSeries
-metadata, and report/review views.
+metadata, and report/review views. In Review, inspect the runtime value and
+status columns for inputs, variables, schemas, calculations, outputs, table
+transforms, and validations.
 
 ## Compare Reviews
 
 1. Run the current file and open the Review tab.
-2. In Semantic Diff, choose Compare and select either a saved `review.json`
+2. Confirm that the Runtime Values badge and result/status columns describe the
+   run you just completed.
+3. In Semantic Diff, choose Compare and select either a saved `review.json`
    artifact or a bare `review_document` JSON file.
-3. Inspect the changed section hashes and the Added, Removed, and Changed item
+4. Inspect the changed section hashes and the Added, Removed, and Changed item
    rows.
-4. Run the file again after editing. The IDE recomputes the comparison against
+5. Run the file again after editing. The IDE recomputes the comparison against
    the selected baseline.
 
 ## Explanation
