@@ -556,17 +556,19 @@ pub fn retarget_check_report_for_token_stable_trivia(
 /// also accept explicit scalar declarations should use
 /// [`recheck_scalar_declaration_suffix_incrementally`].
 ///
-/// This token-changing incremental path is intentionally strict. Both sources must contain only
-/// successful top-level scalar bindings and trivia. Expressions may be numeric literals, backward
-/// aliases, or pure scalar `+`, `-`, `*`, and `/` arithmetic over registered-unit literals,
-/// parentheses, and earlier scalar bindings.
+/// This token-changing incremental path is intentionally strict. Apart from unchanged supported
+/// `eng.*` module imports in the preserved prefix, both sources must contain only successful
+/// top-level scalar bindings and trivia. Expressions may be numeric literals, backward aliases, or
+/// pure scalar `+`, `-`, `*`, and `/` arithmetic over registered-unit literals, parentheses, and
+/// earlier scalar bindings.
 /// Changed logical lines may remain bindings or token-free trivia, including inserted or removed
 /// trivia and line-ending changes. Coordinated binding renames are accepted when the resulting names
 /// stay unique and aliases resolve in source order. The compiler preserves report records before the
 /// first binding at or after the first raw-line difference, then reparses and semantically reanalyzes
 /// that suffix. Binding additions and removals update all scalar semantic vectors, syntax counts, and
 /// the top-level workflow line atomically. The compiler verifies the old suffix result against the
-/// prior report before patching. Imports, diagnostics, caches, calls, workflow expressions, richer
+/// prior report before patching. Unchanged supported `eng.*` module imports may precede the affected
+/// suffix. File imports, import edits, diagnostics, caches, calls, workflow expressions, richer
 /// language constructs, and edits without an affected binding return `None` so the caller can run a
 /// normal check or another reuse path. Top-level `const` declarations are accepted only by the
 /// unified [`recheck_scalar_declaration_suffix_incrementally`] entry point.
@@ -591,12 +593,12 @@ pub fn recheck_scalar_binding_suffix_incrementally(
 /// This compatibility entry point retains the explicit-declaration-only contract. New integrations
 /// should use [`recheck_scalar_declaration_suffix_incrementally`] when fast bindings may be present.
 ///
-/// Both sources must contain only successful top-level explicit declarations with registered
-/// scalar quantity types, pure scalar expressions, and token-free trivia. This path preserves the
-/// records before the first changed declaration and patches expected-type, typed-binding, hover,
-/// type-info, unit-derivation, syntax-count, and workflow-line records together. Mixed fast,
-/// explicit, or `const` declarations, calls, diagnostics, imports, caches, and richer constructs
-/// return `None`.
+/// Apart from unchanged supported `eng.*` module imports in the preserved prefix, both sources must
+/// contain only successful top-level explicit declarations with registered scalar quantity types,
+/// pure scalar expressions, and token-free trivia. This path preserves the records before the first
+/// changed declaration and patches expected-type, typed-binding, hover, type-info, unit-derivation,
+/// syntax-count, and workflow-line records together. Mixed fast, explicit, or `const` declarations,
+/// calls, diagnostics, file imports, import edits, caches, and richer constructs return `None`.
 pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
     report: &CheckReport,
     previous_source: &str,
@@ -619,8 +621,10 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// The compiler preserves all records before the first declaration at or after the first raw-line
 /// difference, verifies the old suffix against the prior report, then patches inferred, constant,
 /// expected, typed, hover, type-info, unit-derivation, syntax, and workflow records as one
-/// transaction. Imports, diagnostics, calls, caches, richer workflow constructs, unresolved or
-/// duplicate names, and edits without an affected declaration return `None` for a normal full check.
+/// transaction. Unchanged supported `eng.*` module imports may precede the affected suffix and keep
+/// their exact syntax and semantic records. File imports, import edits, diagnostics, calls, caches,
+/// richer workflow constructs, unresolved or duplicate names, and edits without an affected
+/// declaration return `None` for a normal full check.
 ///
 /// The caller must preserve the source path, check options, argument overrides, and import
 /// environment, just as for [`retarget_check_report_for_token_stable_trivia`].
@@ -695,12 +699,19 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
             .then_some(previous_lines.len().min(source_lines.len()))
     })?;
 
+    let previous_prefix = parse_scalar_declaration_prefix(&previous_lines[..changed_index])?;
+    let previous_suffix = parse_scalar_declaration_suffix(&previous_lines[changed_index..])?;
+    let source_suffix = parse_scalar_declaration_suffix(&source_lines[changed_index..])?;
     let empty_semantic_program = semantic::analyze(&ParsedProgram {
         lines: Vec::new(),
         items: Vec::new(),
     })
     .semantic_program;
-    if !report_has_incremental_scalar_declaration_shape(report, &empty_semantic_program)
+    if !report_has_incremental_scalar_declaration_shape(
+        report,
+        previous_prefix.imports.len(),
+        &empty_semantic_program,
+    ) || !incremental_scalar_prefix_matches_report(report, &previous_prefix, &previous_suffix)
         || !mode.accepts(
             report.syntax_summary.fast_bindings,
             report.syntax_summary.explicit_declarations,
@@ -709,9 +720,6 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
     {
         return None;
     }
-
-    let previous_suffix = parse_scalar_declaration_suffix(&previous_lines[changed_index..])?;
-    let source_suffix = parse_scalar_declaration_suffix(&source_lines[changed_index..])?;
     if !mode.accepts(
         previous_suffix.fast_binding_count,
         previous_suffix.explicit_declaration_count,
@@ -885,6 +893,14 @@ struct ScalarDeclarationRecord {
     kind: ScalarDeclarationKind,
 }
 
+struct ParsedScalarDeclarationPrefix {
+    imports: Vec<ImportDecl>,
+    fast_binding_count: usize,
+    explicit_declaration_count: usize,
+    const_declaration_count: usize,
+    token_count: usize,
+}
+
 struct ParsedScalarDeclarationSuffix {
     program: ParsedProgram,
     declarations: Vec<ScalarDeclarationRecord>,
@@ -897,25 +913,7 @@ struct ParsedScalarDeclarationSuffix {
 fn parse_scalar_declaration_suffix(
     lines: &[source::SourceLine],
 ) -> Option<ParsedScalarDeclarationSuffix> {
-    let mut program = ParsedProgram {
-        lines: Vec::with_capacity(lines.len()),
-        items: Vec::new(),
-    };
-    for line in lines {
-        let mut parsed = parser::parse_top_level_source_line(line);
-        if parsed.lines.len() != 1 {
-            return None;
-        }
-        let token_bearing = !parsed.lines[0].tokens.is_empty();
-        if (token_bearing && parsed.items.len() != 1)
-            || (!token_bearing && !parsed.items.is_empty())
-        {
-            return None;
-        }
-        program.lines.append(&mut parsed.lines);
-        program.items.append(&mut parsed.items);
-    }
-
+    let program = parse_incremental_top_level_lines(lines)?;
     let syntax_summary = program.summary();
     let declarations = program
         .items
@@ -973,8 +971,97 @@ fn parse_scalar_declaration_suffix(
     })
 }
 
+fn parse_scalar_declaration_prefix(
+    lines: &[source::SourceLine],
+) -> Option<ParsedScalarDeclarationPrefix> {
+    let program = parse_incremental_top_level_lines(lines)?;
+    let syntax_summary = program.summary();
+    let mut imports = Vec::new();
+    let mut fast_binding_count = 0usize;
+    let mut explicit_declaration_count = 0usize;
+    let mut const_declaration_count = 0usize;
+    for item in &program.items {
+        match item {
+            AstItem::FastBinding(binding) if binding.context == ParseContext::TopLevel => {
+                fast_binding_count = fast_binding_count.checked_add(1)?;
+            }
+            AstItem::ExplicitDecl(declaration) if declaration.context == ParseContext::TopLevel => {
+                explicit_declaration_count = explicit_declaration_count.checked_add(1)?;
+            }
+            AstItem::Const(declaration) if declaration.context == ParseContext::TopLevel => {
+                const_declaration_count = const_declaration_count.checked_add(1)?;
+            }
+            AstItem::Import(import) if incremental_stdlib_import_is_supported(import) => {
+                imports.push(import.clone());
+            }
+            _ => return None,
+        }
+    }
+
+    let declaration_count = fast_binding_count
+        .checked_add(explicit_declaration_count)?
+        .checked_add(const_declaration_count)?;
+    if declaration_count.checked_add(imports.len())? != syntax_summary.ast_items
+        || syntax_summary.imports != imports.len()
+        || syntax_summary.fast_bindings != fast_binding_count
+        || syntax_summary.explicit_declarations != explicit_declaration_count
+        || syntax_summary.const_declarations != const_declaration_count
+    {
+        return None;
+    }
+
+    Some(ParsedScalarDeclarationPrefix {
+        imports,
+        fast_binding_count,
+        explicit_declaration_count,
+        const_declaration_count,
+        token_count: syntax_summary.tokens,
+    })
+}
+
+fn parse_incremental_top_level_lines(lines: &[source::SourceLine]) -> Option<ParsedProgram> {
+    let mut program = ParsedProgram {
+        lines: Vec::with_capacity(lines.len()),
+        items: Vec::new(),
+    };
+    for line in lines {
+        let mut parsed = parser::parse_top_level_source_line(line);
+        if parsed.lines.len() != 1 {
+            return None;
+        }
+        let token_bearing = !parsed.lines[0].tokens.is_empty();
+        if (token_bearing && parsed.items.len() != 1)
+            || (!token_bearing && !parsed.items.is_empty())
+        {
+            return None;
+        }
+        program.lines.append(&mut parsed.lines);
+        program.items.append(&mut parsed.items);
+    }
+    Some(program)
+}
+
+fn incremental_stdlib_import_is_supported(import: &ImportDecl) -> bool {
+    if !matches!(import.kind.as_str(), "use" | "import")
+        || !stdlib_module_import_target_is_valid(import.target.trim())
+    {
+        return false;
+    }
+
+    bundled_module_registry().is_ok_and(|registry| {
+        registry.modules.iter().any(|module| {
+            module.name == import.target
+                && matches!(
+                    module.status.as_str(),
+                    "supported" | "supported_narrow" | "native_preview"
+                )
+        })
+    })
+}
+
 fn report_has_incremental_scalar_declaration_shape(
     report: &CheckReport,
+    stdlib_import_count: usize,
     empty_semantic_program: &SemanticProgram,
 ) -> bool {
     let Some(annotated_declaration_count) = report
@@ -991,16 +1078,21 @@ fn report_has_incremental_scalar_declaration_shape(
     else {
         return false;
     };
+    let Some(ast_item_count) = declaration_count.checked_add(stdlib_import_count) else {
+        return false;
+    };
     if report.source_files.len() != 1
         || report.source_files[0].source_id != SourceSpan::ROOT_SOURCE_ID
         || !report.diagnostics.is_empty()
-        || report.syntax_summary.ast_items != declaration_count
+        || report.syntax_summary.imports != stdlib_import_count
+        || report.syntax_summary.ast_items != ast_item_count
         || report.inferred_declarations.len() != report.syntax_summary.fast_bindings
         || !semantic_program_has_only_scalar_declaration_records(
             &report.semantic_program,
             declaration_count,
             annotated_declaration_count,
             report.syntax_summary.const_declarations,
+            stdlib_import_count,
             empty_semantic_program,
         )
     {
@@ -1069,14 +1161,48 @@ fn report_has_incremental_scalar_declaration_shape(
         })
 }
 
+fn incremental_scalar_prefix_matches_report(
+    report: &CheckReport,
+    prefix: &ParsedScalarDeclarationPrefix,
+    suffix: &ParsedScalarDeclarationSuffix,
+) -> bool {
+    prefix
+        .fast_binding_count
+        .checked_add(suffix.fast_binding_count)
+        == Some(report.syntax_summary.fast_bindings)
+        && prefix
+            .explicit_declaration_count
+            .checked_add(suffix.explicit_declaration_count)
+            == Some(report.syntax_summary.explicit_declarations)
+        && prefix
+            .const_declaration_count
+            .checked_add(suffix.const_declaration_count)
+            == Some(report.syntax_summary.const_declarations)
+        && prefix.token_count.checked_add(suffix.token_count) == Some(report.syntax_summary.tokens)
+        && prefix.imports.len() == report.semantic_program.imports.len()
+        && prefix
+            .imports
+            .iter()
+            .zip(&report.semantic_program.imports)
+            .all(|(declaration, info)| {
+                declaration.target == info.target
+                    && declaration.target_span == info.span
+                    && declaration.kind == info.kind
+                    && declaration.line == info.line
+                    && info.status == "declared"
+            })
+}
+
 fn semantic_program_has_only_scalar_declaration_records(
     program: &SemanticProgram,
     declaration_count: usize,
     annotated_declaration_count: usize,
     const_declaration_count: usize,
+    stdlib_import_count: usize,
     empty: &SemanticProgram,
 ) -> bool {
-    if program.consts.len() != const_declaration_count
+    if program.imports.len() != stdlib_import_count
+        || program.consts.len() != const_declaration_count
         || program.expected_types.len() != annotated_declaration_count
         || program.typed_bindings.len() != declaration_count
         || program.hover_hints.len() != declaration_count
@@ -1087,6 +1213,7 @@ fn semantic_program_has_only_scalar_declaration_records(
     }
 
     let mut residue = program.clone();
+    residue.imports.clear();
     residue.consts.clear();
     residue.expected_types.clear();
     residue.typed_bindings.clear();
@@ -10096,7 +10223,7 @@ mod tests {
         })
         .semantic_program;
         assert!(
-            report_has_incremental_scalar_declaration_shape(&previous, &empty_semantic_program),
+            report_has_incremental_scalar_declaration_shape(&previous, 0, &empty_semantic_program,),
             "the successful mixed report should satisfy the incremental scalar shape"
         );
 
@@ -10255,7 +10382,7 @@ mod tests {
         })
         .semantic_program;
         assert!(
-            report_has_incremental_scalar_declaration_shape(&previous, &empty_semantic_program),
+            report_has_incremental_scalar_declaration_shape(&previous, 0, &empty_semantic_program,),
             "the successful const report should satisfy the incremental scalar shape"
         );
 
@@ -10381,6 +10508,118 @@ mod tests {
     }
 
     #[test]
+    fn incrementally_rechecks_scalar_suffix_after_supported_stdlib_imports() {
+        fn assert_fresh_equivalent(reused: &CheckReport, fresh: &CheckReport, source: &str) {
+            assert_eq!(reused.source_path, fresh.source_path);
+            assert_eq!(reused.source_files, fresh.source_files);
+            assert_eq!(reused.source_hash, fresh.source_hash);
+            assert_eq!(reused.source_lines, fresh.source_lines);
+            assert_eq!(reused.diagnostics, fresh.diagnostics);
+            assert_eq!(reused.inferred_declarations, fresh.inferred_declarations);
+            assert_eq!(reused.syntax_summary, fresh.syntax_summary);
+            assert_eq!(reused.semantic_program, fresh.semantic_program);
+            assert_eq!(
+                reused.quantity_completion_count,
+                fresh.quantity_completion_count
+            );
+            assert_eq!(reused.unit_info_count, fresh.unit_info_count);
+            assert_eq!(review_json(reused), review_json(fresh));
+            assert_eq!(
+                encode_bytecode(&build_bytecode_program(reused, source)),
+                encode_bytecode(&build_bytecode_program(fresh, source))
+            );
+        }
+
+        let previous_source = concat!(
+            "use eng.stats\r\n",
+            "import eng.path\r\n",
+            "# imported scalar inputs\r\n",
+            "base = 2 m\r\n",
+            "const factor: Ratio [1] = 0.5\r\n",
+            "adjusted: Length [m] = base * factor\r\n",
+        );
+        let source = concat!(
+            "use eng.stats\r\n",
+            "import eng.path\r\n",
+            "# imported scalar inputs\r\n",
+            "base = 2 m\r\n",
+            "const factor: Ratio [1] = 0.75\r\n",
+            "adjusted: Length [cm] = base * factor\r\n",
+            "total = adjusted + base + 0 m\r\n",
+        );
+        let previous = check_source(
+            "incremental-stdlib.eng",
+            previous_source,
+            &CheckOptions::default(),
+        );
+        assert!(
+            previous.diagnostics.is_empty(),
+            "unexpected stdlib fixture diagnostics: {:#?}",
+            previous.diagnostics
+        );
+        assert_eq!(previous.syntax_summary.imports, 2);
+        assert_eq!(previous.semantic_program.imports.len(), 2);
+        let mut mismatched_import_report = previous.clone();
+        mismatched_import_report.semantic_program.imports[0].status = "stale".to_owned();
+        assert!(recheck_scalar_declaration_suffix_incrementally(
+            &mismatched_import_report,
+            previous_source,
+            source,
+        )
+        .is_none());
+
+        let reused =
+            recheck_scalar_declaration_suffix_incrementally(&previous, previous_source, source)
+                .expect("supported stdlib imports should preserve the scalar suffix fast path");
+        let fresh = check_source("incremental-stdlib.eng", source, &CheckOptions::default());
+        assert_fresh_equivalent(&reused, &fresh, source);
+        assert_eq!(
+            reused.semantic_program.imports, previous.semantic_program.imports,
+            "unchanged stdlib import records should remain exact"
+        );
+        assert_eq!(reused.syntax_summary.imports, 2);
+
+        let cleared_source = concat!(
+            "use eng.stats\r\n",
+            "import eng.path\r\n",
+            "# scalar declarations cleared\r\n",
+        );
+        let cleared =
+            recheck_scalar_declaration_suffix_incrementally(&reused, source, cleared_source)
+                .expect("clearing declarations should preserve supported stdlib imports");
+        let cleared_fresh = check_source(
+            "incremental-stdlib.eng",
+            cleared_source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(&cleared, &cleared_fresh, cleared_source);
+        assert!(cleared.semantic_program.typed_bindings.is_empty());
+        assert_eq!(cleared.semantic_program.imports.len(), 2);
+        assert_eq!(cleared.semantic_program.workflow.line, 1);
+
+        let restarted_source = concat!(
+            "use eng.stats\r\n",
+            "import eng.path\r\n",
+            "# scalar declarations cleared\r\n",
+            "const distance: Length [m] = 4 m\r\n",
+            "distance_copy = distance\r\n",
+        );
+        let restarted = recheck_scalar_declaration_suffix_incrementally(
+            &cleared,
+            cleared_source,
+            restarted_source,
+        )
+        .expect("declarations should restart after unchanged supported stdlib imports");
+        let restarted_fresh = check_source(
+            "incremental-stdlib.eng",
+            restarted_source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(&restarted, &restarted_fresh, restarted_source);
+        assert_eq!(restarted.semantic_program.workflow.line, 4);
+    }
+
+    #[test]
     fn scalar_const_incremental_recheck_uses_strict_fallbacks() {
         let previous_source = concat!(
             "base = 2 m\n",
@@ -10395,6 +10634,7 @@ mod tests {
 
         for unsupported in [
             "base = 2 m\nconst factor: Ratio = sqrt(4)\nadjusted: Length [m] = base * factor\n",
+            "use eng.stats\nconst factor: Ratio = 0.5\nadjusted = 2 m\n",
             "base = 2 m\nconst factor: Ratio = missing\nadjusted: Length [m] = base * factor\n",
             "base = 2 m\nconst factor: Ratio = later\nlater = 0.5\n",
             "base = 2 m\nconst base: Length [m] = 3 m\nadjusted = base + 1 m\n",
@@ -10411,6 +10651,73 @@ mod tests {
                 "unsupported scalar const edit should use a full check: {unsupported:?}"
             );
         }
+
+        let imported_source = concat!(
+            "use eng.stats\n",
+            "base = 2 m\n",
+            "const factor: Ratio = 0.5\n",
+            "adjusted: Length [m] = base * factor\n",
+        );
+        let imported = check_source(
+            "incremental-import-edit.eng",
+            imported_source,
+            &CheckOptions::default(),
+        );
+        assert!(imported.diagnostics.is_empty());
+        assert!(recheck_scalar_declaration_suffix_incrementally(
+            &imported,
+            imported_source,
+            &imported_source.replace("eng.stats", "eng.path"),
+        )
+        .is_none());
+
+        for unsupported_prefix in ["use eng.building\n", "use missing.eng\n"] {
+            let previous_source = format!("{unsupported_prefix}base = 2 m\nfactor = 0.5\n");
+            let source = format!("{unsupported_prefix}base = 2 m\nfactor = 0.75\n");
+            let previous = check_source(
+                "incremental-unsupported-import.eng",
+                &previous_source,
+                &CheckOptions::default(),
+            );
+            assert!(!previous.diagnostics.is_empty());
+            assert!(recheck_scalar_declaration_suffix_incrementally(
+                &previous,
+                &previous_source,
+                &source,
+            )
+            .is_none());
+        }
+
+        let root = std::env::temp_dir().join(format!(
+            "eng_compiler_incremental_file_import_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("file import fixture should be created");
+        let module_path = root.join("shared.eng");
+        std::fs::write(&module_path, "const shared: Ratio = 0.5\n")
+            .expect("file import module should be written");
+        let main_path = root.join("main.eng");
+        let file_import_source = r#"use "shared.eng"
+base = 2 m
+factor = 0.5
+"#;
+        std::fs::write(&main_path, file_import_source).expect("file import root should be written");
+        let file_import_report =
+            check_source(&main_path, file_import_source, &CheckOptions::default());
+        assert!(
+            file_import_report.diagnostics.is_empty(),
+            "unexpected file import diagnostics: {:#?}",
+            file_import_report.diagnostics
+        );
+        assert_eq!(file_import_report.source_files.len(), 2);
+        assert!(recheck_scalar_declaration_suffix_incrementally(
+            &file_import_report,
+            file_import_source,
+            &file_import_source.replace("factor = 0.5", "factor = 0.75"),
+        )
+        .is_none());
+        std::fs::remove_dir_all(&root).expect("file import fixture should be removed");
     }
 
     #[test]

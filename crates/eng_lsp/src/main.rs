@@ -10918,7 +10918,7 @@ mod tests {
     }
 
     #[test]
-    fn scalar_const_edits_use_incremental_compiler_recheck() {
+    fn scalar_const_edits_after_stdlib_import_use_incremental_compiler_recheck() {
         let root = std::env::temp_dir().join(format!(
             "eng_lsp_scalar_const_analysis_cache_{}",
             std::process::id()
@@ -10927,6 +10927,7 @@ mod tests {
         std::fs::create_dir_all(&root).expect("scalar const fixture should be created");
         let path = root.join("current.eng");
         let initial_source = concat!(
+            "use eng.stats\n",
             "base = 2 m\n",
             "const factor: Ratio = 0.5\n",
             "adjusted: Length [m] = base * factor\n",
@@ -10947,6 +10948,7 @@ mod tests {
         assert_eq!(documents[&uri].scalar_binding_reuse_count(), 0);
 
         let changed_source = concat!(
+            "use eng.stats\n",
             "base = 2 m\n",
             "const gain: Ratio [1] = 0.75\n",
             "adjusted: Length [cm] = base * gain\n",
@@ -10976,6 +10978,7 @@ mod tests {
         );
 
         let appended_source = concat!(
+            "use eng.stats\n",
             "base = 2 m\n",
             "const gain: Ratio [1] = 0.75\n",
             "adjusted: Length [cm] = base * gain\n",
@@ -11003,6 +11006,7 @@ mod tests {
         assert_eq!(documents[&uri].scalar_binding_reuse_count(), 2);
 
         let fallback_source = concat!(
+            "use eng.stats\n",
             "base = 2 m\n",
             "const gain: Ratio = sqrt(4)\n",
             "adjusted: Length [m] = base\n",

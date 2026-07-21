@@ -126,7 +126,8 @@ review material. It is not a broad solver claim.
   token-free comment/blank-line edits can retarget that report when every token
   and token-bearing line stays at the same absolute source location. In a clean
   document containing only top-level fast scalar bindings, registered explicit
-  scalar declarations, pure top-level scalar `const` declarations, and
+  scalar declarations, pure top-level scalar `const` declarations, and unchanged
+  supported `use/import eng.*` module declarations before the affected suffix,
   compiler-validated pure scalar expressions over numeric or registered-unit
   literals and earlier typed bindings, changed declaration lines or standalone
   token-free trivia preserve the report before the first declaration at or after
@@ -142,7 +143,8 @@ review material. It is not a broad solver claim.
   non-declaration lines, incomplete or duplicate renames, forward or unresolved
   references,
   dimensionally incompatible arithmetic, calls, workflow expressions,
-  diagnostics, imports, caches, and richer language use full analysis.
+  diagnostics, file imports, import-line edits, imports inside the affected
+  suffix, caches, and richer language use full analysis.
   Source changes invalidate recursive open import dependents while preserving
   the changed document as a candidate for these narrow reuse paths. This is not
   general partial parsing or a public cross-release protocol commitment.

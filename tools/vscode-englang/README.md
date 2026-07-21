@@ -19,12 +19,12 @@ embedding compiler logic in JavaScript.
 - exact-source plus conservative token-free-trivia compiler report reuse across
   completion, diagnostics, hover, semantic tokens, navigation, and review
   decorations, with lazy snapshot projection and recursive open-import invalidation
-- strict token-changing partial parse/semantic recheck for homogeneous scalar-only
-  documents: fast-binding suffixes support literals, backward aliases, and pure
-  registered-unit arithmetic, while explicit-declaration suffixes also patch their
-  annotation-owned semantic records; both support coordinated edits, additions,
-  removals, resized/inserted/removed standalone trivia, and suffix line-ending
-  shifts, with full-analysis fallback outside those contracts
+- strict token-changing partial parse/semantic recheck for scalar documents with
+  fast, explicit, and pure scalar `const` declarations plus unchanged supported
+  `use/import eng.*` module prefixes; the shared suffix supports literals,
+  backward aliases, pure registered-unit arithmetic, coordinated edits,
+  additions/removals, resized/inserted/removed standalone trivia, and line-ending
+  shifts, with full-analysis fallback outside that contract
 - debounced diagnostics for unsaved buffers after a short typing pause,
   including open dependent EngLang files when an imported buffer changes
 - debounced role-aware color refresh and stale decoration clearing across open
@@ -238,8 +238,9 @@ token stream and absolute spans are unchanged and every token-bearing line is
 byte-identical. This narrow path covers edits to comment-only and blank lines;
 the source-dependent snapshot is rebuilt lazily. In a document containing only
 top-level fast scalar bindings, registered explicit scalar declarations, pure
-top-level scalar `const` declarations, and compiler-validated pure scalar
-expressions using numeric or registered-unit literals, backward aliases,
+top-level scalar `const` declarations, unchanged supported `use/import eng.*`
+module declarations before the affected suffix, and compiler-validated pure
+scalar expressions using numeric or registered-unit literals, backward aliases,
 parentheses, `+`, `-`, `*`, `/`, and earlier typed bindings, changed declaration
 lines or standalone token-free trivia preserve the report before the first
 declaration at or after the first change and reparse and semantically reanalyze
@@ -255,8 +256,9 @@ workflow line together. Declarations can be inserted or removed, including
 clearing all scalar declarations and restarting from a trivia-only report.
 Token-bearing non-declaration lines, incomplete or duplicate renames, forward or unresolved
 references, dimensionally incompatible arithmetic, calls, non-scalar constants,
-workflow expressions, diagnostics, imports, caches, and richer language run a
-full compiler analysis.
+workflow expressions, diagnostics, file imports, import-line edits, imports
+inside the affected suffix, caches, and richer language run a full compiler
+analysis.
 Changing an open import hard-invalidates its recursive open dependents, while
 unrelated document analyses remain cached. This remains a narrow partial path,
 not general incremental parse or semantic recomputation.

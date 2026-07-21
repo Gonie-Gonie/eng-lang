@@ -238,8 +238,10 @@ separate.
   prefix and reparses/semantically reanalyzes from the first scalar declaration at
   or after the first changed declaration or standalone token-free trivia line.
   Clean scalar documents may interleave fast bindings, registered explicit
-  annotations, and pure top-level scalar `const` declarations; fast and explicit
-  forms may switch style in the affected suffix. Expressions may use numeric
+  annotations, and pure top-level scalar `const` declarations; unchanged
+  supported `use/import eng.*` module declarations may remain in the preserved
+  prefix, and fast and explicit forms may switch style in the affected suffix.
+  Expressions may use numeric
   literals, backward aliases, or pure scalar arithmetic over registered-unit
   literals, parentheses, and earlier typed bindings. The path covers coordinated
   multi-line value/type/unit edits, renames, declaration additions/removals,
@@ -257,8 +259,9 @@ separate.
 - Not included: a stable public compatibility guarantee across EngLang releases
   or general partial parse/semantic recomputation beyond the bounded scalar
   declaration contract, including forward/unresolved references, calls, non-scalar
-  constants, workflow expressions, token-bearing non-declaration lines, and richer
-  language constructs inside a changed document.
+  constants, workflow expressions, file imports, import-line edits, imports inside
+  the affected suffix, token-bearing non-declaration lines, and richer language
+  constructs inside a changed document.
 - Next cleanup action: keep the implemented persistent service tested while its
   public maturity remains explicit.
 
