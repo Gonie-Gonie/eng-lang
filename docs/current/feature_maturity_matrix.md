@@ -260,7 +260,10 @@ separate.
   hover/type metadata, and unit derivations. Registered quantity families use
   declaration-name disambiguation and otherwise preserve a compatible operand
   type when possible, so an expression does not need a redundant unit literal
-  solely to remain visible to editor tooling.
+  solely to remain visible to editor tooling. Nested user-function validation
+  reports an invalid inner argument or unknown inner function at that innermost
+  compiler-owned range without adding a duplicate outer unresolved-argument
+  diagnostic.
   The older fast-binding-only and explicit-declaration-only APIs are mode-limited
   compatibility wrappers over this engine; lazy shared editor snapshots,
   recursive import-dependent invalidation, a VS Code persistent stdio client

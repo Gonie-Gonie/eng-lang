@@ -22117,6 +22117,50 @@ run_scheduler = case_runs.scheduler
     }
 
     #[test]
+    fn nested_function_diagnostics_use_innermost_utf16_ranges() {
+        let source = concat!(
+            "fn add_lengths(left: Length [m], right: Length [m]) -> Length [m] {\r\n",
+            "    return left + right\r\n",
+            "}\r\n",
+            "base = 2 m\r\n",
+            "factor = 0.5\r\n",
+            "wrong_dimension = add_lengths(add_lengths(add_lengths(base, factor), base), base) // factor\r\n",
+            "unknown_nested = add_lengths(add_lengths(missing_length(base), base), base) // missing_length\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("nested_function_diagnostic.eng"), source);
+        let lines = source.lines().collect::<Vec<_>>();
+
+        for (line_index, code, expected) in [
+            (5, "E-FN-CALL-004", "factor"),
+            (6, "E-FN-CALL-001", "missing_length"),
+        ] {
+            let diagnostic = snapshot
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.line == line_index + 1 && diagnostic.code == code)
+                .unwrap_or_else(|| panic!("missing {code}: {:?}", snapshot.diagnostics));
+            let line = lines[line_index];
+            let byte_start = line
+                .find(expected)
+                .unwrap_or_else(|| panic!("missing `{expected}` in `{line}`"));
+            assert_eq!(
+                diagnostic.start_character,
+                utf16_len(&line[..byte_start]),
+                "{code} start"
+            );
+            assert_eq!(
+                diagnostic.end_character,
+                utf16_len(&line[..byte_start + expected.len()]),
+                "{code} end"
+            );
+        }
+        assert!(snapshot
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-FN-CALL-003"));
+    }
+
+    #[test]
     fn side_effect_editor_features_use_compiler_owned_spans() {
         let source = concat!(
             "schema Row {\r\n",

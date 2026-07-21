@@ -8036,26 +8036,46 @@ fn validate_function_call_expression(
         .zip(&function.parameters)
     {
         let arg_span = source_span_for_child_range(expression_span, arg_range.start, arg_range.end);
-        let Some(actual_dimension) = scalar_function_argument_dimension(
-            arg,
-            typed_bindings,
-            functions,
-            ScalarFunctionTrust::DeclaredSignature,
-        ) else {
-            diagnostics.push(
-                Diagnostic::error(
-                    "E-FN-CALL-003",
+        let diagnostic_count = diagnostics.len();
+        let nested_call_type = should_validate_function_call(arg, functions)
+            .then(|| {
+                validate_function_call_expression(
+                    arg,
+                    arg_span,
                     line,
-                    &format!(
-                        "Argument `{arg}` for `{}` could not be type-checked.",
-                        function.name
-                    ),
-                    Some(
-                        "Use a typed binding, a unit-bearing literal, compatible scalar arithmetic, or a valid scalar function call.",
-                    ),
+                    typed_bindings,
+                    functions,
+                    diagnostics,
                 )
-                .with_source_span(arg_span),
-            );
+            })
+            .flatten();
+        let actual_dimension = nested_call_type
+            .map(|semantic_type| dimension_for_quantity(&semantic_type.quantity_kind))
+            .or_else(|| {
+                scalar_function_argument_dimension(
+                    arg,
+                    typed_bindings,
+                    functions,
+                    ScalarFunctionTrust::DeclaredSignature,
+                )
+            });
+        let Some(actual_dimension) = actual_dimension else {
+            if diagnostics.len() == diagnostic_count {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-FN-CALL-003",
+                        line,
+                        &format!(
+                            "Argument `{arg}` for `{}` could not be type-checked.",
+                            function.name
+                        ),
+                        Some(
+                            "Use a typed binding, a unit-bearing literal, compatible scalar arithmetic, or a valid scalar function call.",
+                        ),
+                    )
+                    .with_source_span(arg_span),
+                );
+            }
             continue;
         };
         if !dimensions_compatible(&parameter.dimension, &actual_dimension) {

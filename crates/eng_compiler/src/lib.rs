@@ -19727,31 +19727,38 @@ write csv "outputs/q.csv", Q
 
     #[test]
     fn rejects_invalid_nested_scalar_function_calls() {
+        let source = concat!(
+            "fn add_lengths(left: Length [m], right: Length [m]) -> Length [m] {\n",
+            "    return left + right\n",
+            "}\n",
+            "base = 2 m\n",
+            "factor = 0.5\n",
+            "wrong_dimension = add_lengths(add_lengths(add_lengths(base, factor), base), base)\n",
+            "unknown_nested = add_lengths(add_lengths(missing_length(base), base), base)\n",
+        );
         let report = check_source(
             "invalid-nested-function.eng",
-            concat!(
-                "fn add_lengths(left: Length [m], right: Length [m]) -> Length [m] {\n",
-                "    return left + right\n",
-                "}\n",
-                "base = 2 m\n",
-                "factor = 0.5\n",
-                "wrong_dimension = add_lengths(add_lengths(base, factor), base)\n",
-                "unknown_nested = add_lengths(missing_length(base), base)\n",
-            ),
+            source,
             &CheckOptions::default(),
         );
 
         assert!(report.has_errors());
-        assert_eq!(
-            report
+        let diagnostic_span_text = |code: &str| {
+            let span = report
                 .diagnostics
                 .iter()
-                .filter(|diagnostic| diagnostic.code == "E-FN-CALL-003")
-                .count(),
-            2,
-            "{:#?}",
-            report.diagnostics
-        );
+                .find(|diagnostic| diagnostic.code == code)
+                .unwrap_or_else(|| panic!("missing {code}: {:#?}", report.diagnostics))
+                .source_span
+                .expect("nested call diagnostic should own an exact span");
+            &source[span.start..span.end]
+        };
+        assert_eq!(diagnostic_span_text("E-FN-CALL-004"), "factor");
+        assert_eq!(diagnostic_span_text("E-FN-CALL-001"), "missing_length");
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-FN-CALL-003"));
     }
 
     #[test]
