@@ -1,7 +1,8 @@
 # TimeSeries Statistics Guide
 
-The TimeSeries/statistics path computes numeric values for the official CSV
-coil example while keeping broader TimeSeries expression execution deferred.
+The TimeSeries/statistics path computes numeric summary and scalar-call values
+for materialized series while keeping broader arbitrary TimeSeries expression
+execution outside this narrow contract.
 
 ## Example
 
@@ -88,6 +89,29 @@ unit. When a threshold unit is supplied, the current runtime supports the same
 W/kW conversion used by plot display conversion. The duration kernel uses
 Time-axis seconds and linearly interpolates threshold crossings between
 adjacent points.
+
+## Scalar Statistic Calls
+
+The summary kernels also have value-returning forms:
+
+```eng partial
+sample_total = sum(Q_coil)
+hot_duration = duration_above(Q_coil, 5 kW)
+print "hot={hot_duration: .1 s}"
+```
+
+`sum(series)` returns the sum of materialized sample values in
+the series display unit. It does not multiply by the Time step. For HeatRate to
+Energy conversion, use `integrate(series, over=Time)`.
+
+The compatibility spelling `sum(series, axis=Time)` is still parsed. It
+retains the existing integration-confusion warning; new code should use
+`sum(series)` when a sample-value reduction is intended.
+
+`duration_above(series, threshold)` returns `Duration [s]`. Both calls
+execute natively for print/export evaluation and their bound scalar results are
+stored in `typed_payload.numeric_values[].value`; they do not depend on
+Python-produced input.
 
 ## Integration Metadata
 

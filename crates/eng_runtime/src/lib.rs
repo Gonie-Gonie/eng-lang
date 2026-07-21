@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 
 use eng_compiler::{
     build_bytecode, canonical_path_text, check_file, check_source,
-    classify_workflow_node_review_risk, parse_bytecode, parse_percentile_fraction, review_json,
+    classify_workflow_node_review_risk, parse_bytecode, review_json, timeseries_statistic_operands,
     ArgOverride, CheckOptions, CheckReport, ReviewFallbackRecord,
 };
 use serde_json::{json, Value};
@@ -32,7 +32,7 @@ use runtime_data::{
     materialize_runtime_data, RuntimeCaseDiagnostic, RuntimeCaseManifest, RuntimeCaseMetric,
     RuntimeCaseProcessStatus, RuntimeCaseTable, RuntimeComponentResidualEvaluation, RuntimeData,
     RuntimeMlArtifact, RuntimeNumericUncertaintyPayload, RuntimeNumericValue, RuntimeSampleTable,
-    RuntimeStatisticValue, RuntimeTable, RuntimeTimeSeries, RuntimeValues,
+    RuntimeTable, RuntimeValues,
 };
 pub use vm::{execute_bytecode, VmExecution, VmObject, VmObjectKind};
 
@@ -9698,6 +9698,19 @@ fn evaluate_runtime_expression(
                 unit: String::new(),
             });
     }
+    if let Some(numeric) = runtime_data
+        .numeric_values
+        .iter()
+        .find(|numeric| numeric.binding == expression)
+    {
+        if let Some(value) = numeric.value {
+            return Some(RuntimeFormatValue::Number {
+                value,
+                quantity_kind: numeric.quantity_kind.clone(),
+                unit: numeric.display_unit.clone(),
+            });
+        }
+    }
     if let Some(value) = evaluate_coverage_expression(expression, runtime_data) {
         return Some(value);
     }
@@ -10951,129 +10964,21 @@ fn evaluate_statistic_expression(
     expression: &str,
     runtime_data: &RuntimeData,
 ) -> Option<RuntimeFormatValue> {
-    let (statistic, source) = parse_statistic_expression(expression)?;
+    let (statistic, source) = timeseries_statistic_operands(expression)?;
     let series = runtime_data
         .time_series
         .iter()
         .find(|series| series.name == source)?;
-    let value = runtime_statistic_value(&statistic, series)?;
+    let value = runtime_data::statistic_value(&statistic, series)?;
     Some(RuntimeFormatValue::Number {
         value: value.value,
-        quantity_kind: series.quantity_kind.clone(),
+        quantity_kind: if statistic.starts_with("duration_above(") {
+            "Duration".to_owned()
+        } else {
+            series.quantity_kind.clone()
+        },
         unit: value.unit,
     })
-}
-
-fn parse_statistic_expression(expression: &str) -> Option<(String, String)> {
-    let trimmed = expression.trim();
-    let open = trimmed.find('(')?;
-    let statistic = trimmed[..open].trim();
-    if !matches!(
-        statistic,
-        "mean" | "time_weighted_mean" | "max" | "min" | "median" | "std"
-    ) && !statistic.starts_with('p')
-    {
-        return None;
-    }
-    let rest = trimmed[open + 1..].trim();
-    let source = rest
-        .split([',', ')'])
-        .next()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())?;
-    Some((statistic.to_owned(), source.to_owned()))
-}
-
-fn runtime_statistic_value(
-    name: &str,
-    series: &RuntimeTimeSeries,
-) -> Option<RuntimeStatisticValue> {
-    let values = series
-        .points
-        .iter()
-        .map(|point| point.y)
-        .collect::<Vec<_>>();
-    if values.is_empty() {
-        return None;
-    }
-    let value = match name {
-        "mean" => values.iter().sum::<f64>() / values.len() as f64,
-        "time_weighted_mean" => time_weighted_mean(series)?,
-        "max" => values.iter().copied().reduce(f64::max)?,
-        "min" => values.iter().copied().reduce(f64::min)?,
-        "median" => median(&values)?,
-        "std" => population_std(&values)?,
-        percentile => nearest_rank_percentile(&values, parse_percentile_fraction(percentile)?)?,
-    };
-    Some(RuntimeStatisticValue {
-        name: name.to_owned(),
-        value,
-        unit: series.display_unit.clone(),
-    })
-}
-
-fn time_weighted_mean(series: &RuntimeTimeSeries) -> Option<f64> {
-    let total_duration = series.points.last()?.x - series.points.first()?.x;
-    if series.x_unit != "s" || total_duration <= 0.0 {
-        return None;
-    }
-    Some(trapezoidal_integral(series)? / total_duration)
-}
-
-fn trapezoidal_integral(series: &RuntimeTimeSeries) -> Option<f64> {
-    if series.x_unit != "s" || series.points.len() < 2 {
-        return None;
-    }
-    let mut integral = 0.0;
-    for window in series.points.windows(2) {
-        let dt = window[1].x - window[0].x;
-        if dt <= 0.0 {
-            return None;
-        }
-        integral += (window[0].y + window[1].y) * 0.5 * dt;
-    }
-    Some(integral)
-}
-
-fn median(values: &[f64]) -> Option<f64> {
-    let mut sorted = values.to_vec();
-    sorted.sort_by(|left, right| left.partial_cmp(right).unwrap_or(std::cmp::Ordering::Equal));
-    let len = sorted.len();
-    if len == 0 {
-        return None;
-    }
-    if len % 2 == 1 {
-        sorted.get(len / 2).copied()
-    } else {
-        Some((sorted[len / 2 - 1] + sorted[len / 2]) * 0.5)
-    }
-}
-
-fn population_std(values: &[f64]) -> Option<f64> {
-    if values.is_empty() {
-        return None;
-    }
-    let mean = values.iter().sum::<f64>() / values.len() as f64;
-    let variance = values
-        .iter()
-        .map(|value| {
-            let delta = value - mean;
-            delta * delta
-        })
-        .sum::<f64>()
-        / values.len() as f64;
-    Some(variance.sqrt())
-}
-
-fn nearest_rank_percentile(values: &[f64], fraction: f64) -> Option<f64> {
-    let mut sorted = values.to_vec();
-    sorted.sort_by(|left, right| left.partial_cmp(right).unwrap_or(std::cmp::Ordering::Equal));
-    let len = sorted.len();
-    if len == 0 {
-        return None;
-    }
-    let rank = (fraction * len as f64).ceil().max(1.0) as usize;
-    sorted.get(rank.saturating_sub(1).min(len - 1)).copied()
 }
 
 fn format_runtime_value(
@@ -21026,6 +20931,86 @@ mod tests {
             .contains("aligned status=materialized output=3 complete=true"));
         assert!(output.stdout.contains("resampled_by step=1800"));
         assert!(output.stdout.contains("output=5"));
+    }
+
+    #[test]
+    fn run_file_executes_value_style_sum_and_duration_above() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root
+            .join("build")
+            .join("runtime-statistic-value-calls");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-statistic-value-calls-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("heat.csv"),
+            concat!(
+                "time,Q\n",
+                "2024-01-01T00:00:00Z,1.0\n",
+                "2024-01-01T01:00:00Z,2.0\n",
+                "2024-01-01T02:00:00Z,3.0\n",
+            ),
+        )
+        .expect("write heat data");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema HeatData {\n",
+                "    time: DateTime index\n",
+                "    Q: HeatRate [kW]\n",
+                "}\n\n",
+                r#"data = promote csv "data/heat.csv" as HeatData"#,
+                "\n",
+                "occupied: Duration [s] = duration_above(data.Q, 1.5 kW)\n",
+                "sample_total: HeatRate [kW] = sum(data.Q)\n",
+                r#"print "duration={occupied: .0 s} sum={sample_total: .1 kW}""#,
+                "\n",
+            ),
+        )
+        .expect("write source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("run statistic value calls");
+        let result: Value = serde_json::from_str(&output.result_json).expect("result json");
+        let occupied =
+            json_array_item_by_binding(&result, "/typed_payload/numeric_values", "occupied")
+                .expect("duration numeric value");
+        assert_eq!(
+            occupied.get("quantity_kind").and_then(Value::as_str),
+            Some("Duration")
+        );
+        assert_eq!(
+            occupied.get("display_unit").and_then(Value::as_str),
+            Some("s")
+        );
+        assert_eq!(occupied.get("value").and_then(Value::as_f64), Some(5400.0));
+        let sample_total =
+            json_array_item_by_binding(&result, "/typed_payload/numeric_values", "sample_total")
+                .expect("sum numeric value");
+        assert_eq!(
+            sample_total.get("quantity_kind").and_then(Value::as_str),
+            Some("HeatRate")
+        );
+        assert_eq!(
+            sample_total.get("display_unit").and_then(Value::as_str),
+            Some("kW")
+        );
+        assert_eq!(sample_total.get("value").and_then(Value::as_f64), Some(6.0));
+        assert!(output.stdout.contains("duration=5400 s sum=6.0 kW"));
     }
 
     #[test]

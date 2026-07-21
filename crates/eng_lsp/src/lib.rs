@@ -826,11 +826,14 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
         "rmse",
         "eng.quality native TimeSeries RMSE: rmse(left, right)",
     ),
-    ("duration_above", "eng.stats threshold duration"),
+    (
+        "duration_above",
+        "eng.stats native duration: duration_above(series, threshold) -> Duration [s]",
+    ),
     ("integrate", "eng.timeseries integration helper"),
     ("der", "eng.timeseries derivative helper"),
     ("delay", "eng.timeseries delay helper"),
-    ("sum", "domain conservation sum"),
+    ("sum", "eng.stats native sample sum: sum(series)"),
 ];
 
 const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
@@ -12835,6 +12838,7 @@ mod tests {
             matches!(code, "W-QTY-AMBIG-001" | "W-STATS-SUM-001")
                 || code.starts_with("E-DIM-ADD-")
                 || code.starts_with("E-FN-CALL-")
+                || code.starts_with("E-STATS-DURATION-")
         };
         let mut observed = 0usize;
         let mut missing = Vec::new();
@@ -17188,6 +17192,42 @@ title = "Measured vs simulated zone temperature"
         assert_eq!(
             completion.detail,
             "eng.quality native TimeSeries RMSE: rmse(left, right)"
+        );
+    }
+
+    #[test]
+    fn snapshot_marks_duration_above_as_a_native_timeseries_value_call() {
+        let source = concat!(
+            "Q: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
+            "occupied = duration_above(Q, 4 kW)\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("duration_above_value_call.eng"), source);
+        let line = "occupied = duration_above(Q, 4 kW)";
+
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            line,
+            "duration_above",
+            "function",
+            "timeseries",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            line,
+            "duration_above",
+            "function",
+            "defaultLibrary",
+        );
+        let completion = snapshot
+            .completions
+            .iter()
+            .find(|completion| completion.label == "duration_above")
+            .expect("duration_above completion");
+        assert_eq!(
+            completion.detail,
+            "eng.stats native duration: duration_above(series, threshold) -> Duration [s]"
         );
     }
 
@@ -22502,6 +22542,35 @@ bad_url = url()
                     diagnostic.line == line_index + 1 && diagnostic.code == "E-RMSE-CALL-001"
                 })
                 .unwrap_or_else(|| panic!("missing RMSE diagnostic: {:?}", snapshot.diagnostics));
+            let line = lines[line_index];
+            let byte_start = line.find(expected).expect("diagnostic source text");
+            assert_eq!(diagnostic.start_character, utf16_len(&line[..byte_start]));
+            assert_eq!(
+                diagnostic.end_character,
+                utf16_len(&line[..byte_start + expected.len()])
+            );
+        }
+    }
+
+    #[test]
+    fn duration_above_diagnostics_use_compiler_owned_utf16_ranges() {
+        let source = concat!(
+            "Q: TimeSeries[Time] of HeatRate [kW] = 5 kW\r\n",
+            "bad_unit = duration_above(Q, 2 m)\r\n",
+            "bad_arity = duration_above(Q)\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("bad_duration_above.eng"), source);
+        let lines = source.lines().collect::<Vec<_>>();
+
+        for (line_index, code, expected) in [
+            (1, "E-STATS-DURATION-UNIT-001", "2 m"),
+            (2, "E-STATS-DURATION-CALL-001", "duration_above"),
+        ] {
+            let diagnostic = snapshot
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.line == line_index + 1 && diagnostic.code == code)
+                .unwrap_or_else(|| panic!("missing {code}: {:?}", snapshot.diagnostics));
             let line = lines[line_index];
             let byte_start = line.find(expected).expect("diagnostic source text");
             assert_eq!(diagnostic.start_character, utf16_len(&line[..byte_start]));

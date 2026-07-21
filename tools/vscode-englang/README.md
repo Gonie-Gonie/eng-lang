@@ -616,9 +616,10 @@ public completion labels. Static snippets remain
 only for larger examples whose prefixes do not duplicate generated completion
 labels.
 
-Role-specific first-paint coloring is error-tolerant and is not an API
-availability claim. In particular, `duration_above(...)` is a `summarize`
-statistic selector, `delay(...)` is component behavior syntax, and
+Role-specific first-paint coloring is error-tolerant and is not by itself an
+API availability claim. `duration_above(series, threshold)` is a native
+`Duration [s]` value call and `duration_above(threshold)` is its compact
+`summarize` selector; `delay(...)` is component behavior syntax, and
 `fill_missing(...)` is compatibility-colored while public authoring uses
 `fill missing ...`.
 

@@ -396,6 +396,18 @@ mod tests {
                     .iter()
                     .any(|artifact| artifact == "typed_payload.statistics")
                 && module
+                    .artifacts
+                    .iter()
+                    .any(|artifact| artifact == "typed_payload.numeric_values")
+                && module
+                    .symbols
+                    .iter()
+                    .any(|symbol| symbol.starts_with("duration_above(series: TimeSeries"))
+                && module
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic == "E-STATS-DURATION-CALL-001")
+                && module
                     .tests
                     .iter()
                     .any(|test| test.contains("computes_heat_rate_statistics_and_integral"))

@@ -76,8 +76,9 @@ workflow, and covered by the breaking-change policy.
 ### TimeSeries, Plot, Report, And Review
 
 - Unit-aware TimeSeries calculation on the documented public paths.
-- TimeSeries statistics: mean, time-weighted mean, median, standard deviation,
-  percentiles, duration-above metadata, and trapezoidal integration.
+- TimeSeries statistics: native mean, time-weighted mean, sum, median, standard
+  deviation, percentile, `duration_above(series, threshold)` scalar and
+  summary values, and trapezoidal integration.
 - PlotSpec v1 line plots, measured-vs-simulated multi-series line plots, SVG
   output, plot manifests, report HTML, review JSON, report spec, and result
   artifacts.

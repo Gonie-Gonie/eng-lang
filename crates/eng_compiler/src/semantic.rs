@@ -7873,6 +7873,19 @@ fn statistic_expression_semantic_type(
             return semantic_type(&quantity_kind, &source_binding.semantic_type.display_unit);
         }
     }
+    if statistic.starts_with("duration_above(") {
+        let has_time_axis =
+            crate::stats::time_series_quantity(&source_binding.semantic_type.quantity_kind)
+                .is_some_and(|(axis, _)| axis == "Time")
+                || matches!(
+                    source_binding.semantic_type.quantity_kind.as_str(),
+                    "TimeSeriesAlignmentResult" | "TimeSeriesFillResult"
+                );
+        return has_time_axis.then(|| SemanticType {
+            quantity_kind: "Duration".to_owned(),
+            display_unit: "s".to_owned(),
+        });
+    }
     let (_axis, quantity_kind) =
         crate::stats::time_series_quantity(&source_binding.semantic_type.quantity_kind)?;
     semantic_type(&quantity_kind, &source_binding.semantic_type.display_unit)
@@ -8503,6 +8516,7 @@ fn validate_builtin_call(
     expression: &str,
     expression_span: SourceSpan,
     line: usize,
+    typed_bindings: &[TypedBinding],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let Some(call) = parse_function_call(expression) else {
@@ -8512,7 +8526,155 @@ fn validate_builtin_call(
         "url" => validate_url_constructor_call(expression_span, line, &call, diagnostics),
         "env" => validate_env_constructor_call(expression_span, line, &call, diagnostics),
         "rmse" => validate_rmse_call(expression, expression_span, line, &call, diagnostics),
+        "duration_above" => validate_duration_above_call(
+            expression,
+            expression_span,
+            line,
+            &call,
+            typed_bindings,
+            diagnostics,
+        ),
         _ => {}
+    }
+}
+
+fn validate_duration_above_call(
+    expression: &str,
+    expression_span: SourceSpan,
+    line: usize,
+    call: &FunctionCall,
+    typed_bindings: &[TypedBinding],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let name_span =
+        source_span_for_child_range(expression_span, call.name_range.start, call.name_range.end);
+    let Some(arguments) = function_call_argument_slots(expression) else {
+        return;
+    };
+    if arguments.len() != 2 || arguments.iter().any(|argument| argument.is_empty()) {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-STATS-DURATION-CALL-001",
+                line,
+                &format!(
+                    "duration_above expects a TimeSeries path and threshold, but got {} argument slot(s).",
+                    arguments.len()
+                ),
+                Some("Use duration_above(series, 5 kW)."),
+            )
+            .with_source_span(name_span),
+        );
+        return;
+    }
+
+    let source = arguments[0];
+    let source_range =
+        byte_range_for_subslice(expression, source).unwrap_or(call.name_range.clone());
+    let source_span =
+        source_span_for_child_range(expression_span, source_range.start, source_range.end);
+    if !is_identifier_path(source) {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-STATS-DURATION-SOURCE-001",
+                line,
+                "duration_above source must be a TimeSeries binding or member path.",
+                Some("Pass a path such as Q_coil or sensor.Q_coil."),
+            )
+            .with_source_span(source_span),
+        );
+    }
+
+    let source_binding = typed_bindings.iter().find(|binding| binding.name == source);
+    let source_quantity = source_binding.and_then(|binding| {
+        crate::stats::time_series_quantity(&binding.semantic_type.quantity_kind)
+    });
+    if let Some(binding) = source_binding {
+        let runtime_series = matches!(
+            binding.semantic_type.quantity_kind.as_str(),
+            "TimeSeriesAlignmentResult" | "TimeSeriesFillResult"
+        );
+        if source_quantity.is_none() && !runtime_series {
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-STATS-DURATION-SOURCE-001",
+                    line,
+                    &format!("`{source}` is not a TimeSeries value."),
+                    Some("Pass a TimeSeries[Time] binding as the first argument."),
+                )
+                .with_source_span(source_span),
+            );
+        } else if source_quantity
+            .as_ref()
+            .is_some_and(|(axis, _)| axis != "Time")
+        {
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-STATS-DURATION-SOURCE-001",
+                    line,
+                    "duration_above requires a Time-axis series.",
+                    Some("Use a TimeSeries[Time] source."),
+                )
+                .with_source_span(source_span),
+            );
+        }
+    } else if is_identifier(source) {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-STATS-DURATION-SOURCE-001",
+                line,
+                &format!("Cannot resolve TimeSeries source `{source}`."),
+                Some("Define the TimeSeries binding before calling duration_above."),
+            )
+            .with_source_span(source_span),
+        );
+    }
+
+    let threshold = arguments[1];
+    let threshold_range =
+        byte_range_for_subslice(expression, threshold).unwrap_or(call.name_range.clone());
+    let threshold_span =
+        source_span_for_child_range(expression_span, threshold_range.start, threshold_range.end);
+    let Some((_value, threshold_unit)) = numeric_literal_with_optional_unit(threshold) else {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-STATS-DURATION-CALL-001",
+                line,
+                "duration_above threshold must be a finite numeric quantity literal.",
+                Some("Use a threshold such as 5 kW or 21 degC."),
+            )
+            .with_source_span(threshold_span),
+        );
+        return;
+    };
+    let Some(threshold_unit) = threshold_unit else {
+        return;
+    };
+    if !unit_is_supported(&threshold_unit) {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-STATS-DURATION-UNIT-001",
+                line,
+                &format!("duration_above threshold unit `{threshold_unit}` is not supported."),
+                Some("Use a registered unit compatible with the TimeSeries value quantity."),
+            )
+            .with_source_span(threshold_span),
+        );
+        return;
+    }
+    if let Some((_axis, quantity_kind)) = source_quantity {
+        if !unit_compatible_with_quantity(&quantity_kind, &threshold_unit) {
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-STATS-DURATION-UNIT-001",
+                    line,
+                    &format!(
+                        "duration_above threshold unit `{threshold_unit}` is not compatible with `{quantity_kind}`."
+                    ),
+                    Some("Use a threshold unit compatible with the TimeSeries value quantity."),
+                )
+                .with_source_span(threshold_span),
+            );
+        }
     }
 }
 
@@ -8724,6 +8886,7 @@ fn is_builtin_function(name: &str) -> bool {
             | "url"
             | "env"
             | "rmse"
+            | "duration_above"
             | "file"
             | "dir"
             | "join"
@@ -8752,24 +8915,41 @@ fn expression_dimension_for_bindings(
     expression_dimension_with_symbols(expression, &symbols)
 }
 
-fn parse_statistic_expression(expression: &str) -> Option<(String, String)> {
-    let trimmed = expression.trim();
-    let open = trimmed.find('(')?;
-    let statistic = trimmed[..open].trim();
+/// Returns the canonical statistic selector and source path for a value-style TimeSeries call.
+pub fn timeseries_statistic_operands(expression: &str) -> Option<(String, String)> {
+    let call = parse_function_call(expression)?;
+    let arguments = function_call_argument_slots(expression)?;
+    if call.name == "duration_above" {
+        if arguments.len() != 2
+            || !is_identifier_path(arguments[0])
+            || numeric_literal_with_optional_unit(arguments[1]).is_none()
+        {
+            return None;
+        }
+        return Some((
+            format!("duration_above({})", arguments[1]),
+            arguments[0].to_owned(),
+        ));
+    }
     if !matches!(
-        statistic,
-        "mean" | "time_weighted_mean" | "max" | "min" | "median" | "std"
-    ) && !statistic.starts_with('p')
+        call.name.as_str(),
+        "mean" | "time_weighted_mean" | "max" | "min" | "median" | "std" | "sum"
+    ) && !is_percentile_statistic(&call.name)
     {
         return None;
     }
-    let rest = trimmed[open + 1..].trim();
-    let source = rest
-        .split([',', ')'])
-        .next()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())?;
-    Some((statistic.to_owned(), source.to_owned()))
+    let valid_axis = arguments.len() == 2
+        && arguments[1]
+            .split_once('=')
+            .is_some_and(|(name, value)| name.trim() == "axis" && value.trim() == "Time");
+    if !(arguments.len() == 1 || valid_axis) || !is_identifier_path(arguments[0]) {
+        return None;
+    }
+    Some((call.name, arguments[0].to_owned()))
+}
+
+fn parse_statistic_expression(expression: &str) -> Option<(String, String)> {
+    timeseries_statistic_operands(expression)
 }
 
 fn validate_requested_unit(
@@ -8886,7 +9066,13 @@ fn analyze_args_field(
     if let (Some(default_value), Some(default_value_span)) =
         (&field.default_value, field.default_value_span)
     {
-        validate_builtin_call(default_value, default_value_span, field.line, diagnostics);
+        validate_builtin_call(
+            default_value,
+            default_value_span,
+            field.line,
+            &[],
+            diagnostics,
+        );
     }
     args_block.fields.push(ArgsFieldInfo {
         name: field.name.clone(),
@@ -15146,6 +15332,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
             &binding.expression,
             binding.expression_span,
             binding.line,
+            &available_bindings,
             accum.diagnostics,
         );
     }
@@ -16681,7 +16868,7 @@ fn first_table_reference(expression: &str) -> Option<String> {
 mod tests {
     use super::{
         is_builtin_function, parse_function_call, rmse_operands,
-        split_top_level_scalar_arithmetic_slices,
+        split_top_level_scalar_arithmetic_slices, timeseries_statistic_operands,
     };
 
     #[test]
@@ -16732,6 +16919,7 @@ mod tests {
         assert!(is_builtin_function("url"));
         assert!(is_builtin_function("env"));
         assert!(is_builtin_function("rmse"));
+        assert!(is_builtin_function("duration_above"));
         assert!(!is_builtin_function("render"));
         assert!(!is_builtin_function("phantom"));
 
@@ -16746,5 +16934,15 @@ mod tests {
         assert!(rmse_operands("rmse(measured.T)").is_none());
         assert!(rmse_operands("rmse(measured.T,, simulated.T)").is_none());
         assert!(rmse_operands("rmse(measured.T + offset, simulated.T)").is_none());
+        assert_eq!(
+            timeseries_statistic_operands("duration_above(Q_series, 4 kW)"),
+            Some(("duration_above(4 kW)".to_owned(), "Q_series".to_owned()))
+        );
+        assert_eq!(
+            timeseries_statistic_operands("sum(Q_series, axis = Time)"),
+            Some(("sum".to_owned(), "Q_series".to_owned()))
+        );
+        assert!(timeseries_statistic_operands("duration_above(Q_series)").is_none());
+        assert!(timeseries_statistic_operands("sum(Q_series, axis=Frequency)").is_none());
     }
 }

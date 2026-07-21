@@ -1489,13 +1489,25 @@ max
 min
 median
 std
+sum
 p90
 p95
 duration_above(5 kW)
 ```
 
-Here `duration_above(...)` is a statistic selector inside `summarize`; it is not
-a general top-level value-returning call.
+Inside `summarize`, `duration_above(threshold)` keeps its compact selector
+form. The same native kernels are available as value calls:
+
+```eng partial
+sample_total = sum(Q_coil)
+hot_duration = duration_above(Q_coil, 5 kW)
+```
+
+`sample_total` has the TimeSeries value quantity and `hot_duration` is
+`Duration [s]`. `sum` is a sample-value reduction, not Time integration;
+use `integrate(Q_coil, over=Time)` when HeatRate should become Energy.
+The older `axis=Time` spelling remains accepted, but the one-argument form is
+the canonical API because the axis is already part of the TimeSeries type.
 
 Plot output under `eng run --save-artifacts` includes:
 

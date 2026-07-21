@@ -34,7 +34,7 @@ is still future work.
 | `eng.sampling` | Deterministic grid/random/LHS sample generation, promoted sample-table metadata, parameter ranges, duplicate case IDs, seeds, row hashes, and row-value previews. |
 | `eng.case` | Native CaseTable/CaseOutput/CaseRunResult/CaseResultCollection stages, template and explicit sequential or bounded parallel calculation execution, verified local result-cache replay, manifests, diagnostics, and process-adapter enrichment. |
 | `eng.timeseries` | Axis, coverage, fill, quality, alignment/resampling, and integration metadata above core TimeSeries semantics. |
-| `eng.stats` | Compiler-checked TimeSeries summaries with native runtime values and report/review artifacts. |
+| `eng.stats` | Compiler-checked TimeSeries summaries plus native `duration_above(series, threshold)` and `sum(series)` scalar values, JIT reductions, and report/review artifacts. |
 | `eng.review` | Review IR, risk/fallback, and semantic diff vocabulary. |
 | `eng.workflow` | Static/runtime RunPlan, run lock, dependency graph, rerun decisions, and workflow node status artifacts. |
 

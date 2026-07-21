@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v2",
-    "completion_items_count":  454,
+    "completion_items_count":  456,
     "completion_items":  [
                              {
                                  "detail":  "Schema array value",
@@ -584,7 +584,7 @@
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "eng.stats threshold duration",
+                                 "detail":  "eng.stats native duration: duration_above(series, threshold) -\u003e Duration [s]",
                                  "kind":  "function",
                                  "label":  "duration_above",
                                  "lsp_kind":  3
@@ -608,7 +608,7 @@
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "domain conservation sum",
+                                 "detail":  "eng.stats native sample sum: sum(series)",
                                  "kind":  "function",
                                  "label":  "sum",
                                  "lsp_kind":  3
@@ -2140,9 +2140,21 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native: Compiler-checked TimeSeries summarize directives with runtime-computed mean, time-weighted mean, min, max, median, population standard deviation, nearest-rank percentiles, and duration-above values.",
+                                 "detail":  "Native: Compiler-checked TimeSeries summarize directives and value calls with runtime-computed mean, time-weighted mean, sum, min, max, median, population standard deviation, nearest-rank percentiles, and duration-above values.",
                                  "kind":  "stdlib",
                                  "label":  "eng.stats",
+                                 "lsp_kind":  9
+                             },
+                             {
+                                 "detail":  "eng.stats duration_above(series: TimeSeries, threshold: Quantity) -\u003e Duration [s]",
+                                 "kind":  "stdlib",
+                                 "label":  "duration_above(...)",
+                                 "lsp_kind":  9
+                             },
+                             {
+                                 "detail":  "eng.stats sum(series: TimeSeries) -\u003e Quantity",
+                                 "kind":  "stdlib",
+                                 "label":  "sum(...)",
                                  "lsp_kind":  9
                              },
                              {

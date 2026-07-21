@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, normalize_unit, parse_percentile_fraction,
-    rmse_operands, CheckReport, SchemaColumn, SchemaInfo,
+    rmse_operands, timeseries_statistic_operands, CheckReport, SchemaColumn, SchemaInfo,
 };
 use eng_report::{
     PlotAxis, PlotBin, PlotConfidenceBand, PlotPoint, PlotSeries, PlotSpec, ReportAssemblyBoundary,
@@ -3176,7 +3176,6 @@ pub(crate) fn materialize_runtime_data_with_result_dir(
         &data.integrations,
     );
     data.uncertainties = materialize_uncertainties(report);
-    data.numeric_values = materialize_numeric_values(report, &data.uncertainties);
     data.ml_artifacts = materialize_ml_artifacts(report, &data.time_series, &data.tables);
     let prediction_tables = materialize_prediction_tables(&data.ml_artifacts, &data.tables);
     if !prediction_tables.is_empty() {
@@ -3184,6 +3183,13 @@ pub(crate) fn materialize_runtime_data_with_result_dir(
         data.table_diagnostics = materialize_table_diagnostics(&data.tables, &data.time_axes);
     }
     data.metrics = materialize_metrics(report, &data.time_series, &data.time_alignments);
+    data.numeric_values = materialize_numeric_values(
+        report,
+        &data.uncertainties,
+        &data.time_series,
+        &data.integrations,
+        &data.metrics,
+    );
     data.validations = materialize_validations(
         report,
         &data.metrics,
@@ -9065,6 +9071,19 @@ fn statistic_uncertainty_stddev(
             },
         );
     }
+    if name == "sum" {
+        let count = series.points.len();
+        let stddev = (count > 0).then(|| sensor_std * (count as f64).sqrt());
+        return (
+            stddev,
+            "independent_pointwise_sensor_std_sum".to_owned(),
+            if stddev.is_some() {
+                "propagated_sensor_std".to_owned()
+            } else {
+                "unavailable".to_owned()
+            },
+        );
+    }
     if name.starts_with("duration_above(") {
         let stddev = duration_above_uncertainty_stddev(name, series, sensor_std);
         return (
@@ -10235,6 +10254,9 @@ fn materialize_uncertainties(report: &CheckReport) -> Vec<RuntimeUncertainty> {
 fn materialize_numeric_values(
     report: &CheckReport,
     uncertainties: &[RuntimeUncertainty],
+    series: &[RuntimeTimeSeries],
+    integrations: &[RuntimeIntegration],
+    metrics: &[RuntimeMetric],
 ) -> Vec<RuntimeNumericValue> {
     report
         .semantic_program
@@ -10245,6 +10267,8 @@ fn materialize_numeric_values(
             let uncertainty = uncertainties
                 .iter()
                 .find(|uncertainty| uncertainty.binding == binding.name);
+            let computed_value =
+                runtime_numeric_binding_value(report, &binding.name, series, integrations, metrics);
             RuntimeNumericValue {
                 binding: binding.name.clone(),
                 value_kind: "scalar".to_owned(),
@@ -10253,7 +10277,9 @@ fn materialize_numeric_values(
                 representation: uncertainty
                     .map(|uncertainty| uncertainty.kind.clone())
                     .unwrap_or_else(|| "Certain".to_owned()),
-                value: uncertainty.and_then(|uncertainty| uncertainty.mean),
+                value: uncertainty
+                    .and_then(|uncertainty| uncertainty.mean)
+                    .or(computed_value),
                 uncertainty: uncertainty.map(runtime_numeric_uncertainty_payload),
                 status: if uncertainty.is_some() {
                     "uncertainty_attached".to_owned()
@@ -10264,6 +10290,40 @@ fn materialize_numeric_values(
             }
         })
         .collect()
+}
+
+fn runtime_numeric_binding_value(
+    report: &CheckReport,
+    binding: &str,
+    series: &[RuntimeTimeSeries],
+    integrations: &[RuntimeIntegration],
+    metrics: &[RuntimeMetric],
+) -> Option<f64> {
+    if let Some(metric) = metrics.iter().find(|metric| metric.binding == binding) {
+        return (metric.status == "computed").then_some(metric.value);
+    }
+    if let Some(integration) = integrations
+        .iter()
+        .find(|integration| integration.binding == binding)
+    {
+        return (integration.status == "computed").then_some(integration.value);
+    }
+    let expression = report
+        .inferred_declarations
+        .iter()
+        .find(|declaration| declaration.name == binding)
+        .map(|declaration| declaration.expression.as_str())
+        .or_else(|| {
+            report
+                .semantic_program
+                .hover_hints
+                .iter()
+                .find(|hover| hover.name == binding)
+                .and_then(|hover| hover.expression.as_deref())
+        })?;
+    let (statistic, source) = timeseries_statistic_operands(expression)?;
+    let source_series = series.iter().find(|series| series.name == source)?;
+    statistic_value(&statistic, source_series).map(|value| value.value)
 }
 
 fn runtime_numeric_binding(report: &CheckReport, binding: &eng_compiler::TypedBinding) -> bool {
@@ -20958,7 +21018,10 @@ fn number_with_optional_unit(text: &str) -> Option<(f64, Option<String>)> {
     None
 }
 
-fn statistic_value(name: &str, series: &RuntimeTimeSeries) -> Option<RuntimeStatisticValue> {
+pub(crate) fn statistic_value(
+    name: &str,
+    series: &RuntimeTimeSeries,
+) -> Option<RuntimeStatisticValue> {
     let values = series
         .points
         .iter()
@@ -20983,6 +21046,7 @@ fn statistic_value(name: &str, series: &RuntimeTimeSeries) -> Option<RuntimeStat
         ),
         "median" => (median(&values)?, series.display_unit.clone()),
         "std" => (population_std(&values)?, series.display_unit.clone()),
+        "sum" => (values.iter().sum::<f64>(), series.display_unit.clone()),
         percentile if parse_percentile_fraction(percentile).is_some() => (
             nearest_rank_percentile(&values, parse_percentile_fraction(percentile)?)?,
             series.display_unit.clone(),
@@ -21045,11 +21109,10 @@ fn duration_above_threshold(name: &str, display_unit: &str) -> Option<f64> {
         .strip_prefix("duration_above(")?
         .strip_suffix(')')?;
     let (value, unit) = number_with_optional_unit(inside)?;
-    Some(
-        unit.as_deref()
-            .map(|unit| convert_display_value(value, unit, display_unit))
-            .unwrap_or(value),
-    )
+    match unit.as_deref() {
+        Some(unit) => try_convert_display_value(value, unit, display_unit),
+        None => Some(value),
+    }
 }
 
 fn duration_above(series: &RuntimeTimeSeries, threshold: f64) -> Option<f64> {
@@ -21120,18 +21183,38 @@ fn optional_number_at(column: &RuntimeColumn, index: usize) -> Option<f64> {
 }
 
 fn convert_display_value(value: f64, from_unit: &str, to_unit: &str) -> f64 {
+    try_convert_display_value(value, from_unit, to_unit).unwrap_or(value)
+}
+
+fn try_convert_display_value(value: f64, from_unit: &str, to_unit: &str) -> Option<f64> {
     let from_unit = normalize_unit(from_unit);
     let to_unit = normalize_unit(to_unit);
-    match (from_unit.as_str(), to_unit.as_str()) {
-        ("w", "kw") => value / 1000.0,
-        ("kw", "w") => value * 1000.0,
-        ("pa", "kpa") => value / 1000.0,
-        ("kpa", "pa") => value * 1000.0,
-        ("degc", "degc") => value,
-        ("k", "degc") => value - 273.15,
-        ("degc", "k") => value + 273.15,
-        _ => value,
+    if from_unit == to_unit {
+        return Some(value);
     }
+    let from_info = all_unit_infos()
+        .iter()
+        .find(|info| normalize_unit(info.symbol) == from_unit)?;
+    let to_info = all_unit_infos()
+        .iter()
+        .find(|info| normalize_unit(info.symbol) == to_unit)?;
+    if normalize_unit(from_info.canonical_unit) != normalize_unit(to_info.canonical_unit) {
+        return None;
+    }
+    let from_scale = from_info.scale_to_canonical.parse::<f64>().ok()?;
+    let from_offset = from_info
+        .affine_offset
+        .and_then(|offset| offset.parse::<f64>().ok())
+        .unwrap_or(0.0);
+    let to_scale = to_info.scale_to_canonical.parse::<f64>().ok()?;
+    if !to_scale.is_finite() || to_scale.abs() <= f64::EPSILON {
+        return None;
+    }
+    let to_offset = to_info
+        .affine_offset
+        .and_then(|offset| offset.parse::<f64>().ok())
+        .unwrap_or(0.0);
+    Some((value * from_scale + from_offset - to_offset) / to_scale)
 }
 
 fn convert_delta_value(value: f64, from_unit: &str, to_unit: &str) -> f64 {
@@ -22554,6 +22637,23 @@ report {
     }
 
     #[test]
+    fn statistic_threshold_conversion_uses_the_unit_registry() {
+        assert_eq!(
+            duration_above_threshold("duration_above(50 cm)", "m"),
+            Some(0.5)
+        );
+        assert_eq!(
+            duration_above_threshold("duration_above(2 kW)", "W"),
+            Some(2000.0)
+        );
+        assert_eq!(
+            duration_above_threshold("duration_above(21 degC)", "K"),
+            Some(294.15)
+        );
+        assert_eq!(duration_above_threshold("duration_above(2 m)", "W"), None);
+    }
+
+    #[test]
     fn materializes_uncertainty_samples_and_histogram_plot() {
         let source = r#"
 Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)
@@ -22860,6 +22960,14 @@ Q_unc = propagate(Q_missing, method=linear, samples=8)
         assert_eq!(
             stat_unit(&runtime.statistics[0].values, "duration_above(5 kW)").as_deref(),
             Some("s")
+        );
+        assert_eq!(
+            round2(
+                statistic_value("sum", &runtime.time_series[0])
+                    .expect("native sum")
+                    .value
+            ),
+            20289.72
         );
         assert_eq!(round2(runtime.integrations[0].value), 4543242.0);
         assert_eq!(runtime.policy_results.len(), 7);

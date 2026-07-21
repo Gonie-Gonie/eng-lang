@@ -83,6 +83,9 @@ E-TABLE-PREDICATE-TYPE table filter predicate compares a schema column with an i
 E-TABLE-JOIN-KEY-MISMATCH join key does not compare columns from the joined tables
 E-TABLE-SCHEMA-MISMATCH table join key columns have incompatible schema types
 E-RMSE-CALL-001       rmse requires exactly two TimeSeries binding or member paths
+E-STATS-DURATION-CALL-001 duration_above requires a series and finite threshold literal
+E-STATS-DURATION-SOURCE-001 duration_above source is not a Time-axis series path
+E-STATS-DURATION-UNIT-001 duration_above threshold unit is unsupported or incompatible
 E-URL-CALL-001        url constructor requires one quoted HTTP(S) address
 E-NET-INVALID-URL     supplied or resolved network URL is not absolute HTTP(S)
 E-NET-RETRY-POLICY    network retry value is not an integer from 0 to 5

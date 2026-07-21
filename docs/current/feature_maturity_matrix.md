@@ -44,9 +44,10 @@ separate.
 
 - Public package: `Stable`
 - Main status: `Stable` with supported plot/report variants
-- User-facing scope: unit-aware TimeSeries calculation, statistics,
-  integration, PlotSpec/SVG, report HTML, review JSON, report spec, and result
-  artifacts.
+- User-facing scope: unit-aware TimeSeries calculation; native summary and
+  value-call statistics including `sum(series)` and
+  `duration_above(series, threshold)`; integration; PlotSpec/SVG; report
+  HTML; review JSON; report spec; and numeric result artifacts.
 - Evidence: official CSV workflow, artifact schemas, report/plot guides,
   artifacts check.
 - Not included: broad arbitrary TimeSeries expressions, rich interactive

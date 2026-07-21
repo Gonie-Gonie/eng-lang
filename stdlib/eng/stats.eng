@@ -1,12 +1,15 @@
 # module: eng.stats
 # status: native-workflow-support-timeseries-summary-runtime
-# purpose: Compiler-checked TimeSeries summaries with runtime-computed values and review/report artifacts.
+# purpose: Compiler-checked TimeSeries summaries and scalar value calls with runtime-computed values and review/report artifacts.
 #
 # Current implementation:
 #   `report { summarize <series> by [...] }` validates the summary source and
 #   statistic vocabulary. Runtime execution computes values from materialized
 #   TimeSeries points and writes typed_payload.statistics[] plus
 #   report_spec.computed_statistics[] records.
+#   `duration_above(series, threshold)` and `sum(series)` also
+#   execute as scalar value calls and write their native result to
+#   typed_payload.numeric_values[].
 #
 # Supported summary vocabulary:
 #   mean
@@ -15,6 +18,7 @@
 #   max
 #   median
 #   std (population standard deviation)
+#   sum (sample-value reduction; not Time integration)
 #   pNN (nearest-rank percentile, including p90 and p95)
 #   duration_above(<quantity threshold>)
 #

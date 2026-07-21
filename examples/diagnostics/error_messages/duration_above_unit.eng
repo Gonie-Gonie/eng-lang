@@ -1,0 +1,2 @@
+Q: TimeSeries[Time] of HeatRate [kW] = 5 kW
+bad_duration = duration_above(Q, 2 m)

@@ -67,7 +67,9 @@ pub use schema::{
     ConfigPromotion, ConfigTypeMismatch, CsvPromotion, MissingPolicy, SchemaColumn,
     SchemaConstraint, SchemaInfo,
 };
-pub use semantic::{db_read_expression, read_only_io_expression, rmse_operands};
+pub use semantic::{
+    db_read_expression, read_only_io_expression, rmse_operands, timeseries_statistic_operands,
+};
 pub use semantic::{
     ArgValueInfo, ArgsBlockInfo, ArgsFieldInfo, AssertInfo, ClassFieldInfo, ClassInfo,
     ClassMethodInfo, ClassObjectFieldInfo, ClassObjectInfo, ClassObjectValidationInfo,
@@ -17677,6 +17679,80 @@ with {
                 .find(|diagnostic| diagnostic.code == "E-RMSE-CALL-001" && diagnostic.line == line)
                 .unwrap_or_else(|| panic!("missing RMSE diagnostic on line {line}"));
             let span = diagnostic.source_span.expect("RMSE diagnostic source span");
+            assert_eq!(&source[span.start..span.end], text);
+        }
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-FN-CALL-001"));
+    }
+
+    #[test]
+    fn duration_above_and_sum_value_calls_have_native_semantic_types() {
+        let report = check_source(
+            "statistics.eng",
+            concat!(
+                "Q: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
+                "occupied = duration_above(Q, 4 kW)\n",
+                "sample_total = sum(Q)\n",
+            ),
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let occupied = report
+            .inferred_declarations
+            .iter()
+            .find(|declaration| declaration.name == "occupied")
+            .expect("duration_above binding");
+        assert_eq!(occupied.quantity_kind, "Duration");
+        assert_eq!(occupied.display_unit, "s");
+        let sample_total = report
+            .inferred_declarations
+            .iter()
+            .find(|declaration| declaration.name == "sample_total")
+            .expect("sum binding");
+        assert_eq!(sample_total.quantity_kind, "HeatRate");
+        assert_eq!(sample_total.display_unit, "kW");
+        assert!(report.diagnostics.iter().all(|diagnostic| !matches!(
+            diagnostic.code.as_str(),
+            "E-FN-CALL-001" | "W-STATS-SUM-001"
+        )));
+    }
+
+    #[test]
+    fn duration_above_diagnostics_preserve_argument_ranges() {
+        let source = concat!(
+            "Q: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
+            "scalar = 2 kW\n",
+            "bad_arity = duration_above(Q)\n",
+            "bad_empty = duration_above(Q,)\n",
+            "bad_source = duration_above(scalar, 2 kW)\n",
+            "bad_missing = duration_above(missing, 2 kW)\n",
+            "bad_threshold = duration_above(Q, limit)\n",
+            "bad_unit = duration_above(Q, 2 m)\n",
+            "bad_expression = duration_above(Q + offset, 2 kW)\n",
+        );
+        let report = check_source("bad-statistics.eng", source, &CheckOptions::default());
+        let expected = [
+            (3, "E-STATS-DURATION-CALL-001", "duration_above"),
+            (4, "E-STATS-DURATION-CALL-001", "duration_above"),
+            (5, "E-STATS-DURATION-SOURCE-001", "scalar"),
+            (6, "E-STATS-DURATION-SOURCE-001", "missing"),
+            (7, "E-STATS-DURATION-CALL-001", "limit"),
+            (8, "E-STATS-DURATION-UNIT-001", "2 m"),
+            (9, "E-STATS-DURATION-SOURCE-001", "Q + offset"),
+        ];
+
+        for (line, code, text) in expected {
+            let diagnostic = report
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code && diagnostic.line == line)
+                .unwrap_or_else(|| panic!("missing {code} on line {line}"));
+            let span = diagnostic
+                .source_span
+                .expect("duration_above diagnostic source span");
             assert_eq!(&source[span.start..span.end], text);
         }
         assert!(report

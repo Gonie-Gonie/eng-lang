@@ -197,11 +197,12 @@ tests = ["cargo test -p eng_report"]
 [module."eng.stats"]
 status = "native_preview"
 backing = "compiler_runtime_builtin"
-purpose = "Compiler-checked TimeSeries summarize directives with runtime-computed mean, time-weighted mean, min, max, median, population standard deviation, nearest-rank percentiles, and duration-above values."
-artifacts = ["typed_payload.statistics", "report_spec.computed_statistics", "review_document.calculations", "review_document.report_outputs"]
-diagnostics = ["W-STATS-SUM-001"]
+purpose = "Compiler-checked TimeSeries summarize directives and value calls with runtime-computed mean, time-weighted mean, sum, min, max, median, population standard deviation, nearest-rank percentiles, and duration-above values."
+artifacts = ["typed_payload.numeric_values", "typed_payload.statistics", "report_spec.computed_statistics", "review_document.calculations", "review_document.report_outputs"]
+diagnostics = ["E-STATS-DURATION-CALL-001", "E-STATS-DURATION-SOURCE-001", "E-STATS-DURATION-UNIT-001", "W-STATS-SUM-001"]
 examples = ["examples/official/01_csv_plot", "examples/workflows/03_uncertain_sensor_report"]
-tests = ["cargo test -p eng_compiler stats", "cargo test -p eng_runtime computes_heat_rate_statistics_and_integral"]
+tests = ["cargo test -p eng_compiler duration_above_", "cargo test -p eng_runtime computes_heat_rate_statistics_and_integral", "cargo test -p eng_runtime run_file_executes_value_style_sum_and_duration_above", "cargo test -p eng_jit executes_native_sum_statistic_reduction"]
+symbols = ["duration_above(series: TimeSeries, threshold: Quantity) -> Duration [s]", "sum(series: TimeSeries) -> Quantity"]
 
 [module."eng.plot"]
 status = "native_preview"

@@ -136,6 +136,7 @@ pub enum KernelBinaryOp {
 #[derive(Clone, Debug, PartialEq)]
 pub enum KernelStatisticOp {
     Mean,
+    Sum,
     TimeWeightedMean,
     Max,
     Min,
@@ -989,6 +990,7 @@ pub fn timeseries_arithmetic_ir_for_binding(
 fn statistic_reduction_op(name: &str) -> Option<KernelStatisticOp> {
     match name {
         "mean" => Some(KernelStatisticOp::Mean),
+        "sum" => Some(KernelStatisticOp::Sum),
         "time_weighted_mean" => Some(KernelStatisticOp::TimeWeightedMean),
         "max" => Some(KernelStatisticOp::Max),
         "min" => Some(KernelStatisticOp::Min),
@@ -1296,6 +1298,7 @@ fn execute_statistic_reduction(
     }
     match op {
         KernelStatisticOp::Mean => Ok(values.iter().sum::<f64>() / values.len() as f64),
+        KernelStatisticOp::Sum => Ok(values.iter().sum()),
         KernelStatisticOp::TimeWeightedMean => {
             let duration = timestep_s * values.len().saturating_sub(1) as f64;
             if duration <= 0.0 {
@@ -2502,6 +2505,16 @@ mod tests {
         assert!((values[5] - 5417.28).abs() < 1e-9);
         assert!((values[6] - 5417.28).abs() < 1e-9);
         assert!((values[7] - 299.4832535885168).abs() < 1e-9);
+    }
+
+    #[test]
+    fn executes_native_sum_statistic_reduction() {
+        assert_eq!(statistic_reduction_op("sum"), Some(KernelStatisticOp::Sum));
+        assert_eq!(
+            execute_statistic_reduction(&[1.0, 2.0, 3.0], &KernelStatisticOp::Sum, 60.0)
+                .expect("sum reduction"),
+            6.0
+        );
     }
 
     #[test]

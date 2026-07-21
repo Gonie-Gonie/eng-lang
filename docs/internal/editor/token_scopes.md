@@ -126,7 +126,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `support.function.deprecated.englang` | Deprecated helper calls such as `select_first_row(...)`, `regression_table(...)`, and `train_regression(...)`; editor migration actions target their preferred forms. |
 | `support.function.model.englang` | Preferred model-training and model-summary helper calls such as `regression(...)`, `train_test_split(...)`, `mlp(...)`, `ann(...)`, `evaluate(...)`, `model_card(...)`, and `leakage_lint(...)`. |
 | `support.function.uncertain.englang` | Uncertainty helper calls such as `measured(...)`, `interval(...)`, `normal(...)`, `uniform(...)`, `distribution(...)`, `propagate(...)`, `ensemble(...)`, and `probability(...)`. |
-| `support.function.timeseries.englang` | TimeSeries/statistic calls such as `integrate(...)`, `mean(...)`, `min(...)`, `max(...)`, `median(...)`, `std(...)`, `sum(...)`, `time_weighted_mean(...)`, and `p90(...)`; `duration_above(...)` uses this color as a `summarize` statistic selector rather than a public top-level value call. |
+| `support.function.timeseries.englang` | Native TimeSeries/statistic calls such as `integrate(...)`, `mean(...)`, `min(...)`, `max(...)`, `median(...)`, `std(...)`, `sum(...)`, `time_weighted_mean(...)`, `p90(...)`, and `duration_above(...)`; the latter also has a compact threshold-only selector inside `summarize`. |
 | `support.function.external-boundary.englang` | External boundary constructors/checks such as `file(...)`, `dir(...)`, `url(...)`, `env(...)`, `secret env(...)`, and `exists(...)`. |
 | `support.function.workflow-step.englang` | Workflow-step helper calls such as `apply(...)` and step values such as `run_case`. |
 | `support.function.solver.englang` | Solver-context calls: `der(...)` is an equation operator and `delay(...)` is a component behavior call, not a general top-level helper. |
@@ -208,7 +208,8 @@ fallback for incomplete editor states, not as evidence that an additional
 public call-style API is implemented.
 
 These color roles are context classifications, not top-level API claims.
-`duration_above(...)` is a `summarize` statistic selector, `delay(...)` is
+`duration_above(...)` is both a native value call and a compact
+`summarize` statistic selector, `delay(...)` is
 component behavior syntax, and `fill_missing(...)` is compatibility-colored
 while public authoring uses `fill missing ...`.
 
