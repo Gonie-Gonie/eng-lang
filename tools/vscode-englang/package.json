@@ -397,6 +397,10 @@
             "entity.name.function.workflow-step.englang",
             "variable.parameter.property.englang"
           ],
+          "parameter.axis": [
+            "entity.name.function.workflow-step.englang",
+            "variable.parameter.property.englang"
+          ],
           "variable.axis": [
             "entity.name.function.workflow-step.englang",
             "variable.other.definition.englang"

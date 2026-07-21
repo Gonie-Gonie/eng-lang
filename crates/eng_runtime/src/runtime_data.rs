@@ -10268,7 +10268,7 @@ fn materialize_numeric_values(
                 .iter()
                 .find(|uncertainty| uncertainty.binding == binding.name);
             let computed_value =
-                runtime_numeric_binding_value(report, &binding.name, series, integrations, metrics);
+                runtime_numeric_binding_value(report, binding, series, integrations, metrics);
             RuntimeNumericValue {
                 binding: binding.name.clone(),
                 value_kind: "scalar".to_owned(),
@@ -10294,36 +10294,66 @@ fn materialize_numeric_values(
 
 fn runtime_numeric_binding_value(
     report: &CheckReport,
-    binding: &str,
+    binding: &eng_compiler::TypedBinding,
     series: &[RuntimeTimeSeries],
     integrations: &[RuntimeIntegration],
     metrics: &[RuntimeMetric],
 ) -> Option<f64> {
-    if let Some(metric) = metrics.iter().find(|metric| metric.binding == binding) {
-        return (metric.status == "computed").then_some(metric.value);
+    if let Some(metric) = metrics.iter().find(|metric| metric.binding == binding.name) {
+        if metric.status != "computed" {
+            return None;
+        }
+        return computed_scalar_in_display_unit(
+            metric.value,
+            &metric.unit,
+            &binding.semantic_type.display_unit,
+        );
     }
     if let Some(integration) = integrations
         .iter()
-        .find(|integration| integration.binding == binding)
+        .find(|integration| integration.binding == binding.name)
     {
-        return (integration.status == "computed").then_some(integration.value);
+        if integration.status != "computed" {
+            return None;
+        }
+        return computed_scalar_in_display_unit(
+            integration.value,
+            &integration.unit,
+            &binding.semantic_type.display_unit,
+        );
     }
     let expression = report
         .inferred_declarations
         .iter()
-        .find(|declaration| declaration.name == binding)
+        .find(|declaration| declaration.name == binding.name)
         .map(|declaration| declaration.expression.as_str())
         .or_else(|| {
             report
                 .semantic_program
                 .hover_hints
                 .iter()
-                .find(|hover| hover.name == binding)
+                .find(|hover| hover.name == binding.name)
                 .and_then(|hover| hover.expression.as_deref())
         })?;
     let (statistic, source) = timeseries_statistic_operands(expression)?;
     let source_series = series.iter().find(|series| series.name == source)?;
-    statistic_value(&statistic, source_series).map(|value| value.value)
+    let value = statistic_value(&statistic, source_series)?;
+    computed_scalar_in_display_unit(
+        value.value,
+        &value.unit,
+        &binding.semantic_type.display_unit,
+    )
+}
+
+fn computed_scalar_in_display_unit(
+    value: f64,
+    source_unit: &str,
+    display_unit: &str,
+) -> Option<f64> {
+    if display_unit.is_empty() {
+        return Some(value);
+    }
+    try_convert_display_value(value, source_unit, display_unit)
 }
 
 fn runtime_numeric_binding(report: &CheckReport, binding: &eng_compiler::TypedBinding) -> bool {

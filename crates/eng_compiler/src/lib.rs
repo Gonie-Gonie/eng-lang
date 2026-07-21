@@ -17762,6 +17762,49 @@ with {
     }
 
     #[test]
+    fn explicit_computed_scalars_share_native_validation_and_metadata() {
+        let source = concat!(
+            "Q: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
+            "sample_total: HeatRate [W] = sum(Q)\n",
+            "occupied: Duration [min] = duration_above(Q, 4 kW)\n",
+            "energy: Energy [kWh] = integrate(Q, over=Time)\n",
+            "error: HeatRate [W] = rmse(Q, Q)\n",
+            "bad_duration: Duration [s] = duration_above(Q, 2 m)\n",
+            "bad_rmse: HeatRate [kW] = rmse(Q)\n",
+        );
+        let report = check_source("explicit-computed.eng", source, &CheckOptions::default());
+
+        for (line, code, text) in [
+            (6, "E-STATS-DURATION-UNIT-001", "2 m"),
+            (7, "E-RMSE-CALL-001", "rmse"),
+        ] {
+            let diagnostic = report
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code && diagnostic.line == line)
+                .unwrap_or_else(|| panic!("missing {code} on line {line}"));
+            let span = diagnostic.source_span.expect("explicit call source span");
+            assert_eq!(&source[span.start..span.end], text);
+        }
+        assert!(report
+            .semantic_program
+            .integrations
+            .iter()
+            .any(|integration| integration.binding == "energy"
+                && integration.source == "Q"
+                && integration.over_axis == "Time"));
+        for binding in ["sample_total", "occupied", "energy", "error"] {
+            assert!(
+                report
+                    .inferred_declarations
+                    .iter()
+                    .any(|declaration| declaration.name == binding),
+                "missing computed declaration metadata for {binding}"
+            );
+        }
+    }
+
+    #[test]
     fn lowers_expectation_suite_records() {
         let source = concat!(
             "expect weather {\n",

@@ -413,6 +413,19 @@ mod tests {
                     .any(|test| test.contains("computes_heat_rate_statistics_and_integral"))
         }));
         assert!(registry.modules.iter().any(|module| {
+            module.name == "eng.timeseries"
+                && module.status == "native_preview"
+                && module
+                    .artifacts
+                    .iter()
+                    .any(|artifact| artifact == "typed_payload.numeric_values")
+                && module.tests.iter().any(|test| {
+                    test.contains(
+                        "run_file_materializes_explicit_computed_scalars_in_declared_units",
+                    )
+                })
+        }));
+        assert!(registry.modules.iter().any(|module| {
             module.name == "eng.quality"
                 && module.status == "native_preview"
                 && module
@@ -423,6 +436,10 @@ mod tests {
                     .artifacts
                     .iter()
                     .any(|artifact| artifact == "typed_payload.metrics")
+                && module
+                    .artifacts
+                    .iter()
+                    .any(|artifact| artifact == "typed_payload.numeric_values")
                 && module
                     .diagnostics
                     .iter()

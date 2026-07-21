@@ -276,6 +276,7 @@
     "parameter.report": "#6F42C1",
     "parameter.solver": "#00796B",
     "parameter.workflowStep": "#2948C7",
+    "parameter.axis": "#00796B",
     "variable.axis": "#00796B",
     "property.axis": "#00897B",
     "type.axis": "#00695C",

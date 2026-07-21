@@ -104,21 +104,48 @@ pub fn integration_info(
     binding: &FastBinding,
     bindings: &[TypedBinding],
 ) -> Option<IntegrationInfo> {
-    let source = integrate_source(&binding.expression)?;
-    let over_axis = integrate_axis(&binding.expression).unwrap_or_else(|| "Time".to_owned());
-    let source_binding = bindings.iter().find(|candidate| candidate.name == source)?;
-    let (_, input_quantity) = time_series_quantity(&source_binding.semantic_type.quantity_kind)
+    integration_info_for_expression(&binding.name, &binding.expression, binding.line, bindings)
+}
+
+pub(crate) fn integration_info_for_expression(
+    binding_name: &str,
+    expression: &str,
+    line: usize,
+    bindings: &[TypedBinding],
+) -> Option<IntegrationInfo> {
+    let source = integrate_source(expression)?;
+    let over_axis = integrate_axis(expression).unwrap_or_else(|| "Time".to_owned());
+    let input_quantity = bindings
+        .iter()
+        .find(|candidate| candidate.name == source)
+        .and_then(|source_binding| {
+            time_series_quantity(&source_binding.semantic_type.quantity_kind).or_else(|| {
+                runtime_materialized_time_series(&source_binding.semantic_type.quantity_kind)
+            })
+        })
+        .map(|(_, quantity)| quantity)
         .or_else(|| {
-            runtime_materialized_time_series(&source_binding.semantic_type.quantity_kind)
+            (source.contains('.') && is_identifier_path(&source))
+                .then(|| "runtime-resolved".to_owned())
         })?;
 
     Some(IntegrationInfo {
-        binding: binding.name.clone(),
+        binding: binding_name.to_owned(),
         source,
         input_quantity,
         over_axis,
         result_quantity: "Energy".to_owned(),
-        line: binding.line,
+        line,
+    })
+}
+
+fn is_identifier_path(value: &str) -> bool {
+    value.split('.').all(|segment| {
+        let mut chars = segment.chars();
+        chars
+            .next()
+            .is_some_and(|first| first == '_' || first.is_ascii_alphabetic())
+            && chars.all(|character| character == '_' || character.is_ascii_alphanumeric())
     })
 }
 

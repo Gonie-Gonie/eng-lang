@@ -2108,7 +2108,7 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native: Native paired-TimeSeries RMSE plus common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection.",
+                                 "detail":  "Native: Paired-TimeSeries RMSE with declared-unit scalar results plus common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection.",
                                  "kind":  "stdlib",
                                  "label":  "eng.quality",
                                  "lsp_kind":  9
@@ -2180,7 +2180,7 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native: TimeSeries axis metadata, coverage checks, explicit native interpolation or non-mutating fill policies, quality summaries, native statistics and unit-correct HeatRate integration over materialized fill/alignment outputs, plus exact/nearest/linear alignment and resampling.",
+                                 "detail":  "Native: TimeSeries axis metadata, coverage checks, explicit native interpolation or non-mutating fill policies, quality summaries, native statistics and unit-correct HeatRate integration with declared-unit scalar results over materialized fill/alignment outputs, plus exact/nearest/linear alignment and resampling.",
                                  "kind":  "stdlib",
                                  "label":  "eng.timeseries",
                                  "lsp_kind":  9

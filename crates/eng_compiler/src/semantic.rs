@@ -1151,6 +1151,7 @@ pub(crate) fn analyze_incremental_scalar_declarations(
                         type_infos: &mut type_infos,
                         unit_derivations: &mut unit_derivations,
                         inferred_declarations: &mut inferred_declarations,
+                        integrations: &mut integrations,
                     },
                 );
                 explicit_declaration_count = explicit_declaration_count.checked_add(1)?;
@@ -1965,6 +1966,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                             type_infos: &mut type_infos,
                             unit_derivations: &mut unit_derivations,
                             inferred_declarations: &mut inferred_declarations,
+                            integrations: &mut integrations,
                         },
                     );
                 }
@@ -13557,6 +13559,7 @@ struct ExplicitAnalysisOutputs<'a> {
     type_infos: &'a mut Vec<TypeInfo>,
     unit_derivations: &'a mut Vec<UnitDerivation>,
     inferred_declarations: &'a mut Vec<InferredDeclaration>,
+    integrations: &'a mut Vec<IntegrationInfo>,
 }
 
 fn analyze_explicit_decl(declaration: &ExplicitDecl, outputs: ExplicitAnalysisOutputs<'_>) {
@@ -13568,8 +13571,11 @@ fn analyze_explicit_decl(declaration: &ExplicitDecl, outputs: ExplicitAnalysisOu
         type_infos,
         unit_derivations,
         inferred_declarations,
+        integrations,
     } = outputs;
     expected_types.push(expected_type_from_explicit_decl(declaration));
+    let available_bindings = typed_bindings.clone();
+    let mut records_computed_expression = false;
 
     if let Some(expression) = &declaration.expression {
         check_dimensionless_operation(
@@ -13578,6 +13584,32 @@ fn analyze_explicit_decl(declaration: &ExplicitDecl, outputs: ExplicitAnalysisOu
             declaration.line,
             diagnostics,
         );
+        if declaration.context == ParseContext::TopLevel {
+            if let Some(expression_span) = declaration.expression_span {
+                let is_computed_scalar_call = parse_function_call(expression)
+                    .is_some_and(|call| matches!(call.name.as_str(), "rmse" | "duration_above"));
+                if is_computed_scalar_call {
+                    validate_builtin_call(
+                        expression,
+                        expression_span,
+                        declaration.line,
+                        &available_bindings,
+                        diagnostics,
+                    );
+                }
+            }
+            records_computed_expression = rmse_operands(expression).is_some()
+                || timeseries_statistic_operands(expression).is_some();
+            if let Some(integration) = crate::stats::integration_info_for_expression(
+                &declaration.name,
+                expression,
+                declaration.line,
+                &available_bindings,
+            ) {
+                integrations.push(integration);
+                records_computed_expression = true;
+            }
+        }
     }
 
     let display_unit = declaration
@@ -13630,6 +13662,7 @@ fn analyze_explicit_decl(declaration: &ExplicitDecl, outputs: ExplicitAnalysisOu
         {
             if expression.trim_start().starts_with("select_first_row(")
                 || is_simple_member_expression(expression)
+                || records_computed_expression
             {
                 inferred_declarations.push(InferredDeclaration {
                     name: declaration.name.clone(),

@@ -47,7 +47,8 @@ separate.
 - User-facing scope: unit-aware TimeSeries calculation; native summary and
   value-call statistics including `sum(series)` and
   `duration_above(series, threshold)`; integration; PlotSpec/SVG; report
-  HTML; review JSON; report spec; and numeric result artifacts.
+  HTML; review JSON; report spec; and unit-correct numeric result artifacts for
+  inferred and explicit computed declarations.
 - Evidence: official CSV workflow, artifact schemas, report/plot guides,
   artifacts check.
 - Not included: broad arbitrary TimeSeries expressions, rich interactive

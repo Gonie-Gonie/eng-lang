@@ -70,11 +70,11 @@ tests = ["cargo test -p eng_runtime table_", "cargo test -p eng_compiler table_"
 [module."eng.timeseries"]
 status = "native_preview"
 backing = "compiler_runtime_builtin"
-purpose = "TimeSeries axis metadata, coverage checks, explicit native interpolation or non-mutating fill policies, quality summaries, native statistics and unit-correct HeatRate integration over materialized fill/alignment outputs, plus exact/nearest/linear alignment and resampling."
-artifacts = ["typed_payload.timeseries_coverage", "typed_payload.timeseries_fill", "typed_payload.timeseries_quality", "typed_payload.quality_results", "typed_payload.time_alignments", "typed_payload.statistics", "typed_payload.integrations", "object_store.TimeSeries", "report_spec.time_alignments", "report_spec.computed_statistics", "report_spec.computed_integrations", "review.fallbacks"]
+purpose = "TimeSeries axis metadata, coverage checks, explicit native interpolation or non-mutating fill policies, quality summaries, native statistics and unit-correct HeatRate integration with declared-unit scalar results over materialized fill/alignment outputs, plus exact/nearest/linear alignment and resampling."
+artifacts = ["typed_payload.numeric_values", "typed_payload.timeseries_coverage", "typed_payload.timeseries_fill", "typed_payload.timeseries_quality", "typed_payload.quality_results", "typed_payload.time_alignments", "typed_payload.statistics", "typed_payload.integrations", "object_store.TimeSeries", "report_spec.time_alignments", "report_spec.computed_statistics", "report_spec.computed_integrations", "review.fallbacks"]
 diagnostics = ["E-TIMESERIES-COVERAGE-GAP", "E-TIMESERIES-FILL-BINDING", "E-TIMESERIES-FILL-METHOD", "E-TIMESERIES-FILL-STEP", "E-TIMESERIES-FILL-STEP-CONFLICT", "E-TIMESERIES-FILL-MAX-GAP", "W-TIMESERIES-FILL-METHOD-IMPLICIT", "E-TIMESERIES-ALIGN-BINDING", "E-TIMESERIES-ALIGN-METHOD", "E-TIMESERIES-ALIGN-STEP", "E-TIMESERIES-ALIGN-TOLERANCE", "W-TIMESERIES-RESAMPLE-STEP-REDUNDANT", "W-FALLBACK-USED"]
 examples = ["examples/official/01_csv_plot", "examples/internal/17_measured_vs_simulated", "examples/workflows/01_weather_api_to_standard_file", "examples/workflows/03_uncertain_sensor_report"]
-tests = ["cargo test -p eng_compiler timeseries_fill_missing", "cargo test -p eng_compiler timeseries_alignment", "cargo test -p eng_runtime computes_heat_rate_statistics_and_integral", "cargo test -p eng_runtime run_file_records_timeseries_coverage_in_review", "cargo test -p eng_runtime run_file_records_timeseries_fill_missing_in_artifacts", "cargo test -p eng_runtime run_file_materializes_timeseries_alignment_and_resampling_outputs"]
+tests = ["cargo test -p eng_compiler timeseries_fill_missing", "cargo test -p eng_compiler timeseries_alignment", "cargo test -p eng_runtime computes_heat_rate_statistics_and_integral", "cargo test -p eng_runtime run_file_materializes_explicit_computed_scalars_in_declared_units", "cargo test -p eng_runtime run_file_records_timeseries_coverage_in_review", "cargo test -p eng_runtime run_file_records_timeseries_fill_missing_in_artifacts", "cargo test -p eng_runtime run_file_materializes_timeseries_alignment_and_resampling_outputs"]
 
 [module."eng.sampling"]
 status = "native_preview"
@@ -160,11 +160,11 @@ tests = ["cargo test -p eng_compiler cache_", "cargo test -p eng_runtime cache",
 [module."eng.quality"]
 status = "native_preview"
 backing = "compiler_runtime_builtin"
-purpose = "Native paired-TimeSeries RMSE plus common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection."
-artifacts = ["typed_payload.metrics", "typed_payload.expectation_suites", "typed_payload.quality_results", "typed_payload.validations", "typed_payload.policy_results", "review.expectation_suites", "review.quality_results", "review.validations", "report_spec.computed_metrics", "report_spec.quality_report", "report_html.quality_report", "ide.quality_inspector", "output_manifest"]
+purpose = "Paired-TimeSeries RMSE with declared-unit scalar results plus common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection."
+artifacts = ["typed_payload.numeric_values", "typed_payload.metrics", "typed_payload.expectation_suites", "typed_payload.quality_results", "typed_payload.validations", "typed_payload.policy_results", "review.expectation_suites", "review.quality_results", "review.validations", "report_spec.computed_metrics", "report_spec.quality_report", "report_html.quality_report", "ide.quality_inspector", "output_manifest"]
 diagnostics = ["E-RMSE-CALL-001", "E-TABLE-SCHEMA-MISMATCH", "W-FALLBACK-USED"]
 examples = ["examples/internal/17_measured_vs_simulated", "examples/diagnostics/data_quality"]
-tests = ["cargo test -p eng_compiler rmse_call_and_command_forms_share_one_native_contract", "cargo test -p eng_runtime materializes_call_style_rmse_with_native_unit_conversion", "cargo test -p eng_runtime run_file_materializes_timeseries_alignment_and_resampling_outputs", "cargo test -p eng_runtime run_file_records_common_quality_results_for_validation_and_schema_constraints"]
+tests = ["cargo test -p eng_compiler rmse_call_and_command_forms_share_one_native_contract", "cargo test -p eng_compiler explicit_computed_scalars_share_native_validation_and_metadata", "cargo test -p eng_runtime materializes_call_style_rmse_with_native_unit_conversion", "cargo test -p eng_runtime run_file_materializes_explicit_computed_scalars_in_declared_units", "cargo test -p eng_runtime run_file_materializes_timeseries_alignment_and_resampling_outputs", "cargo test -p eng_runtime run_file_records_common_quality_results_for_validation_and_schema_constraints"]
 symbols = ["rmse(left: TimeSeries, right: TimeSeries) -> Quantity"]
 
 [module."eng.template"]
@@ -201,7 +201,7 @@ purpose = "Compiler-checked TimeSeries summarize directives and value calls with
 artifacts = ["typed_payload.numeric_values", "typed_payload.statistics", "report_spec.computed_statistics", "review_document.calculations", "review_document.report_outputs"]
 diagnostics = ["E-STATS-DURATION-CALL-001", "E-STATS-DURATION-SOURCE-001", "E-STATS-DURATION-UNIT-001", "W-STATS-SUM-001"]
 examples = ["examples/official/01_csv_plot", "examples/workflows/03_uncertain_sensor_report"]
-tests = ["cargo test -p eng_compiler duration_above_", "cargo test -p eng_runtime computes_heat_rate_statistics_and_integral", "cargo test -p eng_runtime run_file_executes_value_style_sum_and_duration_above", "cargo test -p eng_jit executes_native_sum_statistic_reduction"]
+tests = ["cargo test -p eng_compiler duration_above_", "cargo test -p eng_compiler explicit_computed_scalars_share_native_validation_and_metadata", "cargo test -p eng_runtime computes_heat_rate_statistics_and_integral", "cargo test -p eng_runtime run_file_materializes_explicit_computed_scalars_in_declared_units", "cargo test -p eng_jit executes_native_sum_statistic_reduction"]
 symbols = ["duration_above(series: TimeSeries, threshold: Quantity) -> Duration [s]", "sum(series: TimeSeries) -> Quantity"]
 
 [module."eng.plot"]

@@ -20934,7 +20934,7 @@ mod tests {
     }
 
     #[test]
-    fn run_file_executes_value_style_sum_and_duration_above() {
+    fn run_file_materializes_explicit_computed_scalars_in_declared_units() {
         let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
             .canonicalize()
@@ -20951,10 +20951,10 @@ mod tests {
         fs::write(
             source_dir.join("data").join("heat.csv"),
             concat!(
-                "time,Q\n",
-                "2024-01-01T00:00:00Z,1.0\n",
-                "2024-01-01T01:00:00Z,2.0\n",
-                "2024-01-01T02:00:00Z,3.0\n",
+                "time,Q,R\n",
+                "2024-01-01T00:00:00Z,1.0,2.0\n",
+                "2024-01-01T01:00:00Z,2.0,3.0\n",
+                "2024-01-01T02:00:00Z,3.0,4.0\n",
             ),
         )
         .expect("write heat data");
@@ -20965,12 +20965,15 @@ mod tests {
                 "schema HeatData {\n",
                 "    time: DateTime index\n",
                 "    Q: HeatRate [kW]\n",
+                "    R: HeatRate [kW]\n",
                 "}\n\n",
                 r#"data = promote csv "data/heat.csv" as HeatData"#,
                 "\n",
-                "occupied: Duration [s] = duration_above(data.Q, 1.5 kW)\n",
-                "sample_total: HeatRate [kW] = sum(data.Q)\n",
-                r#"print "duration={occupied: .0 s} sum={sample_total: .1 kW}""#,
+                "occupied: Duration [min] = duration_above(data.Q, 1.5 kW)\n",
+                "sample_total: HeatRate [W] = sum(data.Q)\n",
+                "energy: Energy [kWh] = integrate(data.Q, over=Time)\n",
+                "error: HeatRate [W] = rmse(data.Q, data.R)\n",
+                r#"print "duration={occupied: .0 min} sum={sample_total: .0 W} energy={energy: .1 kWh} rmse={error: .0 W}""#,
                 "\n",
             ),
         )
@@ -20995,9 +20998,9 @@ mod tests {
         );
         assert_eq!(
             occupied.get("display_unit").and_then(Value::as_str),
-            Some("s")
+            Some("min")
         );
-        assert_eq!(occupied.get("value").and_then(Value::as_f64), Some(5400.0));
+        assert_eq!(occupied.get("value").and_then(Value::as_f64), Some(90.0));
         let sample_total =
             json_array_item_by_binding(&result, "/typed_payload/numeric_values", "sample_total")
                 .expect("sum numeric value");
@@ -21007,10 +21010,34 @@ mod tests {
         );
         assert_eq!(
             sample_total.get("display_unit").and_then(Value::as_str),
-            Some("kW")
+            Some("W")
         );
-        assert_eq!(sample_total.get("value").and_then(Value::as_f64), Some(6.0));
-        assert!(output.stdout.contains("duration=5400 s sum=6.0 kW"));
+        assert_eq!(
+            sample_total.get("value").and_then(Value::as_f64),
+            Some(6000.0)
+        );
+        let energy = json_array_item_by_binding(&result, "/typed_payload/numeric_values", "energy")
+            .expect("integration numeric value");
+        assert_eq!(
+            energy.get("quantity_kind").and_then(Value::as_str),
+            Some("Energy")
+        );
+        assert_eq!(
+            energy.get("display_unit").and_then(Value::as_str),
+            Some("kWh")
+        );
+        assert_eq!(energy.get("value").and_then(Value::as_f64), Some(4.0));
+        let error = json_array_item_by_binding(&result, "/typed_payload/numeric_values", "error")
+            .expect("RMSE numeric value");
+        assert_eq!(
+            error.get("quantity_kind").and_then(Value::as_str),
+            Some("HeatRate")
+        );
+        assert_eq!(error.get("display_unit").and_then(Value::as_str), Some("W"));
+        assert_eq!(error.get("value").and_then(Value::as_f64), Some(1000.0));
+        assert!(output
+            .stdout
+            .contains("duration=90 min sum=6000 W energy=4.0 kWh rmse=1000 W"));
     }
 
     #[test]

@@ -79,6 +79,8 @@ workflow, and covered by the breaking-change policy.
 - TimeSeries statistics: native mean, time-weighted mean, sum, median, standard
   deviation, percentile, `duration_above(series, threshold)` scalar and
   summary values, and trapezoidal integration.
+- Explicit statistic, integration, and RMSE declarations materialize numeric
+  values in their declared display units for artifact and print/export reuse.
 - PlotSpec v1 line plots, measured-vs-simulated multi-series line plots, SVG
   output, plot manifests, report HTML, review JSON, report spec, and result
   artifacts.

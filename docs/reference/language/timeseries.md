@@ -113,6 +113,22 @@ execute natively for print/export evaluation and their bound scalar results are
 stored in `typed_payload.numeric_values[].value`; they do not depend on
 Python-produced input.
 
+Explicit computed declarations use the same native path and store values in
+their declared display units:
+
+```eng partial
+occupied: Duration [min] = duration_above(data.Q, 1.5 kW)
+sample_total: HeatRate [W] = sum(data.Q)
+energy: Energy [kWh] = integrate(data.Q, over=Time)
+error: HeatRate [W] = rmse(data.Q, data.reference_Q)
+```
+
+For example, a 5,400-second duration is stored as `90 min`, and an
+integration kernel result in joules is converted to `kWh` before it
+enters `typed_payload.numeric_values` or formatted output. Explicit
+`duration_above` and `rmse` calls receive the same argument and unit
+diagnostics as inferred `=` bindings.
+
 ## Integration Metadata
 
 `integrate(Q_coil, over=Time)` creates:
@@ -263,7 +279,9 @@ validate rmse_T < 5 K
 Runtime samples the right series on the left series timestamps, converts
 compatible display units, computes the root-mean-square error in process, and
 publishes the result through `typed_payload.metrics[]` and
-`report_spec.computed_metrics[]`. No Python or external process supplies the
+`report_spec.computed_metrics[]`. A bound result also appears in
+`typed_payload.numeric_values[]`, converted to an explicit declaration's
+display unit when one is present. No Python or external process supplies the
 metric. `rmse resampled vs simulated.T_zone` remains a command-style alias
 for the same call.
 

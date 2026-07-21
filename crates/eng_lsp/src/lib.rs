@@ -2509,13 +2509,18 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
 
     for integration in &program.integrations {
         builder.push_keywords_on_line(integration.line, &["over"], &["solver"]);
-        builder.push_on_line(
+        builder.push_first_preferred_identifier_path_on_line(
             integration.line,
             &integration.source,
-            "variable",
+            None,
             &["solver"],
         );
-        builder.push_on_line(integration.line, &integration.over_axis, "type", &["axis"]);
+        builder.push_first_preferred_identifier_path_on_line(
+            integration.line,
+            &integration.over_axis,
+            Some("type"),
+            &["axis"],
+        );
     }
 
     for promotion in &program.csv_promotions {
@@ -7002,6 +7007,39 @@ impl<'a> SemanticTokenBuilder<'a> {
         terminal_token_type: Option<&str>,
         modifiers: &[&str],
     ) {
+        self.push_preferred_identifier_path_on_line_with_policy(
+            line_one_based,
+            path,
+            terminal_token_type,
+            modifiers,
+            false,
+        );
+    }
+
+    fn push_first_preferred_identifier_path_on_line(
+        &mut self,
+        line_one_based: usize,
+        path: &str,
+        terminal_token_type: Option<&str>,
+        modifiers: &[&str],
+    ) {
+        self.push_preferred_identifier_path_on_line_with_policy(
+            line_one_based,
+            path,
+            terminal_token_type,
+            modifiers,
+            true,
+        );
+    }
+
+    fn push_preferred_identifier_path_on_line_with_policy(
+        &mut self,
+        line_one_based: usize,
+        path: &str,
+        terminal_token_type: Option<&str>,
+        modifiers: &[&str],
+        first_only: bool,
+    ) {
         let path = path.trim();
         if !is_simple_identifier_path(path) {
             return;
@@ -7031,6 +7069,9 @@ impl<'a> SemanticTokenBuilder<'a> {
                 true,
                 modifiers,
             );
+            if first_only {
+                return;
+            }
         }
     }
 
@@ -18321,6 +18362,7 @@ custom = calibrate(args.input, split=args.output)
             "case_results = apply args.case_step over args.designs\r\n",
             "predictions = predict args.model_ref using study.designs\r\n",
             "split = train_test_split(study.designs, target=annual_electricity, features=[study.people_density], test=0.25, seed=7)\r\n",
+            "energy = integrate(args.Q_series, over=axis.Time)\r\n",
         );
         let snapshot = snapshot_for_source(Path::new("dotted_semantic_paths.eng"), source);
         let lines = source.lines().collect::<Vec<_>>();
@@ -18365,12 +18407,18 @@ custom = calibrate(args.input, split=args.output)
         assert_segment(5, "designs", 0, "property", Some("model"));
         assert_segment(5, "study", 1, "variable", Some("model"));
         assert_segment(5, "people_density", 0, "property", Some("model"));
+        assert_segment(6, "args", 0, "parameter", Some("solver"));
+        assert_segment(6, "Q_series", 0, "property", Some("solver"));
+        assert_segment(6, "axis", 0, "variable", Some("axis"));
+        assert_segment(6, "Time", 0, "type", Some("axis"));
 
         for path in [
             "args.case_step",
             "args.model_ref",
             "study.designs",
             "study.people_density",
+            "args.Q_series",
+            "axis.Time",
         ] {
             assert!(
                 snapshot
@@ -22557,6 +22605,7 @@ bad_url = url()
         let source = concat!(
             "Q: TimeSeries[Time] of HeatRate [kW] = 5 kW\r\n",
             "bad_unit = duration_above(Q, 2 m)\r\n",
+            "bad_explicit: Duration [s] = duration_above(Q, 3 m)\r\n",
             "bad_arity = duration_above(Q)\r\n",
         );
         let snapshot = snapshot_for_source(Path::new("bad_duration_above.eng"), source);
@@ -22564,7 +22613,8 @@ bad_url = url()
 
         for (line_index, code, expected) in [
             (1, "E-STATS-DURATION-UNIT-001", "2 m"),
-            (2, "E-STATS-DURATION-CALL-001", "duration_above"),
+            (2, "E-STATS-DURATION-UNIT-001", "3 m"),
+            (3, "E-STATS-DURATION-CALL-001", "duration_above"),
         ] {
             let diagnostic = snapshot
                 .diagnostics
