@@ -7988,15 +7988,22 @@ fn validate_function_call_expression(
     let name_span =
         source_span_for_child_range(expression_span, call.name_range.start, call.name_range.end);
     let Some(function) = functions.iter().find(|function| function.name == call.name) else {
-        diagnostics.push(
+        let diagnostic = if call.name == "render" {
+            Diagnostic::error(
+                "E-RENDER-CALL-001",
+                line,
+                "`render` uses command syntax, not function-call syntax.",
+                Some("Write `output = render template file(path)` and attach `with { output = file(destination) }`."),
+            )
+        } else {
             Diagnostic::error(
                 "E-FN-CALL-001",
                 line,
                 &format!("Function `{}` is not defined.", call.name),
                 Some("Define the function before use or import a file that defines it."),
             )
-            .with_source_span(name_span),
-        );
+        };
+        diagnostics.push(diagnostic.with_source_span(name_span));
         return None;
     };
     if call.args.len() != function.parameters.len() {
@@ -8396,7 +8403,6 @@ fn is_builtin_function(name: &str) -> bool {
             | "fill"
             | "align"
             | "resample"
-            | "render"
             | "apply"
             | "file"
             | "dir"
@@ -14806,7 +14812,8 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         accum.diagnostics.push(diagnostic);
     }
 
-    let function_call_type = if should_validate_function_call(&binding.expression, accum.functions)
+    let function_call_type = if !binding.is_command_style
+        && should_validate_function_call(&binding.expression, accum.functions)
     {
         validate_function_call_expression(
             &binding.expression,
@@ -16379,6 +16386,7 @@ mod tests {
         assert!(!is_builtin_function("p0"));
         assert!(!is_builtin_function("p101"));
         assert!(is_builtin_function("probability"));
+        assert!(!is_builtin_function("render"));
         assert!(!is_builtin_function("phantom"));
     }
 }

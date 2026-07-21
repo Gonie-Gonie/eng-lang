@@ -1200,6 +1200,10 @@ Use `render template` when an external simulator or adapter needs a generated
 text input file. Templates are source-relative UTF-8 files. Rendered outputs
 and their sidecar manifests are written under `build/result`.
 
+`render` is command syntax, not a function. Use `render template ...`; a
+user-written `render(...)` call reports `E-RENDER-CALL-001` and underlines the
+misused call name.
+
 ```eng partial
 input_file = render template file("model/base_template.txt")
 with {
@@ -1877,6 +1881,7 @@ generation.
 | `E-FS-003` | `copy` or `move` is missing a destination | Write `<operation> <source> to <destination>` |
 | `E-FS-CONFIRM-001` | Move/delete missing confirmation | Add `with { confirm = true }` |
 | `E-FS-DELETE-001` | Directory delete missing recursive option | Add `recursive = true` and `confirm = true` |
+| `E-RENDER-CALL-001` | `render(...)` used function-call syntax | Use the `render template ...` command form |
 | `E-PROCESS-BINDING-001` | `run command` has no binding | Write `result = run command "tool"` |
 | `E-PROCESS-CMD-001` | `run command` has no command string | Provide the command string and use `args` for arguments |
 | `E-TEST-001` | Invalid test block syntax | Use `test "name" { ... }` |

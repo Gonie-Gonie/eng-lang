@@ -2209,6 +2209,7 @@ fn parse_fast_binding(
         context,
         Some(&name),
     );
+    let is_command_style = command.is_some();
     let expression = command
         .as_ref()
         .map(|command| command.canonical.clone())
@@ -2218,6 +2219,7 @@ fn parse_fast_binding(
             name: name.clone(),
             expression,
             expression_span,
+            is_command_style,
             promotion,
             db_read,
             line: first.span.line,

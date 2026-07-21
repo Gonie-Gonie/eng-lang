@@ -86,6 +86,8 @@ Implemented behavior in the current package scope:
 - replacing different existing contents requires `with { overwrite = true }`.
 - output_manifest.json records generated file paths and content hashes.
 - render template statements write generated text inputs under `build/result`.
+- `render` has no public function-call alias; use the explicit
+  `output = render template source` command form.
 - render template placeholders use `{{name}}` or `{{name: unit}}` and values
   from an explicit inline `values = { ... }` object.
 - saved template renders write `.render_manifest.json` with input template,

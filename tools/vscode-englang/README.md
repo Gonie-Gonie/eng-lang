@@ -426,6 +426,9 @@ Percentile identifiers use the compiler-owned integer range `p1` through `p100`;
 leading zeroes such as `p05` are supported. LSP semantic colors, native IDE
 first-paint, and TextMate all classify valid dynamic forms such as `p50` as
 TimeSeries built-ins, while `p0` and `p101` remain ordinary undefined calls.
+Template rendering remains the command-only `render template ...` form. Writing
+`render(...)` produces `E-RENDER-CALL-001`, underlines `render`, and includes the
+supported command spelling in Problems guidance.
 Component assembly balance and algebraic-loop Problems underline the first
 source component name. Unconnected-port Problems underline the port name, and
 unknown or invalid generic port domains underline the complete domain reference.

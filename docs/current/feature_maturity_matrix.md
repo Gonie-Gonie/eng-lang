@@ -106,6 +106,8 @@ separate.
 - Not included: broad filesystem mutation, network/download, full process
   sandboxing, workspace-wide test discovery.
 - Next cleanup action: keep every effect typed, explicit, and reviewable.
+  Template rendering uses the command-only `render template ...` API;
+  function-call spelling is rejected with direct recovery guidance.
 
 ### Package And Native IDE
 
@@ -278,6 +280,9 @@ separate.
   `p100` are valid, leading zeroes such as `p05` are accepted, and out-of-range
   forms are not built-ins. The same bounded pattern drives LSP, native IDE
   first-paint, generated metadata, and TextMate TimeSeries scopes.
+  Parser-lowered command bindings carry explicit provenance; this keeps the
+  internal template-render lowering valid without exposing `render(...)` as a
+  callable built-in.
   The older fast-binding-only and explicit-declaration-only APIs are mode-limited
   compatibility wrappers over this engine; lazy shared editor snapshots,
   recursive import-dependent invalidation, a VS Code persistent stdio client

@@ -4818,8 +4818,8 @@ fn smoke() -> Result<(), String> {
 }
 
 fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
-    let app_js = include_str!("../ui/app.js");
-    let main_rs = include_str!("main.rs");
+    let app_js = include_str!("../ui/app.js").replace("\r\n", "\n");
+    let main_rs = include_str!("main.rs").replace("\r\n", "\n");
     for required in [
         "function statusLabel(status)",
         "if (module.status_label) return module.status_label;",

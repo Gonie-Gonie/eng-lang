@@ -12770,6 +12770,29 @@ factor = 0.5
     }
 
     #[test]
+    fn render_function_call_reports_command_syntax() {
+        let source = r#"input_file = render(file("model/base_template.txt"))
+"#;
+        let report = check_source("bad.eng", source, &CheckOptions::default());
+
+        assert!(report.has_errors());
+        assert_eq!(report.syntax_summary.command_styles, 0);
+        let diagnostic = report
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-RENDER-CALL-001")
+            .expect("render call diagnostic");
+        let span = diagnostic
+            .source_span
+            .expect("render call should own its function-name span");
+        assert_eq!(&source[span.start..span.end], "render");
+        assert!(diagnostic
+            .help
+            .as_deref()
+            .is_some_and(|help| help.contains("render template")));
+    }
+
+    #[test]
     fn apply_case_template_lowers_with_case_output_contract() {
         let report = check_source(
             "ok.eng",

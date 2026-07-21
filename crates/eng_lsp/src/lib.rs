@@ -22327,6 +22327,30 @@ with {
     }
 
     #[test]
+    fn render_function_call_diagnostic_points_to_command_misuse() {
+        let source = concat!(
+            r#"input_file = render(file("model/base_template.txt"))"#,
+            "\r\n"
+        );
+        let snapshot = snapshot_for_source(Path::new("render_call.eng"), source);
+        let diagnostic = snapshot
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-RENDER-CALL-001")
+            .expect("render call diagnostic");
+        let line = source.lines().next().expect("source line");
+        let start = line.find("render").expect("render call");
+
+        assert_eq!(diagnostic.start_character, utf16_len(&line[..start]));
+        assert_eq!(diagnostic.end_character, utf16_len(&line[..start + 6]));
+        assert!(diagnostic.message.contains("command syntax"));
+        assert!(diagnostic
+            .help
+            .as_deref()
+            .is_some_and(|help| help.contains("render template")));
+    }
+
+    #[test]
     fn side_effect_editor_features_use_compiler_owned_spans() {
         let source = concat!(
             "schema Row {\r\n",

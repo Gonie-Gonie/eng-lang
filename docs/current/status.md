@@ -103,6 +103,8 @@ review material. It is not a broad solver claim.
 - Explicit `write text/json`, constrained copy/move/delete/mkdir file operations,
   native `render template` generated inputs with render manifests, CSV
   overwrite hardening, and `output_manifest.json`.
+- Template rendering is exposed only as the `render template ...` command form;
+  `render(...)` reports `E-RENDER-CALL-001` with the supported spelling.
 - Structured `log debug/info/warn/error` and `run_log.json`.
 - Explicit `run command`, `ProcessResult`, `env`, `timeout`, `retry`,
   `tool_version`, expected-output contracts, stdout/stderr hashes, and
@@ -156,6 +158,9 @@ review material. It is not a broad solver claim.
   propagation, JIT planning, LSP, native IDE first-paint, generated editor
   metadata, and TextMate. Leading zeroes such as `p05` are valid; `p0`, `p101`,
   decimal forms, and unrelated `p`-prefixed calls are not built-ins.
+  Parser-lowered command expressions retain their command provenance, so the
+  internal render lowering no longer makes user-written `render(...)` look like
+  a callable built-in.
   This repairs absolute spans and line numbers
   after variable-width, inserted, or removed standalone trivia and suffix
   line-ending changes. Coordinated declaration and alias renames are accepted when

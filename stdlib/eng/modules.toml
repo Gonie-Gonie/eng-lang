@@ -171,7 +171,7 @@ status = "native_preview"
 backing = "compiler_runtime_builtin"
 purpose = "Native text template rendering with {{name}} placeholders, typed/unit value formatting, render manifests, and output-boundary enforcement."
 artifacts = ["typed_payload.render_manifests", "template_render_manifest", "review.render_manifests", "output_manifest"]
-diagnostics = ["E-TEMPLATE-MISSING-VALUE"]
+diagnostics = ["E-RENDER-CALL-001", "E-TEMPLATE-MISSING-VALUE"]
 examples = ["examples/workflows/02_native_surrogate_case_workflow"]
 tests = ["cargo test -p eng_compiler render_template_command_lowers_with_template_contract", "cargo test -p eng_runtime template"]
 

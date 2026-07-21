@@ -331,6 +331,7 @@ pub struct FastBinding {
     pub name: String,
     pub expression: String,
     pub expression_span: SourceSpan,
+    pub is_command_style: bool,
     pub promotion: Option<PromotionDecl>,
     pub db_read: Option<Box<DbReadDecl>>,
     pub line: usize,
