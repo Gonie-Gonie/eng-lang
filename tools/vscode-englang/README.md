@@ -260,6 +260,11 @@ clearing all scalar declarations and restarting from a trivia-only report.
 Imported constants retain their original source ownership and remain available
 to backward root aliases and arithmetic. Changing an open imported module
 invalidates the dependent report before any further reuse.
+Pure scalar arithmetic over typed aliases also keeps inferred quantity, hover,
+type, and unit metadata when the expression has no unit literal. Result
+dimensions use registered declaration-name disambiguation (for example,
+temperature deltas and ratios), then retain a compatible operand type when the
+quantity family is otherwise ambiguous.
 Token-bearing non-declaration lines, incomplete or duplicate renames, forward or unresolved
 references, dimensionally incompatible arithmetic, calls, non-scalar constants,
 workflow expressions, diagnostics, static imports that contribute functions or

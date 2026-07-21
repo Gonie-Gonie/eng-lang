@@ -1223,20 +1223,31 @@ pub(crate) fn supports_incremental_scalar_expression(
         return false;
     }
 
+    evaluate_scalar_arithmetic_expression(expression, available_bindings).is_some()
+}
+
+fn evaluate_scalar_arithmetic_expression(
+    expression: &str,
+    available_bindings: &[TypedBinding],
+) -> Option<(ComponentParameterExpressionValue, Vec<SemanticType>)> {
     let Ok(mut tokens) = tokenize_component_parameter_expression(expression, &[], 0) else {
-        return false;
+        return None;
     };
     let mut saw_operator = false;
+    let mut referenced_types = Vec::new();
     for token in &mut tokens {
         match token {
             ComponentParameterExpressionToken::Identifier(name) => {
-                let Some(dimension) = available_bindings
+                let semantic_type = available_bindings
                     .iter()
                     .find(|binding| binding.name == *name)
-                    .map(|binding| dimension_for_quantity(&binding.semantic_type.quantity_kind))
-                else {
-                    return false;
-                };
+                    .map(|binding| binding.semantic_type.clone())?;
+                let dimension = crate::quantities::all_quantity_completions()
+                    .iter()
+                    .find(|completion| completion.quantity_kind == semantic_type.quantity_kind)?
+                    .dimension
+                    .to_owned();
+                referenced_types.push(semantic_type);
                 *token =
                     ComponentParameterExpressionToken::Number(ComponentParameterExpressionValue {
                         value: 1.0,
@@ -1251,16 +1262,52 @@ pub(crate) fn supports_incremental_scalar_expression(
         }
     }
     if !saw_operator {
-        return false;
+        return None;
     }
 
     let mut parser = ComponentParameterExpressionParser {
         tokens,
         position: 0,
     };
-    parser
-        .parse_expression()
-        .is_ok_and(|_| parser.position == parser.tokens.len())
+    let value = parser.parse_expression().ok()?;
+    (parser.position == parser.tokens.len()).then_some((value, referenced_types))
+}
+
+fn scalar_arithmetic_semantic_type(
+    name: &str,
+    expression: &str,
+    available_bindings: &[TypedBinding],
+) -> Option<SemanticType> {
+    let (value, referenced_types) =
+        evaluate_scalar_arithmetic_expression(expression, available_bindings)?;
+    let matching_completions = crate::quantities::all_quantity_completions()
+        .iter()
+        .filter(|completion| completion.dimension == value.dimension)
+        .collect::<Vec<_>>();
+
+    if let Some(canonical_unit) = matching_completions
+        .first()
+        .map(|completion| completion.canonical_unit)
+    {
+        if let Some(completion) = infer_quantity_from_name_and_unit(name, canonical_unit) {
+            if completion.dimension == value.dimension {
+                return semantic_type(completion.quantity_kind, completion.canonical_unit);
+            }
+        }
+    }
+
+    if let Some(semantic_type) = referenced_types.into_iter().find(|semantic_type| {
+        dimension_for_quantity(&semantic_type.quantity_kind) == value.dimension
+    }) {
+        return Some(semantic_type);
+    }
+
+    if matching_completions.len() == 1 {
+        let completion = matching_completions[0];
+        return semantic_type(completion.quantity_kind, completion.canonical_unit);
+    }
+
+    None
 }
 
 pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
@@ -2868,6 +2915,7 @@ fn infer_scoped_binding_semantic_type(
         .or_else(|| model_artifact_field_semantic_type(expression, typed_bindings))
         .or_else(|| table_metadata_field_semantic_type(expression, typed_bindings))
         .or_else(|| binding_alias_semantic_type(expression, typed_bindings))
+        .or_else(|| scalar_arithmetic_semantic_type(name, expression, typed_bindings))
         .or_else(|| infer_quantity(name, expression))
 }
 
@@ -8862,6 +8910,7 @@ fn class_field_expression_semantic_type(
         .or_else(|| model_artifact_field_semantic_type(expression, typed_bindings))
         .or_else(|| table_metadata_field_semantic_type(expression, typed_bindings))
         .or_else(|| binding_alias_semantic_type(expression, typed_bindings))
+        .or_else(|| scalar_arithmetic_semantic_type(field_name, expression, typed_bindings))
         .or_else(|| infer_quantity(field_name, expression))
 }
 
@@ -14342,6 +14391,9 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         .or_else(|| model_artifact_field_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| table_metadata_field_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| binding_alias_semantic_type(&binding.expression, &available_bindings))
+        .or_else(|| {
+            scalar_arithmetic_semantic_type(&binding.name, &binding.expression, &available_bindings)
+        })
         .or_else(|| infer_quantity(&binding.name, &binding.expression));
 
     if let Some(semantic_type) = inferred_semantic_type {

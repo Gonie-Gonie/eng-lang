@@ -251,6 +251,12 @@ separate.
   complete clearing and trivia-only restart, variable-width/inserted/removed
   trivia, and suffix line-ending shifts while patching inferred, constant,
   expected, shared semantic, syntax-count, and workflow-line records together.
+  Independently of report reuse, full semantic analysis projects a pure scalar
+  alias-arithmetic result dimension into inferred declarations, typed bindings,
+  hover/type metadata, and unit derivations. Registered quantity families use
+  declaration-name disambiguation and otherwise preserve a compatible operand
+  type when possible, so an expression does not need a redundant unit literal
+  solely to remain visible to editor tooling.
   The older fast-binding-only and explicit-declaration-only APIs are mode-limited
   compatibility wrappers over this engine; lazy shared editor snapshots,
   recursive import-dependent invalidation, a VS Code persistent stdio client

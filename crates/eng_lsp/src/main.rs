@@ -11055,7 +11055,7 @@ const shared_factor: Ratio [1] = 0.5
             .expect("static const module should be written");
         let path = root.join("current.eng");
         let initial_source = r#"use "shared.eng"
-base = shared_length
+base = shared_length + shared_length
 const local_factor: Ratio [1] = 0.5
 adjusted: Length [m] = base * local_factor
 "#;
@@ -11078,10 +11078,29 @@ adjusted: Length [m] = base * local_factor
 
         let initial = snapshot_for_open_documents(&path, initial_source, &documents);
         assert_eq!(initial, snapshot_for_source(&path, initial_source));
+        let base_hover = initial
+            .hovers
+            .iter()
+            .find(|hover| hover.name == "base" && hover.is_root_source())
+            .expect("arithmetic over imported const aliases should have editor hover metadata");
+        assert_eq!(base_hover.quantity_kind, "Length");
+        assert_eq!(base_hover.display_unit, "m");
+        let hover_request = json!({
+            "method": "textDocument/hover",
+            "params": {
+                "textDocument": { "uri": uri },
+                "position": { "line": 1, "character": 1 }
+            }
+        });
+        let requested_hover = hover_for_request(&hover_request, &documents)
+            .expect("the persistent editor session should serve arithmetic hover");
+        assert_eq!(requested_hover.name, "base");
+        assert_eq!(requested_hover.quantity_kind, "Length");
+        assert_eq!(requested_hover.display_unit, "m");
         assert_eq!(documents[&uri].scalar_binding_reuse_count(), 0);
 
         let changed_source = r#"use "shared.eng"
-base = shared_length
+base = shared_length + shared_length
 const local_factor: Ratio [1] = 0.75
 adjusted: Length [cm] = base * local_factor
 total = adjusted + shared_length + 0 m
@@ -11106,7 +11125,7 @@ total = adjusted + shared_length + 0 m
         assert_eq!(documents[&uri].scalar_binding_reuse_count(), 1);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
-            (0, 2, 0, true, true)
+            (1, 2, 0, true, true)
         );
 
         let changed_module_source = r#"const shared_length: Length [m] = 3 m
@@ -11130,7 +11149,7 @@ const shared_factor: Ratio [1] = 0.6
         invalidate_dependent_document_analyses(&changed_module_uri, &affected);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
-            (0, 2, 0, false, false),
+            (1, 2, 0, false, false),
             "an imported buffer edit must invalidate the dependent root report"
         );
 
@@ -11142,12 +11161,12 @@ const shared_factor: Ratio [1] = 0.6
         assert_eq!(documents[&uri].scalar_binding_reuse_count(), 1);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
-            (0, 3, 0, true, true),
+            (1, 3, 0, true, true),
             "the dependent root must rebuild against the changed import environment"
         );
 
         let resumed_source = r#"use "shared.eng"
-base = shared_length
+base = shared_length + shared_length
 const local_factor: Ratio [1] = 0.9
 adjusted: Length [cm] = base * local_factor
 total = adjusted + shared_length + 0 m

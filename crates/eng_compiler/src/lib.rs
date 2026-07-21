@@ -9993,6 +9993,139 @@ mod tests {
     }
 
     #[test]
+    fn infers_semantic_types_for_scalar_arithmetic_over_typed_aliases() {
+        let source = concat!(
+            "length: Length [cm] = 150 cm\n",
+            "offset: Length [m] = 2 m\n",
+            "combined = length + offset\n",
+            "scaled = combined * 2\n",
+            "quotient = scaled / length\n",
+            "ratio = combined / offset\n",
+            "T_out: AbsoluteTemperature [degC] = 24 degC\n",
+            "T_in: AbsoluteTemperature [degC] = 18 degC\n",
+            "dT = T_out - T_in\n",
+        );
+        let report = check_source(
+            "scalar-arithmetic-types.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(
+            report.diagnostics.is_empty(),
+            "unexpected scalar arithmetic diagnostics: {:#?}",
+            report.diagnostics
+        );
+
+        let expected = [
+            ("combined", "Length", "m"),
+            ("scaled", "Length", "m"),
+            ("quotient", "DimensionlessNumber", "1"),
+            ("ratio", "Ratio", "1"),
+            ("dT", "TemperatureDelta", "K"),
+        ];
+        assert_eq!(report.inferred_declarations.len(), expected.len());
+        for (name, quantity_kind, display_unit) in expected {
+            let inferred = report
+                .inferred_declarations
+                .iter()
+                .find(|declaration| declaration.name == name)
+                .expect("scalar arithmetic declaration should be inferred");
+            assert_eq!(inferred.quantity_kind, quantity_kind);
+            assert_eq!(inferred.display_unit, display_unit);
+
+            let typed = report
+                .semantic_program
+                .typed_bindings
+                .iter()
+                .find(|binding| binding.name == name)
+                .expect("scalar arithmetic declaration should be typed");
+            assert_eq!(typed.semantic_type.quantity_kind, quantity_kind);
+            assert_eq!(typed.semantic_type.display_unit, display_unit);
+
+            let hover = report
+                .semantic_program
+                .hover_hints
+                .iter()
+                .find(|hover| hover.name == name)
+                .expect("scalar arithmetic declaration should have hover metadata");
+            assert_eq!(hover.quantity_kind, quantity_kind);
+            assert_eq!(hover.display_unit, display_unit);
+
+            let derivation = report
+                .semantic_program
+                .unit_derivations
+                .iter()
+                .find(|derivation| derivation.name == name)
+                .expect("scalar arithmetic declaration should have unit metadata");
+            assert_eq!(derivation.quantity_kind, quantity_kind);
+            assert_eq!(derivation.display_unit, display_unit);
+        }
+    }
+
+    #[test]
+    fn infers_scalar_alias_arithmetic_in_scoped_and_object_field_contexts() {
+        let source = concat!(
+            "length = 1 m\n",
+            "offset = 2 m\n",
+            "total = local_total\n",
+            "where {\n",
+            "    local_total = length + offset\n",
+            "    local_ratio = local_total / length\n",
+            "}\n",
+            "class Measurement {\n",
+            "    distance: Length [m]\n",
+            "}\n",
+            "measurement = Measurement {\n",
+            "    distance = length + offset\n",
+            "}\n",
+        );
+        let report = check_source(
+            "scoped-scalar-arithmetic-types.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(
+            report.diagnostics.is_empty(),
+            "unexpected scoped scalar arithmetic diagnostics: {:#?}",
+            report.diagnostics
+        );
+
+        let where_bindings = &report
+            .semantic_program
+            .where_blocks
+            .first()
+            .expect("where block should be analyzed")
+            .bindings;
+        let local_total = where_bindings
+            .iter()
+            .find(|binding| binding.name == "local_total")
+            .expect("where-local arithmetic should be typed");
+        assert_eq!(local_total.quantity_kind, "Length");
+        assert_eq!(local_total.display_unit, "m");
+        assert_eq!(local_total.status, "typed");
+        let local_ratio = where_bindings
+            .iter()
+            .find(|binding| binding.name == "local_ratio")
+            .expect("dependent where-local arithmetic should be typed");
+        assert_eq!(local_ratio.quantity_kind, "Ratio");
+        assert_eq!(local_ratio.display_unit, "1");
+        assert_eq!(local_ratio.status, "typed");
+
+        let distance = report
+            .semantic_program
+            .class_objects
+            .first()
+            .expect("class object should be analyzed")
+            .fields
+            .iter()
+            .find(|field| field.name == "distance")
+            .expect("object field arithmetic should be typed");
+        assert_eq!(distance.quantity_kind, "Length");
+        assert_eq!(distance.display_unit, "m");
+        assert_eq!(distance.status, "typed");
+    }
+
+    #[test]
     fn incrementally_rechecks_pure_scalar_arithmetic_with_fresh_equivalence() {
         fn assert_fresh_equivalent(reused: &CheckReport, fresh: &CheckReport, source: &str) {
             assert_eq!(reused.source_path, fresh.source_path);
@@ -10781,14 +10914,14 @@ const imported_adjusted: Length [m] = imported_length * imported_factor
         let previous_source = r#"use "shared.eng"
 use eng.stats
 # root scalar declarations
-base = imported_adjusted
+base = imported_adjusted + imported_length
 const local_factor: Ratio [1] = 0.5
 adjusted: Length [m] = base * local_factor
 "#;
         let source = r#"use "shared.eng"
 use eng.stats
 # root scalar declarations
-base = imported_adjusted
+base = imported_adjusted + imported_length
 const local_factor: Ratio [1] = 0.75
 adjusted: Length [cm] = base * local_factor
 total = adjusted + imported_length + 0 m
@@ -10806,6 +10939,13 @@ total = adjusted + imported_length + 0 m
         assert!(previous.semantic_program.consts[..3]
             .iter()
             .all(|constant| !constant.span.is_root_source()));
+        let base = previous
+            .inferred_declarations
+            .iter()
+            .find(|declaration| declaration.name == "base")
+            .expect("arithmetic over imported const aliases should be inferred");
+        assert_eq!(base.quantity_kind, "Length");
+        assert_eq!(base.display_unit, "m");
         let previous_lines = source::source_lines(previous_source);
         let previous_prefix = parse_scalar_declaration_prefix(&previous_lines[..4])
             .expect("unchanged import and scalar prefix should parse");

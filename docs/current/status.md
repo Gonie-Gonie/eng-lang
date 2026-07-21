@@ -142,6 +142,11 @@ review material. It is not a broad solver claim.
   text update inferred, constant, and expected records, shared semantic vectors,
   syntax counts, and the first workflow line together. Imported constants keep
   their source ownership and remain available to root aliases and arithmetic.
+  Full semantic analysis also carries the dimension of pure scalar arithmetic
+  over typed aliases into inferred types, hover text, type information, and unit
+  derivations even when the expression itself has no unit literal; declaration
+  names disambiguate registered temperature, power, and dimensionless quantity
+  families, with an operand type retained when the result remains ambiguous.
   Token-bearing
   non-declaration lines, incomplete or duplicate renames, forward or unresolved
   references,
