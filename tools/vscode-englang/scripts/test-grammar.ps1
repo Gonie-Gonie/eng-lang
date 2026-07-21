@@ -230,10 +230,10 @@ function Assert-WorkflowOptionsAreScopedToWithBlocks {
     }
 
     $withBlock = @($withOptions.patterns | Where-Object {
-        $_.name -eq "meta.workflow.with-block.englang" -and $_.begin -eq "\b(with)\s*(\{)"
+        $_.name -eq "meta.workflow.with-block.englang" -and $_.begin -eq "^\s*(with)\s*(\{)"
     })
     if ($withBlock.Count -ne 1) {
-        throw "workflow option labels must be scoped under one meta.workflow.with-block.englang pattern"
+        throw "workflow option labels must be scoped under one line-anchored meta.workflow.with-block.englang pattern"
     }
 
     $topLevelOptionMatchers = @($withOptions.patterns | Where-Object {
@@ -1306,7 +1306,6 @@ $KeywordFallbackScopes = @(
     "storage.modifier.input.englang",
     "storage.modifier.parameter.englang",
     "storage.modifier.output.englang",
-    "storage.modifier.operator.englang",
     "storage.type.test.englang",
     "storage.type.block.englang",
     "storage.type.interface-member.englang",

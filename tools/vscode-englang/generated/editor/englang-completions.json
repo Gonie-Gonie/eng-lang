@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v2",
-    "completion_items_count":  453,
+    "completion_items_count":  455,
     "completion_items":  [
                              {
                                  "detail":  "Schema array value",
@@ -790,6 +790,12 @@
                              {
                                  "detail":  "EngLang keyword",
                                  "kind":  "keyword",
+                                 "label":  "continue",
+                                 "lsp_kind":  14
+                             },
+                             {
+                                 "detail":  "EngLang keyword",
+                                 "kind":  "keyword",
                                  "label":  "copy",
                                  "lsp_kind":  14
                              },
@@ -833,6 +839,12 @@
                                  "detail":  "EngLang keyword",
                                  "kind":  "keyword",
                                  "label":  "else",
+                                 "lsp_kind":  14
+                             },
+                             {
+                                 "detail":  "EngLang keyword",
+                                 "kind":  "keyword",
+                                 "label":  "fail",
                                  "lsp_kind":  14
                              },
                              {

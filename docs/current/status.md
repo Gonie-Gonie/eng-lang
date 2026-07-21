@@ -159,6 +159,14 @@ review material. It is not a broad solver claim.
   built-in tokens, completion, generated editor metadata, and TextMate first-paint
   scopes. Component `predictor(...)` and call-style `predict(...)` share the solver
   role without changing command-style model prediction.
+  VS Code extension checks now load the installed TextMate engine, including
+  ASAR-based installs, and compare role-bearing first-paint scopes against
+  compiler semantic snapshots for every example. Report/test/solver block words,
+  line-anchored `with` options, DB `.table(...)` methods, case-policy
+  constants, and `apply ... over` operands retain the same role before and
+  after semantic tokens arrive. Solver connections also keep `connect ... to ...`
+  in the solver palette, while every standalone `with {` retains its structural
+  workflow role alongside any command-domain modifier.
   Percentile calls now have one compiler-owned `p1` through `p100` integer
   contract shared by semantic analysis, runtime materialization, uncertainty
   propagation, JIT planning, LSP, native IDE first-paint, generated editor

@@ -192,7 +192,15 @@
           },
           {
             "name": "entity.name.type.declaration.englang",
-            "match": "^\\s*(schema|system|domain|component|class|states|inputs|outputs)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+            "match": "^\\s*(states|inputs|outputs)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+            "captures": {
+              "1": { "name": "keyword.control.solver.englang" },
+              "2": { "name": "entity.name.type.englang" }
+            }
+          },
+          {
+            "name": "entity.name.type.declaration.englang",
+            "match": "^\\s*(schema|system|domain|component|class)\\s+([A-Za-z_][A-Za-z0-9_]*)",
             "captures": {
               "1": { "name": "storage.type.declaration.englang" },
               "2": { "name": "entity.name.type.englang" }
@@ -268,7 +276,7 @@
             "name": "meta.declaration.test.englang",
             "match": "^\\s*(test)\\s+(\"[^\"]*\")",
             "captures": {
-              "1": { "name": "storage.type.test.englang" },
+              "1": { "name": "keyword.control.validation.englang" },
               "2": { "name": "entity.name.section.englang" }
             }
           },
@@ -308,7 +316,7 @@
             "name": "meta.declaration.system-member.englang",
             "match": "^\\s*(operator)\\s+([A-Za-z_][A-Za-z0-9_]*)",
             "captures": {
-              "1": { "name": "storage.modifier.operator.englang" },
+              "1": { "name": "keyword.control.solver.englang" },
               "2": { "name": "entity.name.function.solver.englang" }
             }
           },
@@ -437,8 +445,24 @@
             }
           },
           {
+            "name": "meta.block.report.englang",
+            "match": "^\\s*(report)(\\s*)(\\{)",
+            "captures": {
+              "1": { "name": "keyword.control.report.englang" },
+              "3": { "name": "punctuation.section.block.begin.englang" }
+            }
+          },
+          {
+            "name": "meta.block.validation.englang",
+            "match": "^\\s*(test)(\\s*)(\\{)",
+            "captures": {
+              "1": { "name": "keyword.control.validation.englang" },
+              "3": { "name": "punctuation.section.block.begin.englang" }
+            }
+          },
+          {
             "name": "meta.block.header.englang",
-            "match": "^\\s*(args|report|test|where|with|on)(\\s*)(\\{)",
+            "match": "^\\s*(args|where|with|on)(\\s*)(\\{)",
             "captures": {
               "1": { "name": "storage.type.block.englang" },
               "3": { "name": "punctuation.section.block.begin.englang" }
@@ -448,6 +472,23 @@
       },
       "workflowPhrases": {
         "patterns": [
+          {
+            "name": "meta.solver.connect.englang",
+            "begin": "^\\s*(connect)\\b",
+            "beginCaptures": {
+              "1": { "name": "keyword.control.solver.englang" }
+            },
+            "end": "(?=#|$)",
+            "patterns": [
+              {
+                "name": "keyword.control.solver.englang",
+                "match": "\\bto\\b"
+              },
+              { "include": "#members" },
+              { "include": "#operators" },
+              { "include": "#punctuation" }
+            ]
+          },
           {
             "name": "meta.workflow.print-message.englang",
             "begin": "^\\s*(print)\\b",
@@ -781,6 +822,10 @@
             },
             "patterns": [
               {
+                "name": "constant.language.englang",
+                "match": "\\b(quadratic|triangular)\\b"
+              },
+              {
                 "match": "\\b(kind|distribution|mean|mu|std|sigma|uncertainty|error|relative_error|samples|n|lower|min|upper|max|method|scale|gain|offset|bias)\\b\\s*(=)",
                 "captures": {
                   "1": { "name": "variable.parameter.property.englang" },
@@ -889,6 +934,30 @@
                   "2": { "name": "entity.name.type.englang" }
                 }
               },
+              {
+                "name": "meta.path.parameter-db-table.englang",
+                "match": "\\b(args)(\\.)([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*)(\\.)(table)\\b(?=\\s*\\()",
+                "captures": {
+                  "1": { "name": "variable.parameter.property.englang" },
+                  "2": { "name": "punctuation.accessor.dot.englang" },
+                  "3": { "name": "variable.parameter.property.englang" },
+                  "4": { "name": "punctuation.accessor.dot.englang" },
+                  "5": { "name": "support.function.db.englang" }
+                }
+              },
+              {
+                "name": "meta.path.db-table.englang",
+                "match": "\\b([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*)(\\.)(table)\\b(?=\\s*\\()",
+                "captures": {
+                  "1": { "name": "variable.other.property.englang" },
+                  "2": { "name": "punctuation.accessor.dot.englang" },
+                  "3": { "name": "support.function.db.englang" }
+                }
+              },
+              {
+                "name": "support.function.db.englang",
+                "match": "\\btable\\b(?=\\s*\\()"
+              },
               { "include": "#members" },
               {
                 "name": "variable.parameter.property.englang",
@@ -981,6 +1050,26 @@
               { "include": "#builtins" },
               { "include": "#operators" },
               { "include": "#punctuation" },
+              {
+                "name": "meta.path.parameter-db-table.englang",
+                "match": "\\b(args)(\\.)([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*)(\\.)(table)\\b(?=\\s*\\()",
+                "captures": {
+                  "1": { "name": "variable.parameter.property.englang" },
+                  "2": { "name": "punctuation.accessor.dot.englang" },
+                  "3": { "name": "variable.parameter.property.englang" },
+                  "4": { "name": "punctuation.accessor.dot.englang" },
+                  "5": { "name": "support.function.db.englang" }
+                }
+              },
+              {
+                "name": "meta.path.db-table.englang",
+                "match": "\\b([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*)(\\.)(table)\\b(?=\\s*\\()",
+                "captures": {
+                  "1": { "name": "variable.other.property.englang" },
+                  "2": { "name": "punctuation.accessor.dot.englang" },
+                  "3": { "name": "support.function.db.englang" }
+                }
+              },
               { "include": "#members" },
               {
                 "name": "variable.parameter.property.englang",
@@ -1116,7 +1205,7 @@
           },
           {
             "name": "meta.workflow.join-table.englang",
-            "begin": "\\b(join)\\b",
+            "begin": "\\b(join)\\b(?!\\s*\\()",
             "beginCaptures": {
               "1": { "name": "keyword.control.workflow.englang" }
             },
@@ -1190,8 +1279,12 @@
             ]
           },
           {
+            "name": "support.function.solver.englang",
+            "match": "\\b(predict)\\b(?=\\s*\\()"
+          },
+          {
             "name": "meta.workflow.predict-model.englang",
-            "begin": "\\b(predict)\\b",
+            "begin": "\\b(predict)\\b(?!\\s*\\()",
             "beginCaptures": {
               "1": { "name": "keyword.control.model.englang" }
             },
@@ -1882,6 +1975,10 @@
             },
             "end": "(?=#|$)",
             "patterns": [
+              {
+                "name": "keyword.operator.word.englang",
+                "match": "\\b(as|with)\\b"
+              },
               { "include": "#strings" },
               { "include": "#modules" },
               { "include": "#units" },
@@ -2369,9 +2466,9 @@
         "patterns": [
           {
             "name": "meta.workflow.with-block.englang",
-            "begin": "\\b(with)\\s*(\\{)",
+            "begin": "^\\s*(with)\\s*(\\{)",
             "beginCaptures": {
-              "1": { "name": "storage.type.block.englang" },
+              "1": { "name": "keyword.control.workflow.englang" },
               "2": { "name": "punctuation.section.block.begin.englang" }
             },
             "end": "\\}",
@@ -2413,7 +2510,7 @@
                 "name": "meta.report.unit-axis.englang",
                 "match": "\\b(unit)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(=)",
                 "captures": {
-                  "1": { "name": "variable.parameter.property.englang" },
+                  "1": { "name": "keyword.control.report.englang" },
                   "2": { "name": "variable.other.property.englang" },
                   "3": { "name": "keyword.operator.englang" }
                 }

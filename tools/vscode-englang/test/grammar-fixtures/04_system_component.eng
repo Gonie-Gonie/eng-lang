@@ -29,8 +29,11 @@ component AmbientBoundary {
     port heat: Thermal
 }
 
-connect RoomBoundary.heat -> Coil.heat
-connect Coil.heat -> AmbientBoundary.heat
+system ComponentFixture {
+    room = RoomBoundary()
+    coil = Coil()
+    connect room.heat to coil.heat
+}
 
 states RoomState {
     T_air: AbsoluteTemperature [degC]

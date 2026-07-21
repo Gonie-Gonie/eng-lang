@@ -89,13 +89,13 @@
   },
   {
     "fixture": "01_core_workflow.eng",
-    "scope": "meta.block.header.englang",
+    "scope": "meta.block.report.englang",
     "text": "report {",
     "fullMatch": true
   },
   {
     "fixture": "01_core_workflow.eng",
-    "scope": "storage.type.block.englang",
+    "scope": "keyword.control.report.englang",
     "text": "report",
     "fullMatch": true
   },
@@ -642,7 +642,7 @@
   },
   {
     "fixture": "04_system_component.eng",
-    "scope": "storage.modifier.operator.englang",
+    "scope": "keyword.control.solver.englang",
     "text": "operator",
     "fullMatch": true
   },
@@ -750,6 +750,12 @@
     "fixture": "04_system_component.eng",
     "scope": "keyword.control.solver.englang",
     "text": "connect",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "keyword.control.solver.englang",
+    "text": "to",
     "fullMatch": true
   },
   {
@@ -1568,7 +1574,7 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
-    "scope": "storage.type.test.englang",
+    "scope": "keyword.control.validation.englang",
     "text": "test",
     "fullMatch": true
   },
@@ -5847,6 +5853,30 @@
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "support.function.validation.englang",
     "text": "rmse",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "fail",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "continue",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "support.function.db.englang",
+    "text": "table",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "storage.type.test.englang",
+    "text": "test",
     "fullMatch": true
   }
 ]

@@ -21,6 +21,7 @@ the files that keep VS Code and the native IDE aligned.
 | Optional VS Code color themes | `tools/vscode-englang/themes/englang-dark-color-theme.json` and `tools/vscode-englang/themes/englang-light-color-theme.json` |
 | Grammar smoke fixtures | `tools/vscode-englang/test/grammar-fixtures/*.eng` |
 | Grammar smoke expectations | `tools/vscode-englang/test/expected/grammar_tokens.json` |
+| TextMate/semantic parity audit | `tools/vscode-englang/test/textmateExampleCoverage.test.js` with `build/editor-tests/semantic_tokens/textmate_semantic_snapshots.json` |
 
 Edit the source grammar, not the generated grammar. The source grammar may use
 `{{...}}` placeholders for compiler-owned keyword, workflow helper, option,
@@ -31,6 +32,7 @@ metadata, including `syntax_catalog.workflow_status_literals` for `status ==`, `
 .\dev.bat vscode-build-editor-metadata
 .\dev.bat vscode-build-grammar
 .\dev.bat vscode-grammar-test
+.\dev.bat vscode-test
 ```
 
 Role-specific builtin first-paint lists are compiler-owned under
@@ -97,7 +99,6 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `storage.modifier.input.englang` | `input` member keyword fallback coloring aligned with input semantic colors. |
 | `storage.modifier.parameter.englang` | `parameter` member keyword fallback coloring aligned with parameter semantic colors. |
 | `storage.modifier.output.englang` | `output` member keyword fallback coloring aligned with output semantic colors. |
-| `storage.modifier.operator.englang` | `operator` member keyword fallback coloring aligned with solver semantic colors. |
 | `storage.modifier.englang` | Generic modifier and constant keyword fallback coloring from semantic token mappings. |
 | `entity.name.type.declaration.englang` | Full type-like declaration phrases such as `schema SensorData`. |
 | `entity.name.type.englang` | Captured declaration names after `schema`, `system`, `domain`, `component`, and `class`, plus class names in object construction headers. |
@@ -128,6 +129,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `support.function.uncertain.englang` | Uncertainty helper calls such as `measured(...)`, `interval(...)`, `normal(...)`, `uniform(...)`, `distribution(...)`, `propagate(...)`, `ensemble(...)`, and `probability(...)`. |
 | `support.function.timeseries.englang` | Native TimeSeries/statistic calls such as `integrate(...)`, `mean(...)`, `min(...)`, `max(...)`, `median(...)`, `std(...)`, `sum(...)`, `time_weighted_mean(...)`, `p90(...)`, and `duration_above(...)`; the latter also has a compact threshold-only selector inside `summarize`. |
 | `support.function.external-boundary.englang` | External boundary constructors/checks such as `file(...)`, `dir(...)`, `url(...)`, `env(...)`, `secret env(...)`, and `exists(...)`. |
+| `support.function.db.englang` | SQLite `.table(...)` method names inside native DB read/write phrases. |
 | `support.function.workflow-step.englang` | Workflow-step helper calls such as `apply(...)` and step values such as `run_case`. |
 | `support.function.solver.englang` | Solver-context calls: `der(...)` is an equation operator and `delay(...)` is a component behavior call, not a general top-level helper. |
 | `support.function.path.englang` | Path helper calls such as `join(...)`, `parent(...)`, `stem(...)`, and `extension(...)`. |
@@ -215,6 +217,18 @@ while public authoring uses `fill missing ...`.
 
 `#members` must appear before generic `args.*` and dotted-path fallbacks inside expression contexts so TextMate first-paint tokenization can split roots, dots, and member segments before broad property regexes match the whole path. Grammar smoke also requires begin/end workflow phrase scopes to include `#members`, so operand-oriented phrases cannot regress to uncolored dotted paths.
 
+The dedicated `withOptions` rule begins at `^\s*with`. Its line anchor
+lets the top-level include order select it before the generic block rule, so
+option keys and report `unit <axis> =` rows receive their intended scope.
+The standalone `with` keyword always carries `workflowStep` semantically,
+in addition to any command-domain modifier, because first-paint parsing cannot
+recover the preceding owner command after its line rule has ended.
+
+Connection phrases have a dedicated `meta.solver.connect.englang` rule.
+Both `connect` and the `to` clause word use
+`keyword.control.solver.englang`; the generic workflow `to` scope must not
+win inside `connect A to B`.
+
 Prefer adding a phrase-level `meta.workflow.*.englang` scope when a native
 workflow operation is more readable as a single action than as unrelated
 keywords. Examples include `sample lhs`, `predict model using`, `read json`,
@@ -238,7 +252,12 @@ split consistently before semantic highlighting arrives.
 DB/table phrases such as `open sqlite`, `read sqlite <db>.table(...)`,
 `write <table> to <db>.table(...)`, and `select <table> columns ...` use the
 same member-aware fallback ordering so nested DB/table receivers and selected
-source tables split before broad property scopes.
+source tables split before broad property scopes. The `table` method itself
+uses `support.function.db.englang` so first-paint DB coloring agrees with the
+`method.db` semantic role.
+DB read/write phrase rules match the full receiver plus `.table` path before
+the generic member rule; matching only the final word cannot win against a dotted
+path pattern that starts earlier on the line.
 
 Table and case operation phrases such as `filter`, `derive`, `sort`, `join`,
 `require_one`, `materialize cases`, and `collect results` use phrase-level
@@ -726,7 +745,6 @@ storage.modifier.state.englang
 storage.modifier.input.englang
 storage.modifier.parameter.englang
 storage.modifier.output.englang
-storage.modifier.operator.englang
 storage.modifier.englang
 storage.modifier.schema.englang
 string.quoted.double.englang

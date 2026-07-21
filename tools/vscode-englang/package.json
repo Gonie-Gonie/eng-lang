@@ -224,7 +224,6 @@
             "storage.modifier.input.englang",
             "storage.modifier.parameter.englang",
             "storage.modifier.output.englang",
-            "storage.modifier.operator.englang",
             "storage.modifier.englang",
             "storage.modifier.schema.englang",
             "keyword.control.workflow.englang"
@@ -258,7 +257,6 @@
             "storage.modifier.input.englang",
             "storage.modifier.parameter.englang",
             "storage.modifier.output.englang",
-            "storage.modifier.operator.englang",
             "storage.modifier.schema.englang"
           ],
           "method": [
@@ -483,7 +481,8 @@
           ],
           "keyword.sideEffect": [
             "keyword.control.side-effect.englang",
-            "keyword.operator.word.englang"
+            "keyword.operator.word.englang",
+            "constant.language.englang"
           ],
           "method.sideEffect": [
             "keyword.control.side-effect.englang"
@@ -516,6 +515,7 @@
             "keyword.control.external-boundary.englang"
           ],
           "method.db": [
+            "support.function.db.englang",
             "keyword.control.external-boundary.englang",
             "entity.name.function.englang"
           ],
@@ -699,6 +699,7 @@
             "constant.language.englang"
           ],
           "function.db": [
+            "support.function.db.englang",
             "keyword.control.external-boundary.englang",
             "support.function.builtin.englang"
           ],

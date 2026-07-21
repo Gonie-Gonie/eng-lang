@@ -14,26 +14,63 @@ function existingDirectory(candidate) {
   }
 }
 
-function addCandidate(candidates, candidate) {
-  if (!candidate || !existingDirectory(candidate)) {
+function addCandidate(candidates, nodeModulesRoot, onigurumaWasmPath) {
+  if (!nodeModulesRoot) {
     return;
   }
-  const resolved = path.resolve(candidate);
-  if (!candidates.includes(resolved)) {
-    candidates.push(resolved);
+  const resolved = path.resolve(nodeModulesRoot);
+  const textmateRoot = path.join(resolved, "vscode-textmate");
+  const onigurumaRoot = path.join(resolved, "vscode-oniguruma");
+  const wasmPath = onigurumaWasmPath
+    ? path.resolve(onigurumaWasmPath)
+    : path.join(onigurumaRoot, "release", "onig.wasm");
+  if (
+    !existingDirectory(textmateRoot) ||
+    !existingDirectory(onigurumaRoot) ||
+    !fs.existsSync(wasmPath)
+  ) {
+    return;
   }
+  if (
+    !candidates.some(
+      (candidate) =>
+        candidate.textmateRoot === textmateRoot &&
+        candidate.onigurumaRoot === onigurumaRoot &&
+        candidate.wasmPath === wasmPath
+    )
+  ) {
+    candidates.push({ nodeModulesRoot: resolved, textmateRoot, onigurumaRoot, wasmPath });
+  }
+}
+
+function addVscodeAppCandidates(candidates, appRoot) {
+  if (!appRoot) {
+    return;
+  }
+  addCandidate(candidates, path.join(appRoot, "node_modules"));
+  addCandidate(
+    candidates,
+    path.join(appRoot, "node_modules.asar"),
+    path.join(
+      appRoot,
+      "node_modules.asar.unpacked",
+      "vscode-oniguruma",
+      "release",
+      "onig.wasm"
+    )
+  );
 }
 
 function addVscodeInstallCandidates(candidates, installRoot) {
   if (!installRoot || !existingDirectory(installRoot)) {
     return;
   }
-  addCandidate(candidates, path.join(installRoot, "resources", "app", "node_modules"));
+  addVscodeAppCandidates(candidates, path.join(installRoot, "resources", "app"));
   for (const entry of fs.readdirSync(installRoot, { withFileTypes: true })) {
     if (entry.isDirectory()) {
-      addCandidate(
+      addVscodeAppCandidates(
         candidates,
-        path.join(installRoot, entry.name, "resources", "app", "node_modules")
+        path.join(installRoot, entry.name, "resources", "app")
       );
     }
   }
@@ -78,22 +115,12 @@ function vscodeNodeModuleCandidates() {
 }
 
 function loadTextMateRuntime() {
-  for (const nodeModulesRoot of vscodeNodeModuleCandidates()) {
-    const textmateRoot = path.join(nodeModulesRoot, "vscode-textmate");
-    const onigurumaRoot = path.join(nodeModulesRoot, "vscode-oniguruma");
-    const wasmPath = path.join(onigurumaRoot, "release", "onig.wasm");
-    if (
-      !existingDirectory(textmateRoot) ||
-      !existingDirectory(onigurumaRoot) ||
-      !fs.existsSync(wasmPath)
-    ) {
-      continue;
-    }
+  for (const candidate of vscodeNodeModuleCandidates()) {
     return {
-      nodeModulesRoot,
-      oniguruma: require(onigurumaRoot),
-      textmate: require(textmateRoot),
-      wasmPath
+      nodeModulesRoot: candidate.nodeModulesRoot,
+      oniguruma: require(candidate.onigurumaRoot),
+      textmate: require(candidate.textmateRoot),
+      wasmPath: candidate.wasmPath
     };
   }
   return undefined;
@@ -141,6 +168,78 @@ function collectEngFiles(root) {
   return files.sort((left, right) => left.localeCompare(right));
 }
 
+function semanticSnapshotBundle() {
+  const bundlePath = process.env.ENGLANG_TEXTMATE_SEMANTIC_SNAPSHOTS;
+  if (!bundlePath || !fs.existsSync(bundlePath)) {
+    return new Map();
+  }
+  const bundle = JSON.parse(fs.readFileSync(bundlePath, "utf8").replace(/^\uFEFF/, ""));
+  if (bundle.format !== "englang-textmate-semantic-snapshots-v1") {
+    throw new Error("unexpected TextMate semantic snapshot bundle format");
+  }
+  const snapshots = new Map();
+  for (const snapshot of bundle.snapshots || []) {
+    const sourcePath = String(snapshot.path || "").replace(/\\/g, "/");
+    if (!sourcePath || !Array.isArray(snapshot.tokens)) {
+      throw new Error("invalid TextMate semantic snapshot bundle entry");
+    }
+    snapshots.set(sourcePath, snapshot.tokens);
+  }
+  return snapshots;
+}
+
+function semanticFallbackScopes(token, scopeMap) {
+  const modifierScopes = (token.modifiers || []).flatMap((modifier) => {
+    const scopes = scopeMap[token.type + "." + modifier];
+    return Array.isArray(scopes) ? scopes : [];
+  });
+  const typeScopes = scopeMap[token.type];
+  const selectedScopes =
+    modifierScopes.length > 0
+      ? modifierScopes
+      : Array.isArray(typeScopes)
+        ? typeScopes
+        : [];
+  return Array.from(
+    new Set(selectedScopes)
+  );
+}
+
+function scopesIntersect(actualScopes, expectedScopes) {
+  return expectedScopes.some((expected) =>
+    actualScopes.some(
+      (actual) => actual === expected || actual.startsWith(expected + ".")
+    )
+  );
+}
+
+function needsSemanticTextMateParity(token) {
+  if (token.type === "keyword" || token.type === "modifier") {
+    return true;
+  }
+  if (token.type !== "function" && token.type !== "method") {
+    return false;
+  }
+  const roleModifiers = new Set([
+    "defaultLibrary",
+    "deprecated",
+    "timeseries",
+    "uncertain",
+    "sideEffect",
+    "external",
+    "validation",
+    "report",
+    "solver",
+    "model",
+    "db",
+    "cache",
+    "workflowStep",
+    "path",
+    "temporal"
+  ]);
+  return (token.modifiers || []).some((modifier) => roleModifiers.has(modifier));
+}
+
 function escapeRegex(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -183,7 +282,10 @@ async function main() {
     const message =
       "VS Code TextMate example coverage skipped: vscode-textmate/vscode-oniguruma were not found. " +
       "Install VS Code or set VSCODE_NODE_MODULES to its resources/app/node_modules directory.";
-    if (process.env.ENGLANG_REQUIRE_TEXTMATE_RUNTIME === "1") {
+    if (
+      process.env.ENGLANG_REQUIRE_TEXTMATE_RUNTIME === "1" ||
+      Boolean(process.versions?.electron)
+    ) {
       throw new Error(message);
     }
     console.log(message);
@@ -217,6 +319,13 @@ async function main() {
   const metadata = readJson(
     path.join("generated", "editor", "englang-editor-metadata.json")
   );
+  const extensionPackage = readJson("package.json");
+  const semanticScopeRule = (extensionPackage.contributes?.semanticTokenScopes || [])
+    .find((rule) => rule.language === "englang");
+  if (!semanticScopeRule?.scopes) {
+    throw new Error("VS Code package is missing EngLang semanticTokenScopes");
+  }
+  const semanticSnapshots = semanticSnapshotBundle();
   const keywords = Array.from(new Set(metadata.syntax_catalog?.keywords || []));
   if (keywords.length === 0) {
     throw new Error("editor metadata syntax_catalog.keywords is empty");
@@ -270,16 +379,70 @@ async function main() {
   ];
   const failures = [];
   let checkedOccurrences = 0;
+  let checkedSemanticOccurrences = 0;
+  let semanticSnapshotCount = 0;
   let skippedLexicalOccurrences = 0;
   let interpolateOccurrences = 0;
 
   for (const filePath of files) {
     const lines = fs.readFileSync(filePath, "utf8").split(/\r?\n/);
+    const semanticTokensByLine = new Map();
+    const semanticSnapshot = semanticSnapshots.get(displayPath(filePath));
+    if (semanticSnapshots.size > 0 && !semanticSnapshot) {
+      throw new Error("semantic snapshot bundle is missing " + displayPath(filePath));
+    }
+    if (semanticSnapshot) {
+      semanticSnapshotCount += 1;
+      for (const token of semanticSnapshot) {
+        const lineTokens = semanticTokensByLine.get(token.line) || [];
+        lineTokens.push(token);
+        semanticTokensByLine.set(token.line, lineTokens);
+      }
+    }
     let ruleStack = runtime.textmate.INITIAL;
     for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
       const line = lines[lineIndex];
       const tokenized = grammar.tokenizeLine(line, ruleStack);
       ruleStack = tokenized.ruleStack;
+      for (const semanticToken of semanticTokensByLine.get(lineIndex) || []) {
+        if (!needsSemanticTextMateParity(semanticToken)) {
+          continue;
+        }
+        const startIndex = Number(semanticToken.start);
+        const endIndex = startIndex + Number(semanticToken.length);
+        const scopes = overlappingScopes(tokenized.tokens, startIndex, endIndex);
+        const expectedScopes = semanticFallbackScopes(
+          semanticToken,
+          semanticScopeRule.scopes
+        );
+        checkedSemanticOccurrences += 1;
+        if (expectedScopes.length === 0) {
+          failures.push({
+            filePath,
+            keyword: line.slice(startIndex, endIndex),
+            lineIndex,
+            scopes,
+            reason:
+              "semantic selector has no TextMate fallback mapping: " +
+              [semanticToken.type, ...(semanticToken.modifiers || [])].join(".")
+          });
+        } else if (!scopesIntersect(scopes, expectedScopes)) {
+          failures.push({
+            filePath,
+            keyword: line.slice(startIndex, endIndex),
+            lineIndex,
+            scopes,
+            reason:
+              "semantic/TextMate mismatch for " +
+              semanticToken.type +
+              ((semanticToken.modifiers || []).length > 0
+                ? "." + semanticToken.modifiers.join(".")
+                : "") +
+              "; expected one of " +
+              expectedScopes.join(",")
+          });
+        }
+      }
       keywordRegex.lastIndex = 0;
       for (
         let match = keywordRegex.exec(line);
@@ -353,6 +516,9 @@ async function main() {
   if (checkedOccurrences === 0) {
     throw new Error("no syntax catalog keyword occurrences were checked");
   }
+  if (semanticSnapshots.size > 0 && checkedSemanticOccurrences === 0) {
+    throw new Error("semantic snapshot bundle contains no TextMate parity tokens");
+  }
   if (interpolateOccurrences === 0) {
     throw new Error("examples must retain an interpolate policy highlighting fixture");
   }
@@ -365,6 +531,25 @@ async function main() {
     );
   }
   if (failures.length > 0) {
+    const groupedFailures = new Map();
+    for (const failure of failures) {
+      const semanticReason = failure.reason.split("; expected one of ")[0];
+      const roleScopes = failure.scopes
+        .filter((scope) => scope !== "source.englang" && !scope.startsWith("meta."))
+        .join(",");
+      const key =
+        semanticReason +
+        " [" +
+        failure.keyword +
+        "] <= " +
+        (roleScopes || "<none>");
+      groupedFailures.set(key, (groupedFailures.get(key) || 0) + 1);
+    }
+    const groupDetails = Array.from(groupedFailures.entries())
+      .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+      .slice(0, 30)
+      .map(([group, count]) => count + "x " + group)
+      .join("\n");
     const details = failures
       .slice(0, 20)
       .map(
@@ -375,14 +560,16 @@ async function main() {
       .join("\n");
     const remainder = failures.length > 20 ? `\n... ${failures.length - 20} more` : "";
     throw new Error(
-      `VS Code TextMate example coverage found ${failures.length} gap(s):\n${details}${remainder}`
+      `VS Code TextMate example coverage found ${failures.length} gap(s):\n${groupDetails}\n\n${details}${remainder}`
     );
   }
 
   console.log(
     `VS Code TextMate example coverage passed. Checked ${checkedOccurrences} keyword occurrence(s) ` +
       `and ${requiredScopes.reduce((total, requirement) => total + requirement.count, 0)} ` +
-      `role-sensitive occurrence(s) across ${files.length} example file(s); skipped ` +
+      `role-sensitive occurrence(s), ${checkedSemanticOccurrences} semantic/TextMate parity ` +
+      `occurrence(s) across ${files.length} example file(s) and ${semanticSnapshotCount} semantic ` +
+      `snapshot(s); skipped ` +
       `${skippedLexicalOccurrences} string/comment occurrence(s).`
   );
 }

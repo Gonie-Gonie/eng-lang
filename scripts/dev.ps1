@@ -4564,7 +4564,7 @@ function Assert-VscodeExtensionContract {
         "punctuation.separator.format.englang",
         "constant.numeric.format.englang", "constant.other.unit.format.englang", "entity.name.function.call.englang",
         "storage.modifier.state.englang", "storage.modifier.input.englang", "storage.modifier.parameter.englang",
-        "storage.modifier.output.englang", "storage.modifier.operator.englang",
+        "storage.modifier.output.englang",
         "variable.other.state.englang", "variable.other.input.englang", "variable.other.output.englang",
         "variable.other.parameter.englang", "entity.name.function.solver.englang", "meta.declaration.equation.englang",
         "keyword.control.import.englang", "keyword.control.validation.englang", "keyword.control.workflow.englang",
@@ -5070,7 +5070,6 @@ function Assert-VscodeExtensionContract {
             "storage.modifier.input.englang",
             "storage.modifier.parameter.englang",
             "storage.modifier.output.englang",
-            "storage.modifier.operator.englang",
             "storage.modifier.englang"
         )
         "keyword.state" = @(
@@ -5094,7 +5093,6 @@ function Assert-VscodeExtensionContract {
             "storage.modifier.input.englang",
             "storage.modifier.parameter.englang",
             "storage.modifier.output.englang",
-            "storage.modifier.operator.englang",
             "storage.modifier.schema.englang"
         )
         "keyword.local" = @(
@@ -8846,6 +8844,7 @@ function Assert-VscodeSemanticFallbackCoverage {
     $TokenCount = 0
     $OverlapCount = 0
     $OverlapSamples = @()
+    $SemanticSnapshotRows = New-Object System.Collections.Generic.List[object]
     foreach ($SourceFile in $SourceFiles) {
         $SnapshotOutput = & $LspExecutable "--snapshot" $SourceFile.FullName
         if ($LASTEXITCODE -ne 0) {
@@ -8853,6 +8852,11 @@ function Assert-VscodeSemanticFallbackCoverage {
         }
         $Snapshot = ($SnapshotOutput | Out-String).Trim() | ConvertFrom-Json
         $SemanticTokens = @($Snapshot.semantic_tokens.tokens)
+        $RelativeSourcePath = $SourceFile.FullName.Substring($RepoRoot.Length).TrimStart([char[]]@('\', '/')).Replace('\', '/')
+        $SemanticSnapshotRows.Add([pscustomobject]@{
+            path = $RelativeSourcePath
+            tokens = $SemanticTokens
+        }) | Out-Null
         foreach ($Token in $SemanticTokens) {
             $TokenCount += 1
             $TokenType = [string]$Token.type
@@ -8933,6 +8937,20 @@ function Assert-VscodeSemanticFallbackCoverage {
         $OverlapSummary = $OverlapSamples -join ", "
         throw "VS Code semantic token coverage found $OverlapCount overlapping semantic token range(s): $OverlapSummary"
     }
+    $SemanticSnapshotRoot = Join-Path $RepoRoot "build\editor-tests\semantic_tokens"
+    New-Item -ItemType Directory -Force -Path $SemanticSnapshotRoot | Out-Null
+    $SemanticSnapshotPath = Join-Path $SemanticSnapshotRoot "textmate_semantic_snapshots.json"
+    $SemanticSnapshotBundle = [ordered]@{
+        format = "englang-textmate-semantic-snapshots-v1"
+        snapshots = @($SemanticSnapshotRows | ForEach-Object { $_ })
+    }
+    $SemanticSnapshotJson = $SemanticSnapshotBundle | ConvertTo-Json -Depth 20 -Compress
+    [System.IO.File]::WriteAllText(
+        $SemanticSnapshotPath,
+        $SemanticSnapshotJson,
+        (New-Object System.Text.UTF8Encoding($false))
+    )
+    $env:ENGLANG_TEXTMATE_SEMANTIC_SNAPSHOTS = $SemanticSnapshotPath
     Write-Host "VS Code semantic fallback coverage passed. Checked $(@($SourceFiles).Count) snapshot(s), $($ObservedSelectors.Count) selector(s), $TokenCount semantic token(s)."
 }
 

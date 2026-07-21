@@ -85,6 +85,10 @@
       "settings": { "foreground": "#B45309" }
     },
     {
+      "scope": ["support.function.db.englang"],
+      "settings": { "foreground": "#00838F" }
+    },
+    {
       "scope": ["support.function.workflow-step.englang"],
       "settings": { "foreground": "#3B5BDB" }
     },
@@ -173,7 +177,7 @@
       "settings": { "foreground": "#9A6700" }
     },
     {
-      "scope": ["storage.modifier.operator.englang", "storage.type.interface-member.englang"],
+      "scope": ["storage.type.interface-member.englang"],
       "settings": { "foreground": "#00796B" }
     },
     {

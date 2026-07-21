@@ -22,6 +22,7 @@ The documentation plans in `EngLang_Documentation_Reorganization_and_User_Guide_
 | Documentation check | `dev.bat docs-check` | Checks Markdown final-newline/trailing-whitespace hygiene, links, documented snippets, and supported documentation examples. |
 | Native workflow status | `dev.bat workflow-native-status` | Quickly reports workflow 01/02/03 native-only source/docs status and latest process/run-graph artifact evidence without rerunning the full smoke gate. |
 | LSP/editor check | `dev.bat lsp-check` | Runs library, persistent-stdio, semantic-token, visual-contract, exact-source, token-free-trivia, variable-width scalar-declaration, backward-alias and pure scalar-arithmetic type propagation, mixed fast/explicit style transitions, annotation/RHS/cardinality rechecks, rename/cardinality changes, complete clear/restart, resized/inserted/removed trivia and line-ending suffix rechecks, strict full-fallback, and recursive import-invalidation regressions. |
+| VS Code extension check | `dev.bat vscode-test` | Builds LSP editor metadata, emits semantic snapshots for every example and grammar fixture, checks scope mappings and non-overlap, runs grammar and extension contracts, and uses the installed VS Code TextMate runtime to compare role-bearing semantic tokens with first-paint scopes across all examples. |
 | Editor visual contract | `dev.bat editor-visual-check` | Builds `eng-lsp`, validates bounded VS Code Light/Dark plus native IDE fixtures, clean/intentional diagnostics, semantic token coverage, inspected screenshot manifest integrity, and the zero-diff comparison engine path. |
 | Editor visual comparison | `dev.bat editor-visual-compare <capture-dir>` | Compares supplied Light/Dark/native captures with accepted baselines using fixed dimensions, RGB thresholds, summary JSON, and generated diff PNGs. |
 | Package smoke | `dev.bat package-smoke` | Validates the portable public package path. Workflow fixtures stay in workflow smoke until promoted. |
@@ -43,6 +44,16 @@ accepted files and compiler/editor contract but does not automate VS Code.
 `editor-visual-compare` evaluates supplied same-dimension captures with bounded
 RGB thresholds and emits diff artifacts; it does not claim cross-platform pixel
 equivalence across OS, font, GPU, or VS Code versions.
+
+The TextMate parity test discovers both unpacked VS Code `node_modules` and
+the current `node_modules.asar` plus unpacked Oniguruma WASM layout. When
+launched under VS Code Electron, or when runtime coverage is explicitly required,
+missing TextMate dependencies fail the gate instead of reporting a skipped pass.
+The test compares keyword/modifier tokens and role-bearing function/method tokens;
+ordinary identifiers and literals remain outside this cross-engine parity check.
+When a semantic token has a mapped modifier, the comparison requires a
+modifier-specific fallback scope; a generic token-type scope cannot hide a
+role mismatch.
 
 ## Checklist 9.1: Uncertainty Tests
 

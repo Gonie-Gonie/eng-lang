@@ -199,6 +199,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "collect",
     "column",
     "columns",
+    "continue",
     "copy",
     "coverage",
     "csv",
@@ -212,6 +213,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "equation",
     "else",
     "evaluate",
+    "fail",
     "export",
     "false",
     "fetch",
@@ -497,6 +499,8 @@ const LANGUAGE_CONSTANT_KEYWORDS: &[&str] = &[
     "warn",
     "debug",
     "error",
+    "fail",
+    "continue",
     "safe",
     "normal",
     "repro",
@@ -3537,12 +3541,11 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for block in &program.with_blocks {
-        builder.push_named_span(
-            block.span,
-            "with",
-            "keyword",
-            with_block_semantic_modifiers(program, block),
-        );
+        let mut modifiers = with_block_semantic_modifiers(program, block).to_vec();
+        if !modifiers.contains(&"workflowStep") {
+            modifiers.push("workflowStep");
+        }
+        builder.push_named_span(block.span, "with", "keyword", &modifiers);
         for option in &block.options {
             let modifiers = with_option_semantic_modifiers(program, block, &option.key);
             add_with_option_key_semantic_token(&mut builder, option, modifiers);
@@ -8193,6 +8196,18 @@ fn add_command_style_semantic_tokens(
                 );
             }
             push_command_clause_keywords(builder, command, &["over"], &["workflowStep"]);
+            for clause in &command.clauses {
+                if clause.name == "over" {
+                    push_command_style_identifier_paths(
+                        builder,
+                        command.line,
+                        &clause.value,
+                        Some(clause.value_span),
+                        &[],
+                        &["workflowStep"],
+                    );
+                }
+            }
         }
         "integrate" => {
             let modifiers = &["solver", "timeseries"];
@@ -16646,6 +16661,11 @@ write json join(dir("outputs"), "metrics.json"), Q_coil
 write standard_text sensor to file("outputs/sensor_copy.txt")
 "#;
         let snapshot = snapshot_for_source(Path::new("roles.eng"), source);
+        assert_eq!(
+            semantic_token_modifier_count(&snapshot, source, "with", "keyword", "workflowStep"),
+            semantic_token_count(&snapshot, source, "with", "keyword"),
+            "every standalone with-block keyword should retain its structural workflow-step role"
+        );
 
         for (owner_line, modifier) in [
             ("reg_model = regression(split, algorithm=linear)", "model"),
@@ -21124,8 +21144,16 @@ legacy_station = select_first_row(stations, return_column="station_id")
         }
         assert_eq!(
             semantic_token_modifier_count(&snapshot, source, "cases", "variable", "workflowStep"),
-            1,
-            "materialized case table binding should be a workflow-step semantic token"
+            2,
+            "materialized case table binding and apply operand should be workflow-step semantic tokens"
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "case_inputs = apply case_input_template over cases",
+            "cases",
+            "variable",
+            "workflowStep",
         );
         assert_eq!(
             semantic_token_modifier_count(
