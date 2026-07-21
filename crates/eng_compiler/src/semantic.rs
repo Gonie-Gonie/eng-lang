@@ -1056,13 +1056,13 @@ pub(crate) struct IncrementalScalarDeclarationAnalysis {
 ///
 /// Fast bindings, explicit declarations, and top-level scalar constants may be interleaved.
 /// Accepted expressions are numeric literals, backward aliases, or pure scalar arithmetic over
-/// registered-unit literals and backward scalar references. Any declaration form may also call a
-/// trusted imported pure scalar function directly when every argument resolves against that
-/// environment; explicit and `const` declarations additionally require a return dimension that
-/// matches their annotation. The arithmetic grammar is shared with component parameter validation;
-/// nested calls, workflow expressions, and non-scalar functions cannot enter this local semantic
-/// path. An empty suffix is accepted so the caller can remove the final affected declarations
-/// atomically.
+/// registered-unit literals and backward scalar references. Any declaration form may also use one
+/// or more trusted imported pure scalar calls as direct values or arithmetic operands when every
+/// argument resolves against that environment; explicit and `const` declarations additionally
+/// require a result dimension that matches their annotation. The arithmetic grammar is shared with
+/// component parameter validation; calls nested inside arguments, workflow expressions, and
+/// non-scalar functions cannot enter this local semantic path. An empty suffix is accepted so the
+/// caller can remove the final affected declarations atomically.
 pub(crate) fn analyze_incremental_scalar_declarations(
     program: &ParsedProgram,
     prefix_typed_bindings: &[TypedBinding],
@@ -1238,7 +1238,13 @@ pub(crate) fn supports_incremental_scalar_expression(
         return false;
     }
 
-    evaluate_scalar_arithmetic_expression(expression, available_bindings).is_some()
+    evaluate_scalar_arithmetic_expression(
+        expression,
+        available_bindings,
+        &[],
+        ScalarFunctionTrust::UnitConsistent,
+    )
+    .is_some()
 }
 
 pub(crate) fn supports_incremental_fast_binding_expression(
@@ -1248,6 +1254,13 @@ pub(crate) fn supports_incremental_fast_binding_expression(
 ) -> bool {
     supports_incremental_scalar_expression(expression, available_bindings)
         || incremental_scalar_function_call(expression, available_bindings, functions).is_some()
+        || evaluate_scalar_arithmetic_expression(
+            expression,
+            available_bindings,
+            functions,
+            ScalarFunctionTrust::UnitConsistent,
+        )
+        .is_some_and(|(_, _, function_call_count)| function_call_count > 0)
 }
 
 pub(crate) fn supports_incremental_annotated_scalar_expression(
@@ -1260,14 +1273,18 @@ pub(crate) fn supports_incremental_annotated_scalar_expression(
         return true;
     }
 
+    let expected_dimension = dimension_for_quantity(expected_quantity_kind);
     incremental_scalar_function_call(expression, available_bindings, functions).is_some_and(
-        |function| {
-            dimensions_compatible(
-                &dimension_for_quantity(expected_quantity_kind),
-                &function.return_dimension,
-            )
-        },
+        |function| dimensions_compatible(&expected_dimension, &function.return_dimension),
+    ) || evaluate_scalar_arithmetic_expression(
+        expression,
+        available_bindings,
+        functions,
+        ScalarFunctionTrust::UnitConsistent,
     )
+    .is_some_and(|(value, _, function_call_count)| {
+        function_call_count > 0 && dimensions_compatible(&expected_dimension, &value.dimension)
+    })
 }
 
 fn incremental_scalar_function_call<'a>(
@@ -1276,23 +1293,44 @@ fn incremental_scalar_function_call<'a>(
     functions: &'a [FunctionInfo],
 ) -> Option<&'a FunctionInfo> {
     let call = parse_function_call(expression)?;
-    let function = functions
-        .iter()
-        .find(|function| function.name == call.name)?;
+    let function =
+        registered_scalar_function(&call.name, functions, ScalarFunctionTrust::UnitConsistent)?;
+    (call.args.len() == function.parameters.len()
+        && function_call_args_dimensionally_valid(&call, function, available_bindings))
+    .then_some(function)
+}
+
+#[derive(Clone, Copy)]
+enum ScalarFunctionTrust {
+    DeclaredSignature,
+    UnitConsistent,
+}
+
+fn registered_scalar_function<'a>(
+    name: &str,
+    functions: &'a [FunctionInfo],
+    trust: ScalarFunctionTrust,
+) -> Option<&'a FunctionInfo> {
+    let function = functions.iter().find(|function| function.name == name)?;
     let registered_quantity = |quantity_kind: &str| {
         crate::quantities::all_quantity_completions()
             .iter()
             .any(|completion| completion.quantity_kind == quantity_kind)
     };
 
-    if function.status == "unit_consistent"
+    let status_is_eligible = match trust {
+        ScalarFunctionTrust::DeclaredSignature => {
+            matches!(function.status.as_str(), "declared" | "unit_consistent")
+        }
+        ScalarFunctionTrust::UnitConsistent => function.status == "unit_consistent",
+    };
+
+    if status_is_eligible
         && registered_quantity(&function.return_quantity_kind)
         && function
             .parameters
             .iter()
             .all(|parameter| registered_quantity(&parameter.quantity_kind))
-        && call.args.len() == function.parameters.len()
-        && function_call_args_dimensionally_valid(&call, function, available_bindings)
     {
         Some(function)
     } else {
@@ -1303,14 +1341,101 @@ fn incremental_scalar_function_call<'a>(
 fn evaluate_scalar_arithmetic_expression(
     expression: &str,
     available_bindings: &[TypedBinding],
-) -> Option<(ComponentParameterExpressionValue, Vec<SemanticType>)> {
-    let Ok(mut tokens) = tokenize_component_parameter_expression(expression, &[], 0) else {
+    functions: &[FunctionInfo],
+    function_trust: ScalarFunctionTrust,
+) -> Option<(ComponentParameterExpressionValue, Vec<SemanticType>, usize)> {
+    let Ok(tokens) = tokenize_component_parameter_expression(expression, &[], 0) else {
         return None;
     };
-    let mut saw_operator = false;
+    let (tokens, referenced_types, function_call_count) = resolve_scalar_expression_tokens(
+        &tokens,
+        available_bindings,
+        functions,
+        function_trust,
+        true,
+    )?;
+    let saw_operator = tokens.iter().any(|token| {
+        matches!(
+            token,
+            ComponentParameterExpressionToken::Plus
+                | ComponentParameterExpressionToken::Minus
+                | ComponentParameterExpressionToken::Star
+                | ComponentParameterExpressionToken::Slash
+        )
+    });
+    if !saw_operator {
+        return None;
+    }
+
+    let value = parse_scalar_expression_tokens(tokens)?;
+    Some((value, referenced_types, function_call_count))
+}
+
+fn resolve_scalar_expression_tokens(
+    tokens: &[ComponentParameterExpressionToken],
+    available_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    function_trust: ScalarFunctionTrust,
+    allow_function_calls: bool,
+) -> Option<(
+    Vec<ComponentParameterExpressionToken>,
+    Vec<SemanticType>,
+    usize,
+)> {
+    let mut resolved = Vec::with_capacity(tokens.len());
     let mut referenced_types = Vec::new();
-    for token in &mut tokens {
-        match token {
+    let mut function_call_count = 0usize;
+    let mut index = 0usize;
+    while index < tokens.len() {
+        match &tokens[index] {
+            ComponentParameterExpressionToken::Identifier(name)
+                if matches!(
+                    tokens.get(index + 1),
+                    Some(ComponentParameterExpressionToken::LeftParen)
+                ) =>
+            {
+                if !allow_function_calls {
+                    return None;
+                }
+                let close_index = matching_scalar_token_paren(tokens, index + 1)?;
+                let function = registered_scalar_function(name, functions, function_trust)?;
+                let argument_tokens =
+                    scalar_function_argument_token_slices(&tokens[index + 2..close_index])?;
+                if argument_tokens.len() != function.parameters.len() {
+                    return None;
+                }
+                for (argument, parameter) in argument_tokens.iter().zip(&function.parameters) {
+                    let (argument, mut argument_types, nested_call_count) =
+                        resolve_scalar_expression_tokens(
+                            argument,
+                            available_bindings,
+                            functions,
+                            function_trust,
+                            false,
+                        )?;
+                    if nested_call_count != 0 {
+                        return None;
+                    }
+                    let argument = parse_scalar_expression_tokens(argument)?;
+                    if !dimensions_compatible(&parameter.dimension, &argument.dimension) {
+                        return None;
+                    }
+                    referenced_types.append(&mut argument_types);
+                }
+                let return_type = semantic_type(
+                    &function.return_quantity_kind,
+                    &function.return_display_unit,
+                )?;
+                referenced_types.push(return_type);
+                resolved.push(ComponentParameterExpressionToken::Number(
+                    ComponentParameterExpressionValue {
+                        value: 1.0,
+                        dimension: function.return_dimension.clone(),
+                    },
+                ));
+                function_call_count = function_call_count.checked_add(1)?;
+                index = close_index.checked_add(1)?;
+            }
             ComponentParameterExpressionToken::Identifier(name) => {
                 let semantic_type = available_bindings
                     .iter()
@@ -1322,38 +1447,108 @@ fn evaluate_scalar_arithmetic_expression(
                     .dimension
                     .to_owned();
                 referenced_types.push(semantic_type);
-                *token =
-                    ComponentParameterExpressionToken::Number(ComponentParameterExpressionValue {
+                resolved.push(ComponentParameterExpressionToken::Number(
+                    ComponentParameterExpressionValue {
                         value: 1.0,
                         dimension,
-                    });
+                    },
+                ));
+                index = index.checked_add(1)?;
             }
-            ComponentParameterExpressionToken::Plus
-            | ComponentParameterExpressionToken::Minus
-            | ComponentParameterExpressionToken::Star
-            | ComponentParameterExpressionToken::Slash => saw_operator = true,
+            ComponentParameterExpressionToken::Comma => return None,
+            token => {
+                resolved.push(token.clone());
+                index = index.checked_add(1)?;
+            }
+        }
+    }
+    Some((resolved, referenced_types, function_call_count))
+}
+
+fn matching_scalar_token_paren(
+    tokens: &[ComponentParameterExpressionToken],
+    open_index: usize,
+) -> Option<usize> {
+    let mut depth = 0usize;
+    for (index, token) in tokens.iter().enumerate().skip(open_index) {
+        match token {
+            ComponentParameterExpressionToken::LeftParen => {
+                depth = depth.checked_add(1)?;
+            }
+            ComponentParameterExpressionToken::RightParen => {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    return Some(index);
+                }
+            }
             _ => {}
         }
     }
-    if !saw_operator {
+    None
+}
+
+fn scalar_function_argument_token_slices(
+    tokens: &[ComponentParameterExpressionToken],
+) -> Option<Vec<&[ComponentParameterExpressionToken]>> {
+    if tokens.is_empty() {
+        return Some(Vec::new());
+    }
+    let mut arguments = Vec::new();
+    let mut depth = 0usize;
+    let mut start = 0usize;
+    for (index, token) in tokens.iter().enumerate() {
+        match token {
+            ComponentParameterExpressionToken::LeftParen => {
+                depth = depth.checked_add(1)?;
+            }
+            ComponentParameterExpressionToken::RightParen => {
+                depth = depth.checked_sub(1)?;
+            }
+            ComponentParameterExpressionToken::Comma if depth == 0 => {
+                let argument = tokens.get(start..index)?;
+                if argument.is_empty() {
+                    return None;
+                }
+                arguments.push(argument);
+                start = index.checked_add(1)?;
+            }
+            _ => {}
+        }
+    }
+    if depth != 0 {
         return None;
     }
+    let argument = tokens.get(start..)?;
+    if argument.is_empty() {
+        return None;
+    }
+    arguments.push(argument);
+    Some(arguments)
+}
 
+fn parse_scalar_expression_tokens(
+    tokens: Vec<ComponentParameterExpressionToken>,
+) -> Option<ComponentParameterExpressionValue> {
     let mut parser = ComponentParameterExpressionParser {
         tokens,
         position: 0,
     };
     let value = parser.parse_expression().ok()?;
-    (parser.position == parser.tokens.len()).then_some((value, referenced_types))
+    (parser.position == parser.tokens.len()).then_some(value)
 }
 
 fn scalar_arithmetic_semantic_type(
     name: &str,
     expression: &str,
     available_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
 ) -> Option<SemanticType> {
-    let (value, referenced_types) =
-        evaluate_scalar_arithmetic_expression(expression, available_bindings)?;
+    let (value, referenced_types, _) = evaluate_scalar_arithmetic_expression(
+        expression,
+        available_bindings,
+        functions,
+        ScalarFunctionTrust::DeclaredSignature,
+    )?;
     let matching_completions = crate::quantities::all_quantity_completions()
         .iter()
         .filter(|completion| completion.dimension == value.dimension)
@@ -2989,7 +3184,7 @@ fn infer_scoped_binding_semantic_type(
         .or_else(|| model_artifact_field_semantic_type(expression, typed_bindings))
         .or_else(|| table_metadata_field_semantic_type(expression, typed_bindings))
         .or_else(|| binding_alias_semantic_type(expression, typed_bindings))
-        .or_else(|| scalar_arithmetic_semantic_type(name, expression, typed_bindings))
+        .or_else(|| scalar_arithmetic_semantic_type(name, expression, typed_bindings, functions))
         .or_else(|| infer_quantity(name, expression))
 }
 
@@ -7904,6 +8099,10 @@ fn parse_function_call(source_expression: &str) -> Option<FunctionCall> {
     if !expression.ends_with(')') {
         return None;
     }
+    let call_suffix = &expression[open..];
+    if matching_closing_paren_end(call_suffix)? != call_suffix.len() {
+        return None;
+    }
     let name = expression[..open].trim();
     if !is_identifier(name) {
         return None;
@@ -8984,7 +9183,9 @@ fn class_field_expression_semantic_type(
         .or_else(|| model_artifact_field_semantic_type(expression, typed_bindings))
         .or_else(|| table_metadata_field_semantic_type(expression, typed_bindings))
         .or_else(|| binding_alias_semantic_type(expression, typed_bindings))
-        .or_else(|| scalar_arithmetic_semantic_type(field_name, expression, typed_bindings))
+        .or_else(|| {
+            scalar_arithmetic_semantic_type(field_name, expression, typed_bindings, functions)
+        })
         .or_else(|| infer_quantity(field_name, expression))
 }
 
@@ -9432,6 +9633,7 @@ enum ComponentParameterExpressionToken {
     Minus,
     Star,
     Slash,
+    Comma,
     LeftParen,
     RightParen,
 }
@@ -9514,6 +9716,10 @@ fn tokenize_component_parameter_expression(
             }
             '/' => {
                 tokens.push(ComponentParameterExpressionToken::Slash);
+                index += 1;
+            }
+            ',' => {
+                tokens.push(ComponentParameterExpressionToken::Comma);
                 index += 1;
             }
             '(' => {
@@ -14466,7 +14672,12 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         .or_else(|| table_metadata_field_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| binding_alias_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| {
-            scalar_arithmetic_semantic_type(&binding.name, &binding.expression, &available_bindings)
+            scalar_arithmetic_semantic_type(
+                &binding.name,
+                &binding.expression,
+                &available_bindings,
+                accum.functions,
+            )
         })
         .or_else(|| infer_quantity(&binding.name, &binding.expression));
 
@@ -15556,7 +15767,25 @@ fn dimensionless_math_function_call(expression: &str) -> Option<(&'static str, &
 
 fn matching_closing_paren_end(expression: &str) -> Option<usize> {
     let mut depth = 0i32;
+    let mut in_string = false;
+    let mut escaped = false;
     for (index, character) in expression.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else {
+                match character {
+                    '\\' => escaped = true,
+                    '"' => in_string = false,
+                    _ => {}
+                }
+            }
+            continue;
+        }
+        if character == '"' {
+            in_string = true;
+            continue;
+        }
         match character {
             '(' => depth += 1,
             ')' => {
@@ -15873,4 +16102,19 @@ fn first_table_reference(expression: &str) -> Option<String> {
         .filter_map(|token| token.split_once('.').map(|(table, _)| table.trim()))
         .find(|table| is_identifier(table))
         .map(str::to_owned)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_function_call;
+
+    #[test]
+    fn function_call_parser_requires_one_outer_call_and_ignores_quoted_parentheses() {
+        let call = parse_function_call(r#"join(output, "summary).csv")"#)
+            .expect("quoted closing parenthesis should remain inside the call");
+        assert_eq!(call.name, "join");
+        assert_eq!(call.args, ["output", r#""summary).csv""#]);
+
+        assert!(parse_function_call("left(value) + right(value)").is_none());
+    }
 }

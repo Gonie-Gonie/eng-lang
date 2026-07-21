@@ -135,9 +135,10 @@ review material. It is not a broad solver claim.
   token-free trivia preserve the report before the first declaration at or after
   the first change and reparse/semantically reanalyze that suffix. All three
   declaration forms may be interleaved; fast and explicit declarations may also
-  switch style inside the suffix. Any declaration form may directly call one
-  preserved imported scalar function when its argument count and dimensions
-  match; explicit and `const` return dimensions must match their annotations.
+  switch style inside the suffix. Any declaration form may use one or more
+  preserved imported scalar calls directly or as arithmetic operands when argument
+  counts and dimensions match; explicit and `const` result dimensions must match
+  their annotations.
   This repairs absolute spans and line numbers
   after variable-width, inserted, or removed standalone trivia and suffix
   line-ending changes. Coordinated declaration and alias renames are accepted when
@@ -146,9 +147,8 @@ review material. It is not a broad solver claim.
   text update inferred, constant, and expected records, shared semantic vectors,
   syntax counts, and the first workflow line together. Imported constants and
   function contracts keep their source ownership; constants remain available to
-  root aliases and arithmetic, eligible imported constants may directly call a
-  scalar function, and eligible functions remain available to all root declaration
-  forms.
+  root aliases and arithmetic, eligible imported constants may use scalar calls in
+  arithmetic, and eligible functions remain available to all root declaration forms.
   Full semantic analysis also carries the dimension of pure scalar arithmetic
   over typed aliases into inferred types, hover text, type information, and unit
   derivations even when the expression itself has no unit literal; declaration
@@ -157,8 +157,8 @@ review material. It is not a broad solver claim.
   Token-bearing
   non-declaration lines, incomplete or duplicate renames, forward or unresolved
   references,
-  dimensionally incompatible arithmetic, unsupported or nested calls, call
-  arithmetic, workflow expressions, diagnostics,
+  dimensionally incompatible arithmetic, unsupported calls or calls nested inside
+  function arguments, workflow expressions, diagnostics,
   static imports that contribute non-scalar functions or other definitions,
   import-line edits, imports inside the affected suffix, caches, and richer
   language use full analysis.

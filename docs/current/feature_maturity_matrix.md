@@ -243,11 +243,11 @@ separate.
   prefix, as may static imports whose recursively imported definitions are only
   pure registered scalar constants and functions. Those imported definitions
   retain source ownership; constants can seed backward root aliases and arithmetic,
-  and eligible imported constants may themselves use a direct scalar function call.
-  Any root declaration form may directly call an imported function with exact arity
-  and dimension-compatible scalar arguments. Explicit and `const` return dimensions
-  must match the declaration annotation. Fast and explicit forms may switch style in
-  the affected suffix. Other expressions may use numeric literals,
+  and eligible imported constants may themselves use scalar function calls as values
+  or arithmetic operands. Any root declaration form may use one or more imported
+  function calls with exact arity and dimension-compatible scalar arguments. Explicit
+  and `const` result dimensions must match the declaration annotation. Fast and
+  explicit forms may switch style in the affected suffix. Other expressions may use numeric literals,
   backward aliases, or pure scalar arithmetic over registered-unit literals,
   parentheses, and earlier typed bindings. The path covers coordinated
   multi-line value/type/unit edits, renames, declaration additions/removals,
@@ -271,9 +271,9 @@ separate.
 - Not included: a stable public compatibility guarantee across EngLang releases
   or general partial parse/semantic recomputation beyond the bounded scalar
   declaration contract, including forward/unresolved references, non-scalar
-  constants or functions, calls outside the direct imported-function declaration
-  form, nested calls, call arithmetic, workflow expressions, other imported
-  definitions, import-line edits, imports
+  constants or functions, unregistered or non-unit-consistent calls, calls nested
+  inside function arguments, workflow expressions, other imported definitions,
+  import-line edits, imports
   inside the affected suffix, token-bearing non-declaration lines, and richer
   language constructs inside a changed document.
 - Next cleanup action: keep the implemented persistent service tested while its

@@ -560,9 +560,9 @@ pub fn retarget_check_report_for_token_stable_trivia(
 /// `eng.*` module imports and static file imports whose imported definitions are only pure
 /// registered scalar constants and pure registered scalar functions, both root sources must contain
 /// only successful top-level scalar bindings and trivia. Expressions may be numeric literals,
-/// backward aliases, pure scalar `+`, `-`, `*`, and `/` arithmetic over registered-unit literals,
-/// parentheses, and earlier scalar bindings, or a direct dimension-valid call to one of those
-/// imported scalar functions.
+/// backward aliases, or pure scalar `+`, `-`, `*`, and `/` arithmetic over registered-unit literals,
+/// parentheses, earlier scalar bindings, and direct dimension-valid calls to those imported scalar
+/// functions.
 /// Changed logical lines may remain bindings or token-free trivia, including inserted or removed
 /// trivia and line-ending changes. Coordinated binding renames are accepted when the resulting names
 /// stay unique and aliases resolve in source order. The compiler preserves report records before the
@@ -600,9 +600,9 @@ pub fn recheck_scalar_binding_suffix_incrementally(
 /// Apart from unchanged supported `eng.*` module imports and static file imports whose imported
 /// definitions are only pure registered scalar constants and pure registered scalar functions, both
 /// root sources must contain only successful top-level explicit declarations with registered scalar
-/// quantity types, pure scalar expressions, and token-free trivia. A declaration may directly call
-/// one of those imported scalar functions when its argument count and dimensions are valid and the
-/// function return dimension matches the declared quantity. This path preserves the records before
+/// quantity types, pure scalar expressions, and token-free trivia. A declaration may use one or more
+/// of those imported scalar functions directly or as arithmetic operands when argument count and
+/// dimensions are valid and the result dimension matches the declared quantity. This path preserves the records before
 /// the first changed declaration and patches expected-type, typed-binding, hover, type-info,
 /// unit-derivation, syntax-count, and workflow-line records together. Root fast bindings, root
 /// `const` declarations, nested or unsupported calls, diagnostics, ineligible or edited imports,
@@ -625,10 +625,10 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// Fast bindings, explicit scalar declarations, and pure top-level scalar `const` declarations may
 /// be interleaved; fast and explicit declarations may also change style inside the affected suffix.
 /// Expressions are limited to numeric literals, backward aliases, and pure scalar `+`, `-`, `*`,
-/// and `/` arithmetic over registered-unit literals, parentheses, and earlier scalar declarations.
-/// Any declaration form may also use a direct dimension-valid call to an unchanged imported pure
-/// scalar function; explicit and `const` return dimensions must match their annotations. Nested
-/// calls and call arithmetic still fall back.
+/// and `/` arithmetic over registered-unit literals, parentheses, earlier scalar declarations, and
+/// direct dimension-valid calls to unchanged imported pure scalar functions. Explicit and `const`
+/// result dimensions must match their annotations. Calls nested inside function arguments still
+/// fall back.
 /// The compiler preserves all records before the first declaration at or after the first raw-line
 /// difference, verifies the old suffix against the prior report, then patches inferred, constant,
 /// expected, typed, hover, type-info, unit-derivation, syntax, and workflow records as one
@@ -11009,7 +11009,7 @@ fn add_lengths(left: Length [m], right: Length [m]) -> Length [m] {
     sum = left + right
     return sum
 }
-const imported_adjusted: Length [m] = add_lengths(imported_length, imported_length)
+const imported_adjusted: Length [m] = add_lengths(imported_length, imported_length) * imported_factor
 "#,
         )
         .expect("shared module should be written");
@@ -11017,17 +11017,17 @@ const imported_adjusted: Length [m] = add_lengths(imported_length, imported_leng
         let previous_source = r#"use "shared.eng"
 use eng.stats
 # root scalar declarations
-base = add_lengths(imported_adjusted, imported_length)
+base = add_lengths(imported_adjusted, imported_length) + imported_length
 const local_factor: Ratio [1] = 0.5
-adjusted: Length [m] = base * local_factor
+adjusted: Length [m] = add_lengths(base, imported_length) * local_factor
 "#;
         let source = r#"use "shared.eng"
 use eng.stats
 # root scalar declarations
-base = add_lengths(imported_adjusted, imported_length)
+base = add_lengths(imported_adjusted, imported_length) + imported_length
 const local_factor: Ratio [1] = 0.75
-adjusted: Length [cm] = base * local_factor
-total = adjusted + imported_length + 0 m
+adjusted: Length [cm] = add_lengths(base, imported_length) * local_factor
+total = add_lengths(adjusted, imported_length) + add_lengths(base, imported_length)
 "#;
         std::fs::write(&main_path, previous_source).expect("root module should be written");
         let previous = check_source(&main_path, previous_source, &CheckOptions::default());
@@ -11043,6 +11043,11 @@ total = adjusted + imported_length + 0 m
         assert!(previous.semantic_program.consts[..3]
             .iter()
             .all(|constant| !constant.span.is_root_source()));
+        assert!(semantic::supports_incremental_fast_binding_expression(
+            "add_lengths(imported_adjusted, imported_length) + imported_length",
+            &previous.semantic_program.typed_bindings[..3],
+            &previous.semantic_program.functions,
+        ));
         let base = previous
             .inferred_declarations
             .iter()
@@ -11085,6 +11090,32 @@ total = adjusted + imported_length + 0 m
             &previous_suffix,
             report_shape,
         ));
+        assert!(semantic::supports_incremental_annotated_scalar_expression(
+            "add_lengths(base, imported_length) * local_factor",
+            "Length",
+            &previous.semantic_program.typed_bindings[..5],
+            &previous.semantic_program.functions,
+        ));
+        assert!(semantic::supports_incremental_fast_binding_expression(
+            "add_lengths(adjusted, imported_length) + add_lengths(base, imported_length)",
+            &previous.semantic_program.typed_bindings,
+            &previous.semantic_program.functions,
+        ));
+        let source_lines = source::source_lines(source);
+        let source_suffix = parse_scalar_declaration_suffix(&source_lines[4..])
+            .expect("call arithmetic source suffix should parse");
+        semantic::analyze_incremental_scalar_declarations(
+            &previous_suffix.program,
+            &previous.semantic_program.typed_bindings[..4],
+            &previous.semantic_program.functions,
+        )
+        .expect("previous call arithmetic suffix should analyze incrementally");
+        semantic::analyze_incremental_scalar_declarations(
+            &source_suffix.program,
+            &previous.semantic_program.typed_bindings[..4],
+            &previous.semantic_program.functions,
+        )
+        .expect("changed call arithmetic suffix should analyze incrementally");
 
         let mut stale_import = previous.clone();
         stale_import.semantic_program.imports[0].status = "stale".to_owned();
@@ -11148,8 +11179,8 @@ use eng.stats
         let restarted_source = r#"use "shared.eng"
 use eng.stats
 # root scalar declarations cleared
-copied_length = add_lengths(imported_adjusted, imported_length)
-result: Length [m] = copied_length + imported_length
+copied_length = add_lengths(imported_adjusted, imported_length) + imported_length
+result: Length [m] = add_lengths(copied_length, imported_length) + imported_length
 "#;
         let restarted = recheck_scalar_declaration_suffix_incrementally(
             &cleared,
@@ -11161,10 +11192,10 @@ result: Length [m] = copied_length + imported_length
         assert_fresh_equivalent(&restarted, &restarted_fresh, restarted_source);
 
         let fast_previous_source = r#"use "shared.eng"
-fast_result = add_lengths(imported_adjusted, imported_length)
+fast_result = add_lengths(imported_adjusted, imported_length) + imported_length
 "#;
         let fast_source = r#"use "shared.eng"
-fast_result = add_lengths(imported_length, imported_length)
+fast_result = add_lengths(imported_length, imported_length) + add_lengths(imported_adjusted, imported_length)
 "#;
         let fast_previous =
             check_source(&main_path, fast_previous_source, &CheckOptions::default());
@@ -11188,7 +11219,11 @@ fast_result = add_lengths(imported_length, imported_length)
             ),
             previous_source.replace(
                 "add_lengths(imported_adjusted, imported_length)",
+                "add_lengths(add_lengths(imported_adjusted, imported_length), imported_length)",
+            ),
+            previous_source.replace(
                 "add_lengths(imported_adjusted, imported_length) + imported_length",
+                "add_lengths(imported_adjusted, imported_length) + * imported_length",
             ),
         ] {
             assert!(
@@ -11203,10 +11238,10 @@ fast_result = add_lengths(imported_length, imported_length)
         }
 
         let explicit_previous_source = r#"use "shared.eng"
-explicit_result: Length [m] = add_lengths(imported_adjusted, imported_length)
+explicit_result: Length [m] = add_lengths(imported_adjusted, imported_length) + imported_length
 "#;
         let explicit_source = r#"use "shared.eng"
-explicit_result: Length [cm] = add_lengths(imported_length, imported_length)
+explicit_result: Length [cm] = add_lengths(imported_length, imported_length) + add_lengths(imported_adjusted, imported_length)
 "#;
         let explicit_previous = check_source(
             &main_path,
@@ -11230,8 +11265,12 @@ explicit_result: Length [cm] = add_lengths(imported_length, imported_length)
             explicit_previous_source
                 .replace("explicit_result: Length [m]", "explicit_result: Ratio [1]"),
             explicit_previous_source.replace(
-                "add_lengths(imported_adjusted, imported_length)",
                 "add_lengths(imported_adjusted, imported_length) + imported_length",
+                "add_lengths(imported_adjusted, imported_length) + imported_factor",
+            ),
+            explicit_previous_source.replace(
+                "add_lengths(imported_adjusted, imported_length)",
+                "add_lengths(add_lengths(imported_adjusted, imported_length), imported_length)",
             ),
         ] {
             assert!(
@@ -11246,10 +11285,10 @@ explicit_result: Length [cm] = add_lengths(imported_length, imported_length)
         }
 
         let const_call_previous_source = r#"use "shared.eng"
-const const_result: Length [m] = add_lengths(imported_adjusted, imported_length)
+const const_result: Length [m] = add_lengths(imported_adjusted, imported_length) + imported_length
 "#;
         let const_call_source = r#"use "shared.eng"
-const const_result: Length [cm] = add_lengths(imported_length, imported_length)
+const const_result: Length [cm] = add_lengths(imported_length, imported_length) + add_lengths(imported_adjusted, imported_length)
 "#;
         let const_call_previous = check_source(
             &main_path,
@@ -11277,8 +11316,8 @@ const const_result: Length [cm] = add_lengths(imported_length, imported_length)
                 "const const_result: Ratio [1]",
             ),
             const_call_previous_source.replace(
-                "add_lengths(imported_adjusted, imported_length)",
                 "add_lengths(imported_adjusted, imported_length) + imported_length",
+                "add_lengths(imported_adjusted, imported_length) + imported_factor",
             ),
             const_call_previous_source.replace(
                 "add_lengths(imported_adjusted, imported_length)",
@@ -19655,6 +19694,34 @@ write csv "outputs/q.csv", Q
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "E-FN-CALL-004"));
+    }
+
+    #[test]
+    fn infers_scalar_arithmetic_around_valid_function_calls() {
+        let report = check_source(
+            "function-arithmetic.eng",
+            concat!(
+                "fn add_lengths(left: Length [m], right: Length [m]) -> Length [m] {\n",
+                "    return left + right\n",
+                "}\n",
+                "base = 2 m\n",
+                "offset = 1 m\n",
+                "combined = add_lengths(base, offset) + add_lengths(offset, base)\n",
+                "scaled = add_lengths(base, offset) * 0.5\n",
+            ),
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:#?}", report.diagnostics);
+        for name in ["combined", "scaled"] {
+            let declaration = report
+                .inferred_declarations
+                .iter()
+                .find(|declaration| declaration.name == name)
+                .expect("function-call arithmetic should retain inferred metadata");
+            assert_eq!(declaration.quantity_kind, "Length");
+            assert_eq!(declaration.display_unit, "m");
+        }
     }
 
     #[test]
