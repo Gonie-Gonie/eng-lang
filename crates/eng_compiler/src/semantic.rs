@@ -1056,13 +1056,15 @@ pub(crate) struct IncrementalScalarDeclarationAnalysis {
 ///
 /// Fast bindings, explicit declarations, and top-level scalar constants may be interleaved.
 /// Accepted expressions are numeric literals, backward aliases, or pure scalar arithmetic over
-/// registered-unit literals and backward scalar references. The arithmetic grammar is deliberately
-/// shared with component parameter validation so calls and workflow expressions cannot enter this
-/// local semantic path. An empty suffix is accepted so the caller can remove the final affected
-/// declarations atomically.
+/// registered-unit literals and backward scalar references. Fast bindings may also call a trusted
+/// imported pure scalar function directly when every argument resolves against that environment.
+/// The arithmetic grammar is shared with component parameter validation; nested calls, workflow
+/// expressions, and non-scalar functions cannot enter this local semantic path. An empty suffix is
+/// accepted so the caller can remove the final affected declarations atomically.
 pub(crate) fn analyze_incremental_scalar_declarations(
     program: &ParsedProgram,
     prefix_typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
 ) -> Option<IncrementalScalarDeclarationAnalysis> {
     if program.items.len()
         != program
@@ -1095,7 +1097,11 @@ pub(crate) fn analyze_incremental_scalar_declarations(
     for item in &program.items {
         match item {
             AstItem::FastBinding(binding) if binding.context == ParseContext::TopLevel => {
-                if !supports_incremental_scalar_expression(&binding.expression, &typed_bindings) {
+                if !supports_incremental_fast_binding_expression(
+                    &binding.expression,
+                    &typed_bindings,
+                    functions,
+                ) {
                     return None;
                 }
                 let mut accum = SemanticAccum {
@@ -1109,7 +1115,7 @@ pub(crate) fn analyze_incremental_scalar_declarations(
                     integrations: &mut integrations,
                     uncertainty_infos: &mut uncertainty_infos,
                     ml_infos: &mut ml_infos,
-                    functions: &[],
+                    functions,
                     classes: &[],
                     class_objects: &[],
                     db_reads: &mut db_reads,
@@ -1224,6 +1230,37 @@ pub(crate) fn supports_incremental_scalar_expression(
     }
 
     evaluate_scalar_arithmetic_expression(expression, available_bindings).is_some()
+}
+
+pub(crate) fn supports_incremental_fast_binding_expression(
+    expression: &str,
+    available_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+) -> bool {
+    if supports_incremental_scalar_expression(expression, available_bindings) {
+        return true;
+    }
+
+    let Some(call) = parse_function_call(expression) else {
+        return false;
+    };
+    let Some(function) = functions.iter().find(|function| function.name == call.name) else {
+        return false;
+    };
+    let registered_quantity = |quantity_kind: &str| {
+        crate::quantities::all_quantity_completions()
+            .iter()
+            .any(|completion| completion.quantity_kind == quantity_kind)
+    };
+
+    function.status == "unit_consistent"
+        && registered_quantity(&function.return_quantity_kind)
+        && function
+            .parameters
+            .iter()
+            .all(|parameter| registered_quantity(&parameter.quantity_kind))
+        && call.args.len() == function.parameters.len()
+        && function_call_args_dimensionally_valid(&call, function, available_bindings)
 }
 
 fn evaluate_scalar_arithmetic_expression(

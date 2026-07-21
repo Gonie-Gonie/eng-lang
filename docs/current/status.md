@@ -129,19 +129,24 @@ review material. It is not a broad solver claim.
   scalar declarations, pure top-level scalar `const` declarations, and unchanged
   supported `use/import eng.*` module declarations or static imports whose
   recursively imported definitions are only pure registered scalar constants
-  before the affected suffix, compiler-validated pure scalar expressions over
-  numeric or registered-unit literals and earlier typed bindings, changed declaration lines or standalone
+  and functions before the affected suffix, compiler-validated pure scalar
+  expressions over numeric or registered-unit literals and earlier typed bindings,
+  changed declaration lines or standalone
   token-free trivia preserve the report before the first declaration at or after
   the first change and reparse/semantically reanalyze that suffix. All three
   declaration forms may be interleaved; fast and explicit declarations may also
-  switch style inside the suffix. This repairs absolute spans and line numbers
+  switch style inside the suffix. A fast binding may directly call one preserved
+  imported scalar function when its argument count and dimensions match; annotated
+  and `const` declarations remain call-free in this path. This repairs absolute spans and line numbers
   after variable-width, inserted, or removed standalone trivia and suffix
   line-ending changes. Coordinated declaration and alias renames are accepted when
   names remain unique and every reference resolves backward in source order.
   Declaration additions/removals, complete clearing, and restart from trivia-only
   text update inferred, constant, and expected records, shared semantic vectors,
-  syntax counts, and the first workflow line together. Imported constants keep
-  their source ownership and remain available to root aliases and arithmetic.
+  syntax counts, and the first workflow line together. Imported constants and
+  function contracts keep their source ownership; constants remain available to
+  root aliases and arithmetic, and eligible functions remain available to direct
+  fast-binding calls.
   Full semantic analysis also carries the dimension of pure scalar arithmetic
   over typed aliases into inferred types, hover text, type information, and unit
   derivations even when the expression itself has no unit literal; declaration
@@ -150,10 +155,10 @@ review material. It is not a broad solver claim.
   Token-bearing
   non-declaration lines, incomplete or duplicate renames, forward or unresolved
   references,
-  dimensionally incompatible arithmetic, calls, workflow expressions,
-  diagnostics, static imports that contribute functions or other definitions,
-  import-line edits, imports inside the affected suffix, caches, and richer
-  language use full analysis.
+  dimensionally incompatible arithmetic, unsupported or nested calls, call
+  arithmetic, workflow expressions, diagnostics, static imports that contribute
+  non-scalar functions or other definitions, import-line edits, imports inside
+  the affected suffix, caches, and richer language use full analysis.
   Source changes invalidate recursive open import dependents while preserving
   the changed document as a candidate for these narrow reuse paths. This is not
   general partial parsing or a public cross-release protocol commitment.

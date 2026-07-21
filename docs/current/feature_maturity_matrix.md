@@ -241,12 +241,13 @@ separate.
   annotations, and pure top-level scalar `const` declarations; unchanged
   supported `use/import eng.*` module declarations may remain in the preserved
   prefix, as may static imports whose recursively imported definitions are only
-  pure registered scalar constants. Those imported constants retain source
-  ownership and can seed backward root aliases and arithmetic. Fast and explicit
-  forms may switch style in the affected suffix.
-  Expressions may use numeric
-  literals, backward aliases, or pure scalar arithmetic over registered-unit
-  literals, parentheses, and earlier typed bindings. The path covers coordinated
+  pure registered scalar constants and functions. Those imported definitions
+  retain source ownership; constants can seed backward root aliases and arithmetic,
+  while a fast-binding RHS may directly call an imported function with exact arity
+  and dimension-compatible scalar arguments. Fast and explicit forms may switch
+  style in the affected suffix. Other expressions may use numeric literals,
+  backward aliases, or pure scalar arithmetic over registered-unit literals,
+  parentheses, and earlier typed bindings. The path covers coordinated
   multi-line value/type/unit edits, renames, declaration additions/removals,
   complete clearing and trivia-only restart, variable-width/inserted/removed
   trivia, and suffix line-ending shifts while patching inferred, constant,
@@ -267,11 +268,12 @@ separate.
   validation records, stdio tests, and optional VS Code source.
 - Not included: a stable public compatibility guarantee across EngLang releases
   or general partial parse/semantic recomputation beyond the bounded scalar
-  declaration contract, including forward/unresolved references, calls, non-scalar
-  constants, workflow expressions, static imports that contribute functions or
-  other definitions, import-line edits, imports inside the affected suffix,
-  token-bearing non-declaration lines, and richer language constructs inside a
-  changed document.
+  declaration contract, including forward/unresolved references, non-scalar
+  constants or functions, calls outside the direct imported-function fast-binding
+  form, calls in annotated or `const` declarations, nested calls, call arithmetic,
+  workflow expressions, other imported definitions, import-line edits, imports
+  inside the affected suffix, token-bearing non-declaration lines, and richer
+  language constructs inside a changed document.
 - Next cleanup action: keep the implemented persistent service tested while its
   public maturity remains explicit.
 

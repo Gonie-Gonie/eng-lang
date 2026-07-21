@@ -22,10 +22,12 @@ embedding compiler logic in JavaScript.
 - strict token-changing partial parse/semantic recheck for scalar documents with
   fast, explicit, and pure scalar `const` declarations plus unchanged supported
   `use/import eng.*` module prefixes or static imports whose recursively
-  imported definitions are pure registered scalar constants; the shared suffix
-  supports literals, backward aliases, pure registered-unit arithmetic, coordinated edits,
-  additions/removals, resized/inserted/removed standalone trivia, and line-ending
-  shifts, with full-analysis fallback outside that contract
+  imported definitions are pure registered scalar constants and functions; the
+  shared suffix supports literals, backward aliases, pure registered-unit arithmetic,
+  and direct dimension-valid imported scalar function calls on fast-binding RHSs,
+  plus coordinated edits, additions/removals, resized/inserted/removed standalone
+  trivia, and line-ending shifts, with full-analysis fallback for annotated or
+  `const` calls, nested calls, call arithmetic, and other constructs
 - debounced diagnostics for unsaved buffers after a short typing pause,
   including open dependent EngLang files when an imported buffer changes
 - debounced role-aware color refresh and stale decoration clearing across open
@@ -241,14 +243,16 @@ the source-dependent snapshot is rebuilt lazily. In a document containing only
 top-level fast scalar bindings, registered explicit scalar declarations, pure
 top-level scalar `const` declarations, unchanged supported `use/import eng.*`
 module declarations, or unchanged static imports whose recursively imported
-definitions are only pure registered scalar constants before the affected
-suffix, compiler-validated pure scalar expressions using numeric or
-registered-unit literals, backward aliases,
-parentheses, `+`, `-`, `*`, `/`, and earlier typed bindings, changed declaration
-lines or standalone token-free trivia preserve the report before the first
+definitions are only pure registered scalar constants and functions before the
+affected suffix, compiler-validated pure scalar expressions using numeric or
+registered-unit literals, backward aliases, parentheses, `+`, `-`, `*`, `/`,
+and earlier typed bindings, changed declaration lines or standalone token-free
+trivia preserve the report before the first
 declaration at or after the first change and reparse and semantically reanalyze
 that suffix once. All three declaration forms may be interleaved; fast and
-explicit declarations may also switch style inside the affected suffix. This
+explicit declarations may also switch style inside the affected suffix. A fast
+binding may directly call one preserved imported scalar function when argument
+count and dimensions match; annotated and `const` calls remain outside this path. This
 repairs absolute source spans and line numbers when comments or blank lines are
 resized, inserted, or removed, or when suffix line endings change. Coordinated declaration and alias
 renames are accepted when names remain unique and references resolve backward in
@@ -257,18 +261,20 @@ records before patching inferred declarations, constants, expected types, typed
 bindings, hovers, type information, unit derivations, syntax counts, and the first
 workflow line together. Declarations can be inserted or removed, including
 clearing all scalar declarations and restarting from a trivia-only report.
-Imported constants retain their original source ownership and remain available
-to backward root aliases and arithmetic. Changing an open imported module
-invalidates the dependent report before any further reuse.
+Imported constants and function contracts retain their original source ownership.
+Constants remain available to backward root aliases and arithmetic, and eligible
+functions remain available to direct fast-binding calls. Changing an open imported
+module invalidates the dependent report before any further reuse.
 Pure scalar arithmetic over typed aliases also keeps inferred quantity, hover,
 type, and unit metadata when the expression has no unit literal. Result
 dimensions use registered declaration-name disambiguation (for example,
 temperature deltas and ratios), then retain a compatible operand type when the
 quantity family is otherwise ambiguous.
-Token-bearing non-declaration lines, incomplete or duplicate renames, forward or unresolved
-references, dimensionally incompatible arithmetic, calls, non-scalar constants,
-workflow expressions, diagnostics, static imports that contribute functions or
-other definitions, import-line edits, imports inside the affected suffix,
+Token-bearing non-declaration lines, incomplete or duplicate renames, forward or
+unresolved references, dimensionally incompatible arithmetic, unsupported or
+nested calls, call arithmetic, calls in annotated or `const` declarations,
+non-scalar constants or functions, workflow expressions, diagnostics, other
+imported definitions, import-line edits, imports inside the affected suffix,
 caches, and richer language run a full compiler analysis.
 Changing an open import hard-invalidates its recursive open dependents, while
 unrelated document analyses remain cached. This remains a narrow partial path,

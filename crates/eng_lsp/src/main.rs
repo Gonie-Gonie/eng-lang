@@ -11040,22 +11040,25 @@ mod tests {
     }
 
     #[test]
-    fn scalar_edits_after_static_const_import_reuse_and_invalidate_with_import_changes() {
+    fn scalar_edits_after_static_scalar_import_reuse_and_invalidate_with_import_changes() {
         let root = std::env::temp_dir().join(format!(
-            "eng_lsp_static_const_import_analysis_cache_{}",
+            "eng_lsp_static_scalar_import_analysis_cache_{}",
             std::process::id()
         ));
         let _ = std::fs::remove_dir_all(&root);
-        std::fs::create_dir_all(&root).expect("static const import fixture should be created");
+        std::fs::create_dir_all(&root).expect("static scalar import fixture should be created");
         let module_path = root.join("shared.eng");
         let initial_module_source = r#"const shared_length: Length [m] = 2 m
 const shared_factor: Ratio [1] = 0.5
+fn double_length(value: Length [m]) -> Length [m] {
+    return value * 2
+}
 "#;
         std::fs::write(&module_path, initial_module_source)
-            .expect("static const module should be written");
+            .expect("static scalar module should be written");
         let path = root.join("current.eng");
         let initial_source = r#"use "shared.eng"
-base = shared_length + shared_length
+base = double_length(shared_length)
 const local_factor: Ratio [1] = 0.5
 adjusted: Length [m] = base * local_factor
 "#;
@@ -11082,7 +11085,7 @@ adjusted: Length [m] = base * local_factor
             .hovers
             .iter()
             .find(|hover| hover.name == "base" && hover.is_root_source())
-            .expect("arithmetic over imported const aliases should have editor hover metadata");
+            .expect("an imported scalar function call should have editor hover metadata");
         assert_eq!(base_hover.quantity_kind, "Length");
         assert_eq!(base_hover.display_unit, "m");
         let hover_request = json!({
@@ -11093,14 +11096,14 @@ adjusted: Length [m] = base * local_factor
             }
         });
         let requested_hover = hover_for_request(&hover_request, &documents)
-            .expect("the persistent editor session should serve arithmetic hover");
+            .expect("the persistent editor session should serve function-call hover");
         assert_eq!(requested_hover.name, "base");
         assert_eq!(requested_hover.quantity_kind, "Length");
         assert_eq!(requested_hover.display_unit, "m");
         assert_eq!(documents[&uri].scalar_binding_reuse_count(), 0);
 
         let changed_source = r#"use "shared.eng"
-base = shared_length + shared_length
+base = double_length(shared_length)
 const local_factor: Ratio [1] = 0.75
 adjusted: Length [cm] = base * local_factor
 total = adjusted + shared_length + 0 m
@@ -11130,6 +11133,9 @@ total = adjusted + shared_length + 0 m
 
         let changed_module_source = r#"const shared_length: Length [m] = 3 m
 const shared_factor: Ratio [1] = 0.6
+fn double_length(value: Length [m]) -> Length [m] {
+    return value * 3
+}
 "#;
         let module_notification = json!({
             "method": "textDocument/didChange",
@@ -11140,7 +11146,7 @@ const shared_factor: Ratio [1] = 0.6
         });
         let (changed_module_uri, changed_module_state) =
             document_state_from_notification(&module_notification, &documents)
-                .expect("imported const edit should be accepted");
+                .expect("imported scalar definition edit should be accepted");
         documents.insert(changed_module_uri.clone(), changed_module_state);
         let affected = diagnostic_documents_after_change(&changed_module_uri, &documents);
         assert!(affected
@@ -11166,7 +11172,7 @@ const shared_factor: Ratio [1] = 0.6
         );
 
         let resumed_source = r#"use "shared.eng"
-base = shared_length + shared_length
+base = double_length(shared_length)
 const local_factor: Ratio [1] = 0.9
 adjusted: Length [cm] = base * local_factor
 total = adjusted + shared_length + 0 m
@@ -11191,7 +11197,7 @@ total = adjusted + shared_length + 0 m
         );
         assert_eq!(documents[&uri].scalar_binding_reuse_count(), 2);
 
-        std::fs::remove_dir_all(&root).expect("static const import fixture should be removed");
+        std::fs::remove_dir_all(&root).expect("static scalar import fixture should be removed");
     }
 
     #[test]
