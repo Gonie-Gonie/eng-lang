@@ -245,8 +245,9 @@ is not mistaken for public module support.
   - Current handling: keep current `review.json`/`report.html` public;
     `review.json.review_document`, `eng review`, and IDE Review inspector
     cover the first risk/fallback/external-boundary slice.
-  - CLI item-level semantic diff payload exists; runtime-updated
-    ReviewDocument and native IDE diff panel remain planned.
+  - CLI item-level semantic diff payload is available through both
+    `eng review --against` and `eng review diff`; runtime-updated
+    ReviewDocument and a native IDE diff panel remain planned.
 - Composite workflow foundations
   - Public package: `Supported` side-effect primitives
   - Main status: `Supported` path/io/process/test/profile, promoted table

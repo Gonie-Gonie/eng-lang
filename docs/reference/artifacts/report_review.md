@@ -613,13 +613,17 @@ eng review <file.eng>
 eng review <file.eng> --json
 eng review <file.eng> --output build/review_static
 eng review <file.eng> --against build/previous/review.json
+eng review diff <old-review.json> <new-review.json>
 ```
 
 `--output` writes `static_review.json`. When `--against` is supplied, the
 command accepts either a full `review.json` or a bare `review_document` JSON
 file and compares `semantic_hash` plus per-section hashes. It prints a concise
 semantic diff summary and writes `semantic_diff.json` when combined with
-`--output`.
+`--output`. The direct `eng review diff` form accepts the same full or bare
+ReviewDocument inputs, supports `--json`, and writes the same artifact when
+given `--output <dir>`. It compares the union of both section-hash sets so a
+section removed from the newer document is not lost.
 
 The native IDE Review panel consumes the same `review_document` data for root
 counts, semantic hashes, workflow module rows, variable/quantity rows, unit

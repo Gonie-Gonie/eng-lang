@@ -7378,6 +7378,7 @@ fn review_cli_smoke() -> bool {
     let source_root = root.join("source");
     let base_output = root.join("base");
     let changed_output = root.join("changed");
+    let direct_diff_output = root.join("direct-diff");
     let base_source = source_root.join("base.eng");
     let changed_source = source_root.join("changed.eng");
 
@@ -7501,7 +7502,41 @@ fn review_cli_smoke() -> bool {
         return false;
     }
 
-    println!("ok: eng review CLI wrote static ReviewDocument and semantic diff artifacts");
+    let changed_review_path = changed_output.join("static_review.json");
+    let direct_status = Command::new(&exe)
+        .arg("review")
+        .arg("diff")
+        .arg(&static_review_path)
+        .arg(&changed_review_path)
+        .arg("--output")
+        .arg(&direct_diff_output)
+        .arg("--json")
+        .stdout(Stdio::null())
+        .status();
+    match direct_status {
+        Ok(status) if status.success() => {}
+        Ok(status) => {
+            eprintln!("standalone review diff CLI smoke failed with status {status}");
+            return false;
+        }
+        Err(error) => {
+            eprintln!("failed to run standalone review diff CLI smoke: {error}");
+            return false;
+        }
+    }
+    let direct_diff_path = direct_diff_output.join("semantic_diff.json");
+    let direct_semantic_diff = std::fs::read_to_string(&direct_diff_path).unwrap_or_default();
+    if direct_semantic_diff != semantic_diff {
+        eprintln!(
+            "standalone review diff did not match --against output at {}",
+            direct_diff_path.display()
+        );
+        return false;
+    }
+
+    println!(
+        "ok: eng review CLI wrote static ReviewDocument and matching --against/direct semantic diff artifacts"
+    );
     true
 }
 

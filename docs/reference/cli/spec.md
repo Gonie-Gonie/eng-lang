@@ -280,7 +280,7 @@ Exit code:
 2 compile/check failure
 ```
 
-## `eng review <file.eng> [--json]`
+## `eng review <file.eng> [--json] [--output <dir>] [--against <review.json>]`
 
 Builds the compiler-owned review artifact and prints the normalized
 `review_document` projection. The default output is a reviewer summary with:
@@ -298,6 +298,25 @@ risk rows
 `--json` prints only `review_document` as formatted JSON. This command does not
 execute the workflow, so runtime hashes, process exits, and generated file
 status still belong to `eng run --save-artifacts`.
+
+`--output` writes `static_review.json` under the selected directory.
+`--against` accepts a full prior `review.json` or a bare
+`review_document`, adds `semantic_diff` to JSON stdout, and writes
+`semantic_diff.json` when combined with `--output`.
+
+## `eng review diff <old-review.json> <new-review.json> [--json] [--output <dir>]`
+
+Compares two saved full `review.json` artifacts or bare
+`review_document` values through the same native semantic diff engine used
+by `eng review --against`. Default stdout is a concise status, semantic-hash
+transition, and changed-section list. `--json` prints only the complete
+`eng-review-semantic-diff-preview-1` payload. `--output` writes that
+payload to `<dir>/semantic_diff.json`.
+
+The comparison covers the union of old and new section hashes, so added,
+changed, and removed sections are all visible. Successful comparison returns
+exit code 0 whether the semantic status is `changed` or `unchanged`;
+invalid usage returns 2 and read/parse/write failures return 1.
 
 ## `eng fmt <file.eng> [--check|--write]`
 

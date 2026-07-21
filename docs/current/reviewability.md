@@ -3,9 +3,9 @@
 Status: current public artifact family is stable for the v0.1.0 package scope.
 `review.json.review_document`, `eng review <file.eng>`, and the IDE Review
 inspector are the first supported normalized Review IR slice. `eng review
---against` now emits a first CLI item-level semantic diff payload;
-runtime-updated ReviewDocument values and a native IDE diff panel remain
-implementation targets.
+--against` and `eng review diff <old> <new>` emit the same CLI item-level
+semantic diff payload; runtime-updated ReviewDocument values and a native IDE
+diff panel remain implementation targets.
 
 ## Core Principle
 
@@ -189,8 +189,9 @@ hashes. `eng review --against` uses those hashes for a CLI-only meaning-level
 comparison without relying on line-by-line source diffs. The payload includes
 `section_changes[]` with added, removed, and changed array entries for
 ReviewDocument sections such as calculations, validations, units/quantities,
-side effects, external boundaries, fallbacks, and risks. A standalone
-`eng review diff` command and native IDE diff panel remain planned.
+side effects, external boundaries, fallbacks, and risks. The standalone
+`eng review diff` command compares two saved ReviewDocuments through the same
+native diff engine. A native IDE diff panel remains planned.
 
 ## CLI And IDE Targets
 
@@ -201,13 +202,13 @@ eng review <file.eng>
 eng review <file.eng> --json
 eng review <file.eng> --output build/review_static
 eng review <file.eng> --against build/previous/review.json
-```
-
-The planned semantic diff shape is:
-
-```text
 eng review diff <old-review.json> <new-review.json>
+eng review diff <old-review.json> <new-review.json> --json --output build/review_diff
 ```
+
+The direct diff command accepts either full `review.json` artifacts or bare
+`review_document` JSON. `--output` writes `semantic_diff.json` under the
+selected directory; `--json` keeps stdout machine-readable.
 
 The IDE should present a review cockpit with:
 

@@ -62,7 +62,8 @@ separate.
   normalized ReviewDocument projection.
 - Main status: `Supported` for existing review/report/result/run-log/process/
   test/output-manifest artifacts; `Internal` for `eng review` summary and IDE
-  Review inspector plus first CLI section-hash and item-level semantic diff.
+  Review inspector plus `eng review --against`/`eng review diff`
+  section-hash and item-level semantic diff.
 - User-facing scope: review JSON, report HTML, report spec, result artifact,
   output manifest with artifact registry, run log, process results, test
   results, and native IDE
@@ -73,9 +74,8 @@ separate.
 - Evidence: official examples, artifact schemas, `artifacts-check`, report/
   review guide, `eng review`, and IDE smoke path covering normalized Review
   cockpit sections, external boundaries, and side effects.
-- Not included: standalone semantic diff command, native IDE diff panel,
-  runtime-updated ReviewDocument values, or a complete risk/fallback taxonomy
-  across all tracks.
+- Not included: native IDE diff panel, runtime-updated ReviewDocument values,
+  or a complete risk/fallback taxonomy across all tracks.
 - Next cleanup action: route report HTML through the normalized
   ReviewDocument before expanding semantic diff beyond the current CLI
   item-level payload.

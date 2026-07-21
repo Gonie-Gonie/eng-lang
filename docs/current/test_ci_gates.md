@@ -79,17 +79,17 @@ Current coverage:
   `examples/official/16_test_assert_golden/main.eng`.
 - `eng review` semantic diff unit tests live in
   `crates/eng_cli/src/main.rs`.
-- The example smoke now also runs `eng review --output` and
-  `eng review --against` through the built CLI binary and asserts that
-  `static_review.json` and `semantic_diff.json` are written.
+- The example smoke runs `eng review --output`, `eng review --against`,
+  and `eng review diff <old> <new>` through the built CLI binary. It asserts
+  that `static_review.json` and `semantic_diff.json` are written and
+  that the direct and `--against` payloads match exactly.
 - IDE smoke checks native inspector payloads for runtime table transform rows
   when the `tests/runtime/table_datetime_comparison.eng` fixture is available
   in the repo workspace.
 - IDE bootstrap exposes `stdlib/eng/modules.toml` entries to the Modules panel
   with status, backing, purpose, and artifact metadata.
 
-Remaining gap: the separate planned spelling `eng review diff <old> <new>`
-and a native IDE semantic diff panel are still planned.
+Remaining gap: a native IDE semantic diff panel is still planned.
 
 ## Checklist 9.3: Composite Module Tests
 

@@ -309,9 +309,12 @@ fn command_check(args: Vec<String>) -> ExitCode {
 }
 
 fn command_review(args: Vec<String>) -> ExitCode {
+    if args.first().map(String::as_str) == Some("diff") {
+        return command_review_diff(&args[1..]);
+    }
     let Some(path) = first_review_source_path(&args) else {
         eprintln!(
-            "usage: eng review <file.eng> [--json] [--output <dir>] [--against <review.json>] [--<arg> <value>...]"
+            "usage: eng review <file.eng> [--json] [--output <dir>] [--against <review.json>] [--<arg> <value>...]\n       eng review diff <old-review.json> <new-review.json> [--json] [--output <dir>]"
         );
         return ExitCode::from(2);
     };
@@ -399,6 +402,58 @@ fn command_review(args: Vec<String>) -> ExitCode {
     } else {
         ExitCode::SUCCESS
     }
+}
+
+fn command_review_diff(args: &[String]) -> ExitCode {
+    let options = match parse_review_diff_options(args) {
+        Ok(options) => options,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(2);
+        }
+    };
+    let previous = match read_review_document(&options.previous_path) {
+        Ok(document) => document,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(1);
+        }
+    };
+    let current = match read_review_document(&options.current_path) {
+        Ok(document) => document,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(1);
+        }
+    };
+    let diff = review_semantic_diff(&previous, &current);
+    let output_path = match options.output_dir.as_deref() {
+        Some(output_dir) => match write_semantic_diff_output(Path::new(output_dir), &diff) {
+            Ok(path) => Some(path),
+            Err(message) => {
+                eprintln!("{message}");
+                return ExitCode::from(1);
+            }
+        },
+        None => None,
+    };
+
+    if options.json_only {
+        match serde_json::to_string_pretty(&diff) {
+            Ok(text) => println!("{text}"),
+            Err(error) => {
+                eprintln!("failed to serialize semantic diff: {error}");
+                return ExitCode::from(1);
+            }
+        }
+    } else {
+        print_review_diff_summary(&diff);
+        if let Some(path) = output_path {
+            println!("semantic diff artifact: {}", path.display());
+        }
+    }
+
+    ExitCode::SUCCESS
 }
 
 fn command_fmt(args: Vec<String>) -> ExitCode {
@@ -1018,6 +1073,70 @@ fn first_review_source_path(args: &[String]) -> Option<String> {
     None
 }
 
+#[derive(Debug, Eq, PartialEq)]
+struct ReviewDiffOptions {
+    previous_path: String,
+    current_path: String,
+    json_only: bool,
+    output_dir: Option<String>,
+}
+
+fn parse_review_diff_options(args: &[String]) -> Result<ReviewDiffOptions, String> {
+    const USAGE: &str =
+        "usage: eng review diff <old-review.json> <new-review.json> [--json] [--output <dir>]";
+
+    let mut paths = Vec::new();
+    let mut json_only = false;
+    let mut output_dir = None;
+    let mut index = 0usize;
+    while index < args.len() {
+        let arg = &args[index];
+        if arg == "--json" {
+            json_only = true;
+            index += 1;
+            continue;
+        }
+        if arg == "--output" {
+            let Some(value) = args
+                .get(index + 1)
+                .filter(|value| !value.is_empty() && !value.starts_with('-'))
+            else {
+                return Err(format!("missing value for --output\n{USAGE}"));
+            };
+            if output_dir.replace(value.clone()).is_some() {
+                return Err(format!("--output may be supplied only once\n{USAGE}"));
+            }
+            index += 2;
+            continue;
+        }
+        if let Some(value) = arg.strip_prefix("--output=") {
+            if value.is_empty() {
+                return Err(format!("missing value for --output\n{USAGE}"));
+            }
+            if output_dir.replace(value.to_owned()).is_some() {
+                return Err(format!("--output may be supplied only once\n{USAGE}"));
+            }
+            index += 1;
+            continue;
+        }
+        if arg.starts_with('-') {
+            return Err(format!("unknown review diff option `{arg}`\n{USAGE}"));
+        }
+        paths.push(arg.clone());
+        index += 1;
+    }
+
+    if paths.len() != 2 {
+        return Err(USAGE.to_owned());
+    }
+    Ok(ReviewDiffOptions {
+        previous_path: paths.remove(0),
+        current_path: paths.remove(0),
+        json_only,
+        output_dir,
+    })
+}
+
 fn parse_jit_backend(args: &[String]) -> Result<String, String> {
     let backend = option_value(args, "--backend")
         .unwrap_or_else(|| eng_jit::DEFAULT_BACKEND_REQUEST.to_owned());
@@ -1256,16 +1375,23 @@ fn review_changed_sections(
     let current_hashes = current
         .get("section_hashes")
         .and_then(serde_json::Value::as_object);
-    let Some(current_hashes) = current_hashes else {
-        return sections;
-    };
-    for (section, current_hash) in current_hashes {
-        let previous_hash = previous_hashes.and_then(|hashes| hashes.get(section));
-        if previous_hash != Some(current_hash) {
+    let section_names = previous_hashes
+        .into_iter()
+        .flat_map(|hashes| hashes.keys().cloned())
+        .chain(
+            current_hashes
+                .into_iter()
+                .flat_map(|hashes| hashes.keys().cloned()),
+        )
+        .collect::<std::collections::BTreeSet<_>>();
+    for section in section_names {
+        let previous_hash = previous_hashes.and_then(|hashes| hashes.get(&section));
+        let current_hash = current_hashes.and_then(|hashes| hashes.get(&section));
+        if previous_hash != current_hash {
             sections.push(serde_json::json!({
                 "section": section,
                 "before": previous_hash.cloned().unwrap_or(serde_json::Value::Null),
-                "after": current_hash
+                "after": current_hash.cloned().unwrap_or(serde_json::Value::Null)
             }));
         }
     }
@@ -1294,17 +1420,31 @@ fn write_static_review_outputs(
         )
     })?;
     if let Some(diff) = semantic_diff {
-        let diff_path = output_dir.join("semantic_diff.json");
-        let diff_text = serde_json::to_string_pretty(diff)
-            .map_err(|error| format!("failed to serialize semantic diff: {error}"))?;
-        std::fs::write(&diff_path, diff_text).map_err(|error| {
-            format!(
-                "failed to write semantic diff `{}`: {error}",
-                diff_path.display()
-            )
-        })?;
+        write_semantic_diff_output(output_dir, diff)?;
     }
     Ok(())
+}
+
+fn write_semantic_diff_output(
+    output_dir: &Path,
+    diff: &serde_json::Value,
+) -> Result<PathBuf, String> {
+    std::fs::create_dir_all(output_dir).map_err(|error| {
+        format!(
+            "failed to create review output directory `{}`: {error}",
+            output_dir.display()
+        )
+    })?;
+    let diff_path = output_dir.join("semantic_diff.json");
+    let diff_text = serde_json::to_string_pretty(diff)
+        .map_err(|error| format!("failed to serialize semantic diff: {error}"))?;
+    std::fs::write(&diff_path, diff_text).map_err(|error| {
+        format!(
+            "failed to write semantic diff `{}`: {error}",
+            diff_path.display()
+        )
+    })?;
+    Ok(diff_path)
 }
 
 fn print_review_document_summary(document: &serde_json::Value) {
@@ -1422,6 +1562,7 @@ Usage:
   eng new <project_name>
   eng check <file.eng> [--review]
   eng review <file.eng> [--json] [--output <dir>] [--against <review.json>]
+  eng review diff <old-review.json> <new-review.json> [--json] [--output <dir>]
   eng fmt <file.eng> [--check|--write]
   eng ide-check <file.eng>
   eng jit-plan <file.eng>
@@ -1590,6 +1731,65 @@ mod tests {
         assert_eq!(diff["status"], "unchanged");
         assert_eq!(diff["changed_sections"].as_array().map(Vec::len), Some(0));
         assert_eq!(diff["section_changes"].as_array().map(Vec::len), Some(0));
+    }
+
+    #[test]
+    fn review_semantic_diff_reports_removed_sections_and_items() {
+        let previous = serde_json::json!({
+            "semantic_hash": "before",
+            "section_hashes": {
+                "calculations": "old"
+            },
+            "calculations": [
+                {
+                    "kind": "binding",
+                    "name": "Q_total",
+                    "expression": "Q + 1 kW"
+                }
+            ]
+        });
+        let current = serde_json::json!({
+            "semantic_hash": "after",
+            "section_hashes": {}
+        });
+
+        let diff = review_semantic_diff(&previous, &current);
+
+        assert_eq!(diff["status"], "changed");
+        assert_eq!(diff["changed_sections"][0]["section"], "calculations");
+        assert_eq!(diff["changed_sections"][0]["before"], "old");
+        assert!(diff["changed_sections"][0]["after"].is_null());
+        assert_eq!(
+            diff["section_changes"][0]["removed"][0]["key"],
+            "binding:name:Q_total"
+        );
+    }
+
+    #[test]
+    fn review_diff_options_accept_two_documents_and_shared_output_flags() {
+        let args = vec![
+            "before.json".to_owned(),
+            "--json".to_owned(),
+            "--output=build/review-diff".to_owned(),
+            "after.json".to_owned(),
+        ];
+
+        assert_eq!(
+            parse_review_diff_options(&args),
+            Ok(ReviewDiffOptions {
+                previous_path: "before.json".to_owned(),
+                current_path: "after.json".to_owned(),
+                json_only: true,
+                output_dir: Some("build/review-diff".to_owned()),
+            })
+        );
+        assert!(parse_review_diff_options(&["before.json".to_owned()]).is_err());
+        assert!(parse_review_diff_options(&[
+            "before.json".to_owned(),
+            "after.json".to_owned(),
+            "--unknown".to_owned(),
+        ])
+        .is_err());
     }
 
     #[test]
