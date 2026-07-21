@@ -600,12 +600,13 @@ pub fn recheck_scalar_binding_suffix_incrementally(
 /// Apart from unchanged supported `eng.*` module imports and static file imports whose imported
 /// definitions are only pure registered scalar constants and pure registered scalar functions, both
 /// root sources must contain only successful top-level explicit declarations with registered scalar
-/// quantity types, pure scalar expressions, and token-free trivia. Imported functions may remain in
-/// the unchanged report but calls are not accepted by this explicit-only path. This path preserves
-/// the records before the first changed declaration and patches expected-type, typed-binding, hover,
-/// type-info, unit-derivation, syntax-count, and workflow-line records together. Root fast bindings,
-/// root `const` declarations, calls, diagnostics, ineligible or edited imports, caches, and richer
-/// constructs return `None`.
+/// quantity types, pure scalar expressions, and token-free trivia. A declaration may directly call
+/// one of those imported scalar functions when its argument count and dimensions are valid and the
+/// function return dimension matches the declared quantity. This path preserves the records before
+/// the first changed declaration and patches expected-type, typed-binding, hover, type-info,
+/// unit-derivation, syntax-count, and workflow-line records together. Root fast bindings, root
+/// `const` declarations, nested or unsupported calls, diagnostics, ineligible or edited imports,
+/// caches, and richer constructs return `None`.
 pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
     report: &CheckReport,
     previous_source: &str,
@@ -625,8 +626,9 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// be interleaved; fast and explicit declarations may also change style inside the affected suffix.
 /// Expressions are limited to numeric literals, backward aliases, and pure scalar `+`, `-`, `*`,
 /// and `/` arithmetic over registered-unit literals, parentheses, and earlier scalar declarations.
-/// A fast binding may also use a direct dimension-valid call to an unchanged imported pure scalar
-/// function; annotated and `const` declarations, nested calls, and call arithmetic still fall back.
+/// A fast binding or explicit declaration may also use a direct dimension-valid call to an unchanged
+/// imported pure scalar function; explicit return dimensions must match their annotations. `const`
+/// calls, nested calls, and call arithmetic still fall back.
 /// The compiler preserves all records before the first declaration at or after the first raw-line
 /// difference, verifies the old suffix against the prior report, then patches inferred, constant,
 /// expected, typed, hover, type-info, unit-derivation, syntax, and workflow records as one
@@ -1273,6 +1275,7 @@ fn incremental_scalar_report_shape(
             let key = (binding.name.as_str(), binding.span.source_id, binding.line);
             let is_explicit = expected_keys.contains(&key);
             let is_inferred = inferred_keys.contains(&key);
+            let is_const = const_keys.contains(&key);
             let has_expected_owner = if index < imported_const_count {
                 imported_source_ids.contains(&binding.span.source_id) && const_keys.contains(&key)
             } else {
@@ -1302,10 +1305,17 @@ fn incremental_scalar_report_shape(
                             &report.semantic_program.typed_bindings[..index],
                             &report.semantic_program.functions,
                         )
-                    } else {
+                    } else if is_const {
                         semantic::supports_incremental_scalar_expression(
                             expression,
                             &report.semantic_program.typed_bindings[..index],
+                        )
+                    } else {
+                        semantic::supports_incremental_explicit_scalar_expression(
+                            expression,
+                            &binding.semantic_type.quantity_kind,
+                            &report.semantic_program.typed_bindings[..index],
+                            &report.semantic_program.functions,
                         )
                     }
                 })
@@ -11199,10 +11209,10 @@ fast_result = add_lengths(imported_length, imported_length)
         }
 
         let explicit_previous_source = r#"use "shared.eng"
-explicit_result: Length [m] = imported_adjusted
+explicit_result: Length [m] = add_lengths(imported_adjusted, imported_length)
 "#;
         let explicit_source = r#"use "shared.eng"
-explicit_result: Length [cm] = imported_adjusted
+explicit_result: Length [cm] = add_lengths(imported_length, imported_length)
 "#;
         let explicit_previous = check_source(
             &main_path,
@@ -11214,9 +11224,51 @@ explicit_result: Length [cm] = imported_adjusted
             explicit_previous_source,
             explicit_source,
         )
-        .expect("explicit-only root declarations should ignore imported const declarations");
+        .expect("explicit-only root declarations should reuse imported scalar functions");
         let explicit_fresh = check_source(&main_path, explicit_source, &CheckOptions::default());
         assert_fresh_equivalent(&explicit_reused, &explicit_fresh, explicit_source);
+
+        for unsupported_explicit_call in [
+            explicit_previous_source.replace(
+                "add_lengths(imported_adjusted, imported_length)",
+                "add_lengths(imported_adjusted)",
+            ),
+            explicit_previous_source
+                .replace("explicit_result: Length [m]", "explicit_result: Ratio [1]"),
+            explicit_previous_source.replace(
+                "add_lengths(imported_adjusted, imported_length)",
+                "add_lengths(imported_adjusted, imported_length) + imported_length",
+            ),
+        ] {
+            assert!(
+                recheck_explicit_scalar_declaration_suffix_incrementally(
+                    &explicit_previous,
+                    explicit_previous_source,
+                    &unsupported_explicit_call,
+                )
+                .is_none(),
+                "invalid or nested explicit scalar call should use a full check: {unsupported_explicit_call:?}"
+            );
+        }
+
+        let const_call_previous_source = r#"use "shared.eng"
+const const_result: Length [m] = imported_adjusted
+"#;
+        let const_call_source = r#"use "shared.eng"
+const const_result: Length [m] = add_lengths(imported_adjusted, imported_length)
+"#;
+        let const_call_previous = check_source(
+            &main_path,
+            const_call_previous_source,
+            &CheckOptions::default(),
+        );
+        assert!(const_call_previous.diagnostics.is_empty());
+        assert!(recheck_scalar_declaration_suffix_incrementally(
+            &const_call_previous,
+            const_call_previous_source,
+            const_call_source,
+        )
+        .is_none());
 
         std::fs::remove_dir_all(&root).expect("file import fixture should be removed");
     }

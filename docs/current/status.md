@@ -135,9 +135,10 @@ review material. It is not a broad solver claim.
   token-free trivia preserve the report before the first declaration at or after
   the first change and reparse/semantically reanalyze that suffix. All three
   declaration forms may be interleaved; fast and explicit declarations may also
-  switch style inside the suffix. A fast binding may directly call one preserved
-  imported scalar function when its argument count and dimensions match; annotated
-  and `const` declarations remain call-free in this path. This repairs absolute spans and line numbers
+  switch style inside the suffix. A fast binding or explicit declaration may
+  directly call one preserved imported scalar function when its argument count
+  and dimensions match; explicit return dimensions must match their annotations,
+  while `const` declarations remain call-free in this path. This repairs absolute spans and line numbers
   after variable-width, inserted, or removed standalone trivia and suffix
   line-ending changes. Coordinated declaration and alias renames are accepted when
   names remain unique and every reference resolves backward in source order.
@@ -156,9 +157,10 @@ review material. It is not a broad solver claim.
   non-declaration lines, incomplete or duplicate renames, forward or unresolved
   references,
   dimensionally incompatible arithmetic, unsupported or nested calls, call
-  arithmetic, workflow expressions, diagnostics, static imports that contribute
-  non-scalar functions or other definitions, import-line edits, imports inside
-  the affected suffix, caches, and richer language use full analysis.
+  arithmetic, calls in `const` declarations, workflow expressions, diagnostics,
+  static imports that contribute non-scalar functions or other definitions,
+  import-line edits, imports inside the affected suffix, caches, and richer
+  language use full analysis.
   Source changes invalidate recursive open import dependents while preserving
   the changed document as a candidate for these narrow reuse paths. This is not
   general partial parsing or a public cross-release protocol commitment.

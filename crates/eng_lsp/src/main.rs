@@ -11060,7 +11060,7 @@ fn double_length(value: Length [m]) -> Length [m] {
         let initial_source = r#"use "shared.eng"
 base = double_length(shared_length)
 const local_factor: Ratio [1] = 0.5
-adjusted: Length [m] = base * local_factor
+adjusted: Length [m] = double_length(base * local_factor)
 "#;
         std::fs::write(&path, initial_source).expect("importing source should be written");
         let module_path = module_path
@@ -11105,7 +11105,7 @@ adjusted: Length [m] = base * local_factor
         let changed_source = r#"use "shared.eng"
 base = double_length(shared_length)
 const local_factor: Ratio [1] = 0.75
-adjusted: Length [cm] = base * local_factor
+adjusted: Length [cm] = double_length(base * local_factor)
 total = adjusted + shared_length + 0 m
 "#;
         let changed_notification = json!({
@@ -11174,7 +11174,7 @@ fn double_length(value: Length [m]) -> Length [m] {
         let resumed_source = r#"use "shared.eng"
 base = double_length(shared_length)
 const local_factor: Ratio [1] = 0.9
-adjusted: Length [cm] = base * local_factor
+adjusted: Length [cm] = double_length(base * local_factor)
 total = adjusted + shared_length + 0 m
 "#;
         let resumed_notification = json!({

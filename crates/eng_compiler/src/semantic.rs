@@ -1056,11 +1056,13 @@ pub(crate) struct IncrementalScalarDeclarationAnalysis {
 ///
 /// Fast bindings, explicit declarations, and top-level scalar constants may be interleaved.
 /// Accepted expressions are numeric literals, backward aliases, or pure scalar arithmetic over
-/// registered-unit literals and backward scalar references. Fast bindings may also call a trusted
-/// imported pure scalar function directly when every argument resolves against that environment.
-/// The arithmetic grammar is shared with component parameter validation; nested calls, workflow
-/// expressions, and non-scalar functions cannot enter this local semantic path. An empty suffix is
-/// accepted so the caller can remove the final affected declarations atomically.
+/// registered-unit literals and backward scalar references. Fast bindings and explicit declarations
+/// may also call a trusted imported pure scalar function directly when every argument resolves
+/// against that environment; an explicit declaration additionally requires a return dimension that
+/// matches its annotation. The arithmetic grammar is shared with component parameter validation;
+/// `const` calls, nested calls, workflow expressions, and non-scalar functions cannot enter this
+/// local semantic path. An empty suffix is accepted so the caller can remove the final affected
+/// declarations atomically.
 pub(crate) fn analyze_incremental_scalar_declarations(
     program: &ParsedProgram,
     prefix_typed_bindings: &[TypedBinding],
@@ -1129,7 +1131,12 @@ pub(crate) fn analyze_incremental_scalar_declarations(
                 if !crate::quantities::all_quantity_completions()
                     .iter()
                     .any(|quantity| quantity.quantity_kind == declaration.type_name)
-                    || !supports_incremental_scalar_expression(expression, &typed_bindings)
+                    || !supports_incremental_explicit_scalar_expression(
+                        expression,
+                        &declaration.type_name,
+                        &typed_bindings,
+                        functions,
+                    )
                 {
                     return None;
                 }
@@ -1237,23 +1244,46 @@ pub(crate) fn supports_incremental_fast_binding_expression(
     available_bindings: &[TypedBinding],
     functions: &[FunctionInfo],
 ) -> bool {
+    supports_incremental_scalar_expression(expression, available_bindings)
+        || incremental_scalar_function_call(expression, available_bindings, functions).is_some()
+}
+
+pub(crate) fn supports_incremental_explicit_scalar_expression(
+    expression: &str,
+    expected_quantity_kind: &str,
+    available_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+) -> bool {
     if supports_incremental_scalar_expression(expression, available_bindings) {
         return true;
     }
 
-    let Some(call) = parse_function_call(expression) else {
-        return false;
-    };
-    let Some(function) = functions.iter().find(|function| function.name == call.name) else {
-        return false;
-    };
+    incremental_scalar_function_call(expression, available_bindings, functions).is_some_and(
+        |function| {
+            dimensions_compatible(
+                &dimension_for_quantity(expected_quantity_kind),
+                &function.return_dimension,
+            )
+        },
+    )
+}
+
+fn incremental_scalar_function_call<'a>(
+    expression: &str,
+    available_bindings: &[TypedBinding],
+    functions: &'a [FunctionInfo],
+) -> Option<&'a FunctionInfo> {
+    let call = parse_function_call(expression)?;
+    let function = functions
+        .iter()
+        .find(|function| function.name == call.name)?;
     let registered_quantity = |quantity_kind: &str| {
         crate::quantities::all_quantity_completions()
             .iter()
             .any(|completion| completion.quantity_kind == quantity_kind)
     };
 
-    function.status == "unit_consistent"
+    if function.status == "unit_consistent"
         && registered_quantity(&function.return_quantity_kind)
         && function
             .parameters
@@ -1261,6 +1291,11 @@ pub(crate) fn supports_incremental_fast_binding_expression(
             .all(|parameter| registered_quantity(&parameter.quantity_kind))
         && call.args.len() == function.parameters.len()
         && function_call_args_dimensionally_valid(&call, function, available_bindings)
+    {
+        Some(function)
+    } else {
+        None
+    }
 }
 
 fn evaluate_scalar_arithmetic_expression(

@@ -24,10 +24,11 @@ embedding compiler logic in JavaScript.
   `use/import eng.*` module prefixes or static imports whose recursively
   imported definitions are pure registered scalar constants and functions; the
   shared suffix supports literals, backward aliases, pure registered-unit arithmetic,
-  and direct dimension-valid imported scalar function calls on fast-binding RHSs,
+  and direct dimension-valid imported scalar function calls on fast-binding or
+  explicit-declaration RHSs, with explicit return-dimension matching,
   plus coordinated edits, additions/removals, resized/inserted/removed standalone
-  trivia, and line-ending shifts, with full-analysis fallback for annotated or
-  `const` calls, nested calls, call arithmetic, and other constructs
+  trivia, and line-ending shifts, with full-analysis fallback for `const` calls,
+  nested calls, call arithmetic, and other constructs
 - debounced diagnostics for unsaved buffers after a short typing pause,
   including open dependent EngLang files when an imported buffer changes
 - debounced role-aware color refresh and stale decoration clearing across open
@@ -251,8 +252,9 @@ trivia preserve the report before the first
 declaration at or after the first change and reparse and semantically reanalyze
 that suffix once. All three declaration forms may be interleaved; fast and
 explicit declarations may also switch style inside the affected suffix. A fast
-binding may directly call one preserved imported scalar function when argument
-count and dimensions match; annotated and `const` calls remain outside this path. This
+binding or explicit declaration may directly call one preserved imported scalar
+function when argument count and dimensions match; explicit returns must match the
+declared quantity, while `const` calls remain outside this path. This
 repairs absolute source spans and line numbers when comments or blank lines are
 resized, inserted, or removed, or when suffix line endings change. Coordinated declaration and alias
 renames are accepted when names remain unique and references resolve backward in
@@ -272,8 +274,8 @@ temperature deltas and ratios), then retain a compatible operand type when the
 quantity family is otherwise ambiguous.
 Token-bearing non-declaration lines, incomplete or duplicate renames, forward or
 unresolved references, dimensionally incompatible arithmetic, unsupported or
-nested calls, call arithmetic, calls in annotated or `const` declarations,
-non-scalar constants or functions, workflow expressions, diagnostics, other
+nested calls, call arithmetic, calls in `const` declarations, non-scalar constants
+or functions, workflow expressions, diagnostics, other
 imported definitions, import-line edits, imports inside the affected suffix,
 caches, and richer language run a full compiler analysis.
 Changing an open import hard-invalidates its recursive open dependents, while
