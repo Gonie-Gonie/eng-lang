@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, normalize_unit, parse_percentile_fraction,
-    CheckReport, SchemaColumn, SchemaInfo,
+    rmse_operands, CheckReport, SchemaColumn, SchemaInfo,
 };
 use eng_report::{
     PlotAxis, PlotBin, PlotConfidenceBand, PlotPoint, PlotSeries, PlotSpec, ReportAssemblyBoundary,
@@ -8855,7 +8855,7 @@ fn materialize_metrics(
         .inferred_declarations
         .iter()
         .filter_map(|declaration| {
-            let (left, right) = parse_rmse_expression(&declaration.expression)?;
+            let (left, right) = rmse_operands(&declaration.expression)?;
             let left_series = series.iter().find(|series| series.name == left)?;
             let right_series = series.iter().find(|series| series.name == right)?;
             let (alignment_reference, alignment_status, alignment_step_status) =
@@ -8944,12 +8944,6 @@ fn metric_alignment_reference(
             )
         })
         .unwrap_or((None, None, None))
-}
-
-fn parse_rmse_expression(expression: &str) -> Option<(String, String)> {
-    let rest = expression.trim().strip_prefix("rmse ")?;
-    let (left, right) = rest.split_once(" vs ")?;
-    Some((left.trim().to_owned(), right.trim().to_owned()))
 }
 
 fn materialize_timeseries_uncertainty_calculations(
@@ -27268,6 +27262,56 @@ with {
         );
         assert!(metric.alignment_status.is_some());
         assert_eq!(metric.alignment_step_status.as_deref(), Some("matched"));
+    }
+
+    #[test]
+    fn materializes_call_style_rmse_with_native_unit_conversion() {
+        let source = concat!(
+            "actual: TimeSeries[Time] of HeatRate [W] = 1000 W\n",
+            "predicted: TimeSeries[Time] of HeatRate [kW] = 1 kW\n",
+            "error = rmse(actual, predicted)\n",
+        );
+        let report = check_source("power-rmse.eng", source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let series = [
+            RuntimeTimeSeries {
+                name: "actual".to_owned(),
+                axis: "Time".to_owned(),
+                x_unit: "s".to_owned(),
+                quantity_kind: "HeatRate".to_owned(),
+                display_unit: "W".to_owned(),
+                source_table: "actual_table".to_owned(),
+                source_expression: String::new(),
+                points: vec![
+                    RuntimePoint { x: 0.0, y: 1000.0 },
+                    RuntimePoint { x: 1.0, y: 2000.0 },
+                ],
+            },
+            RuntimeTimeSeries {
+                name: "predicted".to_owned(),
+                axis: "Time".to_owned(),
+                x_unit: "s".to_owned(),
+                quantity_kind: "HeatRate".to_owned(),
+                display_unit: "kW".to_owned(),
+                source_table: "predicted_table".to_owned(),
+                source_expression: String::new(),
+                points: vec![
+                    RuntimePoint { x: 0.0, y: 0.9 },
+                    RuntimePoint { x: 1.0, y: 2.1 },
+                ],
+            },
+        ];
+
+        let metrics = materialize_metrics(&report, &series, &[]);
+        let metric = metrics
+            .iter()
+            .find(|metric| metric.binding == "error")
+            .expect("native RMSE metric");
+        assert_eq!(metric.quantity_kind, "HeatRate");
+        assert_eq!(metric.unit, "kW");
+        assert_eq!(metric.sample_count, 2);
+        assert!((metric.value - 0.1).abs() < 1e-12);
+        assert_eq!(metric.status, "computed");
     }
 
     #[test]

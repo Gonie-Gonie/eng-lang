@@ -174,3 +174,4 @@ arg_mean_series = mean(args.Q_series, axis=args.Time)
 property_mean_series = mean(sensor.Q_series, axis=axis.Time)
 arg_mean_command = mean args.Q_series over args.Time
 rmse_value = rmse measured_data.T_zone vs sim.T_zone
+rmse_call_value = rmse(measured_data.T_zone, sim.T_zone)

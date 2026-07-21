@@ -1627,7 +1627,8 @@
                                                                              "probability"
                                                                          ],
                                                            "validation":  [
-                                                                              "fill_missing"
+                                                                              "fill_missing",
+                                                                              "rmse"
                                                                           ],
                                                            "workflow_step":  [
                                                                                  "apply",

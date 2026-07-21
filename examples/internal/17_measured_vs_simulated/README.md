@@ -2,8 +2,9 @@
 
 This internal fixture exercises a typed measured-vs-simulated path. Native
 linear resampling materializes measured data on the simulated Time axis, and
-that output then produces an RMSE metric, a validation result, a multi-series
-PlotSpec, and reviewable artifacts.
+that output then produces an RMSE metric through the native
+`rmse(left, right)` call, a validation result, a multi-series PlotSpec, and
+reviewable artifacts.
 
 The schemas also exercise the runtime data-quality surface:
 

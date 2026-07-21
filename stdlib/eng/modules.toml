@@ -160,11 +160,12 @@ tests = ["cargo test -p eng_compiler cache_", "cargo test -p eng_runtime cache",
 [module."eng.quality"]
 status = "native_preview"
 backing = "compiler_runtime_builtin"
-purpose = "Common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection."
-artifacts = ["typed_payload.expectation_suites", "typed_payload.quality_results", "typed_payload.validations", "typed_payload.policy_results", "review.expectation_suites", "review.quality_results", "review.validations", "report_spec.quality_report", "report_html.quality_report", "ide.quality_inspector", "output_manifest"]
-diagnostics = ["E-TABLE-SCHEMA-MISMATCH", "W-FALLBACK-USED"]
-examples = ["examples/diagnostics/data_quality"]
-tests = ["cargo test -p eng_compiler lowers_expectation_suite_records", "cargo test -p eng_runtime run_file_records_common_quality_results_for_validation_and_schema_constraints"]
+purpose = "Native paired-TimeSeries RMSE plus common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection."
+artifacts = ["typed_payload.metrics", "typed_payload.expectation_suites", "typed_payload.quality_results", "typed_payload.validations", "typed_payload.policy_results", "review.expectation_suites", "review.quality_results", "review.validations", "report_spec.computed_metrics", "report_spec.quality_report", "report_html.quality_report", "ide.quality_inspector", "output_manifest"]
+diagnostics = ["E-RMSE-CALL-001", "E-TABLE-SCHEMA-MISMATCH", "W-FALLBACK-USED"]
+examples = ["examples/internal/17_measured_vs_simulated", "examples/diagnostics/data_quality"]
+tests = ["cargo test -p eng_compiler rmse_call_and_command_forms_share_one_native_contract", "cargo test -p eng_runtime materializes_call_style_rmse_with_native_unit_conversion", "cargo test -p eng_runtime run_file_materializes_timeseries_alignment_and_resampling_outputs", "cargo test -p eng_runtime run_file_records_common_quality_results_for_validation_and_schema_constraints"]
+symbols = ["rmse(left: TimeSeries, right: TimeSeries) -> Quantity"]
 
 [module."eng.template"]
 status = "native_preview"

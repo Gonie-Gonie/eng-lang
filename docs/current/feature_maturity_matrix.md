@@ -83,8 +83,9 @@ separate.
 - Public package: `Stable`
 - Main status: `Stable`
 - User-facing scope: documented weather/measured CSV promotion, explicit
-  `TimeSeries[Time]` input, typed simulation TimeSeries, RMSE metric,
-  validation result, time-alignment metadata, and multi-series PlotSpec.
+  `TimeSeries[Time]` input, typed simulation TimeSeries, native
+  `rmse(left, right)` metric, validation result, time-alignment metadata,
+  and multi-series PlotSpec.
 - Evidence: artifact checks, report/review metadata, IDE inspector payloads.
 - Not included: broad calibration, resampling policy controls, general solver
   selection, production model calibration.

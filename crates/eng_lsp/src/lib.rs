@@ -399,7 +399,7 @@ const WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &[
 const HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &["latin-hypercube"];
 const EDITOR_WORKFLOW_BUILTIN_GROUP_DEPRECATED: &[&str] =
     &["select_first_row", "regression_table", "train_regression"];
-const EDITOR_WORKFLOW_BUILTIN_GROUP_VALIDATION: &[&str] = &["fill_missing"];
+const EDITOR_WORKFLOW_BUILTIN_GROUP_VALIDATION: &[&str] = &["fill_missing", "rmse"];
 const EDITOR_WORKFLOW_BUILTIN_GROUP_EXTERNAL: &[&str] =
     &["file", "dir", "url", "env", "secret", "exists"];
 const EDITOR_WORKFLOW_BUILTIN_GROUP_PATH: &[&str] = &["join", "parent", "stem", "extension"];
@@ -822,7 +822,10 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     ("std", "eng.stats population standard deviation"),
     ("p90", "eng.stats nearest-rank 90th percentile"),
     ("p95", "eng.stats nearest-rank 95th percentile"),
-    ("rmse", "eng.quality root mean square error"),
+    (
+        "rmse",
+        "eng.quality native TimeSeries RMSE: rmse(left, right)",
+    ),
     ("duration_above", "eng.stats threshold duration"),
     ("integrate", "eng.timeseries integration helper"),
     ("der", "eng.timeseries derivative helper"),
@@ -7735,6 +7738,9 @@ fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
     if EDITOR_LEGACY_WORKFLOW_BUILTIN_ALIASES.contains(&keyword) {
         return &["defaultLibrary", "model", "deprecated"];
     }
+    if keyword == "rmse" {
+        return &["defaultLibrary", "report", "timeseries", "validation"];
+    }
     if EDITOR_WORKFLOW_BUILTIN_GROUP_EXTERNAL.contains(&keyword) {
         return &["defaultLibrary", "external"];
     }
@@ -7780,7 +7786,6 @@ fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
         }
         "materialize" | "collect" => &["defaultLibrary", "workflowStep"],
         "train" | "predict" => &["defaultLibrary", "model"],
-        "rmse" => &["defaultLibrary", "report", "timeseries", "validation"],
         "fill" | "align" | "resample" => {
             &["defaultLibrary", "validation", "workflowStep", "timeseries"]
         }
@@ -8698,7 +8703,7 @@ fn dotted_identifier_segment_modifiers_for_line(
         &["db", "external"]
     } else if is_connect_endpoint_segment(line, start, end) {
         &["solver"]
-    } else if is_rmse_comparison_operand_segment(line, start, end) {
+    } else if is_rmse_operand_segment(line, start, end) {
         RMSE_COMPARISON_MODIFIERS
     } else {
         &[]
@@ -8827,10 +8832,19 @@ fn is_rmse_comparison_keyword(line: &str, keyword: &str, token_start: usize) -> 
             .is_some_and(|(_, _, vs_start, _, _)| vs_start == token_start)
 }
 
-fn is_rmse_comparison_operand_segment(line: &str, start: usize, end: usize) -> bool {
-    rmse_comparison_ranges(line).is_some_and(|(left_start, left_end, _, right_start, right_end)| {
-        (start >= left_start && end <= left_end) || (start >= right_start && end <= right_end)
-    })
+fn is_rmse_operand_segment(line: &str, start: usize, end: usize) -> bool {
+    let command_operand = rmse_comparison_ranges(line).is_some_and(
+        |(left_start, left_end, _, right_start, right_end)| {
+            (start >= left_start && end <= left_end) || (start >= right_start && end <= right_end)
+        },
+    );
+    command_operand
+        || rmse_call_operand_ranges(line).is_some_and(
+            |(left_start, left_end, right_start, right_end)| {
+                (start >= left_start && end <= left_end)
+                    || (start >= right_start && end <= right_end)
+            },
+        )
 }
 
 fn rmse_comparison_ranges(line: &str) -> Option<(usize, usize, usize, usize, usize)> {
@@ -8862,6 +8876,45 @@ fn rmse_comparison_ranges(line: &str) -> Option<(usize, usize, usize, usize, usi
             continue;
         };
         return Some((left_start, left_end, vs_start, right_start, right_end));
+    }
+    None
+}
+
+fn rmse_call_operand_ranges(line: &str) -> Option<(usize, usize, usize, usize)> {
+    let bytes = line.as_bytes();
+    let mut search_start = 0usize;
+    while search_start < line.len() {
+        let relative_start = line.get(search_start..)?.find("rmse")?;
+        let rmse_start = search_start + relative_start;
+        let rmse_end = rmse_start + "rmse".len();
+        if !is_standalone_identifier_at(line, rmse_start, rmse_end) {
+            search_start = rmse_end;
+            continue;
+        }
+        let open = skip_ascii_whitespace(bytes, rmse_end, bytes.len());
+        if bytes.get(open).copied() != Some(b'(') {
+            search_start = rmse_end;
+            continue;
+        }
+        let Some((left_start, left_end)) = identifier_path_after(line, open + 1) else {
+            search_start = rmse_end;
+            continue;
+        };
+        let comma = skip_ascii_whitespace(bytes, left_end, bytes.len());
+        if bytes.get(comma).copied() != Some(b',') {
+            search_start = rmse_end;
+            continue;
+        }
+        let Some((right_start, right_end)) = identifier_path_after(line, comma + 1) else {
+            search_start = rmse_end;
+            continue;
+        };
+        let close = skip_ascii_whitespace(bytes, right_end, bytes.len());
+        if bytes.get(close).copied() != Some(b')') {
+            search_start = rmse_end;
+            continue;
+        }
+        return Some((left_start, left_end, right_start, right_end));
     }
     None
 }
@@ -17100,6 +17153,44 @@ title = "Measured vs simulated zone temperature"
             "keyword",
         );
     }
+
+    #[test]
+    fn snapshot_marks_rmse_call_operands_with_quality_modifiers() {
+        let source = "rmse_T = rmse (measured_data.T_zone, sim.T_zone)\n";
+        let snapshot = snapshot_for_source(Path::new("rmse_call_modifiers.eng"), source);
+        let line = source.trim_end();
+
+        for modifier in ["report", "timeseries", "validation"] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, "rmse", "function", modifier,
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                "measured_data",
+                "variable",
+                modifier,
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, "sim", "variable", modifier,
+            );
+            assert_eq!(
+                semantic_token_modifier_count(&snapshot, source, "T_zone", "property", modifier),
+                2
+            );
+        }
+        let completion = snapshot
+            .completions
+            .iter()
+            .find(|completion| completion.label == "rmse")
+            .expect("rmse completion");
+        assert_eq!(
+            completion.detail,
+            "eng.quality native TimeSeries RMSE: rmse(left, right)"
+        );
+    }
+
     #[test]
     fn snapshot_marks_richer_keyword_semantic_modifiers() {
         let source = r#"system RoomThermal {
@@ -22392,6 +22483,33 @@ bad_url = url()
             .diagnostics
             .iter()
             .all(|diagnostic| diagnostic.code != "E-FN-CALL-001"));
+    }
+
+    #[test]
+    fn rmse_diagnostics_use_compiler_owned_call_and_command_ranges() {
+        let source = concat!(
+            "bad_call = rmse(measured.T_zone + offset, simulated.T_zone)\r\n",
+            "bad_command = rmse measured.T_zone\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("bad_rmse.eng"), source);
+        let lines = source.lines().collect::<Vec<_>>();
+
+        for (line_index, expected) in [(0, "measured.T_zone + offset"), (1, "rmse")] {
+            let diagnostic = snapshot
+                .diagnostics
+                .iter()
+                .find(|diagnostic| {
+                    diagnostic.line == line_index + 1 && diagnostic.code == "E-RMSE-CALL-001"
+                })
+                .unwrap_or_else(|| panic!("missing RMSE diagnostic: {:?}", snapshot.diagnostics));
+            let line = lines[line_index];
+            let byte_start = line.find(expected).expect("diagnostic source text");
+            assert_eq!(diagnostic.start_character, utf16_len(&line[..byte_start]));
+            assert_eq!(
+                diagnostic.end_character,
+                utf16_len(&line[..byte_start + expected.len()])
+            );
+        }
     }
 
     #[test]

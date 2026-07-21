@@ -50,7 +50,7 @@ APIs unless a status document says so.
 | `eng.config` | Supported narrow scope | Typed JSON/TOML file promotion with schema validation, optional field policy, source hashes, and config summaries. |
 | `eng.net` | Supported narrow scope | Live HTTP(S) GET/download execution plus POST/PUT/PATCH string request bodies and pinned offline/cache HTTP(S) boundary records with redacted secret query/header values, SHA-256 checks, body hashes, and artifact summaries. |
 | `eng.cache` | Supported narrow scope | Explicit cache keys, pinned network response replay, calculation-hash/result-SHA verified native case-result cache replay/repair, cache records, stale diagnostics, and manifest-path invalidation; process/model replay remains planned. |
-| `eng.quality` | Supported narrow scope | Common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection. |
+| `eng.quality` | Supported narrow scope | Native `rmse(left, right)` for paired TimeSeries plus common quality result projection for validations, schema constraints, TimeSeries quality summaries, expectation suites, report-facing quality tables, and IDE quality inspection. |
 | `eng.template` | Supported narrow scope | Native text template rendering for generated inputs and adapter boundaries. |
 | `eng.db` | Supported SQLite write scope | Native SQLite append/upsert/replace writes for typed tables with schema metadata, DB manifests, hash before/after records, transaction status, and safe-profile rejection. |
 | `eng.table` | Planned broader APIs | Derived-value execution, fill operations, and richer schema-aware transforms. |

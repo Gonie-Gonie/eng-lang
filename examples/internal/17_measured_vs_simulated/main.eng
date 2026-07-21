@@ -57,7 +57,7 @@ with {
     method = linear
 }
 
-rmse_T = rmse measured_on_sim vs sim.T_zone
+rmse_T = rmse(measured_on_sim, sim.T_zone)
 
 print "Measured/simulated RMSE = {rmse_T: .2 K}"
 print "Measured resampling = {measured_on_sim.materialization_status} ({measured_on_sim.output_count} points)"

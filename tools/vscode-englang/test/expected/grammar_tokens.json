@@ -5842,5 +5842,11 @@
     "scope": "support.function.timeseries.englang",
     "text": "p100",
     "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.validation.englang",
+    "text": "rmse",
+    "fullMatch": true
   }
 ]

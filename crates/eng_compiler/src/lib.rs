@@ -67,7 +67,7 @@ pub use schema::{
     ConfigPromotion, ConfigTypeMismatch, CsvPromotion, MissingPolicy, SchemaColumn,
     SchemaConstraint, SchemaInfo,
 };
-pub use semantic::{db_read_expression, read_only_io_expression};
+pub use semantic::{db_read_expression, read_only_io_expression, rmse_operands};
 pub use semantic::{
     ArgValueInfo, ArgsBlockInfo, ArgsFieldInfo, AssertInfo, ClassFieldInfo, ClassInfo,
     ClassMethodInfo, ClassObjectFieldInfo, ClassObjectInfo, ClassObjectValidationInfo,
@@ -17602,6 +17602,87 @@ with {
             .command_styles
             .iter()
             .any(|command| command.canonical == "validate(rmse_T < 5 K)"));
+    }
+
+    #[test]
+    fn rmse_call_and_command_forms_share_one_native_contract() {
+        let report = check_source(
+            "rmse.eng",
+            concat!(
+                "measured: TimeSeries[Time] of AbsoluteTemperature [degC] = 20 degC\n",
+                "simulated: TimeSeries[Time] of AbsoluteTemperature [degC] = 20 degC\n",
+                "command_error = rmse measured vs simulated\n",
+                "call_error = rmse (measured, simulated)\n",
+                "actual_power: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
+                "predicted_power: TimeSeries[Time] of HeatRate [kW] = 4.8 kW\n",
+                "power_error = rmse(actual_power, predicted_power)\n",
+            ),
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let command = report
+            .semantic_program
+            .command_styles
+            .iter()
+            .find(|command| command.owner.as_deref() == Some("command_error"))
+            .expect("rmse command metadata");
+        assert_eq!(command.verb, "rmse");
+        assert_eq!(command.canonical, "rmse(measured, simulated)");
+        assert_eq!(command.status, "lowered");
+        for name in ["command_error", "call_error"] {
+            let declaration = report
+                .inferred_declarations
+                .iter()
+                .find(|declaration| declaration.name == name)
+                .unwrap_or_else(|| panic!("missing inferred RMSE binding {name}"));
+            assert_eq!(declaration.quantity_kind, "TemperatureDelta");
+            assert_eq!(declaration.display_unit, "K");
+        }
+        let power_error = report
+            .inferred_declarations
+            .iter()
+            .find(|declaration| declaration.name == "power_error")
+            .expect("power RMSE binding");
+        assert_eq!(power_error.quantity_kind, "HeatRate");
+        assert_eq!(power_error.display_unit, "kW");
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-FN-CALL-001"));
+    }
+
+    #[test]
+    fn rmse_diagnostics_preserve_call_and_command_operand_ranges() {
+        let source = concat!(
+            "bad_arity = rmse(left)\n",
+            "bad_empty = rmse(left,, right)\n",
+            "bad_operand = rmse(left + offset, right)\n",
+            "bad_command = rmse left\n",
+            "bad_command_operand = rmse left + offset vs right\n",
+        );
+        let report = check_source("bad-rmse.eng", source, &CheckOptions::default());
+        let expected = [
+            (1, "rmse"),
+            (2, "rmse"),
+            (3, "left + offset"),
+            (4, "rmse"),
+            (5, "left + offset"),
+        ];
+
+        for (line, text) in expected {
+            let diagnostic = report
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == "E-RMSE-CALL-001" && diagnostic.line == line)
+                .unwrap_or_else(|| panic!("missing RMSE diagnostic on line {line}"));
+            let span = diagnostic.source_span.expect("RMSE diagnostic source span");
+            assert_eq!(&source[span.start..span.end], text);
+        }
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-FN-CALL-001"));
     }
 
     #[test]

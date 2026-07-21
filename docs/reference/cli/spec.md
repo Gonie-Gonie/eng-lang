@@ -82,6 +82,7 @@ E-TABLE-UNKNOWN-COLUMN table filter predicate references a column outside the pr
 E-TABLE-PREDICATE-TYPE table filter predicate compares a schema column with an incompatible literal
 E-TABLE-JOIN-KEY-MISMATCH join key does not compare columns from the joined tables
 E-TABLE-SCHEMA-MISMATCH table join key columns have incompatible schema types
+E-RMSE-CALL-001       rmse requires exactly two TimeSeries binding or member paths
 E-URL-CALL-001        url constructor requires one quoted HTTP(S) address
 E-NET-INVALID-URL     supplied or resolved network URL is not absolute HTTP(S)
 E-NET-RETRY-POLICY    network retry value is not an integer from 0 to 5

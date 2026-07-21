@@ -2452,6 +2452,16 @@ fn analyze_command_style_decl(
             &format!("`{}` is not a supported command-style verb.", command.verb),
             Some("Use a supported built-in command verb or call a function with parentheses."),
         ));
+    } else if command.status == "invalid_rmse" {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-RMSE-CALL-001",
+                command.line,
+                "`rmse` expects exactly two TimeSeries paths.",
+                Some("Use `rmse(left, right)` or `rmse left vs right`."),
+            )
+            .with_source_span(invalid_rmse_command_span(command)),
+        );
     } else if command.status == "ambiguous_target" {
         diagnostics.push(Diagnostic::error(
             "E-CMD-AMBIG-001",
@@ -2492,6 +2502,26 @@ fn analyze_command_style_decl(
         line: command.line,
         expression_span: command.expression_span,
     });
+}
+
+fn invalid_rmse_command_span(command: &CommandStyleDecl) -> SourceSpan {
+    if !is_identifier_path(&command.target) {
+        return command.target_span.unwrap_or_else(|| {
+            source_span_for_child_range(command.expression_span, 0, command.verb.len())
+        });
+    }
+    if command.clauses.len() > 1 {
+        return command.clauses[1].name_span;
+    }
+    if let Some(clause) = command.clauses.first() {
+        if clause.name != "vs" {
+            return clause.name_span;
+        }
+        if !is_identifier_path(&clause.value) {
+            return clause.value_span;
+        }
+    }
+    source_span_for_child_range(command.expression_span, 0, command.verb.len())
 }
 
 fn validate_command_expression(
@@ -7848,6 +7878,32 @@ fn statistic_expression_semantic_type(
     semantic_type(&quantity_kind, &source_binding.semantic_type.display_unit)
 }
 
+fn rmse_expression_semantic_type(
+    expression: &str,
+    typed_bindings: &[TypedBinding],
+) -> Option<SemanticType> {
+    let (left, right) = rmse_operands(expression)?;
+    let left_type = &typed_bindings
+        .iter()
+        .find(|binding| binding.name == left)?
+        .semantic_type;
+    let right_type = &typed_bindings
+        .iter()
+        .find(|binding| binding.name == right)?
+        .semantic_type;
+    let (left_axis, left_quantity) = crate::stats::time_series_quantity(&left_type.quantity_kind)?;
+    let (right_axis, right_quantity) =
+        crate::stats::time_series_quantity(&right_type.quantity_kind)?;
+    if left_axis != right_axis || left_quantity != right_quantity {
+        return None;
+    }
+    if left_quantity == "AbsoluteTemperature" {
+        semantic_type("TemperatureDelta", "K")
+    } else {
+        semantic_type(&left_quantity, &right_type.display_unit)
+    }
+}
+
 fn probability_expression_semantic_type(expression: &str) -> Option<SemanticType> {
     let call = parse_function_call(expression)?;
     if call.name == "probability" && call.args.len() == 1 {
@@ -8326,6 +8382,86 @@ fn parse_function_call(source_expression: &str) -> Option<FunctionCall> {
     })
 }
 
+fn function_call_argument_slots(source_expression: &str) -> Option<Vec<&str>> {
+    let expression = strip_outer_parens(source_expression.trim());
+    let open = expression.find('(')?;
+    if !expression.ends_with(')') {
+        return None;
+    }
+    let args_text = &expression[open + 1..expression.len() - 1];
+    if args_text.trim().is_empty() {
+        return Some(Vec::new());
+    }
+
+    let mut slots = Vec::new();
+    let mut start = 0usize;
+    let mut depth = 0i32;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, character) in args_text.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if character == char::from(92) {
+                escaped = true;
+            } else if character == char::from(34) {
+                in_string = false;
+            }
+            continue;
+        }
+        if character == char::from(34) {
+            in_string = true;
+            continue;
+        }
+        match character {
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            ',' if depth == 0 => {
+                slots.push(args_text[start..index].trim());
+                start = index + character.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    slots.push(args_text[start..].trim());
+    Some(slots)
+}
+
+/// Returns the two series paths from a supported RMSE call or compatibility command.
+pub fn rmse_operands(expression: &str) -> Option<(String, String)> {
+    if let Some(call) = parse_function_call(expression) {
+        if call.name != "rmse" {
+            return None;
+        }
+        let slots = function_call_argument_slots(expression)?;
+        if slots.len() != 2 || slots.iter().any(|slot| !is_identifier_path(slot)) {
+            return None;
+        }
+        return Some((slots[0].to_owned(), slots[1].to_owned()));
+    }
+
+    let trimmed = expression.trim();
+    let rest = trimmed.strip_prefix("rmse")?;
+    if !rest.chars().next().is_some_and(char::is_whitespace) {
+        return None;
+    }
+    let mut words = rest.split_whitespace();
+    let left = words.next()?;
+    if words.next()? != "vs" {
+        return None;
+    }
+    let right = words.next()?;
+    if words.next().is_some() || !is_identifier_path(left) || !is_identifier_path(right) {
+        return None;
+    }
+    Some((left.to_owned(), right.to_owned()))
+}
+
+fn is_identifier_path(value: &str) -> bool {
+    let value = value.trim();
+    !value.is_empty() && value.split('.').all(is_identifier)
+}
+
 fn parse_object_method_call(
     source_expression: &str,
     expression_span: SourceSpan,
@@ -8363,7 +8499,7 @@ fn parse_object_method_call(
     })
 }
 
-fn validate_value_constructor_call(
+fn validate_builtin_call(
     expression: &str,
     expression_span: SourceSpan,
     line: usize,
@@ -8375,7 +8511,57 @@ fn validate_value_constructor_call(
     match call.name.as_str() {
         "url" => validate_url_constructor_call(expression_span, line, &call, diagnostics),
         "env" => validate_env_constructor_call(expression_span, line, &call, diagnostics),
+        "rmse" => validate_rmse_call(expression, expression_span, line, &call, diagnostics),
         _ => {}
+    }
+}
+
+fn validate_rmse_call(
+    expression: &str,
+    expression_span: SourceSpan,
+    line: usize,
+    call: &FunctionCall,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let name_span =
+        source_span_for_child_range(expression_span, call.name_range.start, call.name_range.end);
+    let Some(arguments) = function_call_argument_slots(expression) else {
+        return;
+    };
+    if arguments.len() != 2 || arguments.iter().any(|argument| argument.is_empty()) {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-RMSE-CALL-001",
+                line,
+                &format!(
+                    "rmse expects two TimeSeries paths, but got {} argument slot(s).",
+                    arguments.len()
+                ),
+                Some("Use rmse(left, right) or rmse left vs right."),
+            )
+            .with_source_span(name_span),
+        );
+        return;
+    }
+    for argument in arguments {
+        if is_identifier_path(argument) {
+            continue;
+        }
+        let argument_range =
+            byte_range_for_subslice(expression, argument).unwrap_or(call.name_range.clone());
+        diagnostics.push(
+            Diagnostic::error(
+                "E-RMSE-CALL-001",
+                line,
+                "rmse operands must be TimeSeries binding or member paths.",
+                Some("Pass paths such as measured.T_zone and simulated.T_zone."),
+            )
+            .with_source_span(source_span_for_child_range(
+                expression_span,
+                argument_range.start,
+                argument_range.end,
+            )),
+        );
     }
 }
 
@@ -8537,6 +8723,7 @@ fn is_builtin_function(name: &str) -> bool {
             | "apply"
             | "url"
             | "env"
+            | "rmse"
             | "file"
             | "dir"
             | "join"
@@ -8699,7 +8886,7 @@ fn analyze_args_field(
     if let (Some(default_value), Some(default_value_span)) =
         (&field.default_value, field.default_value_span)
     {
-        validate_value_constructor_call(default_value, default_value_span, field.line, diagnostics);
+        validate_builtin_call(default_value, default_value_span, field.line, diagnostics);
     }
     args_block.fields.push(ArgsFieldInfo {
         name: field.name.clone(),
@@ -14954,12 +15141,14 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
     if let Some(diagnostic) = unsupported_case_apply_step_diagnostic(binding) {
         accum.diagnostics.push(diagnostic);
     }
-    validate_value_constructor_call(
-        &binding.expression,
-        binding.expression_span,
-        binding.line,
-        accum.diagnostics,
-    );
+    if !binding.is_command_style {
+        validate_builtin_call(
+            &binding.expression,
+            binding.expression_span,
+            binding.line,
+            accum.diagnostics,
+        );
+    }
 
     let function_call_type = if !binding.is_command_style
         && should_validate_function_call(&binding.expression, accum.functions)
@@ -15013,6 +15202,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         .or(db_read_type)
         .or_else(|| db_connection_semantic_type(&binding.expression))
         .or_else(|| path_helper_semantic_type(&binding.expression))
+        .or_else(|| rmse_expression_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| statistic_expression_semantic_type(&binding.expression, &available_bindings))
         .or(function_call_type)
         .or_else(|| net_response_field_semantic_type(&binding.expression, &available_bindings))
@@ -15453,7 +15643,7 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
         return semantic_type("ComponentSolveResult", "object");
     }
 
-    if lowered_expression.starts_with("rmse ") && lowered_expression.contains(" vs ") {
+    if rmse_operands(expression).is_some() {
         return semantic_type("TemperatureDelta", "K");
     }
 
@@ -16490,7 +16680,8 @@ fn first_table_reference(expression: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        is_builtin_function, parse_function_call, split_top_level_scalar_arithmetic_slices,
+        is_builtin_function, parse_function_call, rmse_operands,
+        split_top_level_scalar_arithmetic_slices,
     };
 
     #[test]
@@ -16540,7 +16731,20 @@ mod tests {
         assert!(is_builtin_function("probability"));
         assert!(is_builtin_function("url"));
         assert!(is_builtin_function("env"));
+        assert!(is_builtin_function("rmse"));
         assert!(!is_builtin_function("render"));
         assert!(!is_builtin_function("phantom"));
+
+        assert_eq!(
+            rmse_operands("rmse (measured.T, simulated.T)"),
+            Some(("measured.T".to_owned(), "simulated.T".to_owned()))
+        );
+        assert_eq!(
+            rmse_operands("rmse measured.T   vs   simulated.T"),
+            Some(("measured.T".to_owned(), "simulated.T".to_owned()))
+        );
+        assert!(rmse_operands("rmse(measured.T)").is_none());
+        assert!(rmse_operands("rmse(measured.T,, simulated.T)").is_none());
+        assert!(rmse_operands("rmse(measured.T + offset, simulated.T)").is_none());
     }
 }

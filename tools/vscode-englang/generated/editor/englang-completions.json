@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v2",
-    "completion_items_count":  453,
+    "completion_items_count":  454,
     "completion_items":  [
                              {
                                  "detail":  "Schema array value",
@@ -578,7 +578,7 @@
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "eng.quality root mean square error",
+                                 "detail":  "eng.quality native TimeSeries RMSE: rmse(left, right)",
                                  "kind":  "function",
                                  "label":  "rmse",
                                  "lsp_kind":  3
@@ -2110,9 +2110,15 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native: Common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection.",
+                                 "detail":  "Native: Native paired-TimeSeries RMSE plus common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection.",
                                  "kind":  "stdlib",
                                  "label":  "eng.quality",
+                                 "lsp_kind":  9
+                             },
+                             {
+                                 "detail":  "eng.quality rmse(left: TimeSeries, right: TimeSeries) -\u003e Quantity",
+                                 "kind":  "stdlib",
+                                 "label":  "rmse(...)",
                                  "lsp_kind":  9
                              },
                              {

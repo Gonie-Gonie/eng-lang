@@ -229,6 +229,20 @@ with {
 resampled_hourly = resample measured.T_zone by 1 h
 ```
 
+The preferred native RMSE form consumes two materialized TimeSeries paths:
+
+```eng partial
+rmse_T = rmse(resampled, simulated.T_zone)
+validate rmse_T < 5 K
+```
+
+Runtime samples the right series on the left series timestamps, converts
+compatible display units, computes the root-mean-square error in process, and
+publishes the result through `typed_payload.metrics[]` and
+`report_spec.computed_metrics[]`. No Python or external process supplies the
+metric. `rmse resampled vs simulated.T_zone` remains a command-style alias
+for the same call.
+
 The sampling methods are:
 
 - `exact`: emit a value only when a source timestamp matches the target within

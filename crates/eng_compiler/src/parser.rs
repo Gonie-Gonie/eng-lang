@@ -2972,13 +2972,17 @@ fn parse_command_style_expression(
         }
         return None;
     }
-    if trimmed.starts_with(&format!("{verb}(")) {
+    if trimmed.starts_with(&format!("{verb}("))
+        || (verb == "rmse" && rest.trim_start().starts_with('('))
+    {
         return None;
     }
 
-    let parts = split_command_target_and_clauses(rest);
+    let parts = split_command_target_and_clauses_for_verb(verb, rest);
     let target = parts.target.as_str();
-    let status = if target.is_empty() {
+    let status = if verb == "rmse" && !valid_rmse_command_parts(&parts) {
+        "invalid_rmse"
+    } else if target.is_empty() {
         "missing_target"
     } else if command_target_is_ambiguous(verb, target) {
         "ambiguous_target"
@@ -3032,6 +3036,7 @@ fn is_command_style_verb(verb: &str) -> bool {
             | "resample"
             | "render"
             | "apply"
+            | "rmse"
     )
 }
 
@@ -3106,12 +3111,27 @@ struct CommandClauseParts {
 }
 
 fn split_command_target_and_clauses(rest: &str) -> CommandTargetParts {
-    let positions = top_level_clause_positions(
+    split_command_target_and_clauses_with_keywords(
         rest,
         &[
             "over", "by", "as", "above", "below", "between", "from", "to", "with",
         ],
-    );
+    )
+}
+
+fn split_command_target_and_clauses_for_verb(verb: &str, rest: &str) -> CommandTargetParts {
+    if verb == "rmse" {
+        split_command_target_and_clauses_with_keywords(rest, &["vs"])
+    } else {
+        split_command_target_and_clauses(rest)
+    }
+}
+
+fn split_command_target_and_clauses_with_keywords(
+    rest: &str,
+    keywords: &[&str],
+) -> CommandTargetParts {
+    let positions = top_level_clause_positions(rest, keywords);
     let target_end = positions
         .first()
         .map(|(start, _)| *start)
@@ -3152,6 +3172,13 @@ fn split_command_target_and_clauses(rest: &str) -> CommandTargetParts {
         target_range,
         clauses,
     }
+}
+
+fn valid_rmse_command_parts(parts: &CommandTargetParts) -> bool {
+    parts.target.split('.').all(is_identifier_text)
+        && parts.clauses.len() == 1
+        && parts.clauses[0].name == "vs"
+        && parts.clauses[0].value.split('.').all(is_identifier_text)
 }
 
 fn command_clause_decls(
@@ -3288,6 +3315,11 @@ fn is_simple_dotted_identifier(value: &str) -> bool {
 }
 
 fn canonical_command_call(verb: &str, target: &str, clauses: &[CommandClauseParts]) -> String {
+    if verb == "rmse" {
+        let mut operands = vec![target.to_owned()];
+        operands.extend(clauses.iter().map(|clause| clause.value.clone()));
+        return format!("rmse({})", operands.join(", "));
+    }
     let mut args = vec![target.to_owned()];
     for clause in clauses {
         let canonical_name = match (verb, clause.name.as_str()) {

@@ -401,6 +401,22 @@ mod tests {
                     .any(|test| test.contains("computes_heat_rate_statistics_and_integral"))
         }));
         assert!(registry.modules.iter().any(|module| {
+            module.name == "eng.quality"
+                && module.status == "native_preview"
+                && module
+                    .symbols
+                    .iter()
+                    .any(|symbol| symbol.starts_with("rmse(left: TimeSeries"))
+                && module
+                    .artifacts
+                    .iter()
+                    .any(|artifact| artifact == "typed_payload.metrics")
+                && module
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic == "E-RMSE-CALL-001")
+        }));
+        assert!(registry.modules.iter().any(|module| {
             module.name == "eng.case"
                 && module.status == "native_preview"
                 && module.backing == "compiler_runtime_builtin"

@@ -629,6 +629,7 @@ Parenthesized built-in calls are always acceptable:
 mean_Q = mean(Q_coil, axis=Time)
 peak_Q = max(Q_coil, axis=Time)
 E_coil = integrate(Q_coil, over=Time)
+rmse_T = rmse(measured.T_zone, simulated.T_zone)
 ```
 
 The command-style forms below lower to these canonical call strings. If you
@@ -652,7 +653,7 @@ Supported command-style verbs in the current release:
 | `plot` | Report plot request | `plot(Q, over=Time)` metadata |
 | `show` | Report/display request metadata | `show(value)` metadata |
 | `validate` | Validation request metadata | `validate(target)` metadata |
-| `rmse` | Measured-vs-simulated metric | `rmse(left, right)` metadata |
+| `rmse` | Native paired-TimeSeries error metric | `rmse(left, right)` |
 
 Command clauses recognized by the parser:
 
@@ -663,6 +664,7 @@ as
 above
 below
 between
+vs
 from
 to
 with
@@ -684,6 +686,7 @@ integrate Q_coil over Time -> integrate(Q_coil, over=Time)
 mean Q_coil over Time      -> mean(Q_coil, axis=Time)
 max Q_coil over Time       -> max(Q_coil, axis=Time)
 min Q_coil over Time       -> min(Q_coil, axis=Time)
+rmse measured.T vs sim.T   -> rmse(measured.T, sim.T)
 ```
 
 ### Validate Commands
@@ -691,7 +694,7 @@ min Q_coil over Time       -> min(Q_coil, axis=Time)
 `validate` accepts a comparison expression that evaluates to Bool:
 
 ```eng partial
-rmse_T = rmse measured.T_zone vs sim.T_zone
+rmse_T = rmse(measured.T_zone, sim.T_zone)
 validate rmse_T < 5 K
 ```
 
@@ -699,7 +702,10 @@ The compiler resolves both sides of the comparison and checks physical
 dimensions before runtime. A missing comparison operator is rejected with
 `E-VALIDATE-BOOL-001`, unresolved values are rejected with
 `E-VALIDATE-EXPR-001`, and incompatible units are rejected with
-`E-VALIDATE-UNIT-001`.
+`E-VALIDATE-UNIT-001`. An RMSE call with anything other than two binding or
+member paths is rejected with `E-RMSE-CALL-001`. The command-style
+`rmse measured.T_zone vs sim.T_zone` spelling remains a compatibility alias
+and lowers to the same native call.
 
 ### Command Target Rule
 
@@ -1534,7 +1540,7 @@ with {
     solver = fixed_step
 }
 
-rmse_T = rmse measured_data.T_zone vs sim.T_zone
+rmse_T = rmse(measured_data.T_zone, sim.T_zone)
 validate rmse_T < 5 K
 ```
 

@@ -87,8 +87,8 @@ workflow, and covered by the breaking-change policy.
 
 - Measured-vs-simulated workflow for the documented scope:
   weather/measured CSV promotion, explicit `TimeSeries[Time]` input contract,
-  typed simulation TimeSeries output, RMSE metric, validation result,
-  time-alignment metadata, and multi-series PlotSpec.
+  typed simulation TimeSeries output, native `rmse(left, right)` metric,
+  validation result, time-alignment metadata, and multi-series PlotSpec.
 
 This validation workflow demonstrates how simulation output can become typed
 review material. It is not a broad solver claim.

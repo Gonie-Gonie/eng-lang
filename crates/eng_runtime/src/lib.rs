@@ -20858,6 +20858,7 @@ mod tests {
                 "resampled_with = resample measured.T_zone with simulated.T_zone\n",
                 "resampled_by = resample measured.T_zone by 30 min\n",
                 "aligned_rmse = rmse aligned vs simulated.T_zone\n",
+                "aligned_rmse_call = rmse (aligned, simulated.T_zone)\n",
                 "print \"aligned status={aligned.materialization_status} output={aligned.output_count} complete={aligned.complete}\"\n",
                 "print \"resampled_by step={resampled_by.resample_step} output={resampled_by.output_count}\"\n",
                 "report {\n",
@@ -20985,6 +20986,20 @@ mod tests {
         let metric = json_array_item_by_binding(&result, "/typed_payload/metrics", "aligned_rmse")
             .expect("RMSE should consume the aligned TimeSeries");
         assert_eq!(metric.get("sample_count").and_then(Value::as_u64), Some(3));
+        let call_metric =
+            json_array_item_by_binding(&result, "/typed_payload/metrics", "aligned_rmse_call")
+                .expect("call-style RMSE should use the same native metric path");
+        assert_eq!(
+            call_metric.get("sample_count").and_then(Value::as_u64),
+            Some(3)
+        );
+        assert_eq!(call_metric.get("left"), metric.get("left"));
+        assert_eq!(call_metric.get("right"), metric.get("right"));
+        assert_eq!(call_metric.get("value"), metric.get("value"));
+        assert_eq!(
+            call_metric.get("status").and_then(Value::as_str),
+            Some("computed")
+        );
         let statistics = json_array_item_by_field(
             &result,
             "/typed_payload/statistics",

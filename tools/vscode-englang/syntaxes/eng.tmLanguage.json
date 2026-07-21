@@ -143,7 +143,7 @@
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.validation.englang",
-                                                                                                      "match":  "\\b(fill_missing)\\b(?=\\s*\\()"
+                                                                                                      "match":  "\\b(fill_missing|rmse)\\b(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.external-boundary.englang",
@@ -3287,7 +3287,7 @@
                                                          },
                                                          {
                                                              "name":  "support.function.validation.englang",
-                                                             "match":  "\\b(fill_missing)\\b(?=\\s*\\()"
+                                                             "match":  "\\b(fill_missing|rmse)\\b(?=\\s*\\()"
                                                          },
                                                          {
                                                              "name":  "support.function.external-boundary.englang",
