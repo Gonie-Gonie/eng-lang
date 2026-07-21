@@ -87,7 +87,7 @@ pub use semantic::{
     SemanticProgram, SemanticType, SolverPlanInfo, StateSpaceTypeBlockInfo,
     StateSpaceTypeMemberInfo, StateSpaceVectorInfo, SystemInfo, SystemVariableInfo, TestInfo,
     TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo, WhereBlockInfo, WithBlockInfo,
-    WithOptionInfo, WriteInfo,
+    WithOptionInfo, WriteInfo, DIMENSIONLESS_MATH_FUNCTIONS,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};

@@ -20,6 +20,9 @@ component RoomBoundary {
 component Coil {
     port heat: Thermal
     parameter UA: Conductance [W/K] = 500 W/K
+    delayed_T = delay(heat.T, 1 s)
+    predicted_T = predictor(heat.T)
+    predicted_alias_T = predict(heat.T)
 }
 
 component AmbientBoundary {

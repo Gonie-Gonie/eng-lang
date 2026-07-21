@@ -36,6 +36,15 @@ with {
     uncertainty = ensemble
 }
 Q_probability = probability(Q_total_unc < 10 kW)
+sqrt_ratio = sqrt(4)
+exp_ratio = exp(1)
+ln_ratio = ln(1)
+sin_ratio = sin(0)
+cos_ratio = cos(0)
+tan_ratio = tan(0)
+asin_ratio = asin(0)
+acos_ratio = acos(1)
+atan_ratio = atan(1)
 I_window = 850 W/m^2
 occupant_density = 0.12 people/m2
 Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW

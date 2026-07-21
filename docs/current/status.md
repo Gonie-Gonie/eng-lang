@@ -147,6 +147,10 @@ review material. It is not a broad solver claim.
   arbitrary unknown names that happen to begin with `p`. Shared argument and
   option parsing also keeps commas, semicolons, parentheses, and arithmetic
   symbols inside quoted or escaped string content, including process `env` values.
+  The compiler-owned dimensionless math-function catalog now also drives LSP
+  built-in tokens, completion, generated editor metadata, and TextMate first-paint
+  scopes. Component `predictor(...)` and call-style `predict(...)` share the solver
+  role without changing command-style model prediction.
   This repairs absolute spans and line numbers
   after variable-width, inserted, or removed standalone trivia and suffix
   line-ending changes. Coordinated declaration and alias renames are accepted when

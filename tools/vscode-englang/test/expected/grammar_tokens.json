@@ -5736,6 +5736,72 @@
     "fullMatch": true
   },
   {
+    "fixture": "04_system_component.eng",
+    "scope": "support.function.solver.englang",
+    "text": "predictor",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "support.function.solver.englang",
+    "text": "predict",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "sqrt",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "exp",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "ln",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "sin",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "cos",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "tan",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "asin",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "acos",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "atan",
+    "fullMatch": true
+  },
+  {
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "variable.other.public-member.englang",
     "text": "resample_step",

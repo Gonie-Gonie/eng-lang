@@ -131,6 +131,10 @@
                   },
                   {
                     "name": "support.function.solver.englang",
+                    "match": "\\b(predict)\\b(?=\\s*\\()"
+                  },
+                  {
+                    "name": "support.function.solver.englang",
                     "match": "\\b({{WORKFLOW_BUILTIN_GROUP_SOLVER}})\\b(?=\\s*\\()"
                   },
                   {
@@ -2290,6 +2294,10 @@
           {
             "name": "support.function.timeseries.englang",
             "match": "\\b({{WORKFLOW_BUILTIN_GROUP_TIMESERIES}})\\b(?=\\s*\\()"
+          },
+          {
+            "name": "support.function.solver.englang",
+            "match": "\\b(predict)\\b(?=\\s*\\()"
           },
           {
             "name": "support.function.solver.englang",

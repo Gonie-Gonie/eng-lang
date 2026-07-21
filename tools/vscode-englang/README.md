@@ -46,6 +46,9 @@ embedding compiler logic in JavaScript.
   variables, parameters, properties, built-in workflow helpers, module
   namespaces, quantities, units, reports, validations, and side-effect/external
   workflow boundaries
+- compiler-owned built-in coloring and completion for dimensionless scalar math
+  functions, plus solver-role coloring for component `predictor(...)` and
+  call-style `predict(...)` without repainting command-style model prediction
 - packaged role-coloring metadata so themes can color EngLang code
   consistently without custom rules
 - optional `EngLang Dark` and `EngLang Light` color themes with explicit

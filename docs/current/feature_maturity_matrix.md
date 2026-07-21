@@ -269,6 +269,10 @@ separate.
   arbitrary `p`-prefixed calls are reported as unknown. Shared call, component,
   behavior, process-option, sampling, and scalar-expression splitting keeps quoted
   or escaped delimiters inert instead of producing false argument or `env` errors.
+  The compiler's dimensionless math-function catalog feeds LSP semantic tokens,
+  completion, generated metadata, and TextMate built-in scopes; component
+  `predictor(...)` and call-style `predict(...)` use the solver role while the
+  command-style prediction workflow retains its model role.
   The older fast-binding-only and explicit-declaration-only APIs are mode-limited
   compatibility wrappers over this engine; lazy shared editor snapshots,
   recursive import-dependent invalidation, a VS Code persistent stdio client

@@ -1596,7 +1596,8 @@
                                                                     ],
                                                            "solver":  [
                                                                           "der",
-                                                                          "delay"
+                                                                          "delay",
+                                                                          "predictor"
                                                                       ],
                                                            "temporal":  [
                                                                             "date"
@@ -1683,6 +1684,7 @@
                                                      "model_card",
                                                      "leakage_lint",
                                                      "predict",
+                                                     "predictor",
                                                      "mean",
                                                      "time_weighted_mean",
                                                      "min",
@@ -1696,7 +1698,16 @@
                                                      "integrate",
                                                      "der",
                                                      "delay",
-                                                     "sum"
+                                                     "sum",
+                                                     "sqrt",
+                                                     "exp",
+                                                     "ln",
+                                                     "sin",
+                                                     "cos",
+                                                     "tan",
+                                                     "asin",
+                                                     "acos",
+                                                     "atan"
                                                  ],
                            "workflow_options":  [
                                                     {

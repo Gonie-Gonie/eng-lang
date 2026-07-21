@@ -522,6 +522,12 @@
                                  "lsp_kind":  3
                              },
                              {
+                                 "detail":  "Evaluate a typed component predictor signal",
+                                 "kind":  "function",
+                                 "label":  "predictor",
+                                 "lsp_kind":  3
+                             },
+                             {
                                  "detail":  "eng.stats mean",
                                  "kind":  "function",
                                  "label":  "mean",
@@ -603,6 +609,60 @@
                                  "detail":  "domain conservation sum",
                                  "kind":  "function",
                                  "label":  "sum",
+                                 "lsp_kind":  3
+                             },
+                             {
+                                 "detail":  "Built-in dimensionless scalar math function",
+                                 "kind":  "function",
+                                 "label":  "sqrt",
+                                 "lsp_kind":  3
+                             },
+                             {
+                                 "detail":  "Built-in dimensionless scalar math function",
+                                 "kind":  "function",
+                                 "label":  "exp",
+                                 "lsp_kind":  3
+                             },
+                             {
+                                 "detail":  "Built-in dimensionless scalar math function",
+                                 "kind":  "function",
+                                 "label":  "ln",
+                                 "lsp_kind":  3
+                             },
+                             {
+                                 "detail":  "Built-in dimensionless scalar math function",
+                                 "kind":  "function",
+                                 "label":  "sin",
+                                 "lsp_kind":  3
+                             },
+                             {
+                                 "detail":  "Built-in dimensionless scalar math function",
+                                 "kind":  "function",
+                                 "label":  "cos",
+                                 "lsp_kind":  3
+                             },
+                             {
+                                 "detail":  "Built-in dimensionless scalar math function",
+                                 "kind":  "function",
+                                 "label":  "tan",
+                                 "lsp_kind":  3
+                             },
+                             {
+                                 "detail":  "Built-in dimensionless scalar math function",
+                                 "kind":  "function",
+                                 "label":  "asin",
+                                 "lsp_kind":  3
+                             },
+                             {
+                                 "detail":  "Built-in dimensionless scalar math function",
+                                 "kind":  "function",
+                                 "label":  "acos",
+                                 "lsp_kind":  3
+                             },
+                             {
+                                 "detail":  "Built-in dimensionless scalar math function",
+                                 "kind":  "function",
+                                 "label":  "atan",
                                  "lsp_kind":  3
                              },
                              {
@@ -2748,7 +2808,7 @@
                                  "lsp_kind":  11
                              }
                          ],
-    "completion_items_count":  442,
+    "completion_items_count":  452,
     "format":  "eng-lsp-editor-metadata-v2",
     "semantic_token_legend":  {
                                   "token_modifiers":  [
@@ -4398,7 +4458,8 @@
                                                                     ],
                                                            "solver":  [
                                                                           "der",
-                                                                          "delay"
+                                                                          "delay",
+                                                                          "predictor"
                                                                       ],
                                                            "temporal":  [
                                                                             "date"
@@ -4485,6 +4546,7 @@
                                                      "model_card",
                                                      "leakage_lint",
                                                      "predict",
+                                                     "predictor",
                                                      "mean",
                                                      "time_weighted_mean",
                                                      "min",
@@ -4498,7 +4560,16 @@
                                                      "integrate",
                                                      "der",
                                                      "delay",
-                                                     "sum"
+                                                     "sum",
+                                                     "sqrt",
+                                                     "exp",
+                                                     "ln",
+                                                     "sin",
+                                                     "cos",
+                                                     "tan",
+                                                     "asin",
+                                                     "acos",
+                                                     "atan"
                                                  ],
                            "workflow_options":  [
                                                     {

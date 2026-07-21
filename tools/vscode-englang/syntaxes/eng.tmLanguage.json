@@ -175,7 +175,11 @@
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.solver.englang",
-                                                                                                      "match":  "\\b(delay|der)\\b(?=\\s*\\()"
+                                                                                                      "match":  "\\b(predict)\\b(?=\\s*\\()"
+                                                                                                  },
+                                                                                                  {
+                                                                                                      "name":  "support.function.solver.englang",
+                                                                                                      "match":  "\\b(predictor|delay|der)\\b(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.workflow-step.englang",
@@ -183,11 +187,11 @@
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.builtin.englang",
-                                                                                                      "match":  "\\b(time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|propagate|coverage|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|date|file|fill|grid|join|mean|rmse|sort|stem|ann|der|dir|env|lhs|max|min|mlp|p90|p95|std|sum|url)\\b(?=\\s*\\()"
+                                                                                                      "match":  "\\b(time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|predictor|propagate|coverage|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|acos|asin|atan|date|file|fill|grid|join|mean|rmse|sort|sqrt|stem|ann|cos|der|dir|env|exp|lhs|max|min|mlp|p90|p95|sin|std|sum|tan|url|ln)\\b(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "entity.name.function.call.englang",
-                                                                                                      "match":  "\\b(?!(?:time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|propagate|coverage|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|date|file|fill|grid|join|mean|rmse|sort|stem|ann|der|dir|env|lhs|max|min|mlp|p90|p95|std|sum|url)\\s*\\()[A-Za-z_][A-Za-z0-9_]*(?=\\s*\\()"
+                                                                                                      "match":  "\\b(?!(?:time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|predictor|propagate|coverage|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|acos|asin|atan|date|file|fill|grid|join|mean|rmse|sort|sqrt|stem|ann|cos|der|dir|env|exp|lhs|max|min|mlp|p90|p95|sin|std|sum|tan|url|ln)\\s*\\()[A-Za-z_][A-Za-z0-9_]*(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
                                                                                                       "include":  "#units"
@@ -3307,7 +3311,11 @@
                                                          },
                                                          {
                                                              "name":  "support.function.solver.englang",
-                                                             "match":  "\\b(delay|der)\\b"
+                                                             "match":  "\\b(predict)\\b(?=\\s*\\()"
+                                                         },
+                                                         {
+                                                             "name":  "support.function.solver.englang",
+                                                             "match":  "\\b(predictor|delay|der)\\b"
                                                          },
                                                          {
                                                              "name":  "support.function.workflow-step.englang",
@@ -3315,7 +3323,7 @@
                                                          },
                                                          {
                                                              "name":  "support.function.builtin.englang",
-                                                             "match":  "\\b(time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|propagate|coverage|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|date|file|fill|grid|join|mean|rmse|sort|stem|ann|der|dir|env|lhs|max|min|mlp|p90|p95|std|sum|url)\\b"
+                                                             "match":  "\\b(time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|predictor|propagate|coverage|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|acos|asin|atan|date|file|fill|grid|join|mean|rmse|sort|sqrt|stem|ann|cos|der|dir|env|exp|lhs|max|min|mlp|p90|p95|sin|std|sum|tan|url|ln)\\b"
                                                          }
                                                      ]
                                     },
@@ -3323,7 +3331,7 @@
                                              "patterns":  [
                                                               {
                                                                   "name":  "meta.function-call.englang",
-                                                                  "begin":  "\\b(?!(?:time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|propagate|coverage|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|date|file|fill|grid|join|mean|rmse|sort|stem|ann|der|dir|env|lhs|max|min|mlp|p90|p95|std|sum|url)\\s*\\()([A-Za-z_][A-Za-z0-9_]*)(\\s*\\()",
+                                                                  "begin":  "\\b(?!(?:time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|predictor|propagate|coverage|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|acos|asin|atan|date|file|fill|grid|join|mean|rmse|sort|sqrt|stem|ann|cos|der|dir|env|exp|lhs|max|min|mlp|p90|p95|sin|std|sum|tan|url|ln)\\s*\\()([A-Za-z_][A-Za-z0-9_]*)(\\s*\\()",
                                                                   "beginCaptures":  {
                                                                                         "1":  {
                                                                                                   "name":  "entity.name.function.call.englang"

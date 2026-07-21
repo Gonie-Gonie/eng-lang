@@ -15882,7 +15882,8 @@ fn expression_dimension_with_symbols(
     None
 }
 
-const DIMENSIONLESS_MATH_FUNCTIONS: [&str; 9] = [
+/// Built-in scalar math functions that require and return dimensionless values.
+pub const DIMENSIONLESS_MATH_FUNCTIONS: &[&str] = &[
     "sqrt", "exp", "ln", "sin", "cos", "tan", "asin", "acos", "atan",
 ];
 
@@ -15954,7 +15955,7 @@ fn dimensionless_math_function_dimension_error(
 
 fn dimensionless_math_function_call(expression: &str) -> Option<(&'static str, &str)> {
     let expression = strip_outer_parens(expression.trim());
-    for function in DIMENSIONLESS_MATH_FUNCTIONS {
+    for &function in DIMENSIONLESS_MATH_FUNCTIONS {
         let Some(rest) = expression.strip_prefix(function) else {
             continue;
         };

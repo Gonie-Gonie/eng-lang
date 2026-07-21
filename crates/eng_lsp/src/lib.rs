@@ -7,7 +7,7 @@ use eng_compiler::{
     read_only_io_expression, review_validation_records, CheckOptions, CheckReport, ClassFieldInfo,
     CommandStyleInfo, Diagnostic, DomainTypeParameterInfo, FileOperationInfo, FunctionInfo,
     ImportSourceOverrides, ReviewValidationRecord, SemanticProgram, Severity, SourceSpan,
-    WithBlockInfo, WithOptionInfo, WriteInfo,
+    WithBlockInfo, WithOptionInfo, WriteInfo, DIMENSIONLESS_MATH_FUNCTIONS,
 };
 use serde_json::{json, Value};
 
@@ -378,6 +378,7 @@ const WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &[
     "model_card",
     "leakage_lint",
     "predict",
+    "predictor",
     "mean",
     "time_weighted_mean",
     "min",
@@ -434,7 +435,7 @@ const EDITOR_WORKFLOW_BUILTIN_GROUP_TIMESERIES: &[&str] = &[
     "p90",
     "p95",
 ];
-const EDITOR_WORKFLOW_BUILTIN_GROUP_SOLVER: &[&str] = &["der", "delay"];
+const EDITOR_WORKFLOW_BUILTIN_GROUP_SOLVER: &[&str] = &["der", "delay", "predictor"];
 const EDITOR_WORKFLOW_BUILTIN_GROUP_WORKFLOW_STEP: &[&str] = &["apply", "run_case"];
 const EDITOR_WORKFLOW_BUILTIN_GROUPS: &[(&str, &[&str])] = &[
     ("deprecated", EDITOR_WORKFLOW_BUILTIN_GROUP_DEPRECATED),
@@ -811,6 +812,7 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     ("model_card", "Create a model-card review artifact"),
     ("leakage_lint", "Check model features for leakage risk"),
     ("predict", "Create predictions from a model and input table"),
+    ("predictor", "Evaluate a typed component predictor signal"),
     ("mean", "eng.stats mean"),
     ("time_weighted_mean", "eng.stats time-weighted mean"),
     ("min", "eng.stats minimum"),
@@ -2052,6 +2054,11 @@ pub fn editor_metadata_json() -> Value {
 
 pub fn editor_syntax_catalog_json() -> Value {
     let constants = editor_constant_keywords();
+    let workflow_builtins = WORKFLOW_BUILTIN_KEYWORDS
+        .iter()
+        .copied()
+        .chain(DIMENSIONLESS_MATH_FUNCTIONS.iter().copied())
+        .collect::<Vec<_>>();
     let workflow_builtin_groups = EDITOR_WORKFLOW_BUILTIN_GROUPS
         .iter()
         .copied()
@@ -2077,7 +2084,7 @@ pub fn editor_syntax_catalog_json() -> Value {
             "solver": EDITOR_SOLVER_KEYWORDS,
             "workflow": EDITOR_WORKFLOW_KEYWORDS,
         },
-        "workflow_builtins": WORKFLOW_BUILTIN_KEYWORDS,
+        "workflow_builtins": workflow_builtins,
         "workflow_builtin_groups": workflow_builtin_groups,
         "hyphenated_workflow_builtins": HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS,
         "legacy_workflow_builtin_aliases": EDITOR_LEGACY_WORKFLOW_BUILTIN_ALIASES,
@@ -6092,6 +6099,7 @@ impl<'a> SemanticTokenBuilder<'a> {
                     continue;
                 }
                 if WORKFLOW_BUILTIN_KEYWORDS.contains(&token)
+                    || DIMENSIONLESS_MATH_FUNCTIONS.contains(&token)
                     || EDITOR_LEGACY_WORKFLOW_BUILTIN_ALIASES.contains(&token)
                 {
                     let (token_type, modifiers) = workflow_builtin_semantic_class(
@@ -7902,6 +7910,11 @@ fn workflow_builtin_modifiers_for_line(
             .is_some_and(|previous| previous == "sample")
     {
         return &["defaultLibrary", "workflowStep"];
+    }
+    if keyword == "predict"
+        && next_non_whitespace_after(line, token_start + keyword.len()) == Some('(')
+    {
+        return &["defaultLibrary", "solver", "timeseries"];
     }
     if (keyword == "train"
         && next_identifier_after(line, token_start + keyword.len()) == Some("regression"))
@@ -10088,6 +10101,15 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
 
     for (label, detail) in WORKFLOW_BUILTIN_COMPLETIONS.iter().copied() {
         push_completion(&mut items, &mut seen, label, "function", detail);
+    }
+    for label in DIMENSIONLESS_MATH_FUNCTIONS.iter().copied() {
+        push_completion(
+            &mut items,
+            &mut seen,
+            label,
+            "function",
+            "Built-in dimensionless scalar math function",
+        );
     }
 
     for keyword in COMPLETION_KEYWORDS.iter().copied() {
@@ -14147,6 +14169,7 @@ print "done"
         let known_workflow_builtins = WORKFLOW_BUILTIN_KEYWORDS
             .iter()
             .copied()
+            .chain(DIMENSIONLESS_MATH_FUNCTIONS.iter().copied())
             .chain(HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS.iter().copied())
             .chain(EDITOR_LEGACY_WORKFLOW_BUILTIN_ALIASES.iter().copied())
             .collect::<BTreeSet<_>>();
@@ -19785,6 +19808,48 @@ write text file("outputs/summary.txt"), Q
             "workflowStep",
         );
         assert_no_semantic_token_on_line_type(&snapshot, source, "write text", "text", "function");
+    }
+
+    #[test]
+    fn snapshot_marks_scalar_math_and_predictor_calls_as_builtins() {
+        let source = r#"signal = 1
+sqrt_value = sqrt(4)
+exp_value = exp(1)
+ln_value = ln(1)
+sin_value = sin(0)
+cos_value = cos(0)
+tan_value = tan(0)
+asin_value = asin(0)
+acos_value = acos(1)
+atan_value = atan(1)
+predictor_value = predictor(signal)
+predict_alias_value = predict(signal)
+"#;
+        let snapshot = snapshot_for_source(Path::new("math_predictor_builtins.eng"), source);
+
+        for &label in DIMENSIONLESS_MATH_FUNCTIONS {
+            assert_semantic_token_type(&snapshot, source, label, "function");
+            assert_semantic_token_modifier(&snapshot, source, label, "defaultLibrary");
+            let completion = snapshot
+                .completions
+                .iter()
+                .find(|completion| completion.label == label)
+                .unwrap_or_else(|| panic!("missing math completion `{label}`"));
+            assert_eq!(completion.kind, "function");
+        }
+        for (line, label) in [
+            ("predictor_value", "predictor"),
+            ("predict_alias_value", "predict"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, label, "function", "solver",
+            );
+            assert_no_semantic_token_on_line_type(&snapshot, source, line, label, "keyword");
+        }
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "predictor" && completion.kind == "function"));
     }
 
     #[test]
