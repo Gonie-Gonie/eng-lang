@@ -248,15 +248,19 @@ is not mistaken for public module support.
     nested runtime results for core inputs, schemas, scalar values,
     materialized tables, TimeSeries, explicit coverage checks, source-derived
     time axes, calculations, table transforms, outputs, validations,
-    generated-file side effects, and native SQLite write side effects, then
-    refresh changed section hashes while preserving unchanged static hashes.
+    generated-file side effects, native SQLite write side effects, and native
+    model/model-card/metric/prediction bindings, then refresh changed section
+    hashes while preserving unchanged static hashes. Model rows include
+    computed coefficients, metrics, train/test counts, and model/training
+    hashes; prediction rows include input/model identity, output schema, case
+    IDs, row count, and prediction hash.
     Runtime-generated `report.html` validates that final document and uses
     it for the review fingerprint, core runtime result/evidence table,
-    TimeSeries/coverage/side-effect counts, sample summaries, file and DB
-    evidence, and full validation expressions.
+    TimeSeries/coverage/side-effect/model/prediction counts, sample summaries,
+    file, DB, model, and prediction evidence, and full validation expressions.
   - One compiler-owned item-level semantic diff payload is available through
     `eng review --against`, `eng review diff`, and the native IDE Review panel.
-    Specialized solver, assembly, model, and non-write DB runtime rows remain
+    Specialized solver, assembly, and non-write DB runtime rows remain
     follow-up projection work.
 - Composite workflow foundations
   - Public package: `Supported` side-effect primitives
@@ -281,7 +285,7 @@ is not mistaken for public module support.
   - Current native DB evidence includes schema diagnostics, transaction status,
     table names, modes, keys, row counts, source hashes, and report-visible
     DB table summaries. Current native model evidence includes preferred
-    preferred `train regression`, warning-producing compatibility aliases
+    `train regression`, warning-producing compatibility aliases
     `regression_table(...)`/`train_regression(...)`, `model_card`,
     `evaluate`, `predict ... using ...`, ModelSpec/FeatureSpec/TargetSpec summaries,
     prediction schema/output metadata, confidence-column metadata, and hashes.

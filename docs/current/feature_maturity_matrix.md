@@ -75,21 +75,25 @@ separate.
   only the section hashes whose normalized content changed. Core projection
   includes materialized tables, TimeSeries, explicit coverage checks, and
   source-derived time axes across matching normalized rows, plus generated-file
-  and native SQLite write evidence in side-effect runtime rows.
+  and native SQLite write evidence in side-effect runtime rows. Native model,
+  model-card, metric, and prediction bindings have discriminated runtime rows
+  with computed metrics, coefficients, train/test counts, hashes, prediction
+  schema/output/case IDs, and row counts.
   Runtime-generated report HTML validates the final saved ReviewDocument and
   projects its fingerprint, value/evidence rows, TimeSeries/coverage/
-  side-effect counts, coverage sample summaries, file and DB paths/hashes,
-  SQLite transaction/schema/table/row evidence, statuses, and full validation
+  side-effect/model/prediction counts, coverage sample summaries, file and DB
+  paths/hashes, SQLite transaction/schema/table/row evidence, computed model
+  metrics/hashes, prediction schema/row evidence, statuses, and full validation
   expressions.
 - Evidence: official examples, artifact schemas, `artifacts-check`, report/
   review guide, `eng review`, shared compiler diff tests, and IDE smoke path
   covering normalized Review cockpit sections, semantic comparison, external
   boundaries, and side effects.
 - Not included: complete runtime projection for every specialized solver,
-  assembly, model, and non-write DB record family or a complete risk/fallback
+  assembly, and non-write DB record family or a complete risk/fallback
   taxonomy across all tracks.
 - Next cleanup action: route the remaining specialized solver, assembly,
-  model, and non-write DB report panels through normalized rows as those record
+  and non-write DB report panels through normalized rows as those record
   families gain complete runtime projection.
 
 ### Measured-Vs-Simulated Validation
@@ -348,7 +352,7 @@ separate.
   `typed_payload.sample_tables[]`; native SQLite append/upsert/replace writes
   include manifests, typed table readback records, schema diagnostics,
   transaction status, and DB file hashes; preferred native
-  preferred `train regression`, warning-producing compatibility aliases
+  `train regression`, warning-producing compatibility aliases
   `regression_table(...)`/`train_regression(...)`, and
   `predict <model> using <table>` materialize
   Table[Prediction] rows and `typed_payload.prediction_manifests[]`; live

@@ -107,9 +107,10 @@ Table, TimeSeries, and coverage values are projected consistently across their
 matching units/quantity, symbol, derived-value, and calculation rows.
 Generated-file side effects add artifact kind/path/hash evidence. Native
 SQLite write side effects add database and manifest paths/hashes, transaction
-and schema status, table schemas, and row counts. Specialized solver,
-assembly, model, and non-write DB record families remain follow-up runtime
-projection work.
+and schema status, table schemas, and row counts. Native model, model-card,
+metric, and prediction rows add computed metrics, coefficients, train/test
+counts, schema/case IDs, and dedicated hashes. Specialized solver, assembly,
+and non-write DB record families remain follow-up runtime projection work.
 
 ## Root Workflow Review Contract
 
@@ -211,7 +212,11 @@ inputs, schemas, units/quantities, symbols, time axes, calculations, table
 transforms, report outputs, and validations, and records aggregate
 `runtime_evidence`. Generated-file and DB-write side effects receive the
 same nested `runtime_result` contract in their existing normalized rows;
-boundaries, caches, and fallbacks retain their current enrichment shapes.
+native model, model-card, metric, and prediction bindings replace generic
+unavailable scalar fallbacks with discriminated runtime results containing
+computed metrics, coefficients, train/test counts, hashes, output schema, and
+case IDs. Boundaries, caches, and fallbacks retain their current enrichment
+shapes.
 
 The runtime finalizer compares each normalized section with the static
 baseline. It preserves static hashes for unchanged sections, refreshes only
@@ -261,17 +266,22 @@ bare validated ReviewDocument through the compiler-owned extractor. The saved
 run path passes the final enriched wrapper, so the HTML Review fingerprint
 matches `review.json.review_document.semantic_hash`. Its Runtime Review
 table displays normalized result/evidence/status rows, including side-effect
-artifact and SQLite table/row evidence plus an aggregate side-effect count.
+artifact and SQLite table/row evidence, computed model metrics and hashes,
+prediction row/schema evidence, and aggregate side-effect/model/prediction
+counts.
 Its Validations table uses the normalized full expression and runtime result
-instead of the parallel ReportSpec validation list. Specialized report panels
-continue to use their existing typed ReportSpec records until corresponding
-ReviewDocument rows are complete.
+instead of the parallel ReportSpec validation list. Specialized solver,
+assembly, quality, uncertainty, and non-write DB panels continue to use their
+existing typed ReportSpec records until corresponding ReviewDocument rows are
+complete.
 
 The current native IDE Review inspector consumes `review_document` directly for
 root counts, semantic hashes, runtime inputs and values, variables/symbols,
 unit derivations, schemas, time axes, table transforms, calculation traces,
 report outputs, validations, side effects, external boundaries, fallbacks, and
-risks. Its Semantic Diff section accepts a full `review.json` artifact or bare
+risks. The Model Review inspector also consumes the normalized model and
+prediction runtime rows alongside the detailed model-card arrays. Its Semantic
+Diff section accepts a full `review.json` artifact or bare
 `review_document`, shows section-hash and item-level changes, and automatically
 recomputes against the selected baseline after a later run updates the current
 ReviewDocument. The VS Code current-file Review panel uses the source-path and

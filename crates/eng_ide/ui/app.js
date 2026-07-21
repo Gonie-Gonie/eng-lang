@@ -6225,11 +6225,12 @@ function renderModelPanel() {
   const specs = Array.isArray(model.specs) ? model.specs : [];
   const predictionManifests = Array.isArray(model.predictionManifests) ? model.predictionManifests : [];
   const diagnostics = Array.isArray(model.diagnostics) ? model.diagnostics : [];
+  const reviewResults = Array.isArray(model.reviewResults) ? model.reviewResults : [];
   const residualPoints = artifacts.reduce((sum, artifact) => {
     const points = Array.isArray(artifact.residual_points) ? artifact.residual_points : (Array.isArray(artifact.residualPoints) ? artifact.residualPoints : []);
     return sum + points.length;
   }, 0);
-  if (!cards.length && !artifacts.length && !specs.length && !predictionManifests.length && !diagnostics.length) {
+  if (!cards.length && !artifacts.length && !specs.length && !predictionManifests.length && !diagnostics.length && !reviewResults.length) {
     return `
       <div class="panel-title compact">Model Review</div>
       ${panelArtifactEmptyState(
@@ -6245,10 +6246,11 @@ function renderModelPanel() {
       <span class="badge">Training Plans ${specs.length}</span>
       <span class="badge">Cards ${cards.length}</span>
       <span class="badge">Prediction Runs ${predictionManifests.length}</span>
+      <span class="badge">Review Results ${reviewResults.length}</span>
       <span class="badge">Diagnostics ${diagnostics.length}</span>
       <span class="badge">Residuals ${residualPoints}</span>
     </div>
-    ${sourceBreadcrumbs("Source spans", [...specs, ...cards, ...artifacts, ...predictionManifests, ...diagnostics])}
+    ${sourceBreadcrumbs("Source spans", [...specs, ...cards, ...artifacts, ...predictionManifests, ...reviewResults, ...diagnostics])}
     <div class="scroll">
       <div class="panel-title compact">Training Plans</div>
       ${renderModelSpecs(specs)}
@@ -6258,6 +6260,8 @@ function renderModelPanel() {
       ${renderModelArtifacts(artifacts)}
       <div class="panel-title compact">Prediction Runs</div>
       ${renderPredictionManifests(predictionManifests)}
+      <div class="panel-title compact">Normalized Review Results</div>
+      ${renderModelReviewResults(reviewResults)}
       <div class="panel-title compact">Model Diagnostics</div>
       ${renderModelDiagnostics(diagnostics)}
       ${advancedDataToggle("Advanced model data", model)}
@@ -6498,6 +6502,40 @@ function renderPredictionManifests(manifests) {
     <table class="artifact-table">
       <thead><tr><th>Binding</th><th>Model</th><th>Files</th><th>Rows</th><th>Outputs</th><th>Confidence</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="6" class="muted">No prediction runs.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderModelReviewResults(rows) {
+  const body = rows.map((row) => {
+    const result = row.runtime_result || row.runtimeResult || {};
+    const metrics = result.metrics || {};
+    const metricSummary = [
+      metrics.rmse != null ? `RMSE=${metrics.rmse}` : "",
+      metrics.mae != null ? `MAE=${metrics.mae}` : "",
+      metrics.r2 != null ? `R2=${metrics.r2}` : ""
+    ].filter(Boolean).join("; ");
+    const rowCount = result.row_count ?? result.rowCount;
+    const resultSummary = result.provenance === "runtime_prediction"
+      ? `${rowCount ?? 0} predictions`
+      : (metricSummary || `train ${result.train_count ?? result.trainCount ?? "-"} / test ${result.test_count ?? result.testCount ?? "-"}`);
+    const target = result.target || "-";
+    const targetUnit = result.target_unit || result.targetUnit || result.output_unit || result.outputUnit || "";
+    const hash = result.prediction_hash || result.predictionHash || result.model_artifact_hash || result.modelArtifactHash || "-";
+    return `
+      <tr>
+        <td><strong>${escapeHtml(row.name || row.binding || "-")}</strong><div class="muted">${sourceLineButton(row)}</div></td>
+        <td>${escapeHtml(result.provenance || "-")}<div class="muted">${escapeHtml(result.status || "-")}</div></td>
+        <td>${escapeHtml(target)}<div class="muted">${escapeHtml(targetUnit)}</div></td>
+        <td>${escapeHtml(compactText(resultSummary, 110))}</td>
+        <td><code>${escapeHtml(compactText(hash, 70))}</code></td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Binding</th><th>Provenance</th><th>Target</th><th>Runtime Result</th><th>Evidence Hash</th></tr></thead>
+      <tbody>${body || `<tr><td colspan="5" class="muted">No normalized model review results.</td></tr>`}</tbody>
     </table>
   `;
 }

@@ -1129,6 +1129,71 @@ function Invoke-WorkflowsTest {
                     }
                 }
             }
+            $RuntimeModelRows = @($RuntimeReviewData.review_document.symbols | Where-Object {
+                [string]$_.runtime_result.provenance -in @(
+                    "runtime_model",
+                    "runtime_model_card",
+                    "runtime_model_metrics",
+                    "runtime_prediction"
+                )
+            })
+            Assert-ArtifactNumber $RuntimeModelRows.Count 4 "Workflow 02 ReviewDocument normalized model result count"
+            $RuntimeModel = @($RuntimeModelRows | Where-Object {
+                [string]$_.name -eq "surrogate_model" -and
+                [string]$_.runtime_result.provenance -eq "runtime_model"
+            }) | Select-Object -First 1
+            Assert-Artifact ($null -ne $RuntimeModel) "Workflow 02 ReviewDocument missing native model runtime result"
+            Assert-ArtifactValue $RuntimeModel.runtime_result.model_kind "linear" "Workflow 02 runtime model kind"
+            Assert-ArtifactValue $RuntimeModel.runtime_result.status "trained_linear" "Workflow 02 runtime model status"
+            Assert-ArtifactNumber $RuntimeModel.runtime_result.feature_count 6 "Workflow 02 runtime model feature count"
+            Assert-ArtifactNumber $RuntimeModel.runtime_result.train_count 6 "Workflow 02 runtime model train count"
+            Assert-ArtifactNumber $RuntimeModel.runtime_result.test_count 2 "Workflow 02 runtime model test count"
+            Assert-ArtifactNumber @($RuntimeModel.runtime_result.coefficients).Count 6 "Workflow 02 runtime model coefficient count"
+            Assert-Artifact ([double]$RuntimeModel.runtime_result.metrics.rmse -gt 0) "Workflow 02 runtime model must expose computed RMSE"
+            Assert-Artifact ([string]$RuntimeModel.runtime_result.training_data_hash -match "^[0-9a-f]{16,64}$") "Workflow 02 runtime model must expose a deterministic training hash"
+            Assert-Artifact ([string]$RuntimeModel.runtime_result.model_artifact_hash -match "^[0-9a-f]{16,64}$") "Workflow 02 runtime model must expose a deterministic model hash"
+
+            $RuntimeModelCard = @($RuntimeModelRows | Where-Object {
+                [string]$_.name -eq "model_card_summary" -and
+                [string]$_.runtime_result.provenance -eq "runtime_model_card"
+            }) | Select-Object -First 1
+            Assert-Artifact ($null -ne $RuntimeModelCard) "Workflow 02 ReviewDocument missing native model-card runtime result"
+            Assert-ArtifactValue $RuntimeModelCard.runtime_result.status "documented" "Workflow 02 runtime model-card status"
+            Assert-Artifact ([string]$RuntimeModelCard.runtime_result.model_card -like "*target=annual_electricity*") "Workflow 02 runtime model card must expose the native model summary"
+
+            $RuntimeModelMetrics = @($RuntimeModelRows | Where-Object {
+                [string]$_.name -eq "model_metrics" -and
+                [string]$_.runtime_result.provenance -eq "runtime_model_metrics"
+            }) | Select-Object -First 1
+            Assert-Artifact ($null -ne $RuntimeModelMetrics) "Workflow 02 ReviewDocument missing native model-metrics runtime result"
+            Assert-ArtifactValue $RuntimeModelMetrics.runtime_result.status "evaluated" "Workflow 02 runtime model-metrics status"
+
+            $RuntimePrediction = @($RuntimeModelRows | Where-Object {
+                [string]$_.name -eq "predictions" -and
+                [string]$_.runtime_result.provenance -eq "runtime_prediction"
+            }) | Select-Object -First 1
+            Assert-Artifact ($null -ne $RuntimePrediction) "Workflow 02 ReviewDocument missing native prediction runtime result"
+            Assert-ArtifactValue $RuntimePrediction.runtime_result.model "surrogate_model" "Workflow 02 runtime prediction model"
+            Assert-ArtifactValue $RuntimePrediction.runtime_result.input_table "designs" "Workflow 02 runtime prediction input table"
+            Assert-ArtifactValue $RuntimePrediction.runtime_result.manifest_path "native:predictions" "Workflow 02 runtime prediction manifest"
+            Assert-ArtifactValue $RuntimePrediction.runtime_result.status "predicted" "Workflow 02 runtime prediction status"
+            Assert-ArtifactNumber $RuntimePrediction.runtime_result.row_count 3 "Workflow 02 runtime prediction row count"
+            Assert-ArtifactNumber @($RuntimePrediction.runtime_result.outputs).Count 2 "Workflow 02 runtime prediction output count"
+            Assert-ArtifactNumber @($RuntimePrediction.runtime_result.case_ids).Count 3 "Workflow 02 runtime prediction case count"
+            Assert-Artifact ([string]$RuntimePrediction.runtime_result.prediction_hash -match "^[0-9a-f]{16,64}$") "Workflow 02 runtime prediction must expose a deterministic result hash"
+            Assert-ArtifactNumber $RuntimeReviewData.review_document.runtime_evidence.model_result_count 3 "Workflow 02 ReviewDocument model evidence count"
+            Assert-ArtifactNumber $RuntimeReviewData.review_document.runtime_evidence.prediction_result_count 1 "Workflow 02 ReviewDocument prediction evidence count"
+            foreach ($RequiredRuntimeModelHtmlToken in @(
+                "<span>Models</span><strong>3</strong>",
+                "<span>Predictions</span><strong>1</strong>",
+                "linear model; train=6, test=2; RMSE=",
+                "3 predictions; 2 outputs",
+                "runtime_prediction",
+                "model_hash=",
+                "prediction_hash="
+            )) {
+                Assert-Artifact ($RuntimeReportHtml.Contains($RequiredRuntimeModelHtmlToken)) "Workflow 02 runtime report missing model evidence $RequiredRuntimeModelHtmlToken"
+            }
             $RuntimeSideEffects = @($RuntimeReviewData.review_document.side_effects | Where-Object {
                 $null -ne $_.runtime_result
             })

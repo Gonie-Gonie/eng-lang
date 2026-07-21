@@ -29,11 +29,12 @@ and next cleanup action.
 - Main internal: bar/histogram variants, richer report metadata, and specialized
   normalized `review_document` projection beyond the current core rows.
   Runtime report HTML now reads its fingerprint, table/TimeSeries/coverage and
-  time-axis evidence, side-effect file/DB evidence, sample summaries, and
-  validation table from that final document.
+  time-axis evidence, side-effect file/DB evidence, native model metrics and
+  hashes, prediction schema/row evidence, sample summaries, and validation
+  table from that final document.
 - Next cleanup: route the remaining specialized report panels through
-  ReviewDocument and extend its runtime projection to solver, assembly, model,
-  and non-write DB records.
+  ReviewDocument and extend its runtime projection to solver, assembly, and
+  non-write DB records.
 
 ## T4 System / Equation
 
@@ -85,7 +86,9 @@ and next cleanup action.
   track remains internal.
 - Main internal: train/test metadata, deterministic metrics, model specs/cards,
   target quantity/unit, prediction manifests with confidence-column metadata,
-  training/model hashes, parity plots, residual plots, and diagnostics.
+  training/model/prediction hashes, parity plots, residual plots, diagnostics,
+  and normalized model/model-card/metric/prediction ReviewDocument runtime
+  results consumed by Runtime Review HTML and the native IDE Model Review panel.
 - Next cleanup: describe as model/review artifacts, not physical system
   simulation.
 

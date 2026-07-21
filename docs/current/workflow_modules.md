@@ -226,6 +226,7 @@ simulation-results DB write consuming the final collection
 native case_input artifacts plus template_render_manifest records
 preferred native `train regression` model card/spec/diagnostic records with feature, target, metrics, training-hash, and model-hash metadata; compatibility-only `regression_table(...)` and `train_regression(...)` calls remain executable but produce `W-ML-TRAIN-ALIAS` and an IDE migration action
 native prediction table and typed_payload.prediction_manifests[] records with output quantity/unit, case IDs, row count, and confidence column
+normalized ReviewDocument model, model-card, metric, and prediction runtime results with computed metrics, coefficients, train/test counts, schema/output/case IDs, and model/training/prediction hashes
 native SQLite db_manifests[] records with table names, modes, schemas, row counts, hashes, and committed transaction status
 output_manifest.json entries for case inputs, sample table standard-text files, workflow_summary.csv, model artifacts, DB writes, and report artifacts
 process_results.json with process_count = 0

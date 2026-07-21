@@ -414,7 +414,8 @@
         "constraint_count": { "type": "integer", "minimum": 0 },
         "missing_policy_count": { "type": "integer", "minimum": 0 },
         "status": { "type": "string" },
-        "line": { "type": "integer", "minimum": 1 }
+        "line": { "type": "integer", "minimum": 1 },
+        "runtime_result": { "$ref": "#/$defs/reviewRuntimeResult" }
       }
     },
     "reviewSymbol": {
@@ -426,7 +427,8 @@
         "quantity_kind": { "type": "string" },
         "display_unit": { "type": "string" },
         "source": { "type": "string" },
-        "line": { "type": "integer", "minimum": 1 }
+        "line": { "type": "integer", "minimum": 1 },
+        "runtime_result": { "$ref": "#/$defs/reviewRuntimeResult" }
       }
     },
     "reviewCalculation": {
@@ -437,7 +439,8 @@
         "name": { "type": "string" },
         "expression": { "type": "string" },
         "quantity_kind": { "type": "string" },
-        "line": { "type": "integer", "minimum": 1 }
+        "line": { "type": "integer", "minimum": 1 },
+        "runtime_result": { "$ref": "#/$defs/reviewRuntimeResult" }
       }
     },
     "reviewConfigPromotion": {
@@ -696,6 +699,8 @@
         "table_count": { "type": "integer", "minimum": 0 },
         "timeseries_count": { "type": "integer", "minimum": 0 },
         "timeseries_coverage_count": { "type": "integer", "minimum": 0 },
+        "model_result_count": { "type": "integer", "minimum": 0 },
+        "prediction_result_count": { "type": "integer", "minimum": 0 },
         "symbol_result_count": { "type": "integer", "minimum": 0 },
         "time_axis_count": { "type": "integer", "minimum": 0 },
         "calculation_result_count": { "type": "integer", "minimum": 0 },
@@ -703,6 +708,248 @@
         "report_output_count": { "type": "integer", "minimum": 0 },
         "validation_count": { "type": "integer", "minimum": 0 },
         "side_effect_result_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "reviewRuntimeResult": {
+      "type": "object",
+      "required": ["provenance", "status"],
+      "properties": {
+        "provenance": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "provenance": { "const": "runtime_model" } },
+            "required": ["provenance"]
+          },
+          "then": { "$ref": "#/$defs/reviewModelRuntimeResult" }
+        },
+        {
+          "if": {
+            "properties": { "provenance": { "const": "runtime_model_card" } },
+            "required": ["provenance"]
+          },
+          "then": { "$ref": "#/$defs/reviewModelCardRuntimeResult" }
+        },
+        {
+          "if": {
+            "properties": { "provenance": { "const": "runtime_model_metrics" } },
+            "required": ["provenance"]
+          },
+          "then": { "$ref": "#/$defs/reviewModelMetricsRuntimeResult" }
+        },
+        {
+          "if": {
+            "properties": { "provenance": { "const": "runtime_prediction" } },
+            "required": ["provenance"]
+          },
+          "then": { "$ref": "#/$defs/reviewPredictionRuntimeResult" }
+        }
+      ]
+    },
+    "reviewModelMetricValues": {
+      "type": "object",
+      "required": ["rmse", "mae", "r2"],
+      "properties": {
+        "rmse": { "type": ["number", "null"] },
+        "mae": { "type": ["number", "null"] },
+        "r2": { "type": ["number", "null"] }
+      }
+    },
+    "reviewModelCoefficient": {
+      "type": "object",
+      "required": ["feature", "value"],
+      "properties": {
+        "feature": { "type": "string" },
+        "value": { "type": "number" }
+      }
+    },
+    "reviewModelRuntimeResult": {
+      "type": "object",
+      "required": [
+        "provenance",
+        "binding",
+        "model_kind",
+        "target",
+        "target_quantity",
+        "target_unit",
+        "features",
+        "feature_count",
+        "train_count",
+        "test_count",
+        "metrics",
+        "coefficients",
+        "intercept",
+        "training_data_hash",
+        "model_artifact_hash",
+        "parity_point_count",
+        "residual_point_count",
+        "status"
+      ],
+      "properties": {
+        "provenance": { "const": "runtime_model" },
+        "binding": { "type": "string" },
+        "model_kind": { "type": "string" },
+        "source": { "type": ["string", "null"] },
+        "target": { "type": ["string", "null"] },
+        "target_quantity": { "type": ["string", "null"] },
+        "target_unit": { "type": "string" },
+        "features": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "feature_count": { "type": "integer", "minimum": 0 },
+        "train_count": { "type": ["integer", "null"], "minimum": 0 },
+        "test_count": { "type": ["integer", "null"], "minimum": 0 },
+        "metrics": { "$ref": "#/$defs/reviewModelMetricValues" },
+        "coefficients": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reviewModelCoefficient" }
+        },
+        "intercept": { "type": ["number", "null"] },
+        "training_data_hash": { "type": ["string", "null"] },
+        "model_artifact_hash": { "type": ["string", "null"] },
+        "leakage_status": { "type": ["string", "null"] },
+        "leakage_findings": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "parity_point_count": { "type": "integer", "minimum": 0 },
+        "residual_point_count": { "type": "integer", "minimum": 0 },
+        "status": { "type": "string" }
+      }
+    },
+    "reviewModelCardRuntimeResult": {
+      "type": "object",
+      "required": [
+        "provenance",
+        "binding",
+        "model",
+        "model_kind",
+        "target",
+        "target_quantity",
+        "target_unit",
+        "features",
+        "feature_count",
+        "train_count",
+        "test_count",
+        "metrics",
+        "model_card",
+        "training_data_hash",
+        "model_artifact_hash",
+        "residual_point_count",
+        "status"
+      ],
+      "properties": {
+        "provenance": { "const": "runtime_model_card" },
+        "binding": { "type": "string" },
+        "model": { "type": ["string", "null"] },
+        "model_kind": { "type": "string" },
+        "target": { "type": ["string", "null"] },
+        "target_quantity": { "type": ["string", "null"] },
+        "target_unit": { "type": "string" },
+        "features": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "feature_count": { "type": "integer", "minimum": 0 },
+        "train_count": { "type": ["integer", "null"], "minimum": 0 },
+        "test_count": { "type": ["integer", "null"], "minimum": 0 },
+        "metrics": { "$ref": "#/$defs/reviewModelMetricValues" },
+        "model_card": { "type": ["string", "null"] },
+        "training_data_hash": { "type": ["string", "null"] },
+        "model_artifact_hash": { "type": ["string", "null"] },
+        "residual_point_count": { "type": "integer", "minimum": 0 },
+        "status": { "type": "string" }
+      }
+    },
+    "reviewModelMetricsRuntimeResult": {
+      "type": "object",
+      "required": [
+        "provenance",
+        "binding",
+        "model",
+        "target",
+        "target_quantity",
+        "target_unit",
+        "train_count",
+        "test_count",
+        "metrics",
+        "training_data_hash",
+        "model_artifact_hash",
+        "status"
+      ],
+      "properties": {
+        "provenance": { "const": "runtime_model_metrics" },
+        "binding": { "type": "string" },
+        "model": { "type": ["string", "null"] },
+        "target": { "type": ["string", "null"] },
+        "target_quantity": { "type": ["string", "null"] },
+        "target_unit": { "type": "string" },
+        "train_count": { "type": ["integer", "null"], "minimum": 0 },
+        "test_count": { "type": ["integer", "null"], "minimum": 0 },
+        "metrics": { "$ref": "#/$defs/reviewModelMetricValues" },
+        "training_data_hash": { "type": ["string", "null"] },
+        "model_artifact_hash": { "type": ["string", "null"] },
+        "status": { "type": "string" }
+      }
+    },
+    "reviewPredictionOutput": {
+      "type": "object",
+      "required": ["column", "quantity", "unit"],
+      "properties": {
+        "column": { "type": "string" },
+        "quantity": { "type": "string" },
+        "unit": { "type": ["string", "null"] }
+      }
+    },
+    "reviewPredictionRuntimeResult": {
+      "type": "object",
+      "required": [
+        "provenance",
+        "binding",
+        "model",
+        "input_table",
+        "manifest_path",
+        "target",
+        "output_quantity",
+        "output_unit",
+        "schema",
+        "outputs",
+        "case_ids",
+        "row_count",
+        "confidence_column",
+        "prediction_hash",
+        "model_artifact_hash",
+        "status"
+      ],
+      "properties": {
+        "provenance": { "const": "runtime_prediction" },
+        "binding": { "type": "string" },
+        "model": { "type": ["string", "null"] },
+        "input_table": { "type": ["string", "null"] },
+        "manifest_path": { "type": "string" },
+        "target": { "type": ["string", "null"] },
+        "output_quantity": { "type": ["string", "null"] },
+        "output_unit": { "type": "string" },
+        "schema": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "outputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reviewPredictionOutput" }
+        },
+        "case_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "row_count": { "type": "integer", "minimum": 0 },
+        "confidence_column": { "type": ["string", "null"] },
+        "prediction_hash": { "type": ["string", "null"] },
+        "model_artifact_hash": { "type": ["string", "null"] },
+        "status": { "type": "string" }
       }
     },
     "reviewSideEffectRuntimeResult": {

@@ -7298,9 +7298,21 @@ fn review_runtime_evidence(item: &Value) -> String {
     for (key, label) in [
         ("provenance", ""),
         ("source", "source="),
+        ("model", "model="),
+        ("model_kind", "model_kind="),
+        ("input_table", "input_table="),
+        ("target", "target="),
+        ("target_quantity", "target_quantity="),
+        ("target_unit", "target_unit="),
+        ("output_quantity", "output_quantity="),
+        ("output_unit", "output_unit="),
         ("path", "path="),
         ("artifact_path", "path="),
         ("hash", "hash="),
+        ("training_data_hash", "training_hash="),
+        ("model_artifact_hash", "model_hash="),
+        ("prediction_hash", "prediction_hash="),
+        ("confidence_column", "confidence="),
         ("database", "database="),
         ("manifest_path", "manifest="),
         ("manifest_hash", "manifest_hash="),
@@ -7321,6 +7333,18 @@ fn review_runtime_evidence(item: &Value) -> String {
             evidence.push(format!("{label}{value}"));
         }
     }
+    for (key, label) in [
+        ("features", "features="),
+        ("schema", "schema="),
+        ("case_ids", "case_ids="),
+    ] {
+        if let Some(values) = result.get(key).and_then(Value::as_array) {
+            let values = values.iter().filter_map(Value::as_str).collect::<Vec<_>>();
+            if !values.is_empty() {
+                evidence.push(format!("{label}{}", values.join(", ")));
+            }
+        }
+    }
     if let Some(tables) = result.get("tables").and_then(Value::as_array) {
         for table in tables {
             let binding = review_text(table, "binding").unwrap_or("table");
@@ -7336,10 +7360,69 @@ fn review_runtime_evidence(item: &Value) -> String {
     }
 }
 
+fn review_model_metrics_summary(result: &Value) -> Option<String> {
+    let metrics = result.get("metrics").and_then(Value::as_object)?;
+    let unit = review_text(result, "target_unit")
+        .or_else(|| review_text(result, "output_unit"))
+        .or_else(|| review_text(result, "unit"))
+        .unwrap_or("");
+    let mut values = Vec::new();
+    for (key, label, with_unit) in [
+        ("rmse", "RMSE", true),
+        ("mae", "MAE", true),
+        ("r2", "R2", false),
+    ] {
+        let Some(value) = metrics.get(key).filter(|value| !value.is_null()) else {
+            continue;
+        };
+        let value = review_scalar_text(Some(value));
+        if with_unit && !unit.is_empty() {
+            values.push(format!("{label}={value} {unit}"));
+        } else {
+            values.push(format!("{label}={value}"));
+        }
+    }
+    (!values.is_empty()).then(|| values.join("; "))
+}
+
 fn review_runtime_summary(item: &Value) -> String {
     let Some(result) = review_runtime_result(item) else {
         return "-".to_owned();
     };
+    match review_text(result, "provenance").unwrap_or_default() {
+        "runtime_model" => {
+            let kind = review_text(result, "model_kind").unwrap_or("model");
+            let train = review_scalar_text(result.get("train_count"));
+            let test = review_scalar_text(result.get("test_count"));
+            let mut summary = format!("{kind} model; train={train}, test={test}");
+            if let Some(metrics) = review_model_metrics_summary(result) {
+                summary.push_str("; ");
+                summary.push_str(&metrics);
+            }
+            return summary;
+        }
+        "runtime_model_card" => {
+            let kind = review_text(result, "model_kind").unwrap_or("model");
+            let train = review_scalar_text(result.get("train_count"));
+            let test = review_scalar_text(result.get("test_count"));
+            return format!("{kind} model card; train={train}, test={test}");
+        }
+        "runtime_model_metrics" => {
+            if let Some(metrics) = review_model_metrics_summary(result) {
+                return metrics;
+            }
+        }
+        "runtime_prediction" => {
+            let rows = result.get("row_count").and_then(Value::as_u64).unwrap_or(0);
+            let outputs = result
+                .get("outputs")
+                .and_then(Value::as_array)
+                .map(Vec::len)
+                .unwrap_or(0);
+            return format!("{rows} predictions; {outputs} outputs");
+        }
+        _ => {}
+    }
     let unit = review_text(result, "unit").unwrap_or("");
     let with_unit = |value: String| {
         if unit.is_empty() {
@@ -7503,6 +7586,8 @@ fn render_review_document_section(document: &Value) -> String {
       <div class="metric"><span>Tables</span><strong>{}</strong></div>
       <div class="metric"><span>Time series</span><strong>{}</strong></div>
       <div class="metric"><span>Coverage</span><strong>{}</strong></div>
+      <div class="metric"><span>Models</span><strong>{}</strong></div>
+      <div class="metric"><span>Predictions</span><strong>{}</strong></div>
       <div class="metric"><span>Side effects</span><strong>{}</strong></div>
       <div class="metric"><span>Validations</span><strong>{}</strong></div>
     </section>
@@ -7527,6 +7612,14 @@ fn render_review_document_section(document: &Value) -> String {
             .unwrap_or(0),
         evidence
             .get("timeseries_coverage_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(0),
+        evidence
+            .get("model_result_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(0),
+        evidence
+            .get("prediction_result_count")
             .and_then(Value::as_u64)
             .unwrap_or(0),
         evidence

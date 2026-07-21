@@ -16,6 +16,7 @@ summary metrics derived from the selected case_001 native case-run result row ra
 native `train regression` model with feature, target, split, residual, training-hash, and model-hash metadata
 native `model_card`, `evaluate`, and `predict ... using ...` records
 PredictionResult schema with predicted_annual_electricity and confidence columns
+normalized ReviewDocument symbol results for the model, model card, metrics, and prediction with computed coefficients/metrics, train/test counts, output schema/case IDs, and training/model/prediction hashes
 eight generated case_input files plus render manifests, native result files, and run manifests
 two native SQLite db_write manifests using args.database_target: simulation_results and predictions, both committed
 typed SQLite structured readback for persisted_predictions from the predictions table

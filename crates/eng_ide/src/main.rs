@@ -1698,7 +1698,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
     let effect_records = effect_records_inspector(&output_manifest, &run_log);
     let network_cache = network_cache_inspector(&result, &output_manifest, &run_log);
     let db_writes = db_writes_inspector(&result, &review, &output_manifest);
-    let model_cards = model_cards_inspector(&result);
+    let model_cards = model_cards_inspector(&result, &review);
     let case_manifests = case_manifests_inspector(&result);
     InspectorView {
         schemas: schema_inspector(&report, &result),
@@ -1839,7 +1839,33 @@ fn db_writes_inspector(result: &Value, review: &Value, output_manifest: &Value) 
     })
 }
 
-fn model_cards_inspector(result: &Value) -> Value {
+fn normalized_model_review_results(review: &Value) -> Value {
+    let rows = review
+        .pointer("/review_document/symbols")
+        .and_then(Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .filter(|row| {
+                    row.pointer("/runtime_result/provenance")
+                        .and_then(Value::as_str)
+                        .is_some_and(|provenance| {
+                            matches!(
+                                provenance,
+                                "runtime_model"
+                                    | "runtime_model_card"
+                                    | "runtime_model_metrics"
+                                    | "runtime_prediction"
+                            )
+                        })
+                })
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    Value::Array(rows)
+}
+
+fn model_cards_inspector(result: &Value, review: &Value) -> Value {
     json!({
         "format": "eng-ide-model-cards-v1",
         "cards": typed_payload_array_clone(result, "model_cards"),
@@ -1847,6 +1873,7 @@ fn model_cards_inspector(result: &Value) -> Value {
         "specs": typed_payload_array_clone(result, "model_specs"),
         "predictionManifests": typed_payload_array_clone(result, "prediction_manifests"),
         "diagnostics": typed_payload_array_clone(result, "model_diagnostics"),
+        "reviewResults": normalized_model_review_results(review),
     })
 }
 
@@ -6808,7 +6835,34 @@ with {
               }
             }"#,
             "{}",
-            "{}",
+            r#"{
+              "review_document": {
+                "symbols": [
+                  {
+                    "name": "reg_model",
+                    "line": 16,
+                    "runtime_result": {
+                      "provenance": "runtime_model",
+                      "model_kind": "linear",
+                      "target": "Q_coil",
+                      "target_unit": "kW",
+                      "metrics": { "rmse": 1.2, "mae": 0.8, "r2": 0.94 },
+                      "model_artifact_hash": "model-hash",
+                      "status": "trained"
+                    }
+                  },
+                  {
+                    "name": "plain_value",
+                    "line": 20,
+                    "runtime_result": {
+                      "provenance": "runtime_numeric_value",
+                      "value": 1,
+                      "status": "computed"
+                    }
+                  }
+                ]
+              }
+            }"#,
         );
 
         let inspectors = runtime_inspectors(Path::new("."), &cached);
@@ -6871,6 +6925,24 @@ with {
             .get("residual_points")
             .and_then(Value::as_array)
             .is_some_and(|points| points.len() == 1));
+        let review_result = model_cards
+            .get("reviewResults")
+            .and_then(Value::as_array)
+            .filter(|items| items.len() == 1)
+            .and_then(|items| items.first())
+            .expect("normalized model review result");
+        assert_eq!(
+            review_result
+                .pointer("/runtime_result/provenance")
+                .and_then(Value::as_str),
+            Some("runtime_model")
+        );
+        assert_eq!(
+            review_result
+                .pointer("/runtime_result/model_artifact_hash")
+                .and_then(Value::as_str),
+            Some("model-hash")
+        );
     }
 
     #[test]

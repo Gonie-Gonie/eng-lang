@@ -191,9 +191,11 @@ Advanced panels
   Modules, Workflow, Objects, Assembly, Kernel, Case, Model, and DB panels expose
   implementation evidence for native workflows and scoped simulation paths. The
   Workflow panel shows run graph counts, process-results status, zero external
-  process evidence, and graph hashes after a run. These panels should be read
-  as review artifacts and regression coverage, not as proof of a broad solver
-  platform.
+  process evidence, and graph hashes after a run. The Model panel shows detailed
+  model cards and prediction manifests together with normalized ReviewDocument
+  model, metric, card, and prediction results, including status and evidence
+  hashes. These panels should be read as review artifacts and regression
+  coverage, not as proof of a broad solver platform.
 
 Bottom Panel
   Problems and Terminal tabs. Problems can be filtered by severity, diagnostic

@@ -13106,6 +13106,7 @@ fn finalize_runtime_review_document(
     enrich_runtime_review_schemas(document, runtime_data);
     enrich_runtime_review_numeric_sections(document, runtime_data);
     enrich_runtime_review_materialized_values(document, runtime_data);
+    enrich_runtime_review_modeling_values(document, runtime_data);
     enrich_runtime_review_time_axes(document, runtime_data);
     enrich_runtime_review_calculations(document, runtime_data);
     enrich_runtime_review_table_transforms(document, runtime_data);
@@ -13144,6 +13145,19 @@ fn finalize_runtime_review_document(
             "table_count": runtime_data.tables.len(),
             "timeseries_count": runtime_data.time_series.len(),
             "timeseries_coverage_count": runtime_data.timeseries_coverage.len(),
+            "model_result_count": runtime_data
+                .ml_artifacts
+                .iter()
+                .filter(|artifact| matches!(
+                    artifact.kind.as_str(),
+                    "RegressionModel" | "MlpModel" | "ModelCard" | "ModelMetrics"
+                ))
+                .count(),
+            "prediction_result_count": runtime_data
+                .ml_artifacts
+                .iter()
+                .filter(|artifact| artifact.kind == "PredictionResult")
+                .count(),
             "symbol_result_count": review_runtime_result_count(document, "symbols"),
             "time_axis_count": review_runtime_result_count(document, "time_axes"),
             "calculation_result_count": review_runtime_result_count(document, "calculations"),
@@ -13496,6 +13510,196 @@ fn enrich_runtime_review_materialized_values(
                     && (line == 0 || coverage.line == line)
             }) {
                 set_review_runtime_result(row, runtime_timeseries_coverage_review_value(coverage));
+            }
+        }
+    }
+}
+
+fn runtime_model_metrics_review_value(artifact: &RuntimeMlArtifact) -> Value {
+    json!({
+        "rmse": artifact.rmse,
+        "mae": artifact.mae,
+        "r2": artifact.r2
+    })
+}
+
+fn runtime_model_coefficients_review_value(artifact: &RuntimeMlArtifact) -> Vec<Value> {
+    artifact
+        .coefficients
+        .iter()
+        .map(|coefficient| {
+            json!({
+                "feature": coefficient.feature,
+                "value": coefficient.value
+            })
+        })
+        .collect()
+}
+
+fn runtime_model_review_value(artifact: &RuntimeMlArtifact) -> Value {
+    json!({
+        "provenance": "runtime_model",
+        "binding": artifact.binding,
+        "model_kind": artifact.algorithm.as_deref().unwrap_or(&artifact.kind),
+        "source": artifact.source,
+        "target": artifact.target,
+        "target_quantity": artifact.target_quantity,
+        "target_unit": artifact.display_unit,
+        "features": artifact.features,
+        "feature_count": artifact.features.len(),
+        "train_count": artifact.train_count,
+        "test_count": artifact.test_count,
+        "metrics": runtime_model_metrics_review_value(artifact),
+        "coefficients": runtime_model_coefficients_review_value(artifact),
+        "intercept": artifact.intercept,
+        "training_data_hash": artifact.training_data_hash,
+        "model_artifact_hash": artifact.model_artifact_hash,
+        "leakage_status": artifact.leakage_status,
+        "leakage_findings": artifact.leakage_findings,
+        "parity_point_count": artifact.parity_points.len(),
+        "residual_point_count": artifact.residual_points.len(),
+        "status": artifact.status
+    })
+}
+
+fn runtime_model_card_review_value(artifact: &RuntimeMlArtifact) -> Value {
+    json!({
+        "provenance": "runtime_model_card",
+        "binding": artifact.binding,
+        "model": artifact.source,
+        "model_kind": artifact.algorithm.as_deref().unwrap_or(&artifact.kind),
+        "target": artifact.target,
+        "target_quantity": artifact.target_quantity,
+        "target_unit": artifact.display_unit,
+        "features": artifact.features,
+        "feature_count": artifact.features.len(),
+        "train_count": artifact.train_count,
+        "test_count": artifact.test_count,
+        "metrics": runtime_model_metrics_review_value(artifact),
+        "model_card": artifact.model_card,
+        "training_data_hash": artifact.training_data_hash,
+        "model_artifact_hash": artifact.model_artifact_hash,
+        "residual_point_count": artifact.residual_points.len(),
+        "status": artifact.status
+    })
+}
+
+fn runtime_model_metrics_result_review_value(artifact: &RuntimeMlArtifact) -> Value {
+    json!({
+        "provenance": "runtime_model_metrics",
+        "binding": artifact.binding,
+        "model": artifact.source,
+        "target": artifact.target,
+        "target_quantity": artifact.target_quantity,
+        "target_unit": artifact.display_unit,
+        "train_count": artifact.train_count,
+        "test_count": artifact.test_count,
+        "metrics": runtime_model_metrics_review_value(artifact),
+        "training_data_hash": artifact.training_data_hash,
+        "model_artifact_hash": artifact.model_artifact_hash,
+        "status": artifact.status
+    })
+}
+
+fn runtime_prediction_review_value(
+    artifact: &RuntimeMlArtifact,
+    table: Option<&runtime_data::RuntimeTable>,
+) -> Value {
+    let schema = table
+        .map(|table| {
+            table
+                .columns
+                .iter()
+                .map(|column| column.name.clone())
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let outputs = table
+        .map(|table| {
+            table
+                .columns
+                .iter()
+                .filter(|column| !column.name.eq_ignore_ascii_case("case_id"))
+                .map(|column| {
+                    json!({
+                        "column": column.name,
+                        "quantity": column.type_name,
+                        "unit": column.unit
+                    })
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let case_ids = table.map(native_prediction_case_ids).unwrap_or_default();
+    let confidence_column = table.and_then(native_prediction_confidence_column);
+    let row_count = table
+        .map(|table| table.row_count)
+        .or(artifact.test_count)
+        .unwrap_or(0);
+    let prediction_hash = table.and_then(|table| table.source_hash.clone());
+
+    json!({
+        "provenance": "runtime_prediction",
+        "binding": artifact.binding,
+        "model": artifact.source,
+        "input_table": artifact.prediction_input,
+        "manifest_path": format!("native:{}", artifact.binding),
+        "target": artifact.target,
+        "output_quantity": artifact.target_quantity,
+        "output_unit": artifact.display_unit,
+        "schema": schema,
+        "outputs": outputs,
+        "case_ids": case_ids,
+        "row_count": row_count,
+        "confidence_column": confidence_column,
+        "prediction_hash": prediction_hash,
+        "model_artifact_hash": artifact.model_artifact_hash,
+        "status": artifact.status
+    })
+}
+
+fn runtime_modeling_review_value(
+    artifact: &RuntimeMlArtifact,
+    runtime_data: &RuntimeData,
+) -> Option<Value> {
+    match artifact.kind.as_str() {
+        "RegressionModel" | "MlpModel" => Some(runtime_model_review_value(artifact)),
+        "ModelCard" => Some(runtime_model_card_review_value(artifact)),
+        "ModelMetrics" => Some(runtime_model_metrics_result_review_value(artifact)),
+        "PredictionResult" => Some(runtime_prediction_review_value(
+            artifact,
+            runtime_data
+                .tables
+                .iter()
+                .find(|table| table.binding == artifact.binding),
+        )),
+        _ => None,
+    }
+}
+
+fn enrich_runtime_review_modeling_values(
+    document: &mut serde_json::Map<String, Value>,
+    runtime_data: &RuntimeData,
+) {
+    for section in [
+        "units_quantities",
+        "symbols",
+        "derived_values",
+        "calculations",
+    ] {
+        let Some(rows) = review_document_rows_mut(document, section) else {
+            continue;
+        };
+        for row in rows {
+            let Some(artifact) = runtime_data
+                .ml_artifacts
+                .iter()
+                .find(|artifact| review_row_matches(row, &artifact.binding, artifact.line))
+            else {
+                continue;
+            };
+            if let Some(result) = runtime_modeling_review_value(artifact, runtime_data) {
+                set_review_runtime_result(row, result);
             }
         }
     }
@@ -19718,6 +19922,164 @@ mod tests {
 
         let surrogate_review =
             serde_json::from_str::<Value>(&surrogate_output.review_json).expect("surrogate review");
+        let model_result = json_array_item_by_field(
+            &surrogate_review,
+            "/review_document/symbols",
+            "name",
+            "surrogate_model",
+        )
+        .and_then(|row| row.get("runtime_result"))
+        .expect("normalized runtime model result");
+        assert_eq!(
+            model_result.get("provenance").and_then(Value::as_str),
+            Some("runtime_model")
+        );
+        assert_eq!(
+            model_result.get("status").and_then(Value::as_str),
+            Some("trained_linear")
+        );
+        assert_eq!(
+            model_result.get("model_kind").and_then(Value::as_str),
+            Some("linear")
+        );
+        assert_eq!(
+            model_result.get("feature_count").and_then(Value::as_u64),
+            Some(6)
+        );
+        assert_eq!(
+            model_result.get("train_count").and_then(Value::as_u64),
+            Some(6)
+        );
+        assert_eq!(
+            model_result.get("test_count").and_then(Value::as_u64),
+            Some(2)
+        );
+        assert!(model_result
+            .get("coefficients")
+            .and_then(Value::as_array)
+            .is_some_and(|coefficients| coefficients.len() == 6));
+        assert!(model_result
+            .pointer("/metrics/rmse")
+            .and_then(Value::as_f64)
+            .is_some_and(|rmse| rmse.is_finite() && rmse > 0.0));
+        for hash_key in ["training_data_hash", "model_artifact_hash"] {
+            assert!(model_result
+                .get(hash_key)
+                .and_then(Value::as_str)
+                .is_some_and(|hash| (16..=64).contains(&hash.len())
+                    && hash.chars().all(|ch| ch.is_ascii_hexdigit())));
+        }
+
+        let model_card_result = json_array_item_by_field(
+            &surrogate_review,
+            "/review_document/symbols",
+            "name",
+            "model_card_summary",
+        )
+        .and_then(|row| row.get("runtime_result"))
+        .expect("normalized runtime model card result");
+        assert_eq!(
+            model_card_result.get("provenance").and_then(Value::as_str),
+            Some("runtime_model_card")
+        );
+        assert_eq!(
+            model_card_result.get("status").and_then(Value::as_str),
+            Some("documented")
+        );
+        assert!(model_card_result
+            .get("model_card")
+            .and_then(Value::as_str)
+            .is_some_and(|card| card.contains("target=annual_electricity")
+                && card.contains("model_artifact_hash=")));
+
+        let model_metrics_result = json_array_item_by_field(
+            &surrogate_review,
+            "/review_document/symbols",
+            "name",
+            "model_metrics",
+        )
+        .and_then(|row| row.get("runtime_result"))
+        .expect("normalized runtime model metrics result");
+        assert_eq!(
+            model_metrics_result
+                .get("provenance")
+                .and_then(Value::as_str),
+            Some("runtime_model_metrics")
+        );
+        assert_eq!(
+            model_metrics_result.get("status").and_then(Value::as_str),
+            Some("evaluated")
+        );
+        assert!(model_metrics_result
+            .pointer("/metrics/r2")
+            .and_then(Value::as_f64)
+            .is_some_and(f64::is_finite));
+
+        let prediction_result = json_array_item_by_field(
+            &surrogate_review,
+            "/review_document/symbols",
+            "name",
+            "predictions",
+        )
+        .and_then(|row| row.get("runtime_result"))
+        .expect("normalized runtime prediction result");
+        assert_eq!(
+            prediction_result.get("provenance").and_then(Value::as_str),
+            Some("runtime_prediction")
+        );
+        assert_eq!(
+            prediction_result.get("model").and_then(Value::as_str),
+            Some("surrogate_model")
+        );
+        assert_eq!(
+            prediction_result.get("input_table").and_then(Value::as_str),
+            Some("designs")
+        );
+        assert_eq!(
+            prediction_result
+                .get("manifest_path")
+                .and_then(Value::as_str),
+            Some("native:predictions")
+        );
+        assert_eq!(
+            prediction_result.get("row_count").and_then(Value::as_u64),
+            Some(3)
+        );
+        assert_eq!(
+            prediction_result
+                .get("confidence_column")
+                .and_then(Value::as_str),
+            Some("confidence")
+        );
+        assert!(prediction_result
+            .get("schema")
+            .and_then(Value::as_array)
+            .is_some_and(|schema| schema.len() == 3));
+        assert!(prediction_result
+            .get("outputs")
+            .and_then(Value::as_array)
+            .is_some_and(|outputs| outputs.len() == 2));
+        assert!(prediction_result
+            .get("case_ids")
+            .and_then(Value::as_array)
+            .is_some_and(|case_ids| case_ids.len() == 3));
+        assert!(prediction_result
+            .get("prediction_hash")
+            .and_then(Value::as_str)
+            .is_some_and(|hash| (16..=64).contains(&hash.len())
+                && hash.chars().all(|ch| ch.is_ascii_hexdigit())));
+        assert_eq!(
+            surrogate_review
+                .pointer("/review_document/runtime_evidence/model_result_count")
+                .and_then(Value::as_u64),
+            Some(3)
+        );
+        assert_eq!(
+            surrogate_review
+                .pointer("/review_document/runtime_evidence/prediction_result_count")
+                .and_then(Value::as_u64),
+            Some(1)
+        );
         let surrogate_side_effects = surrogate_review
             .pointer("/review_document/side_effects")
             .and_then(Value::as_array)
@@ -19830,6 +20192,21 @@ mod tests {
             .contains("database_hash_after="));
         assert!(surrogate_output.report_html.contains("1 table, 8 rows"));
         assert!(surrogate_output.report_html.contains("1 table, 3 rows"));
+        assert!(surrogate_output
+            .report_html
+            .contains("<span>Models</span><strong>3</strong>"));
+        assert!(surrogate_output
+            .report_html
+            .contains("<span>Predictions</span><strong>1</strong>"));
+        assert!(surrogate_output
+            .report_html
+            .contains("linear model; train=6, test=2; RMSE="));
+        assert!(surrogate_output
+            .report_html
+            .contains("3 predictions; 2 outputs"));
+        assert!(surrogate_output.report_html.contains("runtime_prediction"));
+        assert!(surrogate_output.report_html.contains("model_hash="));
+        assert!(surrogate_output.report_html.contains("prediction_hash="));
 
         let uncertainty_source = repo_root
             .join("examples")

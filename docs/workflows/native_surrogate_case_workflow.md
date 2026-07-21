@@ -61,6 +61,12 @@ Expected review surfaces:
 - `typed_payload.model_specs[]`
 - `typed_payload.model_cards[]`
 - `typed_payload.prediction_manifests[]`
+- `review_document.symbols[]` runtime results for `surrogate_model`,
+  `model_card_summary`, `model_metrics`, and `predictions`.
+  The model result includes six fitted coefficients, RMSE/MAE/R2, train/test
+  counts, and training/model hashes. The prediction result includes its model
+  and input table, native manifest path, output schema, case IDs, row count,
+  confidence column, model hash, and prediction hash.
 - `typed_payload.db_manifests[]` plus report bindings for `db.summary`, table count, row count, and status
 - `review_document.side_effects[]` runtime results for both standard-text
   tables, the sampling text and summary CSV, and both SQLite writes; file rows
@@ -68,6 +74,9 @@ Expected review surfaces:
   paths and hashes, transaction/schema status, table schema, and row count
 - `review_document.runtime_evidence.side_effect_result_count = 6`, also
   displayed in the Runtime Review section of `report.html`
+- `review_document.runtime_evidence.model_result_count = 3` and
+  `prediction_result_count = 1`, also displayed in the Runtime Review
+  summary
 - `static_run_plan.json`, `run_plan.json`, and `run_lock.json`
 - `output_manifest.json` records for case_input artifacts, sample table standard-text files, sampling summary,
   summary export, DB, model artifacts, and report artifacts

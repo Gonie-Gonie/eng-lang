@@ -144,7 +144,11 @@ syntax:
 - `examples/workflows/02_native_surrogate_case_workflow/main.eng`
   also covers prediction-manifest adaptation into
   `typed_payload.prediction_manifests[]`, including output quantity/unit,
-  case IDs, row counts, hashes, and confidence-column metadata.
+  case IDs, row counts, hashes, and confidence-column metadata. Its saved
+  ReviewDocument gate also requires four discriminated model/prediction symbol
+  results, three model evidence records, one prediction evidence record,
+  computed metrics and coefficients, model/training/prediction hashes, and the
+  matching Runtime Review HTML rows.
 - Native DB tests cover `open sqlite`, `write <table> to db.table("...")`,
   append, upsert with key, replace, typed SQLite table readback, transaction
   rollback, schema mismatch diagnostics, safe-profile rejection, DB write
