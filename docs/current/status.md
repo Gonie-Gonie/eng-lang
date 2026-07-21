@@ -139,9 +139,12 @@ review material. It is not a broad solver claim.
   preserved imported scalar calls directly or as arithmetic operands when argument
   counts and dimensions match. Those calls may nest recursively inside scalar
   arguments; explicit and `const` result dimensions must match their annotations.
-  Full checks recursively validate those nested calls, underline the innermost
-  invalid argument or unknown function name, and suppress a duplicate unresolved
-  outer-argument diagnostic.
+  Full checks recursively validate those nested calls, including calls inside
+  parenthesized scalar arithmetic and built-in arguments, underline the innermost
+  invalid argument or unknown function name, ignore call-like string contents,
+  and suppress a duplicate unresolved outer-argument diagnostic. Dimensionless
+  math helpers and numeric percentile calls retain built-in status without hiding
+  arbitrary unknown names that happen to begin with `p`.
   This repairs absolute spans and line numbers
   after variable-width, inserted, or removed standalone trivia and suffix
   line-ending changes. Coordinated declaration and alias renames are accepted when

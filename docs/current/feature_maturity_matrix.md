@@ -263,7 +263,10 @@ separate.
   solely to remain visible to editor tooling. Nested user-function validation
   reports an invalid inner argument or unknown inner function at that innermost
   compiler-owned range without adding a duplicate outer unresolved-argument
-  diagnostic.
+  diagnostic, including when the call is nested in parenthesized scalar
+  arithmetic or a built-in call argument. Call-like text inside strings is ignored;
+  dimensionless math helpers and numeric percentile calls remain built-ins, while
+  arbitrary `p`-prefixed calls are reported as unknown.
   The older fast-binding-only and explicit-declaration-only APIs are mode-limited
   compatibility wrappers over this engine; lazy shared editor snapshots,
   recursive import-dependent invalidation, a VS Code persistent stdio client

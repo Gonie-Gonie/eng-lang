@@ -8037,18 +8037,14 @@ fn validate_function_call_expression(
     {
         let arg_span = source_span_for_child_range(expression_span, arg_range.start, arg_range.end);
         let diagnostic_count = diagnostics.len();
-        let nested_call_type = should_validate_function_call(arg, functions)
-            .then(|| {
-                validate_function_call_expression(
-                    arg,
-                    arg_span,
-                    line,
-                    typed_bindings,
-                    functions,
-                    diagnostics,
-                )
-            })
-            .flatten();
+        let nested_call_type = validate_function_calls_in_scalar_expression(
+            arg,
+            arg_span,
+            line,
+            typed_bindings,
+            functions,
+            diagnostics,
+        );
         let actual_dimension = nested_call_type
             .map(|semantic_type| dimension_for_quantity(&semantic_type.quantity_kind))
             .or_else(|| {
@@ -8097,6 +8093,142 @@ fn validate_function_call_expression(
         &function.return_quantity_kind,
         &function.return_display_unit,
     )
+}
+
+fn validate_function_calls_in_scalar_expression(
+    expression: &str,
+    expression_span: SourceSpan,
+    line: usize,
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<SemanticType> {
+    let source_expression = expression;
+    let expression = source_expression.trim();
+    let expression_span = source_span_for_subslice(expression_span, source_expression, expression)?;
+    if should_validate_function_call(expression, functions) {
+        return validate_function_call_expression(
+            expression,
+            expression_span,
+            line,
+            typed_bindings,
+            functions,
+            diagnostics,
+        );
+    }
+
+    if let Some(call) = parse_function_call(expression) {
+        for (arg, arg_range) in call.args.iter().zip(&call.arg_ranges) {
+            let arg_span =
+                source_span_for_child_range(expression_span, arg_range.start, arg_range.end);
+            validate_function_calls_in_scalar_expression(
+                arg,
+                arg_span,
+                line,
+                typed_bindings,
+                functions,
+                diagnostics,
+            );
+        }
+        return None;
+    }
+
+    let unwrapped = strip_outer_parens(expression);
+    if unwrapped.len() != expression.len() {
+        let unwrapped_span = source_span_for_subslice(expression_span, expression, unwrapped)?;
+        return validate_function_calls_in_scalar_expression(
+            unwrapped,
+            unwrapped_span,
+            line,
+            typed_bindings,
+            functions,
+            diagnostics,
+        );
+    }
+
+    if let Some(parts) = split_top_level_scalar_arithmetic_slices(expression) {
+        for part in parts {
+            let part_span = source_span_for_subslice(expression_span, expression, part)?;
+            validate_function_calls_in_scalar_expression(
+                part,
+                part_span,
+                line,
+                typed_bindings,
+                functions,
+                diagnostics,
+            );
+        }
+        return None;
+    }
+
+    let unary_operand = expression
+        .strip_prefix('+')
+        .or_else(|| expression.strip_prefix('-'))
+        .map(str::trim_start)
+        .filter(|operand| !operand.is_empty());
+    if let Some(operand) = unary_operand {
+        let operand_span = source_span_for_subslice(expression_span, expression, operand)?;
+        return validate_function_calls_in_scalar_expression(
+            operand,
+            operand_span,
+            line,
+            typed_bindings,
+            functions,
+            diagnostics,
+        );
+    }
+
+    None
+}
+
+fn split_top_level_scalar_arithmetic_slices(expression: &str) -> Option<Vec<&str>> {
+    let mut parts = Vec::new();
+    let mut depth = 0usize;
+    let mut start = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut saw_operator = false;
+
+    for (index, character) in expression.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else {
+                match character {
+                    '\\' => escaped = true,
+                    '"' => in_string = false,
+                    _ => {}
+                }
+            }
+            continue;
+        }
+        if character == '"' {
+            in_string = true;
+            continue;
+        }
+        match character {
+            '(' => depth = depth.checked_add(1)?,
+            ')' => depth = depth.checked_sub(1)?,
+            '+' | '-' | '*' | '/' if depth == 0 => {
+                let part = expression[start..index].trim();
+                if part.is_empty() {
+                    continue;
+                }
+                parts.push(part);
+                start = index + character.len_utf8();
+                saw_operator = true;
+            }
+            _ => {}
+        }
+    }
+    if in_string || depth != 0 || !saw_operator {
+        return None;
+    }
+    let tail = expression[start..].trim();
+    if !tail.is_empty() {
+        parts.push(tail);
+    }
+    Some(parts)
 }
 
 fn function_call_args_dimensionally_valid(
@@ -8258,6 +8390,7 @@ fn is_builtin_function(name: &str) -> bool {
             | "propagate"
             | "ensemble"
             | "distribution"
+            | "probability"
             | "train_test_split"
             | "regression"
             | "regression_table"
@@ -8279,10 +8412,14 @@ fn is_builtin_function(name: &str) -> bool {
             | "dir"
             | "join"
             | "parent"
+            | "predict"
+            | "predictor"
             | "stem"
             | "extension"
             | "exists"
-    ) || name.starts_with('p')
+    ) || DIMENSIONLESS_MATH_FUNCTIONS.contains(&name)
+        || name == "der"
+        || percentile_statistic(name)
 }
 
 fn expression_dimension_for_bindings(
@@ -16177,15 +16314,33 @@ fn first_table_reference(expression: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_function_call;
+    use super::{
+        is_builtin_function, parse_function_call, split_top_level_scalar_arithmetic_slices,
+    };
 
     #[test]
-    fn function_call_parser_requires_one_outer_call_and_ignores_quoted_parentheses() {
+    fn function_call_helpers_preserve_structure_and_builtin_boundaries() {
         let call = parse_function_call(r#"join(output, "summary).csv")"#)
             .expect("quoted closing parenthesis should remain inside the call");
         assert_eq!(call.name, "join");
         assert_eq!(call.args, ["output", r#""summary).csv""#]);
 
         assert!(parse_function_call("left(value) + right(value)").is_none());
+
+        assert!(split_top_level_scalar_arithmetic_slices(r#""phantom(base) + value""#).is_none());
+        let escaped_expression = format!(
+            "{quote}text {escape}{quote}+ phantom(base) + {escape}{quote}{quote} + add_lengths(base, base)",
+            quote = char::from(34),
+            escape = char::from(92),
+        );
+        let escaped = split_top_level_scalar_arithmetic_slices(&escaped_expression)
+            .expect("only the operator after the escaped string should split");
+        assert_eq!(escaped.len(), 2);
+        assert_eq!(escaped[1], "add_lengths(base, base)");
+
+        assert!(is_builtin_function("sqrt"));
+        assert!(is_builtin_function("p95"));
+        assert!(is_builtin_function("probability"));
+        assert!(!is_builtin_function("phantom"));
     }
 }

@@ -409,9 +409,13 @@ even when names repeat on one signature line.
 Block and inline function returns also keep compiler-owned expression ranges, so
 duplicate, unresolved, dimension-mismatch, and return-side-effect Problems
 underline the expression rather than the function header.
-Nested user-function calls are validated recursively: an incompatible inner
-argument underlines that argument, an unknown inner call underlines its function
-name, and neither produces a duplicate unresolved Problem on the outer argument.
+Nested user-function calls are validated recursively, including calls used in
+parenthesized scalar arithmetic or inside built-in-call arguments: an incompatible
+inner argument underlines that argument, an unknown inner call underlines its
+function name, call-like string contents remain inert, and inner failures do not
+produce a duplicate unresolved Problem on the outer argument. Dimensionless math
+helpers and numeric percentile calls remain built-ins; other unknown `p`-prefixed
+calls produce the same undefined-function Problem as any other unknown call.
 Component assembly balance and algebraic-loop Problems underline the first
 source component name. Unconnected-port Problems underline the port name, and
 unknown or invalid generic port domains underline the complete domain reference.

@@ -561,8 +561,8 @@ pub fn retarget_check_report_for_token_stable_trivia(
 /// registered scalar constants and pure registered scalar functions, both root sources must contain
 /// only successful top-level scalar bindings and trivia. Expressions may be numeric literals,
 /// backward aliases, or pure scalar `+`, `-`, `*`, and `/` arithmetic over registered-unit literals,
-/// parentheses, earlier scalar bindings, and direct dimension-valid calls to those imported scalar
-/// functions.
+/// parentheses, earlier scalar bindings, and dimension-valid calls to those imported scalar
+/// functions as direct values, arithmetic operands, or recursively nested call arguments.
 /// Changed logical lines may remain bindings or token-free trivia, including inserted or removed
 /// trivia and line-ending changes. Coordinated binding renames are accepted when the resulting names
 /// stay unique and aliases resolve in source order. The compiler preserves report records before the
@@ -571,7 +571,7 @@ pub fn retarget_check_report_for_token_stable_trivia(
 /// the top-level workflow line atomically. The compiler verifies the old suffix result against the
 /// prior report before patching. Eligible imports may precede the affected suffix and preserve their
 /// exact source ownership and semantic records. Static imports with other definitions, import edits,
-/// diagnostics, caches, nested or unsupported calls, workflow expressions, richer language
+/// diagnostics, caches, invalid or unsupported calls, workflow expressions, richer language
 /// constructs, and edits without an affected binding return `None` so the caller can run a normal
 /// check or another reuse path.
 /// Root top-level `const` declarations are accepted only by the unified
@@ -601,11 +601,12 @@ pub fn recheck_scalar_binding_suffix_incrementally(
 /// definitions are only pure registered scalar constants and pure registered scalar functions, both
 /// root sources must contain only successful top-level explicit declarations with registered scalar
 /// quantity types, pure scalar expressions, and token-free trivia. A declaration may use one or more
-/// of those imported scalar functions directly or as arithmetic operands when argument count and
-/// dimensions are valid and the result dimension matches the declared quantity. This path preserves the records before
+/// of those imported scalar functions directly, as arithmetic operands, or recursively in scalar
+/// call arguments when argument counts and dimensions are valid and the result dimension matches the
+/// declared quantity. This path preserves the records before
 /// the first changed declaration and patches expected-type, typed-binding, hover, type-info,
 /// unit-derivation, syntax-count, and workflow-line records together. Root fast bindings, root
-/// `const` declarations, nested or unsupported calls, diagnostics, ineligible or edited imports,
+/// `const` declarations, invalid or unsupported calls, diagnostics, ineligible or edited imports,
 /// caches, and richer constructs return `None`.
 pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
     report: &CheckReport,
@@ -19735,6 +19736,12 @@ write csv "outputs/q.csv", Q
             "factor = 0.5\n",
             "wrong_dimension = add_lengths(add_lengths(add_lengths(base, factor), base), base)\n",
             "unknown_nested = add_lengths(add_lengths(missing_length(base), base), base)\n",
+            "wrong_arithmetic = add_lengths(base + (add_lengths(base, factor) * 0.5), base)\n",
+            "unknown_arithmetic = add_lengths(base + (missing_length(base) * 0.5), base)\n",
+            "unknown_builtin = add_lengths(base + sqrt(missing_length(base)), base)\n",
+            r#"string_like = add_lengths("missing_length(base)" + base, base)"#,
+            "\n",
+            "unknown_p_prefix = add_lengths(base + phantom(base), base)\n",
         );
         let report = check_source(
             "invalid-nested-function.eng",
@@ -19743,22 +19750,42 @@ write csv "outputs/q.csv", Q
         );
 
         assert!(report.has_errors());
-        let diagnostic_span_text = |code: &str| {
+        let diagnostic_span_text = |code: &str, line: usize| {
             let span = report
                 .diagnostics
                 .iter()
-                .find(|diagnostic| diagnostic.code == code)
-                .unwrap_or_else(|| panic!("missing {code}: {:#?}", report.diagnostics))
+                .find(|diagnostic| diagnostic.code == code && diagnostic.line == line)
+                .unwrap_or_else(|| {
+                    panic!("missing {code} on line {line}: {:#?}", report.diagnostics)
+                })
                 .source_span
                 .expect("nested call diagnostic should own an exact span");
             &source[span.start..span.end]
         };
-        assert_eq!(diagnostic_span_text("E-FN-CALL-004"), "factor");
-        assert_eq!(diagnostic_span_text("E-FN-CALL-001"), "missing_length");
+        for (code, line, expected) in [
+            ("E-FN-CALL-004", 6, "factor"),
+            ("E-FN-CALL-001", 7, "missing_length"),
+            ("E-FN-CALL-004", 8, "factor"),
+            ("E-FN-CALL-001", 9, "missing_length"),
+            ("E-FN-CALL-001", 10, "missing_length"),
+            ("E-FN-CALL-003", 11, r#""missing_length(base)" + base"#),
+            ("E-FN-CALL-001", 12, "phantom"),
+        ] {
+            assert_eq!(diagnostic_span_text(code, line), expected);
+        }
+        assert_eq!(
+            report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == "E-FN-CALL-003")
+                .count(),
+            1,
+            "only the genuinely non-scalar string expression should keep the generic diagnostic"
+        );
         assert!(report
             .diagnostics
             .iter()
-            .all(|diagnostic| diagnostic.code != "E-FN-CALL-003"));
+            .all(|diagnostic| diagnostic.code != "E-FN-CALL-001" || diagnostic.line != 11));
     }
 
     #[test]

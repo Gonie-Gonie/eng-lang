@@ -22126,6 +22126,12 @@ run_scheduler = case_runs.scheduler
             "factor = 0.5\r\n",
             "wrong_dimension = add_lengths(add_lengths(add_lengths(base, factor), base), base) // factor\r\n",
             "unknown_nested = add_lengths(add_lengths(missing_length(base), base), base) // missing_length\r\n",
+            "wrong_arithmetic = add_lengths(base + (add_lengths(base, factor) * 0.5), base) // factor\r\n",
+            "unknown_arithmetic = add_lengths(base + (missing_length(base) * 0.5), base) // missing_length\r\n",
+            "unknown_builtin = add_lengths(base + sqrt(missing_length(base)), base) // missing_length\r\n",
+            r#"string_like = add_lengths("missing_length(base)" + base, base) // generic"#,
+            "\r\n",
+            "unknown_p_prefix = add_lengths(base + phantom(base), base) // phantom\r\n",
         );
         let snapshot = snapshot_for_source(Path::new("nested_function_diagnostic.eng"), source);
         let lines = source.lines().collect::<Vec<_>>();
@@ -22133,6 +22139,11 @@ run_scheduler = case_runs.scheduler
         for (line_index, code, expected) in [
             (5, "E-FN-CALL-004", "factor"),
             (6, "E-FN-CALL-001", "missing_length"),
+            (7, "E-FN-CALL-004", "factor"),
+            (8, "E-FN-CALL-001", "missing_length"),
+            (9, "E-FN-CALL-001", "missing_length"),
+            (10, "E-FN-CALL-003", r#""missing_length(base)" + base"#),
+            (11, "E-FN-CALL-001", "phantom"),
         ] {
             let diagnostic = snapshot
                 .diagnostics
@@ -22154,10 +22165,18 @@ run_scheduler = case_runs.scheduler
                 "{code} end"
             );
         }
+        assert_eq!(
+            snapshot
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == "E-FN-CALL-003")
+                .count(),
+            1
+        );
         assert!(snapshot
             .diagnostics
             .iter()
-            .all(|diagnostic| diagnostic.code != "E-FN-CALL-003"));
+            .all(|diagnostic| diagnostic.code != "E-FN-CALL-001" || diagnostic.line != 11));
     }
 
     #[test]
