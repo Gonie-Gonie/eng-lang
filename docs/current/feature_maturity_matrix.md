@@ -266,7 +266,9 @@ separate.
   diagnostic, including when the call is nested in parenthesized scalar
   arithmetic or a built-in call argument. Call-like text inside strings is ignored;
   dimensionless math helpers and numeric percentile calls remain built-ins, while
-  arbitrary `p`-prefixed calls are reported as unknown.
+  arbitrary `p`-prefixed calls are reported as unknown. Shared call, component,
+  behavior, process-option, sampling, and scalar-expression splitting keeps quoted
+  or escaped delimiters inert instead of producing false argument or `env` errors.
   The older fast-binding-only and explicit-declaration-only APIs are mode-limited
   compatibility wrappers over this engine; lazy shared editor snapshots,
   recursive import-dependent invalidation, a VS Code persistent stdio client

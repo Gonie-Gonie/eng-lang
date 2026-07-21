@@ -16326,6 +16326,22 @@ write csv "outputs/q.csv", Q
     }
 
     #[test]
+    fn accepts_process_env_delimiters_inside_quoted_values() {
+        let source = r#"process_result = run command "cmd"
+with {
+    env = { MESSAGE = "left,right"; FORMULA = "a;b" }
+}
+"#;
+        let report = check_source("quoted-process-env.eng", source, &CheckOptions::default());
+
+        assert!(!report.has_errors(), "{:#?}", report.diagnostics);
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-PROCESS-ENV-001"));
+    }
+
+    #[test]
     fn records_test_assert_and_golden_metadata() {
         let source = "Q = 10 kW\nexport summary to csv \"summary.csv\" {\n    Q as kW with \".1\"\n}\n\ntest \"summary values\" {\n    assert Q == 10 kW within 0.01 kW\n    golden \"summary.csv\" matches file(\"golden/summary.csv\")\n}\n";
         let report = check_source("test.eng", source, &CheckOptions::default());

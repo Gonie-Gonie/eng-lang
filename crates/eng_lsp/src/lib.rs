@@ -22117,6 +22117,22 @@ run_scheduler = case_runs.scheduler
     }
 
     #[test]
+    fn quoted_process_env_delimiters_do_not_create_lsp_diagnostics() {
+        let source = r#"process_result = run command "cmd"
+with {
+    env = { MESSAGE = "left,right"; FORMULA = "a;b" }
+}
+"#;
+        let snapshot = snapshot_for_source(Path::new("quoted-process-env.eng"), source);
+
+        assert!(
+            snapshot.diagnostics.is_empty(),
+            "quoted env delimiters should remain inert: {:#?}",
+            snapshot.diagnostics
+        );
+    }
+
+    #[test]
     fn nested_function_diagnostics_use_innermost_utf16_ranges() {
         let source = concat!(
             "fn add_lengths(left: Length [m], right: Length [m]) -> Length [m] {\r\n",

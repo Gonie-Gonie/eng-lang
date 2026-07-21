@@ -16027,7 +16027,23 @@ fn strip_outer_parens(mut expression: &str) -> &str {
 
 fn is_balanced(expression: &str) -> bool {
     let mut depth = 0i32;
+    let mut in_string = false;
+    let mut escaped = false;
     for character in expression.chars() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if character == char::from(92) {
+                escaped = true;
+            } else if character == char::from(34) {
+                in_string = false;
+            }
+            continue;
+        }
+        if character == char::from(34) {
+            in_string = true;
+            continue;
+        }
         match character {
             '(' => depth += 1,
             ')' => {
@@ -16039,45 +16055,38 @@ fn is_balanced(expression: &str) -> bool {
             _ => {}
         }
     }
-    depth == 0
+    depth == 0 && !in_string
 }
 
 fn split_top_level(expression: &str, operators: &[char]) -> Vec<String> {
-    let mut parts = Vec::new();
-    let mut depth = 0i32;
-    let mut start = 0usize;
-
-    for (index, character) in expression.char_indices() {
-        match character {
-            '(' => depth += 1,
-            ')' => depth -= 1,
-            other if depth == 0 && operators.contains(&other) => {
-                if index == 0 {
-                    continue;
-                }
-                let part = expression[start..index].trim();
-                if !part.is_empty() {
-                    parts.push(part.to_owned());
-                }
-                start = index + other.len_utf8();
-            }
-            _ => {}
-        }
-    }
-
-    let tail = expression[start..].trim();
-    if !tail.is_empty() {
-        parts.push(tail.to_owned());
-    }
-    parts
+    split_top_level_slices(expression, operators)
+        .into_iter()
+        .map(str::to_owned)
+        .collect()
 }
 
 fn split_top_level_slices<'a>(expression: &'a str, operators: &[char]) -> Vec<&'a str> {
     let mut parts = Vec::new();
     let mut depth = 0i32;
     let mut start = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
 
     for (index, character) in expression.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if character == char::from(92) {
+                escaped = true;
+            } else if character == char::from(34) {
+                in_string = false;
+            }
+            continue;
+        }
+        if character == char::from(34) {
+            in_string = true;
+            continue;
+        }
         match character {
             '(' => depth += 1,
             ')' => depth -= 1,
@@ -16110,8 +16119,24 @@ fn split_top_level_with_operators(
     let mut depth = 0i32;
     let mut start = 0usize;
     let mut pending_operator = None;
+    let mut in_string = false;
+    let mut escaped = false;
 
     for (index, character) in expression.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if character == char::from(92) {
+                escaped = true;
+            } else if character == char::from(34) {
+                in_string = false;
+            }
+            continue;
+        }
+        if character == char::from(34) {
+            in_string = true;
+            continue;
+        }
         match character {
             '(' => depth += 1,
             ')' => depth -= 1,
@@ -16324,6 +16349,23 @@ mod tests {
             .expect("quoted closing parenthesis should remain inside the call");
         assert_eq!(call.name, "join");
         assert_eq!(call.args, ["output", r#""summary).csv""#]);
+
+        let call = parse_function_call(r#"join(output, "summary,final.csv")"#)
+            .expect("quoted comma should remain inside one call argument");
+        assert_eq!(call.args, ["output", r#""summary,final.csv""#]);
+
+        let call = parse_function_call(r#"(join(output, "summary).csv"))"#)
+            .expect("quoted parenthesis should not block outer call parentheses");
+        assert_eq!(call.args, ["output", r#""summary).csv""#]);
+
+        let escaped_call_expression = format!(
+            "join(output, {quote}summary,{escape}{quote}final,v1{escape}{quote}.csv{quote})",
+            quote = char::from(34),
+            escape = char::from(92),
+        );
+        let call = parse_function_call(&escaped_call_expression)
+            .expect("escaped quote should remain inside the quoted call argument");
+        assert_eq!(call.args.len(), 2);
 
         assert!(parse_function_call("left(value) + right(value)").is_none());
 

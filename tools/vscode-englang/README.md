@@ -30,6 +30,9 @@ embedding compiler logic in JavaScript.
   plus coordinated edits, additions/removals, resized/inserted/removed standalone
   trivia, and line-ending shifts, with full-analysis fallback for invalid,
   non-scalar, and other unsupported constructs
+- quote/escape-aware call and workflow-option diagnostics, so commas, semicolons,
+  parentheses, and arithmetic symbols inside strings do not become arguments,
+  process `env` entries, or scalar operators
 - debounced diagnostics for unsaved buffers after a short typing pause,
   including open dependent EngLang files when an imported buffer changes
 - debounced role-aware color refresh and stale decoration clearing across open

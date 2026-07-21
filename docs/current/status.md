@@ -144,7 +144,9 @@ review material. It is not a broad solver claim.
   invalid argument or unknown function name, ignore call-like string contents,
   and suppress a duplicate unresolved outer-argument diagnostic. Dimensionless
   math helpers and numeric percentile calls retain built-in status without hiding
-  arbitrary unknown names that happen to begin with `p`.
+  arbitrary unknown names that happen to begin with `p`. Shared argument and
+  option parsing also keeps commas, semicolons, parentheses, and arithmetic
+  symbols inside quoted or escaped string content, including process `env` values.
   This repairs absolute spans and line numbers
   after variable-width, inserted, or removed standalone trivia and suffix
   line-ending changes. Coordinated declaration and alias renames are accepted when
