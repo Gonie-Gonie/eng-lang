@@ -11053,13 +11053,16 @@ const shared_factor: Ratio [1] = 0.5
 fn double_length(value: Length [m]) -> Length [m] {
     return value * 2
 }
+fn keep_ratio(value: Ratio [1]) -> Ratio [1] {
+    return value
+}
 "#;
         std::fs::write(&module_path, initial_module_source)
             .expect("static scalar module should be written");
         let path = root.join("current.eng");
         let initial_source = r#"use "shared.eng"
 base = double_length(shared_length)
-const local_factor: Ratio [1] = 0.5
+const local_factor: Ratio [1] = keep_ratio(0.5)
 adjusted: Length [m] = double_length(base * local_factor)
 "#;
         std::fs::write(&path, initial_source).expect("importing source should be written");
@@ -11104,7 +11107,7 @@ adjusted: Length [m] = double_length(base * local_factor)
 
         let changed_source = r#"use "shared.eng"
 base = double_length(shared_length)
-const local_factor: Ratio [1] = 0.75
+const local_factor: Ratio [1] = keep_ratio(0.75)
 adjusted: Length [cm] = double_length(base * local_factor)
 total = adjusted + shared_length + 0 m
 "#;
@@ -11135,6 +11138,9 @@ total = adjusted + shared_length + 0 m
 const shared_factor: Ratio [1] = 0.6
 fn double_length(value: Length [m]) -> Length [m] {
     return value * 3
+}
+fn keep_ratio(value: Ratio [1]) -> Ratio [1] {
+    return value
 }
 "#;
         let module_notification = json!({
@@ -11173,7 +11179,7 @@ fn double_length(value: Length [m]) -> Length [m] {
 
         let resumed_source = r#"use "shared.eng"
 base = double_length(shared_length)
-const local_factor: Ratio [1] = 0.9
+const local_factor: Ratio [1] = keep_ratio(0.9)
 adjusted: Length [cm] = double_length(base * local_factor)
 total = adjusted + shared_length + 0 m
 "#;

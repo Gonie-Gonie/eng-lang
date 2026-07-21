@@ -626,9 +626,9 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// be interleaved; fast and explicit declarations may also change style inside the affected suffix.
 /// Expressions are limited to numeric literals, backward aliases, and pure scalar `+`, `-`, `*`,
 /// and `/` arithmetic over registered-unit literals, parentheses, and earlier scalar declarations.
-/// A fast binding or explicit declaration may also use a direct dimension-valid call to an unchanged
-/// imported pure scalar function; explicit return dimensions must match their annotations. `const`
-/// calls, nested calls, and call arithmetic still fall back.
+/// Any declaration form may also use a direct dimension-valid call to an unchanged imported pure
+/// scalar function; explicit and `const` return dimensions must match their annotations. Nested
+/// calls and call arithmetic still fall back.
 /// The compiler preserves all records before the first declaration at or after the first raw-line
 /// difference, verifies the old suffix against the prior report, then patches inferred, constant,
 /// expected, typed, hover, type-info, unit-derivation, syntax, and workflow records as one
@@ -1275,7 +1275,6 @@ fn incremental_scalar_report_shape(
             let key = (binding.name.as_str(), binding.span.source_id, binding.line);
             let is_explicit = expected_keys.contains(&key);
             let is_inferred = inferred_keys.contains(&key);
-            let is_const = const_keys.contains(&key);
             let has_expected_owner = if index < imported_const_count {
                 imported_source_ids.contains(&binding.span.source_id) && const_keys.contains(&key)
             } else {
@@ -1305,13 +1304,8 @@ fn incremental_scalar_report_shape(
                             &report.semantic_program.typed_bindings[..index],
                             &report.semantic_program.functions,
                         )
-                    } else if is_const {
-                        semantic::supports_incremental_scalar_expression(
-                            expression,
-                            &report.semantic_program.typed_bindings[..index],
-                        )
                     } else {
-                        semantic::supports_incremental_explicit_scalar_expression(
+                        semantic::supports_incremental_annotated_scalar_expression(
                             expression,
                             &binding.semantic_type.quantity_kind,
                             &report.semantic_program.typed_bindings[..index],
@@ -11011,11 +11005,11 @@ mod tests {
             root.join("shared.eng"),
             r#"use "base.eng"
 const imported_factor: Ratio [1] = 0.5
-const imported_adjusted: Length [m] = imported_length * imported_factor
 fn add_lengths(left: Length [m], right: Length [m]) -> Length [m] {
     sum = left + right
     return sum
 }
+const imported_adjusted: Length [m] = add_lengths(imported_length, imported_length)
 "#,
         )
         .expect("shared module should be written");
@@ -11252,10 +11246,10 @@ explicit_result: Length [cm] = add_lengths(imported_length, imported_length)
         }
 
         let const_call_previous_source = r#"use "shared.eng"
-const const_result: Length [m] = imported_adjusted
+const const_result: Length [m] = add_lengths(imported_adjusted, imported_length)
 "#;
         let const_call_source = r#"use "shared.eng"
-const const_result: Length [m] = add_lengths(imported_adjusted, imported_length)
+const const_result: Length [cm] = add_lengths(imported_length, imported_length)
 "#;
         let const_call_previous = check_source(
             &main_path,
@@ -11263,12 +11257,44 @@ const const_result: Length [m] = add_lengths(imported_adjusted, imported_length)
             &CheckOptions::default(),
         );
         assert!(const_call_previous.diagnostics.is_empty());
-        assert!(recheck_scalar_declaration_suffix_incrementally(
+        let const_call_reused = recheck_scalar_declaration_suffix_incrementally(
             &const_call_previous,
             const_call_previous_source,
             const_call_source,
         )
-        .is_none());
+        .expect("root scalar const declarations should reuse imported scalar functions");
+        let const_call_fresh =
+            check_source(&main_path, const_call_source, &CheckOptions::default());
+        assert_fresh_equivalent(&const_call_reused, &const_call_fresh, const_call_source);
+
+        for unsupported_const_call in [
+            const_call_previous_source.replace(
+                "add_lengths(imported_adjusted, imported_length)",
+                "add_lengths(imported_adjusted)",
+            ),
+            const_call_previous_source.replace(
+                "const const_result: Length [m]",
+                "const const_result: Ratio [1]",
+            ),
+            const_call_previous_source.replace(
+                "add_lengths(imported_adjusted, imported_length)",
+                "add_lengths(imported_adjusted, imported_length) + imported_length",
+            ),
+            const_call_previous_source.replace(
+                "add_lengths(imported_adjusted, imported_length)",
+                "add_lengths(add_lengths(imported_adjusted, imported_length), imported_length)",
+            ),
+        ] {
+            assert!(
+                recheck_scalar_declaration_suffix_incrementally(
+                    &const_call_previous,
+                    const_call_previous_source,
+                    &unsupported_const_call,
+                )
+                .is_none(),
+                "invalid or nested const scalar call should use a full check: {unsupported_const_call:?}"
+            );
+        }
 
         std::fs::remove_dir_all(&root).expect("file import fixture should be removed");
     }

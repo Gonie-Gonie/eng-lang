@@ -1056,13 +1056,13 @@ pub(crate) struct IncrementalScalarDeclarationAnalysis {
 ///
 /// Fast bindings, explicit declarations, and top-level scalar constants may be interleaved.
 /// Accepted expressions are numeric literals, backward aliases, or pure scalar arithmetic over
-/// registered-unit literals and backward scalar references. Fast bindings and explicit declarations
-/// may also call a trusted imported pure scalar function directly when every argument resolves
-/// against that environment; an explicit declaration additionally requires a return dimension that
-/// matches its annotation. The arithmetic grammar is shared with component parameter validation;
-/// `const` calls, nested calls, workflow expressions, and non-scalar functions cannot enter this
-/// local semantic path. An empty suffix is accepted so the caller can remove the final affected
-/// declarations atomically.
+/// registered-unit literals and backward scalar references. Any declaration form may also call a
+/// trusted imported pure scalar function directly when every argument resolves against that
+/// environment; explicit and `const` declarations additionally require a return dimension that
+/// matches their annotation. The arithmetic grammar is shared with component parameter validation;
+/// nested calls, workflow expressions, and non-scalar functions cannot enter this local semantic
+/// path. An empty suffix is accepted so the caller can remove the final affected declarations
+/// atomically.
 pub(crate) fn analyze_incremental_scalar_declarations(
     program: &ParsedProgram,
     prefix_typed_bindings: &[TypedBinding],
@@ -1131,7 +1131,7 @@ pub(crate) fn analyze_incremental_scalar_declarations(
                 if !crate::quantities::all_quantity_completions()
                     .iter()
                     .any(|quantity| quantity.quantity_kind == declaration.type_name)
-                    || !supports_incremental_explicit_scalar_expression(
+                    || !supports_incremental_annotated_scalar_expression(
                         expression,
                         &declaration.type_name,
                         &typed_bindings,
@@ -1158,9 +1158,11 @@ pub(crate) fn analyze_incremental_scalar_declarations(
                 if !crate::quantities::all_quantity_completions()
                     .iter()
                     .any(|quantity| quantity.quantity_kind == declaration.type_name)
-                    || !supports_incremental_scalar_expression(
+                    || !supports_incremental_annotated_scalar_expression(
                         &declaration.expression,
+                        &declaration.type_name,
                         &typed_bindings,
+                        functions,
                     )
                 {
                     return None;
@@ -1248,7 +1250,7 @@ pub(crate) fn supports_incremental_fast_binding_expression(
         || incremental_scalar_function_call(expression, available_bindings, functions).is_some()
 }
 
-pub(crate) fn supports_incremental_explicit_scalar_expression(
+pub(crate) fn supports_incremental_annotated_scalar_expression(
     expression: &str,
     expected_quantity_kind: &str,
     available_bindings: &[TypedBinding],
