@@ -3163,7 +3163,7 @@
   {
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "meta.workflow.summarize-series.englang",
-    "text": "summarize Q_total_unc by [mean, time_weighted_mean, p90, p95]",
+    "text": "summarize Q_total_unc by [mean, time_weighted_mean, p05, p50, p90, p95, p100]",
     "fullMatch": true
   },
   {
@@ -5805,6 +5805,42 @@
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "variable.other.public-member.englang",
     "text": "resample_step",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.stat-axis-call.englang",
+    "text": "p05(Q_series)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.stat-axis-call.englang",
+    "text": "p50(Q_series)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.stat-axis-call.englang",
+    "text": "p100(Q_series)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.timeseries.englang",
+    "text": "p05",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.timeseries.englang",
+    "text": "p50",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.timeseries.englang",
+    "text": "p100",
     "fullMatch": true
   }
 ]

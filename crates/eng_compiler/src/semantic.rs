@@ -22,7 +22,7 @@ use crate::quantities::{
 };
 use crate::schema::{ConfigPromotion, CsvPromotion, SchemaInfo};
 use crate::source::SourceSpan;
-use crate::stats::{AxisInfo, IntegrationInfo, StatsInfo};
+use crate::stats::{is_percentile_statistic, AxisInfo, IntegrationInfo, StatsInfo};
 use crate::table::TableTransformInfo;
 use crate::type_info::{TypeInfo, TypeInfoSource};
 use crate::uncertainty::UncertaintyInfo;
@@ -7856,14 +7856,14 @@ fn probability_expression_semantic_type(expression: &str) -> Option<SemanticType
 }
 
 fn uncertainty_statistic_supported(statistic: &str) -> bool {
-    statistic == "mean" || percentile_statistic(statistic)
+    statistic == "mean" || is_percentile_statistic(statistic)
 }
 
 fn uncertainty_percentile_expression(expression: &str, typed_bindings: &[TypedBinding]) -> bool {
     let Some((statistic, source)) = parse_statistic_expression(expression) else {
         return false;
     };
-    if !percentile_statistic(&statistic) {
+    if !is_percentile_statistic(&statistic) {
         return false;
     }
     typed_bindings
@@ -7873,16 +7873,6 @@ fn uncertainty_percentile_expression(expression: &str, typed_bindings: &[TypedBi
             crate::uncertainty::uncertainty_inner_quantity(&binding.semantic_type.quantity_kind)
                 .is_some()
         })
-}
-
-fn percentile_statistic(statistic: &str) -> bool {
-    let Some(percentile) = statistic.strip_prefix('p') else {
-        return false;
-    };
-    !percentile.is_empty()
-        && percentile
-            .chars()
-            .all(|character| character.is_ascii_digit())
 }
 
 fn binding_alias_semantic_type(
@@ -8419,7 +8409,7 @@ fn is_builtin_function(name: &str) -> bool {
             | "exists"
     ) || DIMENSIONLESS_MATH_FUNCTIONS.contains(&name)
         || name == "der"
-        || percentile_statistic(name)
+        || is_percentile_statistic(name)
 }
 
 fn expression_dimension_for_bindings(
@@ -16382,7 +16372,12 @@ mod tests {
         assert_eq!(escaped[1], "add_lengths(base, base)");
 
         assert!(is_builtin_function("sqrt"));
+        assert!(is_builtin_function("p05"));
+        assert!(is_builtin_function("p50"));
         assert!(is_builtin_function("p95"));
+        assert!(is_builtin_function("p100"));
+        assert!(!is_builtin_function("p0"));
+        assert!(!is_builtin_function("p101"));
         assert!(is_builtin_function("probability"));
         assert!(!is_builtin_function("phantom"));
     }

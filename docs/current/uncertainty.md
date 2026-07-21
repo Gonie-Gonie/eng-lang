@@ -158,8 +158,10 @@ validate probability(Q < 10 kW) > 0.95
 validate mean(Q) between 4 kW and 6 kW
 ```
 
-The current compiler type-checks `mean(...)`, percentile forms such as
-`p95(...)`, and `probability(uncertain < threshold)`. Invalid probability
+The current compiler type-checks `mean(...)`, integer percentile forms from
+`p1(...)` through `p100(...)`, and `probability(uncertain < threshold)`. Leading
+zeroes are accepted, so `p05(...)` is the 5th percentile. `p0(...)`, `p101(...)`,
+and decimal percentile names are not built-ins. Invalid probability
 expressions produce `E-UNC-PROBABILITY-EXPR-INVALID`; incompatible percentile
 threshold units produce `E-UNC-PERCENTILE-UNIT-MISMATCH`. Runtime now
 materializes pass/fail records for explicit statistic, probability, and

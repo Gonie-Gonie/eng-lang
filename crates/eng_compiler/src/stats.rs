@@ -32,6 +32,26 @@ pub struct IntegrationInfo {
     pub line: usize,
 }
 
+/// Identifier pattern shared with editor grammars for nearest-rank percentile statistics.
+pub const PERCENTILE_STATISTIC_PATTERN: &str = r"p0*(?:[1-9][0-9]?|100)";
+
+/// Parses a `p1` through `p100` statistic identifier into a fraction.
+pub fn parse_percentile_fraction(name: &str) -> Option<f64> {
+    let digits = name.strip_prefix('p')?;
+    if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    let percentile = digits.parse::<u32>().ok()?;
+    (1..=100)
+        .contains(&percentile)
+        .then_some(percentile as f64 / 100.0)
+}
+
+/// Returns whether a name is a supported nearest-rank percentile statistic.
+pub fn is_percentile_statistic(name: &str) -> bool {
+    parse_percentile_fraction(name).is_some()
+}
+
 pub fn axis_infos(bindings: &[TypedBinding]) -> Vec<AxisInfo> {
     bindings
         .iter()
@@ -184,4 +204,35 @@ fn sum_source(expression: &str) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())?;
     Some(source.to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{is_percentile_statistic, parse_percentile_fraction};
+
+    #[test]
+    fn percentile_statistics_use_one_bounded_integer_contract() {
+        for (name, expected) in [
+            ("p1", 0.01),
+            ("p05", 0.05),
+            ("p50", 0.5),
+            ("p100", 1.0),
+            ("p00095", 0.95),
+        ] {
+            assert_eq!(parse_percentile_fraction(name), Some(expected), "{name}");
+            assert!(is_percentile_statistic(name), "{name}");
+        }
+        for name in [
+            "p",
+            "p0",
+            "p101",
+            "p95.5",
+            "p+95",
+            "percentile95",
+            "p999999999999999999999999999999",
+        ] {
+            assert_eq!(parse_percentile_fraction(name), None, "{name}");
+            assert!(!is_percentile_statistic(name), "{name}");
+        }
+    }
 }

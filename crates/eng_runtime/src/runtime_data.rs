@@ -4,7 +4,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use eng_compiler::{
-    all_quantity_completions, all_unit_infos, normalize_unit, CheckReport, SchemaColumn, SchemaInfo,
+    all_quantity_completions, all_unit_infos, normalize_unit, parse_percentile_fraction,
+    CheckReport, SchemaColumn, SchemaInfo,
 };
 use eng_report::{
     PlotAxis, PlotBin, PlotConfidenceBand, PlotPoint, PlotSeries, PlotSpec, ReportAssemblyBoundary,
@@ -9082,7 +9083,7 @@ fn statistic_uncertainty_stddev(
             },
         );
     }
-    if percentile_fraction(name).is_some() {
+    if parse_percentile_fraction(name).is_some() {
         let stddev = percentile_uncertainty_stddev(name, series, sensor_std);
         return (
             stddev,
@@ -9106,7 +9107,7 @@ fn percentile_uncertainty_stddev(
     series: &RuntimeTimeSeries,
     sensor_std: f64,
 ) -> Option<f64> {
-    let percentile = percentile_fraction(name)?;
+    let percentile = parse_percentile_fraction(name)?;
     let values = series
         .points
         .iter()
@@ -9394,7 +9395,7 @@ fn validation_runtime_value(
         if name == "probability" {
             return probability_runtime_value(&argument, metrics, integrations, uncertainties);
         }
-        if name == "mean" || percentile_fraction(&name).is_some() {
+        if name == "mean" || parse_percentile_fraction(&name).is_some() {
             return uncertainty_statistic_runtime_value(&name, &argument, uncertainties);
         }
     }
@@ -9460,7 +9461,7 @@ fn uncertainty_statistic_runtime_value(
         "mean" => uncertainty
             .mean
             .or_else(|| sample_summary(&uncertainty.samples).mean),
-        percentile => quantile(&uncertainty.samples, percentile_fraction(percentile)?),
+        percentile => quantile(&uncertainty.samples, parse_percentile_fraction(percentile)?),
     }?;
     Some(ValidationRuntimeValue {
         value,
@@ -20988,8 +20989,8 @@ fn statistic_value(name: &str, series: &RuntimeTimeSeries) -> Option<RuntimeStat
         ),
         "median" => (median(&values)?, series.display_unit.clone()),
         "std" => (population_std(&values)?, series.display_unit.clone()),
-        percentile if percentile_fraction(percentile).is_some() => (
-            nearest_rank_percentile(&values, percentile_fraction(percentile)?)?,
+        percentile if parse_percentile_fraction(percentile).is_some() => (
+            nearest_rank_percentile(&values, parse_percentile_fraction(percentile)?)?,
             series.display_unit.clone(),
         ),
         _ => {
@@ -21012,13 +21013,6 @@ fn nearest_rank_percentile(values: &[f64], percentile: f64) -> Option<f64> {
     sorted.sort_by(f64::total_cmp);
     let rank = (percentile * sorted.len() as f64).ceil() as usize;
     sorted.get(rank.saturating_sub(1)).copied()
-}
-
-fn percentile_fraction(name: &str) -> Option<f64> {
-    let percentile = name.strip_prefix('p')?.parse::<u32>().ok()?;
-    (1..=100)
-        .contains(&percentile)
-        .then_some(percentile as f64 / 100.0)
 }
 
 fn median(values: &[f64]) -> Option<f64> {

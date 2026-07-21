@@ -273,6 +273,11 @@ separate.
   completion, generated metadata, and TextMate built-in scopes; component
   `predictor(...)` and call-style `predict(...)` use the solver role while the
   command-style prediction workflow retains its model role.
+  Percentile statistics now use one compiler-owned parser across semantic checks,
+  runtime materialization, uncertainty propagation, and JIT planning: `p1` through
+  `p100` are valid, leading zeroes such as `p05` are accepted, and out-of-range
+  forms are not built-ins. The same bounded pattern drives LSP, native IDE
+  first-paint, generated metadata, and TextMate TimeSeries scopes.
   The older fast-binding-only and explicit-declaration-only APIs are mode-limited
   compatibility wrappers over this engine; lazy shared editor snapshots,
   recursive import-dependent invalidation, a VS Code persistent stdio client

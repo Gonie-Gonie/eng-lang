@@ -844,6 +844,7 @@
                                                   "within",
                                                   "matches"
                                               ],
+                           "percentile_statistic_pattern":  "p0*(?:[1-9][0-9]?|100)",
                            "prediction_table_fields":  [
                                                            {
                                                                "detail":  "prediction row count",

@@ -57,7 +57,10 @@ sum_Q_series = sum(Q_series, axis=Time)
 time_weighted_Q_series = time_weighted_mean(Q_series)
 median_Q_series = median(Q_series)
 std_Q_series = std(Q_series)
+p05_Q_series = p05(Q_series)
+p50_Q_series = p50(Q_series)
 p95_Q_series = p95(Q_series)
+p100_Q_series = p100(Q_series)
 duration_above_Q_series = duration_above(Q_series, 4 kW)
 lagged_Q_series = delay(Q_series, 1 h)
 mean_Q_command = mean Q_series over Time
@@ -142,7 +145,7 @@ on {
 }
 
 report {
-    summarize Q_total_unc by [mean, time_weighted_mean, p90, p95]
+    summarize Q_total_unc by [mean, time_weighted_mean, p05, p50, p90, p95, p100]
     show Q_total_unc
     show coverage.status
     plot Q_series over Time

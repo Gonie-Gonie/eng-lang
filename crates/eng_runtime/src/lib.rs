@@ -12,8 +12,8 @@ use std::time::{Duration, Instant};
 
 use eng_compiler::{
     build_bytecode, canonical_path_text, check_file, check_source,
-    classify_workflow_node_review_risk, parse_bytecode, review_json, ArgOverride, CheckOptions,
-    CheckReport, ReviewFallbackRecord,
+    classify_workflow_node_review_risk, parse_bytecode, parse_percentile_fraction, review_json,
+    ArgOverride, CheckOptions, CheckReport, ReviewFallbackRecord,
 };
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -10935,10 +10935,7 @@ fn runtime_statistic_value(
         "min" => values.iter().copied().reduce(f64::min)?,
         "median" => median(&values)?,
         "std" => population_std(&values)?,
-        percentile if percentile_fraction(percentile).is_some() => {
-            nearest_rank_percentile(&values, percentile_fraction(percentile)?)?
-        }
-        _ => return None,
+        percentile => nearest_rank_percentile(&values, parse_percentile_fraction(percentile)?)?,
     };
     Some(RuntimeStatisticValue {
         name: name.to_owned(),
@@ -10998,11 +10995,6 @@ fn population_std(values: &[f64]) -> Option<f64> {
         .sum::<f64>()
         / values.len() as f64;
     Some(variance.sqrt())
-}
-
-fn percentile_fraction(name: &str) -> Option<f64> {
-    let value = name.strip_prefix('p')?.parse::<f64>().ok()?;
-    (0.0..=100.0).contains(&value).then_some(value / 100.0)
 }
 
 fn nearest_rank_percentile(values: &[f64], fraction: f64) -> Option<f64> {

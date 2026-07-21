@@ -42,6 +42,8 @@ function loadEditorMetadata(extensionRoot) {
     typeof keywordGroups !== "object" ||
     requiredKeywordGroups.some((group) => !Array.isArray(keywordGroups[group])) ||
     !Array.isArray(syntaxCatalog.workflow_builtins) ||
+    typeof syntaxCatalog.percentile_statistic_pattern !== "string" ||
+    !syntaxCatalog.percentile_statistic_pattern.trim() ||
     !Array.isArray(syntaxCatalog.hyphenated_workflow_builtins) ||
     !Array.isArray(syntaxCatalog.legacy_workflow_builtin_aliases) ||
     !Array.isArray(syntaxCatalog.legacy_workflow_option_aliases) ||

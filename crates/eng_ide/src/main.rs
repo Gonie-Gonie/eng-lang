@@ -4997,6 +4997,8 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "keywordGroups: catalogKeywordGroups(source.keywordGroups ?? source.keyword_groups)",
         "workflowBuiltinGroups: catalogKeywordGroups(",
         "source.workflowBuiltinGroups ?? source.workflow_builtin_groups",
+        "percentileStatisticPattern: String(",
+        "source.percentileStatisticPattern ?? source.percentile_statistic_pattern",
         "function catalogKeywordGroups(value)",
         "workflowStatusLiterals: stringArray(source.workflowStatusLiterals ?? source.workflow_status_literals)",
         "keywords: stringArray(source.keywords)",
@@ -5021,6 +5023,9 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "function lexicalWorkflowBuiltinClass(word, line, index, lexical)",
         "LEXICAL_WORKFLOW_BUILTIN_GROUP_CLASSES",
         "workflowBuiltinGroups: keywordGroupSets(normalized.workflowBuiltinGroups)",
+        "function lexicalCatalogPattern(pattern)",
+        "lexical?.percentileStatisticPattern?.test(word)",
+        "function isSummarizeStatisticContext(line, index)",
         "hl-mod-workflowStep",
         "<th>Selectors</th>",
         "function renderSemanticSelectorTable(counts)",
@@ -5844,6 +5849,10 @@ with {
         assert!(catalog["workflow_builtins"]
             .as_array()
             .is_some_and(|items| items.iter().any(|item| item.as_str() == Some("train"))));
+        assert_eq!(
+            catalog["percentile_statistic_pattern"].as_str(),
+            Some(eng_compiler::PERCENTILE_STATISTIC_PATTERN)
+        );
         for (group, label) in [
             ("deprecated", "select_first_row"),
             ("validation", "fill_missing"),

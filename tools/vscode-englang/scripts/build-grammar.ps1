@@ -81,6 +81,10 @@ $SyntaxCatalog = $EditorMetadata.syntax_catalog
 if ($null -eq $SyntaxCatalog) {
     throw "generated editor metadata is missing syntax_catalog. Run .\dev.bat vscode-build-editor-metadata"
 }
+$PercentileStatisticPattern = [string]$SyntaxCatalog.percentile_statistic_pattern
+if ([string]::IsNullOrWhiteSpace($PercentileStatisticPattern)) {
+    throw "generated editor metadata syntax_catalog is missing percentile_statistic_pattern. Run .\dev.bat vscode-build-editor-metadata"
+}
 $KeywordGroups = $SyntaxCatalog.keyword_groups
 if ($null -eq $KeywordGroups) {
     throw "generated editor metadata syntax_catalog is missing keyword_groups. Run .\dev.bat vscode-build-editor-metadata"
@@ -280,6 +284,7 @@ $TemplateValues = @{
     "{{WORKFLOW_BUILTIN_GROUP_UNCERTAIN}}" = ConvertTo-RegexAlternation @($WorkflowBuiltinGroupItems["uncertain"])
     "{{WORKFLOW_BUILTIN_GROUP_TIMESERIES}}" = ConvertTo-RegexAlternation @($WorkflowBuiltinGroupItems["timeseries"])
     "{{WORKFLOW_BUILTIN_GROUP_TIMESERIES_STATS}}" = ConvertTo-RegexAlternation $TimeseriesStatWorkflowBuiltins
+    "{{PERCENTILE_STATISTIC_PATTERN}}" = $PercentileStatisticPattern
     "{{WORKFLOW_BUILTIN_GROUP_SOLVER}}" = ConvertTo-RegexAlternation @($WorkflowBuiltinGroupItems["solver"])
     "{{WORKFLOW_BUILTIN_GROUP_WORKFLOW_STEP}}" = ConvertTo-RegexAlternation @($WorkflowBuiltinGroupItems["workflow_step"])
     "{{PUBLIC_TYPE_BASES}}" = ConvertTo-RegexAlternation $PublicTypeBases

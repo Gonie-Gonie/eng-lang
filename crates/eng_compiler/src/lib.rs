@@ -90,7 +90,10 @@ pub use semantic::{
     WithOptionInfo, WriteInfo, DIMENSIONLESS_MATH_FUNCTIONS,
 };
 pub use source::SourceSpan;
-pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
+pub use stats::{
+    is_percentile_statistic, parse_percentile_fraction, AxisInfo, IntegrationInfo, StatsInfo,
+    PERCENTILE_STATISTIC_PATTERN,
+};
 pub use table::{
     TableColumnInfo, TableDerivedColumnInfo, TableJoinKeyInfo, TablePredicateInfo,
     TableSortKeyInfo, TableTransformInfo,

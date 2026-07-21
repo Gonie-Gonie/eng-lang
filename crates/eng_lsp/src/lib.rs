@@ -4,10 +4,11 @@ use std::path::Path;
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, bundled_module_registry, check_source,
     check_source_with_import_overrides, classify_diagnostic_review_risk, classify_review_risk,
-    read_only_io_expression, review_validation_records, CheckOptions, CheckReport, ClassFieldInfo,
-    CommandStyleInfo, Diagnostic, DomainTypeParameterInfo, FileOperationInfo, FunctionInfo,
-    ImportSourceOverrides, ReviewValidationRecord, SemanticProgram, Severity, SourceSpan,
-    WithBlockInfo, WithOptionInfo, WriteInfo, DIMENSIONLESS_MATH_FUNCTIONS,
+    is_percentile_statistic, read_only_io_expression, review_validation_records, CheckOptions,
+    CheckReport, ClassFieldInfo, CommandStyleInfo, Diagnostic, DomainTypeParameterInfo,
+    FileOperationInfo, FunctionInfo, ImportSourceOverrides, ReviewValidationRecord,
+    SemanticProgram, Severity, SourceSpan, WithBlockInfo, WithOptionInfo, WriteInfo,
+    DIMENSIONLESS_MATH_FUNCTIONS, PERCENTILE_STATISTIC_PATTERN,
 };
 use serde_json::{json, Value};
 
@@ -2085,6 +2086,7 @@ pub fn editor_syntax_catalog_json() -> Value {
             "workflow": EDITOR_WORKFLOW_KEYWORDS,
         },
         "workflow_builtins": workflow_builtins,
+        "percentile_statistic_pattern": PERCENTILE_STATISTIC_PATTERN,
         "workflow_builtin_groups": workflow_builtin_groups,
         "hyphenated_workflow_builtins": HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS,
         "legacy_workflow_builtin_aliases": EDITOR_LEGACY_WORKFLOW_BUILTIN_ALIASES,
@@ -6100,6 +6102,7 @@ impl<'a> SemanticTokenBuilder<'a> {
                 }
                 if WORKFLOW_BUILTIN_KEYWORDS.contains(&token)
                     || DIMENSIONLESS_MATH_FUNCTIONS.contains(&token)
+                    || is_percentile_statistic(token)
                     || EDITOR_LEGACY_WORKFLOW_BUILTIN_ALIASES.contains(&token)
                 {
                     let (token_type, modifiers) = workflow_builtin_semantic_class(
@@ -7747,7 +7750,9 @@ fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
     if EDITOR_WORKFLOW_BUILTIN_GROUP_MODEL.contains(&keyword) {
         return &["defaultLibrary", "model"];
     }
-    if EDITOR_WORKFLOW_BUILTIN_GROUP_TIMESERIES.contains(&keyword) {
+    if EDITOR_WORKFLOW_BUILTIN_GROUP_TIMESERIES.contains(&keyword)
+        || is_percentile_statistic(keyword)
+    {
         return if matches!(keyword, "integrate" | "sum") {
             &["defaultLibrary", "solver", "timeseries"]
         } else {
@@ -14090,6 +14095,10 @@ print "done"
         );
         let syntax_catalog = &metadata["syntax_catalog"];
         assert_eq!(syntax_catalog["keywords"][0], COMPLETION_KEYWORDS[0]);
+        assert_eq!(
+            syntax_catalog["percentile_statistic_pattern"],
+            PERCENTILE_STATISTIC_PATTERN
+        );
         let syntax_keywords = syntax_catalog["keywords"]
             .as_array()
             .expect("syntax catalog keywords should be an array");
@@ -19850,6 +19859,63 @@ predict_alias_value = predict(signal)
             .completions
             .iter()
             .any(|completion| completion.label == "predictor" && completion.kind == "function"));
+    }
+
+    #[test]
+    fn snapshot_marks_only_bounded_numeric_percentiles_as_timeseries_builtins() {
+        let source = r#"signal = 1
+p05_value = p05(signal)
+p50_value = p50(signal)
+p100_value = p100(signal)
+p0_value = p0(signal)
+p101_value = p101(signal)
+p50 = 1
+"#;
+        let snapshot = snapshot_for_source(Path::new("numeric_percentile_builtins.eng"), source);
+
+        for label in ["p05", "p50", "p100"] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                label,
+                label,
+                "function",
+                "defaultLibrary",
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, label, label, "function", "report",
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                label,
+                label,
+                "function",
+                "timeseries",
+            );
+        }
+        for label in ["p0", "p101"] {
+            assert!(
+                snapshot.semantic_tokens.tokens.iter().all(|token| {
+                    source.lines().nth(token.line).is_none_or(|line| {
+                        line.get(token.start..token.start + token.length) != Some(label)
+                            || !token
+                                .modifiers
+                                .iter()
+                                .any(|modifier| modifier == "defaultLibrary")
+                    })
+                }),
+                "invalid percentile `{label}` must not be colored as a built-in"
+            );
+        }
+        assert_semantic_token_on_line_without_modifier(
+            &snapshot,
+            source,
+            "p50 = 1",
+            "p50",
+            "variable",
+            "defaultLibrary",
+        );
     }
 
     #[test]

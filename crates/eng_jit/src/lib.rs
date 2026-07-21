@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use eng_compiler::{normalize_unit, CheckReport, ComponentAssemblyInfo};
+use eng_compiler::{normalize_unit, parse_percentile_fraction, CheckReport, ComponentAssemblyInfo};
 use serde_json::{json, Value};
 
 pub const KERNEL_PLAN_FORMAT: &str = "eng-kernel-plan-v1";
@@ -994,13 +994,12 @@ fn statistic_reduction_op(name: &str) -> Option<KernelStatisticOp> {
         "min" => Some(KernelStatisticOp::Min),
         "median" => Some(KernelStatisticOp::Median),
         "std" => Some(KernelStatisticOp::PopulationStd),
-        percentile if percentile_fraction(percentile).is_some() => Some(
-            KernelStatisticOp::NearestRankPercentile(percentile_fraction(percentile)?),
-        ),
         duration if duration.starts_with("duration_above(") => Some(
             KernelStatisticOp::DurationAbove(duration_above_threshold(duration)?),
         ),
-        _ => None,
+        percentile => {
+            parse_percentile_fraction(percentile).map(KernelStatisticOp::NearestRankPercentile)
+        }
     }
 }
 
@@ -2322,13 +2321,6 @@ fn parse_primary(
         }
         ArithmeticToken::Operator(_) | ArithmeticToken::RightParen => None,
     }
-}
-
-fn percentile_fraction(name: &str) -> Option<f64> {
-    let percentile = name.strip_prefix('p')?.parse::<u32>().ok()?;
-    (1..=100)
-        .contains(&percentile)
-        .then_some(percentile as f64 / 100.0)
 }
 
 fn duration_above_threshold(name: &str) -> Option<f64> {

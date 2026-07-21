@@ -232,6 +232,7 @@ function emptySyntaxCatalog() {
     workflowStatusLiterals: [],
     operatorWords: [],
     workflowBuiltins: [],
+    percentileStatisticPattern: "",
     hyphenatedWorkflowBuiltins: [],
     legacyWorkflowBuiltinAliases: [],
     workflowOptions: [],
@@ -267,6 +268,9 @@ function normalizeSyntaxCatalog(catalog) {
     workflowStatusLiterals: stringArray(source.workflowStatusLiterals ?? source.workflow_status_literals),
     operatorWords: stringArray(source.operatorWords ?? source.operator_words),
     workflowBuiltins: stringArray(source.workflowBuiltins ?? source.workflow_builtins),
+    percentileStatisticPattern: String(
+      source.percentileStatisticPattern ?? source.percentile_statistic_pattern ?? ""
+    ).trim(),
     hyphenatedWorkflowBuiltins: stringArray(
       source.hyphenatedWorkflowBuiltins ?? source.hyphenated_workflow_builtins
     ),
@@ -322,6 +326,7 @@ function buildLexicalCatalog(catalog) {
     keywordGroups: keywordGroupSets(normalized.keywordGroups),
     workflowBuiltinGroups: keywordGroupSets(normalized.workflowBuiltinGroups),
     workflowBuiltins: workflowBuiltinSet,
+    percentileStatisticPattern: lexicalCatalogPattern(normalized.percentileStatisticPattern),
     workflowStatusLiterals: new Set(normalized.workflowStatusLiterals),
     operatorWords: new Set(normalized.operatorWords),
     constants: new Set(normalized.constants),
@@ -405,6 +410,16 @@ function lexicalUnitPattern(units) {
     .map(escapeRegExp);
   if (!escaped.length) return null;
   return new RegExp(`^(?:${escaped.join("|")})(?![A-Za-z0-9_/^])`);
+}
+
+function lexicalCatalogPattern(pattern) {
+  const source = String(pattern || "").trim();
+  if (!source) return null;
+  try {
+    return new RegExp(`^(?:${source})$`);
+  } catch {
+    return null;
+  }
 }
 
 function escapeRegExp(value) {
@@ -9127,7 +9142,15 @@ function lexicalWorkflowBuiltinClass(word, line, index, lexical) {
   const isCall = /^\s*\(/.test(suffix);
   const isCanonicalSecretEnv = word === "secret" && /^\s+env\s*\(/.test(suffix);
   const isWorkflowStepValue = word === "run_case";
-  if (!isCall && !isCanonicalSecretEnv && !isWorkflowStepValue) return "";
+  const isSummaryStatistic = isSummarizeStatisticContext(line, index);
+  if (!isCall && !isCanonicalSecretEnv && !isWorkflowStepValue && !isSummaryStatistic) return "";
+
+  if (
+    (isCall || isSummaryStatistic) &&
+    lexical?.percentileStatisticPattern?.test(word)
+  ) {
+    return LEXICAL_WORKFLOW_BUILTIN_GROUP_CLASSES.timeseries;
+  }
 
   const groups = lexical?.workflowBuiltinGroups || {};
   for (const group of LEXICAL_WORKFLOW_BUILTIN_GROUP_ORDER) {
@@ -9136,6 +9159,10 @@ function lexicalWorkflowBuiltinClass(word, line, index, lexical) {
     }
   }
   return isCall && lexical?.workflowBuiltins?.has(word) ? "hl-function" : "";
+}
+
+function isSummarizeStatisticContext(line, index) {
+  return /^\s*summarize\b.*\bby\s*\[[^\]]*$/.test(String(line || "").slice(0, index));
 }
 
 function lexicalCompletionClass(word) {

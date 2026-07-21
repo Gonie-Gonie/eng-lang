@@ -151,6 +151,11 @@ review material. It is not a broad solver claim.
   built-in tokens, completion, generated editor metadata, and TextMate first-paint
   scopes. Component `predictor(...)` and call-style `predict(...)` share the solver
   role without changing command-style model prediction.
+  Percentile calls now have one compiler-owned `p1` through `p100` integer
+  contract shared by semantic analysis, runtime materialization, uncertainty
+  propagation, JIT planning, LSP, native IDE first-paint, generated editor
+  metadata, and TextMate. Leading zeroes such as `p05` are valid; `p0`, `p101`,
+  decimal forms, and unrelated `p`-prefixed calls are not built-ins.
   This repairs absolute spans and line numbers
   after variable-width, inserted, or removed standalone trivia and suffix
   line-ending changes. Coordinated declaration and alias renames are accepted when
