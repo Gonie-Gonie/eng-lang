@@ -44,7 +44,7 @@ The compiler checks the staged ML binding chain before runtime:
 ```text
 train_test_split(Q_coil, ...)      Q_coil must be a prior TimeSeries binding
 regression(split, ...)             split must be a prior TrainTestSplit binding
-mlp(split, ...) / ann(split, ...)  split must be a prior TrainTestSplit binding
+mlp(split, ...)                    split must be a prior TrainTestSplit binding
 evaluate(model, split=split)       model must be a prior Model[...] binding
 model_card(model)                  model must be a prior Model[...] binding
 leakage_lint(split)                split must be a prior TrainTestSplit binding
@@ -58,7 +58,7 @@ The compiler also checks the current data-driven modeling track argument contrac
 ```text
 train_test_split(...)  requires target=<TimeSeriesName>, features=[...], and test=<fraction>
 regression(...)        supports algorithm=linear
-mlp(...) / ann(...)    requires hidden=[positive integers] and epochs=<positive integer>
+mlp(...)               requires hidden=[positive integers] and epochs=<positive integer>
 seed=...               must be a non-negative integer when present
 ```
 
@@ -69,6 +69,10 @@ compiler metadata. Source/type failures underline the exact model, split, or
 table operand; argument failures underline the exact key, value, or individual
 feature path. Those ranges also drive editor highlighting, including repeated
 names and UTF-16 source positions, and stop before trailing line comments.
+
+`ann(...)` is retained only as a compatibility alias for `mlp(...)`. It emits
+`W-ML-ANN-ALIAS` and is not advertised in completion; replacing the function
+name leaves the accepted argument contract unchanged.
 
 ## Runtime Semantics
 

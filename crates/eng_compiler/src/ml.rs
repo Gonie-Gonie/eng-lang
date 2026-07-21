@@ -182,10 +182,10 @@ pub fn with_block_argument_diagnostics(ml_infos: &[MlInfo]) -> Vec<Diagnostic> {
 pub fn public_api_diagnostics(ml_infos: &[MlInfo]) -> Vec<Diagnostic> {
     ml_infos
         .iter()
-        .filter_map(|info| {
-            let (alias, span) = legacy_training_alias(info)?;
-            Some(
-                Diagnostic::warning(
+        .flat_map(|info| {
+            let mut diagnostics = Vec::new();
+            if let Some((alias, span)) = legacy_training_alias(info) {
+                let diagnostic = Diagnostic::warning(
                     "W-ML-TRAIN-ALIAS",
                     span.line,
                     &format!("`{alias}(...)` is a compatibility-only model training alias."),
@@ -193,8 +193,23 @@ pub fn public_api_diagnostics(ml_infos: &[MlInfo]) -> Vec<Diagnostic> {
                         "Use `model = train regression training_rows` and put model options in an attached `with` block.",
                     ),
                 )
-                .with_source_span(span),
-            )
+                .with_source_span(span);
+                diagnostics.push(diagnostic);
+            }
+            if let Some(span) = legacy_ann_alias_span(info) {
+                diagnostics.push(
+                    Diagnostic::warning(
+                        "W-ML-ANN-ALIAS",
+                        span.line,
+                        "`ann(...)` is a compatibility-only alias for `mlp(...)`.",
+                        Some(
+                            "Use `mlp(split, hidden=[...], epochs=...)`; the argument syntax is unchanged.",
+                        ),
+                    )
+                    .with_source_span(span),
+                );
+            }
+            diagnostics
         })
         .collect()
 }
@@ -1230,6 +1245,22 @@ fn legacy_training_alias(info: &MlInfo) -> Option<(&'static str, SourceSpan)> {
             info.expression_span.line,
             info.expression_span.column.checked_add(leading)?,
         ),
+    ))
+}
+
+fn legacy_ann_alias_span(info: &MlInfo) -> Option<SourceSpan> {
+    let trimmed = info.expression.trim_start();
+    if !trimmed.to_ascii_lowercase().starts_with("ann(") {
+        return None;
+    }
+    let leading = info.expression.len().checked_sub(trimmed.len())?;
+    let start = info.expression_span.start.checked_add(leading)?;
+    Some(SourceSpan::new_in_source(
+        info.expression_span.source_id,
+        start,
+        start.checked_add("ann".len())?,
+        info.expression_span.line,
+        info.expression_span.column.checked_add(leading)?,
     ))
 }
 

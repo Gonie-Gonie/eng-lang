@@ -83,7 +83,8 @@ function documentFixture() {
     "script main {",
     "    value := 1",
     "}",
-    "legacy_model = regression_table(designs)"
+    "legacy_model = regression_table(designs)",
+    "ann_model = ann(split)"
   ];
   return {
     isDirty: false,
@@ -146,6 +147,13 @@ function successfulReview() {
         severity: "warning",
         message: "`regression_table(...)` is a compatibility-only model training alias.",
         line: 4,
+        column: 1
+      },
+      {
+        code: "W-ML-ANN-ALIAS",
+        severity: "warning",
+        message: "`ann(...)` is a compatibility-only alias for `mlp(...)`.",
+        line: 5,
         column: 1
       }
     ],
@@ -223,7 +231,7 @@ try {
   processCalls[0].callback(null, JSON.stringify(review), "");
   assert.strictEqual(diagnostics.sets.length, 1);
   assert.strictEqual(diagnostics.sets[0].uri, document.uri.toString());
-  assert.strictEqual(diagnostics.sets[0].diagnostics.length, 3);
+  assert.strictEqual(diagnostics.sets[0].diagnostics.length, 4);
 
   const scriptDiagnostic = diagnostics.sets[0].diagnostics[0];
   assert.strictEqual(scriptDiagnostic.source, "eng/file");
@@ -247,6 +255,12 @@ try {
   assert.deepStrictEqual(modelAliasDiagnostic.range.start, { line: 3, character: 15 });
   assert.deepStrictEqual(modelAliasDiagnostic.range.end, { line: 3, character: 31 });
   assert.deepStrictEqual(modelAliasDiagnostic.tags, [vscodeMock.DiagnosticTag.Deprecated]);
+  const annAliasDiagnostic = diagnostics.sets[0].diagnostics[3];
+  assert.strictEqual(annAliasDiagnostic.code.value, "W-ML-ANN-ALIAS");
+  assert.match(annAliasDiagnostic.code.target.toString(), /report_review/);
+  assert.deepStrictEqual(annAliasDiagnostic.range.start, { line: 4, character: 12 });
+  assert.deepStrictEqual(annAliasDiagnostic.range.end, { line: 4, character: 15 });
+  assert.deepStrictEqual(annAliasDiagnostic.tags, [vscodeMock.DiagnosticTag.Deprecated]);
   assert.deepStrictEqual(cachedReviews.at(-1), review);
   assert.strictEqual(riskDecorations.at(-1), cachedReviews.at(-1));
   assert.strictEqual(validationDecorations.at(-1), cachedReviews.at(-1));

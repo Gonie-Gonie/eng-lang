@@ -18649,6 +18649,36 @@ with {
     }
 
     #[test]
+    fn warns_on_ann_alias_with_exact_call_span() {
+        let source = concat!(
+            "cp = 4180 J/kg/K\n",
+            "Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n",
+            "split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.25, seed=7)\n",
+            "legacy_model = ann(split, hidden=[8], epochs=20)\n",
+            "preferred_model = mlp(split, hidden=[8], epochs=20)\n",
+        );
+        let report = check_source("ann-alias.eng", source, &CheckOptions::default());
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let warnings = report
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "W-ML-ANN-ALIAS")
+            .collect::<Vec<_>>();
+        assert_eq!(warnings.len(), 1, "{:?}", report.diagnostics);
+        let warning = warnings[0];
+        let span = warning
+            .source_span
+            .expect("ANN alias warning should own the call-name span");
+        assert_eq!(source.get(span.start..span.end), Some("ann"));
+        assert!(warning.message.contains("`mlp(...)`"));
+        assert!(warning
+            .help
+            .as_deref()
+            .is_some_and(|help| help.contains("argument syntax is unchanged")));
+    }
+
+    #[test]
     fn legacy_train_regression_errors_name_the_source_alias() {
         let report = check_source(
             "legacy-model-error.eng",

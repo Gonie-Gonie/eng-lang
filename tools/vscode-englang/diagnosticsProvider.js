@@ -14,6 +14,10 @@ const DIAGNOSTIC_DOC_TARGETS = new Map([
   [
     "W-ML-TRAIN-ALIAS",
     `${DIAGNOSTIC_DOC_ROOT}/reference/artifacts/report_review.md#data-driven-modeling-metadata`
+  ],
+  [
+    "W-ML-ANN-ALIAS",
+    `${DIAGNOSTIC_DOC_ROOT}/reference/artifacts/report_review.md#data-driven-modeling-metadata`
   ]
 ]);
 
@@ -647,6 +651,9 @@ function diagnosticFallbackRangeForCode(lineText, item, sourceColumn) {
   }
   if (code === "W-ML-TRAIN-ALIAS") {
     return firstNeedleRange(lineText, ["regression_table", "train_regression"], searchStart);
+  }
+  if (code === "W-ML-ANN-ALIAS") {
+    return functionCallNameRange(lineText, "ann", searchStart);
   }
   if (code === "W-STATS-SUM-001") {
     return functionCallNameRange(lineText, "sum", searchStart);
@@ -1345,6 +1352,7 @@ function diagnosticTags(item) {
   if (
     code === "W-TABLE-LEGACY-SELECT-FIRST-ROW" ||
     code === "W-ML-TRAIN-ALIAS" ||
+    code === "W-ML-ANN-ALIAS" ||
     code === "E-SCRIPT-001" ||
     code === "E-STRUCT-ARGS-001" ||
     message.includes("legacy") ||

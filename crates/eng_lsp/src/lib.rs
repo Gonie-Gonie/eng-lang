@@ -177,7 +177,6 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "across",
     "align",
     "and",
-    "ann",
     "append",
     "apply",
     "args",
@@ -399,8 +398,12 @@ const WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &[
 ];
 
 const HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &["latin-hypercube"];
-const EDITOR_WORKFLOW_BUILTIN_GROUP_DEPRECATED: &[&str] =
-    &["select_first_row", "regression_table", "train_regression"];
+const EDITOR_WORKFLOW_BUILTIN_GROUP_DEPRECATED: &[&str] = &[
+    "select_first_row",
+    "regression_table",
+    "train_regression",
+    "ann",
+];
 const EDITOR_WORKFLOW_BUILTIN_GROUP_VALIDATION: &[&str] = &["fill_missing", "rmse"];
 const EDITOR_WORKFLOW_BUILTIN_GROUP_EXTERNAL: &[&str] =
     &["file", "dir", "url", "env", "secret", "exists"];
@@ -410,7 +413,6 @@ const EDITOR_WORKFLOW_BUILTIN_GROUP_MODEL: &[&str] = &[
     "train_test_split",
     "regression",
     "mlp",
-    "ann",
     "evaluate",
     "model_card",
     "leakage_lint",
@@ -734,7 +736,8 @@ const PUBLIC_TYPE_COMPLETIONS: &[(&str, &str)] = &[
     ("PlotFile", "Plot output file path"),
 ];
 
-const EDITOR_LEGACY_WORKFLOW_BUILTIN_ALIASES: &[&str] = &["regression_table", "train_regression"];
+const EDITOR_LEGACY_WORKFLOW_BUILTIN_ALIASES: &[&str] =
+    &["regression_table", "train_regression", "ann"];
 const EDITOR_LEGACY_WORKFLOW_OPTION_ALIASES: &[&str] =
     &["fixture", "layers", "test_fraction", "x", "y"];
 
@@ -809,10 +812,6 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     ),
     ("regression", "Train a small deterministic regression model"),
     ("mlp", "Train a small deterministic neural-network model"),
-    (
-        "ann",
-        "Train a small deterministic neural-network model alias",
-    ),
     ("evaluate", "Compute model evaluation metrics"),
     ("model_card", "Create a model-card review artifact"),
     ("leakage_lint", "Check model features for leakage risk"),
@@ -14365,7 +14364,10 @@ print "done"
         assert!(
             syntax_catalog["legacy_workflow_builtin_aliases"]
                 .as_array()
-                .is_some_and(|labels| labels.iter().any(|label| label == "regression_table")),
+                .is_some_and(
+                    |labels| labels.iter().any(|label| label == "regression_table")
+                        && labels.iter().any(|label| label == "ann")
+                ),
             "syntax catalog should expose legacy workflow builtin aliases"
         );
         assert!(
@@ -14715,14 +14717,20 @@ print "done"
                 .any(|completion| completion["label"] == "fixture"),
             "editor completion items should not suggest legacy fixture option; use offline_response"
         );
-        for legacy_model_completion in ["regression_table", "train_regression"] {
+        for legacy_model_completion in ["regression_table", "train_regression", "ann"] {
             assert!(
                 !completions
                     .iter()
                     .any(|completion| completion["label"] == legacy_model_completion),
-                "editor completion items should not suggest legacy model completion {legacy_model_completion}; use train regression"
+                "editor completion items should not suggest legacy model completion {legacy_model_completion}"
             );
         }
+        assert!(
+            completions
+                .iter()
+                .any(|completion| completion["label"] == "mlp"),
+            "editor completion items should suggest canonical mlp"
+        );
         assert!(
             !completions
                 .iter()
@@ -20886,7 +20894,7 @@ legacy_station = select_first_row(stations, return_column="station_id")
         ] {
             assert_semantic_token_modifier(&snapshot, source, label, "model");
         }
-        for label in ["regression_table", "train_regression"] {
+        for label in ["regression_table", "train_regression", "ann"] {
             assert_semantic_token_modifier(&snapshot, source, label, "deprecated");
         }
         assert_semantic_token_on_line_with_modifier(

@@ -139,7 +139,7 @@
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.deprecated.englang",
-                                                                                                      "match":  "\\b(regression_table|select_first_row|train_regression)\\b(?=\\s*\\()"
+                                                                                                      "match":  "\\b(regression_table|select_first_row|train_regression|ann)\\b(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.validation.englang",
@@ -163,7 +163,7 @@
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.model.englang",
-                                                                                                      "match":  "\\b(train_test_split|leakage_lint|model_card|regression|evaluate|ann|mlp)\\b(?=\\s*\\()"
+                                                                                                      "match":  "\\b(train_test_split|leakage_lint|model_card|regression|evaluate|mlp)\\b(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "support.function.uncertain.englang",
@@ -1989,7 +1989,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.model-train-call.englang",
-                                                                    "begin":  "\\b(train_test_split|regression|mlp|ann)\\s*(\\()",
+                                                                    "begin":  "\\b(train_test_split|regression|mlp)\\s*(\\()",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "support.function.model.englang"
@@ -2056,7 +2056,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.legacy-model-train.englang",
-                                                                    "begin":  "\\b(regression_table|train_regression)\\s*(\\()",
+                                                                    "begin":  "\\b(regression_table|train_regression|ann)\\s*(\\()",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "support.function.deprecated.englang"
@@ -2073,7 +2073,7 @@
                                                                                     },
                                                                     "patterns":  [
                                                                                      {
-                                                                                         "match":  "\\b(target|y|features|x|test|test_fraction|seed|algorithm)\\b\\s*(=)",
+                                                                                         "match":  "\\b(target|y|features|x|test|test_fraction|seed|algorithm|hidden|layers|epochs)\\b\\s*(=)",
                                                                                          "captures":  {
                                                                                                           "1":  {
                                                                                                                     "name":  "variable.parameter.property.englang"
@@ -3432,7 +3432,7 @@
                                         "patterns":  [
                                                          {
                                                              "name":  "support.function.deprecated.englang",
-                                                             "match":  "\\b(regression_table|select_first_row|train_regression)\\b(?=\\s*\\()"
+                                                             "match":  "\\b(regression_table|select_first_row|train_regression|ann)\\b(?=\\s*\\()"
                                                          },
                                                          {
                                                              "name":  "support.function.validation.englang",
@@ -3452,7 +3452,7 @@
                                                          },
                                                          {
                                                              "name":  "support.function.model.englang",
-                                                             "match":  "\\b(train_test_split|leakage_lint|model_card|regression|evaluate|ann|mlp)\\b(?=\\s*\\()"
+                                                             "match":  "\\b(train_test_split|leakage_lint|model_card|regression|evaluate|mlp)\\b(?=\\s*\\()"
                                                          },
                                                          {
                                                              "name":  "support.function.uncertain.englang",

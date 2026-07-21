@@ -125,7 +125,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `support.function.builtin.englang` | Error-tolerant fallback for incomplete or not-yet-classified builtin editor states; public helper fixtures should use a role-specific scope. |
 | `support.function.validation.englang` | Validation and data-quality compatibility coloring for `fill_missing(...)`; this does not make it a public top-level call, and current authoring uses the `fill missing ...` workflow phrase. |
 | `support.function.deprecated.englang` | Deprecated helper calls such as `select_first_row(...)`, `regression_table(...)`, and `train_regression(...)`; editor migration actions target their preferred forms. |
-| `support.function.model.englang` | Preferred model-training and model-summary helper calls such as `regression(...)`, `train_test_split(...)`, `mlp(...)`, `ann(...)`, `evaluate(...)`, `model_card(...)`, and `leakage_lint(...)`. |
+| `support.function.model.englang` | Preferred model-training and model-summary helper calls such as `regression(...)`, `train_test_split(...)`, `mlp(...)`, `evaluate(...)`, `model_card(...)`, and `leakage_lint(...)`. |
 | `support.function.uncertain.englang` | Uncertainty helper calls such as `measured(...)`, `interval(...)`, `normal(...)`, `uniform(...)`, `distribution(...)`, `propagate(...)`, `ensemble(...)`, and `probability(...)`. |
 | `support.function.timeseries.englang` | Native TimeSeries/statistic calls such as `integrate(...)`, `mean(...)`, `min(...)`, `max(...)`, `median(...)`, `std(...)`, `sum(...)`, `time_weighted_mean(...)`, `p90(...)`, and `duration_above(...)`; the latter also has a compact threshold-only selector inside `summarize`. |
 | `support.function.external-boundary.englang` | External boundary constructors/checks such as `file(...)`, `dir(...)`, `url(...)`, `env(...)`, `secret env(...)`, and `exists(...)`. |
@@ -172,10 +172,10 @@ Command-style workflow and review verbs such as `sample`, `filter`, `derive`,
 `require_one`, `integrate`, and `mean` use `keyword.control.*.englang`. Model
 workflow phrases such as `predict ... using ...` and `train regression ...`
 use `keyword.control.model.englang`; current model helper calls such as
-`regression(...)`, `train_test_split(...)`, `mlp(...)`, `ann(...)`,
+`regression(...)`, `train_test_split(...)`, `mlp(...)`,
 `evaluate(...)`, `model_card(...)`, and `leakage_lint(...)` use
-`support.function.model.englang`. Compatibility-only `regression_table(...)`
-and `train_regression(...)` use `support.function.deprecated.englang` while
+`support.function.model.englang`. Compatibility-only `regression_table(...)`,
+`train_regression(...)`, and `ann(...)` use `support.function.deprecated.englang` while
 retaining the model semantic modifier.
 
 Uncertainty helper calls such as `measured(...)`, `interval(...)`, `normal(...)`,
@@ -323,8 +323,8 @@ Current workflow phrase scopes:
 | `meta.workflow.log-message.englang` | `log <level> ...` structured runtime message lines; includes member-aware first-paint fallbacks for dotted message operands. |
 | `meta.workflow.materialize-cases.englang` | `materialize cases <table>` |
 | `meta.workflow.model-summary-call.englang` | `evaluate(<model>[, split=...])`, `model_card(<model>)`, and related model summary calls. |
-| `meta.workflow.model-train-call.englang` | `train_test_split(...)`, `regression(...)`, `mlp(...)`, and `ann(...)` model-training calls. |
-| `meta.workflow.legacy-model-train.englang` | Compatibility-only `regression_table(...)` and `train_regression(...)` calls with deprecated function-name coloring and model-aware arguments. |
+| `meta.workflow.model-train-call.englang` | `train_test_split(...)`, `regression(...)`, and `mlp(...)` model-training calls. |
+| `meta.workflow.legacy-model-train.englang` | Compatibility-only `regression_table(...)`, `train_regression(...)`, and `ann(...)` calls with deprecated function-name coloring and model-aware arguments. |
 | `meta.workflow.train-regression.englang` | `train regression <table>`, `train regression from <table>`, and `train regression on <table>` table-model training phrases. |
 | `meta.workflow.open-sqlite.englang` | `open sqlite <source>` |
 | `meta.workflow.option-map.englang` | `query = { ... }`, `headers = { ... }`, and `values = { ... }` option maps. |

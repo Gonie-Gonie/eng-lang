@@ -781,7 +781,7 @@ regression(...)
 train regression <table> with { ... }
 regression_table(...)
 train_regression(...)
-mlp(...) / ann(...)
+mlp(...)
 evaluate(...) / metrics(...)
 model_card(...)
 leakage_lint(...)
@@ -793,6 +793,10 @@ predict <model> using <table>
 compatibility, but emit `W-ML-TRAIN-ALIAS`; VS Code marks the call deprecated
 and can migrate an unambiguous single-line call to the phrase form plus an
 attached `with` block.
+`ann(...)` likewise remains executable for source compatibility, but `mlp(...)`
+is the canonical neural-network constructor. The alias emits
+`W-ML-ANN-ALIAS`, is omitted from completion, and has a direct editor fix to
+rename only the call to `mlp(...)`; its arguments do not change.
 
 The same ML surface appears in:
 

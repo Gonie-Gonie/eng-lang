@@ -573,7 +573,6 @@
                                             "across",
                                             "align",
                                             "and",
-                                            "ann",
                                             "append",
                                             "apply",
                                             "args",
@@ -751,7 +750,8 @@
                                                    ],
                            "legacy_workflow_builtin_aliases":  [
                                                                    "regression_table",
-                                                                   "train_regression"
+                                                                   "train_regression",
+                                                                   "ann"
                                                                ],
                            "legacy_workflow_option_aliases":  [
                                                                   "fixture",
@@ -1574,7 +1574,8 @@
                                                            "deprecated":  [
                                                                               "select_first_row",
                                                                               "regression_table",
-                                                                              "train_regression"
+                                                                              "train_regression",
+                                                                              "ann"
                                                                           ],
                                                            "external":  [
                                                                             "file",
@@ -1588,7 +1589,6 @@
                                                                          "train_test_split",
                                                                          "regression",
                                                                          "mlp",
-                                                                         "ann",
                                                                          "evaluate",
                                                                          "model_card",
                                                                          "leakage_lint"

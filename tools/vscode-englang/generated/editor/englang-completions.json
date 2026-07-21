@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v2",
-    "completion_items_count":  455,
+    "completion_items_count":  454,
     "completion_items":  [
                              {
                                  "detail":  "Schema array value",
@@ -491,12 +491,6 @@
                                  "detail":  "Train a small deterministic neural-network model",
                                  "kind":  "function",
                                  "label":  "mlp",
-                                 "lsp_kind":  3
-                             },
-                             {
-                                 "detail":  "Train a small deterministic neural-network model alias",
-                                 "kind":  "function",
-                                 "label":  "ann",
                                  "lsp_kind":  3
                              },
                              {

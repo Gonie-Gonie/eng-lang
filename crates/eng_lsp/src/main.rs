@@ -2286,6 +2286,12 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "W-ML-TRAIN-ALIAS" => optional_code_action(
             lsp_legacy_model_training_migration_code_action(uri, text, diagnostic),
         ),
+        "W-ML-ANN-ALIAS" => optional_code_action(lsp_diagnostic_range_replacement_code_action(
+            uri,
+            diagnostic,
+            "mlp",
+            "Replace ann with mlp",
+        )),
         "E-IO-JSON-FIELD-ACCESS-001" => {
             optional_code_action(lsp_json_read_promotion_code_action(uri, text, diagnostic))
         }
@@ -9817,6 +9823,29 @@ mod tests {
         assert!(code_actions_for_diagnostic(uri, attached, &diagnostic).is_empty());
         let duplicate = "model = regression_table(designs, target=y, y=other, features=[x])\n";
         assert!(code_actions_for_diagnostic(uri, duplicate, &diagnostic).is_empty());
+    }
+
+    #[test]
+    fn ann_alias_quick_fix_replaces_only_the_diagnostic_range() {
+        let uri = "file:///C:/workspace/ann-alias.eng";
+        let source = "note = ann\r\nmodel = ann(split, hidden=[8], epochs=20)\r\n";
+        let diagnostic = json!({
+            "range": {
+                "start": { "line": 1, "character": 8 },
+                "end": { "line": 1, "character": 11 }
+            },
+            "code": "W-ML-ANN-ALIAS",
+            "message": "`ann(...)` is a compatibility-only alias for `mlp(...)`."
+        });
+
+        let actions = code_actions_for_diagnostic(uri, source, &diagnostic);
+        assert_eq!(actions.len(), 1);
+        assert_eq!(actions[0]["title"], "Replace ann with mlp");
+        assert_eq!(
+            actions[0]["edit"]["changes"][uri][0]["range"],
+            diagnostic["range"]
+        );
+        assert_eq!(actions[0]["edit"]["changes"][uri][0]["newText"], "mlp");
     }
 
     #[test]
