@@ -7299,6 +7299,15 @@ fn review_runtime_evidence(item: &Value) -> String {
         ("provenance", ""),
         ("source", "source="),
         ("path", "path="),
+        ("artifact_path", "path="),
+        ("hash", "hash="),
+        ("database", "database="),
+        ("manifest_path", "manifest="),
+        ("manifest_hash", "manifest_hash="),
+        ("database_hash_before", "database_hash_before="),
+        ("database_hash_after", "database_hash_after="),
+        ("transaction_status", "transaction="),
+        ("schema_status", "schema_status="),
         ("source_table", "table="),
         ("source_column", "column="),
         ("axis", "axis="),
@@ -7394,6 +7403,10 @@ fn review_runtime_summary(item: &Value) -> String {
             return format!("{} {noun}, {rows} rows", tables.len());
         }
     }
+    if let Some(path) = review_text(result, "artifact_path") {
+        let kind = review_text(result, "artifact_kind").unwrap_or("artifact");
+        return format!("{kind}: {path}");
+    }
     if let Some(actual_count) = result.get("actual_count").and_then(Value::as_u64) {
         let missing_count = result
             .get("missing_count")
@@ -7457,6 +7470,7 @@ fn render_review_document_section(document: &Value) -> String {
         ("calculations", "Calculation"),
         ("table_transforms", "Table transform"),
         ("report_outputs", "Report output"),
+        ("side_effects", "Side effect"),
     ] {
         for row in review_document_array(document, section) {
             if review_runtime_result(row).is_none() {
@@ -7489,6 +7503,7 @@ fn render_review_document_section(document: &Value) -> String {
       <div class="metric"><span>Tables</span><strong>{}</strong></div>
       <div class="metric"><span>Time series</span><strong>{}</strong></div>
       <div class="metric"><span>Coverage</span><strong>{}</strong></div>
+      <div class="metric"><span>Side effects</span><strong>{}</strong></div>
       <div class="metric"><span>Validations</span><strong>{}</strong></div>
     </section>
     <p class="review-fingerprint">Review fingerprint <code>{}</code></p>
@@ -7512,6 +7527,10 @@ fn render_review_document_section(document: &Value) -> String {
             .unwrap_or(0),
         evidence
             .get("timeseries_coverage_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(0),
+        evidence
+            .get("side_effect_result_count")
             .and_then(Value::as_u64)
             .unwrap_or(0),
         evidence
@@ -9735,6 +9754,7 @@ mod tests {
                     "table_count": 0,
                     "timeseries_count": 1,
                     "timeseries_coverage_count": 1,
+                    "side_effect_result_count": 2,
                     "validation_count": 1
                 },
                 "inputs": [{
@@ -9790,6 +9810,50 @@ mod tests {
                         "status": "materialized"
                     }
                 }],
+                "side_effects": [{
+                    "kind": "write_output",
+                    "target": "outputs/summary.txt",
+                    "line": 4,
+                    "runtime_result": {
+                        "provenance": "runtime_artifact_record",
+                        "artifact_kind": "write_text",
+                        "artifact_path": "outputs/summary.txt",
+                        "hash": "summary-hash",
+                        "status": "generated"
+                    }
+                }, {
+                    "kind": "write_output",
+                    "target": r#"db.table("predictions")"#,
+                    "line": 5,
+                    "runtime_result": {
+                        "provenance": "runtime_db_write",
+                        "artifact_kind": "db_write_manifest",
+                        "binding": "predictions",
+                        "database": "outputs/results.sqlite",
+                        "manifest_path": "outputs/results.sqlite.db_write_manifest.json",
+                        "manifest_hash": "db-manifest-hash",
+                        "database_hash_after": "db-file-hash",
+                        "transaction_status": "committed",
+                        "schema_status": "ok",
+                        "table_count": 1,
+                        "row_count": 3,
+                        "tables": [{
+                            "name": "predictions",
+                            "mode": "replace",
+                            "key": [],
+                            "schema": ["case_id", "prediction"],
+                            "row_count": 3
+                        }],
+                        "diagnostic_count": 0,
+                        "diagnostics": [],
+                        "validation": {
+                            "status": "passed",
+                            "rule": "sqlite_write_manifest",
+                            "message": "SQLite write committed"
+                        },
+                        "status": "committed"
+                    }
+                }],
                 "validations": [{
                     "line": 2,
                     "expression": "occupied between 60 min and 120 min",
@@ -9837,6 +9901,17 @@ mod tests {
         assert!(html.contains("axis=Time"));
         assert!(html.contains("<span>Time series</span><strong>1</strong>"));
         assert!(html.contains("<span>Coverage</span><strong>1</strong>"));
+        assert!(html.contains("<span>Side effects</span><strong>2</strong>"));
+        assert!(html.contains("write_text: outputs/summary.txt"));
+        assert!(html.contains("path=outputs/summary.txt"));
+        assert!(html.contains("hash=summary-hash"));
+        assert!(html.contains("1 table, 3 rows"));
+        assert!(html.contains("database=outputs/results.sqlite"));
+        assert!(html.contains("manifest=outputs/results.sqlite.db_write_manifest.json"));
+        assert!(html.contains("manifest_hash=db-manifest-hash"));
+        assert!(html.contains("database_hash_after=db-file-hash"));
+        assert!(html.contains("transaction=committed"));
+        assert!(html.contains("schema_status=ok"));
         assert!(html.contains("occupied between 60 min and 120 min"));
         assert!(html.contains("90 min between 60 min and 120 min"));
         assert!(!html.contains("120 min min"));

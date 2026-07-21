@@ -74,20 +74,23 @@ separate.
   and risk entries. Saved runs add source-matched runtime results and refresh
   only the section hashes whose normalized content changed. Core projection
   includes materialized tables, TimeSeries, explicit coverage checks, and
-  source-derived time axes across matching normalized rows. Runtime-generated
-  report HTML validates the final saved ReviewDocument and projects its
-  fingerprint, value/evidence rows, TimeSeries/coverage counts, coverage sample
-  summaries, statuses, and full validation expressions.
+  source-derived time axes across matching normalized rows, plus generated-file
+  and native SQLite write evidence in side-effect runtime rows.
+  Runtime-generated report HTML validates the final saved ReviewDocument and
+  projects its fingerprint, value/evidence rows, TimeSeries/coverage/
+  side-effect counts, coverage sample summaries, file and DB paths/hashes,
+  SQLite transaction/schema/table/row evidence, statuses, and full validation
+  expressions.
 - Evidence: official examples, artifact schemas, `artifacts-check`, report/
   review guide, `eng review`, shared compiler diff tests, and IDE smoke path
   covering normalized Review cockpit sections, semantic comparison, external
   boundaries, and side effects.
 - Not included: complete runtime projection for every specialized solver,
-  assembly, model, and DB record family or a complete risk/fallback taxonomy
-  across all tracks.
+  assembly, model, and non-write DB record family or a complete risk/fallback
+  taxonomy across all tracks.
 - Next cleanup action: route the remaining specialized solver, assembly,
-  model, and DB report panels through normalized rows as those record families
-  gain complete runtime projection.
+  model, and non-write DB report panels through normalized rows as those record
+  families gain complete runtime projection.
 
 ### Measured-Vs-Simulated Validation
 

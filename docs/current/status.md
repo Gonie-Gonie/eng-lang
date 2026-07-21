@@ -247,16 +247,17 @@ is not mistaken for public module support.
     cover the first risk/fallback/external-boundary slice. Saved runs add
     nested runtime results for core inputs, schemas, scalar values,
     materialized tables, TimeSeries, explicit coverage checks, source-derived
-    time axes, calculations, table transforms, outputs, and validations, then
+    time axes, calculations, table transforms, outputs, validations,
+    generated-file side effects, and native SQLite write side effects, then
     refresh changed section hashes while preserving unchanged static hashes.
     Runtime-generated `report.html` validates that final document and uses
     it for the review fingerprint, core runtime result/evidence table,
-    TimeSeries/coverage counts and sample summaries, and full validation
-    expressions.
+    TimeSeries/coverage/side-effect counts, sample summaries, file and DB
+    evidence, and full validation expressions.
   - One compiler-owned item-level semantic diff payload is available through
     `eng review --against`, `eng review diff`, and the native IDE Review panel.
-    Specialized solver, assembly, model, and DB runtime rows remain follow-up
-    projection work.
+    Specialized solver, assembly, model, and non-write DB runtime rows remain
+    follow-up projection work.
 - Composite workflow foundations
   - Public package: `Supported` side-effect primitives
   - Main status: `Supported` path/io/process/test/profile, promoted table

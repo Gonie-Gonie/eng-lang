@@ -579,12 +579,15 @@ static compiler projection. `eng run --save-artifacts` adds a nested
 `runtime_result` to matching rows for resolved Args, schema diagnostics,
 scalar values, materialized tables, TimeSeries, explicit coverage checks,
 source-derived time axes, calculations, table transforms, report outputs, and
-validations. Materialized tables, TimeSeries, and coverage checks are projected
+validations. Generated-file side effects add artifact kind/path/hash and
+validation evidence; native SQLite write side effects add database and
+manifest paths/hashes, transaction/schema status, table schemas, and row
+counts. Materialized tables, TimeSeries, and coverage checks are projected
 across matching `units_quantities`, `symbols`, `derived_values`, and
 `calculations` rows instead of remaining available only in top-level runtime
-arrays. It also records aggregate counts, including TimeSeries and coverage
-counts, under `runtime_evidence` and changes the root status to
-`runtime_ready` or `runtime_issues`.
+arrays. It also records aggregate counts, including TimeSeries, coverage, and
+normalized side-effect counts, under `runtime_evidence` and changes the root
+status to `runtime_ready` or `runtime_issues`.
 
 The runtime finalizer compares normalized sections with the static baseline,
 preserves unchanged section hashes, refreshes changed hashes, and recomputes
@@ -601,15 +604,16 @@ ReviewDocument through a validated `eng_report` API. The API accepts a full
 `semantic_hash` or `section_hashes` is missing. The report's Runtime
 Review section shows the document status, hash scope, runtime evidence counts,
 semantic fingerprint, core normalized values, coverage actual/expected/missing
-sample summaries, source/hash/table/column/axis provenance, and row status. The
-Validations section uses each normalized full `expression` and
+sample summaries, source/hash/table/column/axis provenance, generated artifact
+paths/hashes, SQLite transaction/schema/table/row evidence, and row status.
+The Validations section uses each normalized full `expression` and
 `runtime_result`; it does not substitute the parallel ReportSpec validation
 rows when a ReviewDocument is supplied.
 
 The fingerprint printed in `report.html` therefore matches
 `review.json.review_document.semantic_hash`. Existing specialized solver,
-assembly, quality, uncertainty, model, and DB panels continue to use their
-typed ReportSpec records until equivalent normalized rows are available.
+assembly, quality, uncertainty, model, and non-write DB panels continue to use
+their typed ReportSpec records until equivalent normalized rows are available.
 
 Calculation entries include input symbols, output quantity, unit-derivation
 steps, where expansions, and function calls when the compiler can infer them.

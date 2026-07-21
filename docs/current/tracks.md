@@ -29,11 +29,11 @@ and next cleanup action.
 - Main internal: bar/histogram variants, richer report metadata, and specialized
   normalized `review_document` projection beyond the current core rows.
   Runtime report HTML now reads its fingerprint, table/TimeSeries/coverage and
-  time-axis evidence, sample summaries, and validation table from that final
-  document.
+  time-axis evidence, side-effect file/DB evidence, sample summaries, and
+  validation table from that final document.
 - Next cleanup: route the remaining specialized report panels through
   ReviewDocument and extend its runtime projection to solver, assembly, model,
-  and DB records.
+  and non-write DB records.
 
 ## T4 System / Equation
 

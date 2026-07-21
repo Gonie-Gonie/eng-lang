@@ -53,4 +53,8 @@ enough to review.
 ## What To Inspect
 
 Inspect output manifests, process result records, and side-effect entries in
-review.json. Check that each generated path is expected and reproducible.
+review.json. For a saved run, inspect each side effect's `runtime_result`:
+generated files expose artifact path and content hash, while native SQLite
+writes expose database/manifest hashes, transaction/schema status, table
+schema, and row count. Check that each generated path is expected and
+reproducible.

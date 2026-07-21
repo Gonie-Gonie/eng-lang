@@ -1129,6 +1129,58 @@ function Invoke-WorkflowsTest {
                     }
                 }
             }
+            $RuntimeSideEffects = @($RuntimeReviewData.review_document.side_effects | Where-Object {
+                $null -ne $_.runtime_result
+            })
+            Assert-ArtifactNumber $RuntimeSideEffects.Count 6 "Workflow 02 ReviewDocument runtime side-effect count"
+            Assert-ArtifactNumber $RuntimeReviewData.review_document.runtime_evidence.side_effect_result_count 6 "Workflow 02 ReviewDocument runtime side-effect evidence count"
+            foreach ($RequiredRuntimeArtifactSideEffect in @(
+                @{ Path = "outputs/training_designs_standard.txt"; Kind = "standard_file" },
+                @{ Path = "outputs/prediction_designs_standard.txt"; Kind = "standard_file" },
+                @{ Path = "outputs/sampling_summary.txt"; Kind = "write_text" },
+                @{ Path = "outputs/workflow_summary.csv"; Kind = "csv_export" }
+            )) {
+                $RuntimeArtifactSideEffect = @($RuntimeSideEffects | Where-Object {
+                    [string]$_.runtime_result.artifact_path -eq $RequiredRuntimeArtifactSideEffect.Path
+                }) | Select-Object -First 1
+                Assert-Artifact ($null -ne $RuntimeArtifactSideEffect) "Workflow 02 ReviewDocument missing runtime artifact side effect for $($RequiredRuntimeArtifactSideEffect.Path)"
+                Assert-ArtifactValue $RuntimeArtifactSideEffect.runtime_result.provenance "runtime_artifact_record" "Workflow 02 runtime artifact provenance"
+                Assert-ArtifactValue $RuntimeArtifactSideEffect.runtime_result.artifact_kind $RequiredRuntimeArtifactSideEffect.Kind "Workflow 02 runtime artifact kind"
+                Assert-Artifact ([string]$RuntimeArtifactSideEffect.runtime_result.hash -match "^[0-9a-f]{16,64}$") "Workflow 02 runtime artifact side effect must expose a deterministic content hash"
+            }
+            foreach ($RequiredRuntimeDbSideEffect in @(
+                @{ Binding = "case_result_collection"; Table = "simulation_results"; RowCount = 8 },
+                @{ Binding = "predictions"; Table = "predictions"; RowCount = 3 }
+            )) {
+                $RuntimeDbSideEffect = @($RuntimeSideEffects | Where-Object {
+                    [string]$_.runtime_result.provenance -eq "runtime_db_write" -and
+                    [string]$_.runtime_result.binding -eq $RequiredRuntimeDbSideEffect.Binding
+                }) | Select-Object -First 1
+                Assert-Artifact ($null -ne $RuntimeDbSideEffect) "Workflow 02 ReviewDocument missing runtime DB side effect for $($RequiredRuntimeDbSideEffect.Binding)"
+                Assert-ArtifactValue $RuntimeDbSideEffect.runtime_result.database "outputs/surrogate_results.sqlite" "Workflow 02 runtime DB path"
+                Assert-ArtifactValue $RuntimeDbSideEffect.runtime_result.transaction_status "committed" "Workflow 02 runtime DB transaction status"
+                Assert-ArtifactValue $RuntimeDbSideEffect.runtime_result.schema_status "ok" "Workflow 02 runtime DB schema status"
+                Assert-ArtifactValue $RuntimeDbSideEffect.runtime_result.status "committed" "Workflow 02 runtime DB side-effect status"
+                Assert-ArtifactNumber $RuntimeDbSideEffect.runtime_result.row_count $RequiredRuntimeDbSideEffect.RowCount "Workflow 02 runtime DB row count"
+                Assert-Artifact ([string]$RuntimeDbSideEffect.runtime_result.manifest_hash -match "^[0-9a-f]{16,64}$") "Workflow 02 runtime DB side effect must expose a deterministic manifest hash"
+                Assert-Artifact ([string]$RuntimeDbSideEffect.runtime_result.database_hash_after -match "^[0-9a-f]{16,64}$") "Workflow 02 runtime DB side effect must expose a deterministic database hash"
+                $RuntimeDbTable = @($RuntimeDbSideEffect.runtime_result.tables | Where-Object {
+                    [string]$_.name -eq $RequiredRuntimeDbSideEffect.Table -and
+                    [int]$_.row_count -eq $RequiredRuntimeDbSideEffect.RowCount
+                }) | Select-Object -First 1
+                Assert-Artifact ($null -ne $RuntimeDbTable) "Workflow 02 runtime DB side effect missing table evidence for $($RequiredRuntimeDbSideEffect.Table)"
+            }
+            foreach ($RequiredRuntimeSideEffectHtmlToken in @(
+                "<span>Side effects</span><strong>6</strong>",
+                "outputs/training_designs_standard.txt",
+                "database=outputs/surrogate_results.sqlite",
+                "manifest_hash=",
+                "database_hash_after=",
+                "1 table, 8 rows",
+                "1 table, 3 rows"
+            )) {
+                Assert-Artifact ($RuntimeReportHtml.Contains($RequiredRuntimeSideEffectHtmlToken)) "Workflow 02 runtime report missing side-effect evidence $RequiredRuntimeSideEffectHtmlToken"
+            }
             $StructuredReads = @($TypedPayload.structured_reads)
             $MatchingStructuredReads = @($StructuredReads | Where-Object {
                 [string]$_.binding -eq "persisted_predictions" -and

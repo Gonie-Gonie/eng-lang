@@ -62,6 +62,12 @@ Expected review surfaces:
 - `typed_payload.model_cards[]`
 - `typed_payload.prediction_manifests[]`
 - `typed_payload.db_manifests[]` plus report bindings for `db.summary`, table count, row count, and status
+- `review_document.side_effects[]` runtime results for both standard-text
+  tables, the sampling text and summary CSV, and both SQLite writes; file rows
+  include artifact path/hash evidence, while DB rows include database/manifest
+  paths and hashes, transaction/schema status, table schema, and row count
+- `review_document.runtime_evidence.side_effect_result_count = 6`, also
+  displayed in the Runtime Review section of `report.html`
 - `static_run_plan.json`, `run_plan.json`, and `run_lock.json`
 - `output_manifest.json` records for case_input artifacts, sample table standard-text files, sampling summary,
   summary export, DB, model artifacts, and report artifacts

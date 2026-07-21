@@ -1135,7 +1135,7 @@ Rules:
 | SQLite output boundary | Database files live under `build/result` |
 | Typed source table | Source must be a promoted, generated, or derived typed table |
 | Schema preflight | Existing SQLite table columns must match the source schema unless `mode = replace` recreates the target table |
-| Reviewable records | `result.engres` and `review.json` include `db_manifests[]` |
+| Reviewable records | `result.engres` and `review.json` include `db_manifests[]`; the matching `review_document.side_effects[].runtime_result` records database/manifest paths and hashes, transaction/schema status, table schema, and row count |
 | Manifest records | `output_manifest.json` records `sqlite_database` and `db_write_manifest` entries |
 
 The DB write manifest records database path, hash before/after, transaction

@@ -2628,6 +2628,20 @@ fn write_output_path_expression<'a>(
         .map(|option| option.value.as_str())
 }
 
+fn write_side_effect_target_expression<'a>(
+    program: &'a SemanticProgram,
+    write: &'a WriteInfo,
+) -> &'a str {
+    write_output_path_expression(program, write)
+        .or_else(|| {
+            write
+                .db_target
+                .as_ref()
+                .map(|target| target.expression.as_str())
+        })
+        .unwrap_or(write.path.as_str())
+}
+
 fn push_generated_output_path_diagnostic(
     diagnostics: &mut Vec<Diagnostic>,
     label: &str,
@@ -4177,7 +4191,10 @@ pub fn review_json(report: &CheckReport) -> String {
         ));
         json.push_str(&format!(
             "      \"path\": \"{}\",\n",
-            json_escape(&write.path)
+            json_escape(
+                write_output_path_expression(&report.semantic_program, write)
+                    .unwrap_or(write.path.as_str())
+            )
         ));
         json.push_str(&format!(
             "      \"expression\": \"{}\",\n",
@@ -8725,7 +8742,10 @@ fn push_review_side_effects_json(json: &mut String, report: &CheckReport) {
         json.push_str("        \"kind\": \"write_output\",\n");
         json.push_str(&format!(
             "        \"target\": \"{}\",\n",
-            json_escape(&write.path)
+            json_escape(write_side_effect_target_expression(
+                &report.semantic_program,
+                write
+            ))
         ));
         json.push_str("        \"status\": \"declared\",\n");
         json.push_str(&format!("        \"line\": {},\n", write.line));
@@ -9177,7 +9197,11 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
             classification.category,
             classification.severity,
             classification.level,
-            &format!("write {} output to `{}`", write.format, write.path),
+            &format!(
+                "write {} output to `{}`",
+                write.format,
+                write_side_effect_target_expression(&report.semantic_program, write)
+            ),
             write.line,
             &report.source_lines,
         );
@@ -16524,6 +16548,23 @@ write csv "outputs/q.csv", Q
                     .iter()
                     .any(|option| option.key == "output" && option.status == "accepted")
         }));
+        let review: serde_json::Value =
+            serde_json::from_str(&review_json(&report)).expect("standard text review");
+        assert_eq!(review["writes"][0]["path"], "outputs/samples.txt");
+        let side_effect = review["review_document"]["side_effects"]
+            .as_array()
+            .and_then(|rows| {
+                rows.iter().find(|row| {
+                    row["kind"] == "write_output" && row["line"].as_u64() == Some(write.line as u64)
+                })
+            })
+            .expect("standard text side effect");
+        assert_eq!(side_effect["target"], "outputs/samples.txt");
+        assert!(review["review_document"]["risks"]
+            .as_array()
+            .is_some_and(|risks| risks.iter().any(|risk| risk["summary"]
+                .as_str()
+                .is_some_and(|summary| summary.contains("outputs/samples.txt")))));
     }
 
     #[test]

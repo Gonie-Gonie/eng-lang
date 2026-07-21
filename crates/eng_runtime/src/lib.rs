@@ -12841,8 +12841,12 @@ fn runtime_review_json(input: RuntimeReviewInput<'_>) -> String {
         enrich_runtime_review_boundaries(base_review, process_results, external_boundary_records);
     let enriched_queries =
         enrich_runtime_review_network_queries(&enriched_boundaries, runtime_data);
-    let enriched_side_effects =
-        enrich_runtime_review_side_effects(&enriched_queries, report, artifacts);
+    let enriched_side_effects = enrich_runtime_review_side_effects(
+        &enriched_queries,
+        report,
+        artifacts,
+        db_manifest_records,
+    );
     let enriched_caches = enrich_runtime_review_caches(&enriched_side_effects, cache_records);
     let runtime_fallbacks = timeseries_review_fallback_records(runtime_data);
     let enriched_review =
@@ -13145,7 +13149,8 @@ fn finalize_runtime_review_document(
             "calculation_result_count": review_runtime_result_count(document, "calculations"),
             "table_transform_count": review_runtime_result_count(document, "table_transforms"),
             "report_output_count": review_runtime_result_count(document, "report_outputs"),
-            "validation_count": review_runtime_result_count(document, "validations")
+            "validation_count": review_runtime_result_count(document, "validations"),
+            "side_effect_result_count": review_runtime_result_count(document, "side_effects")
         }),
     );
 
@@ -13989,8 +13994,9 @@ fn enrich_runtime_review_side_effects(
     base_review: &str,
     report: &CheckReport,
     artifacts: &[OutputArtifact],
+    db_manifest_records: &[DbManifestRecord],
 ) -> String {
-    if artifacts.is_empty() {
+    if artifacts.is_empty() && db_manifest_records.is_empty() {
         return base_review.to_owned();
     }
 
@@ -14009,45 +14015,68 @@ fn enrich_runtime_review_side_effects(
         let effect_kind = side_effect
             .get("kind")
             .and_then(Value::as_str)
-            .unwrap_or_default();
-        let Some(target) = side_effect.get("target").and_then(Value::as_str) else {
+            .unwrap_or_default()
+            .to_owned();
+        let line = side_effect.get("line").and_then(Value::as_u64).unwrap_or(0) as usize;
+        let target = review_side_effect_target(side_effect, &effect_kind, line, report);
+
+        if let Some(record) =
+            review_db_manifest_record(&effect_kind, line, report, db_manifest_records)
+        {
+            let runtime_result = runtime_db_write_review_value(record);
+            if let Some(object) = side_effect.as_object_mut() {
+                if let Some(target) = target {
+                    object.insert("target".to_owned(), Value::String(target));
+                }
+                insert_review_runtime_result(
+                    object,
+                    runtime_result,
+                    &[
+                        "provenance",
+                        "artifact_kind",
+                        "database",
+                        "manifest_path",
+                        "manifest_hash",
+                        "database_hash_before",
+                        "database_hash_after",
+                        "transaction_status",
+                        "schema_status",
+                        "table_count",
+                        "row_count",
+                        "status",
+                        "validation",
+                    ],
+                );
+            }
+            continue;
+        }
+
+        let Some(target) = target else {
             continue;
         };
         let Some(record) = artifact_records.iter().find(|record| {
-            side_effect_artifact_kind_matches(effect_kind, &record.kind)
-                && review_artifact_paths_match(target, &record.path, report)
+            side_effect_artifact_kind_matches(&effect_kind, &record.kind)
+                && review_artifact_paths_match(&target, &record.path, report)
         }) else {
             continue;
         };
         let Some(object) = side_effect.as_object_mut() else {
             continue;
         };
-
-        object.insert(
-            "provenance".to_owned(),
-            Value::String("runtime_artifact_record".to_owned()),
-        );
-        object.insert(
-            "artifact_kind".to_owned(),
-            Value::String(record.kind.clone()),
-        );
-        object.insert(
-            "artifact_class".to_owned(),
-            Value::String(record.class.clone()),
-        );
-        object.insert(
-            "artifact_path".to_owned(),
-            Value::String(record.path.clone()),
-        );
-        object.insert("hash".to_owned(), Value::String(record.hash.clone()));
-        object.insert("status".to_owned(), Value::String(record.status.clone()));
-        object.insert(
-            "validation".to_owned(),
-            json!({
-                "status": record.validation.status.clone(),
-                "rule": record.validation.rule.clone(),
-                "message": record.validation.message.clone()
-            }),
+        object.insert("target".to_owned(), Value::String(target));
+        insert_review_runtime_result(
+            object,
+            runtime_artifact_review_value(record),
+            &[
+                "provenance",
+                "artifact_kind",
+                "artifact_class",
+                "artifact_path",
+                "hash",
+                "overwrite_policy",
+                "status",
+                "validation",
+            ],
         );
     }
 
@@ -14057,6 +14086,167 @@ fn enrich_runtime_review_side_effects(
             json
         })
         .unwrap_or_else(|_| base_review.to_owned())
+}
+
+fn review_side_effect_target(
+    side_effect: &Value,
+    effect_kind: &str,
+    line: usize,
+    report: &CheckReport,
+) -> Option<String> {
+    if let Some(target) = side_effect
+        .get("target")
+        .and_then(Value::as_str)
+        .filter(|target| !target.trim().is_empty())
+    {
+        return Some(target.to_owned());
+    }
+
+    match effect_kind {
+        "csv_export" => report
+            .semantic_program
+            .csv_exports
+            .iter()
+            .find(|export| export.line == line)
+            .map(|export| export.path.clone()),
+        "write_output" => report
+            .semantic_program
+            .writes
+            .iter()
+            .find(|write| write.line == line)
+            .and_then(|write| {
+                write_output_path_expression(report, write).or_else(|| {
+                    write
+                        .db_target
+                        .as_ref()
+                        .map(|target| target.expression.clone())
+                })
+            }),
+        _ => None,
+    }
+}
+
+fn review_db_manifest_record<'a>(
+    effect_kind: &str,
+    line: usize,
+    report: &CheckReport,
+    records: &'a [DbManifestRecord],
+) -> Option<&'a DbManifestRecord> {
+    if effect_kind != "write_output" {
+        return None;
+    }
+    let write = report
+        .semantic_program
+        .writes
+        .iter()
+        .find(|write| write.line == line && write.format == "db")?;
+    records
+        .iter()
+        .find(|record| record.line == line && record.binding == write.expression)
+}
+
+fn runtime_artifact_review_value(record: &ArtifactRecord) -> Value {
+    json!({
+        "provenance": "runtime_artifact_record",
+        "artifact_kind": record.kind.clone(),
+        "artifact_class": record.class.clone(),
+        "artifact_path": record.path.clone(),
+        "hash": record.hash.clone(),
+        "overwrite_policy": record.overwrite_policy.clone(),
+        "status": record.status.clone(),
+        "validation": {
+            "status": record.validation.status.clone(),
+            "rule": record.validation.rule.clone(),
+            "message": record.validation.message.clone()
+        }
+    })
+}
+
+fn runtime_db_write_review_value(record: &DbManifestRecord) -> Value {
+    let table_count = record.tables.len();
+    let row_count = record
+        .tables
+        .iter()
+        .filter_map(|table| table.row_count)
+        .sum::<u64>();
+    let transaction_status = record.transaction_status.as_deref().unwrap_or("unknown");
+    let schema_status = record.schema_status.as_deref().unwrap_or("unknown");
+    let succeeded = record.hash.is_some()
+        && schema_status == "ok"
+        && record.diagnostics.is_empty()
+        && matches!(transaction_status, "committed" | "rolled_back");
+    let status = if succeeded {
+        transaction_status
+    } else {
+        "failed"
+    };
+    let validation_status = if succeeded { "passed" } else { "failed" };
+    let validation_message = format!(
+        "SQLite write manifest records {table_count} table(s), {row_count} row(s), transaction {transaction_status}, schema {schema_status}"
+    );
+    let tables = record
+        .tables
+        .iter()
+        .map(|table| {
+            json!({
+                "name": table.name.clone(),
+                "mode": table.mode.clone(),
+                "key": table.key.clone(),
+                "schema": table.schema.clone(),
+                "row_count": table.row_count
+            })
+        })
+        .collect::<Vec<_>>();
+    let diagnostics = record
+        .diagnostics
+        .iter()
+        .map(|diagnostic| {
+            json!({
+                "code": diagnostic.code.clone(),
+                "message": diagnostic.message.clone(),
+                "table": diagnostic.table.clone()
+            })
+        })
+        .collect::<Vec<_>>();
+
+    json!({
+        "provenance": "runtime_db_write",
+        "artifact_kind": "db_write_manifest",
+        "binding": record.binding.clone(),
+        "database": record.database.clone(),
+        "manifest_path": record.manifest_path.clone(),
+        "manifest_hash": record.hash.clone(),
+        "database_hash_before": record.database_hash_before.clone(),
+        "database_hash_after": record.database_hash_after.clone(),
+        "transaction_status": record.transaction_status.clone(),
+        "schema_status": record.schema_status.clone(),
+        "table_count": table_count,
+        "row_count": row_count,
+        "tables": tables,
+        "diagnostic_count": record.diagnostics.len(),
+        "diagnostics": diagnostics,
+        "status": status,
+        "validation": {
+            "status": validation_status,
+            "rule": "sqlite_write_manifest",
+            "message": validation_message
+        }
+    })
+}
+
+fn insert_review_runtime_result(
+    object: &mut serde_json::Map<String, Value>,
+    runtime_result: Value,
+    compatibility_fields: &[&str],
+) {
+    if let Some(result) = runtime_result.as_object() {
+        for field in compatibility_fields {
+            if let Some(value) = result.get(*field) {
+                object.insert((*field).to_owned(), value.clone());
+            }
+        }
+    }
+    object.insert("runtime_result".to_owned(), runtime_result);
 }
 
 fn enrich_runtime_review_caches(base_review: &str, records: &[CacheManifestRecord]) -> String {
@@ -14225,7 +14415,7 @@ fn enrich_runtime_review_workflow_graph(base_review: &str, run_plan_json: &str) 
 fn side_effect_artifact_kind_matches(effect_kind: &str, artifact_kind: &str) -> bool {
     match effect_kind {
         "csv_export" => artifact_kind == "csv_export",
-        "write_output" => artifact_kind.starts_with("write_"),
+        "write_output" => artifact_kind.starts_with("write_") || artifact_kind == "standard_file",
         "file_copy" => artifact_kind == "copy_file",
         "file_move" => artifact_kind == "move_file",
         "file_delete" => matches!(
@@ -19526,6 +19716,121 @@ mod tests {
             .result_json
             .contains("\"transaction_status\": \"committed\""));
 
+        let surrogate_review =
+            serde_json::from_str::<Value>(&surrogate_output.review_json).expect("surrogate review");
+        let surrogate_side_effects = surrogate_review
+            .pointer("/review_document/side_effects")
+            .and_then(Value::as_array)
+            .expect("surrogate side effects");
+        assert_eq!(
+            surrogate_side_effects
+                .iter()
+                .filter(|row| row.get("runtime_result").is_some_and(Value::is_object))
+                .count(),
+            6
+        );
+        for (path, artifact_kind) in [
+            ("outputs/training_designs_standard.txt", "standard_file"),
+            ("outputs/prediction_designs_standard.txt", "standard_file"),
+            ("outputs/sampling_summary.txt", "write_text"),
+            ("outputs/workflow_summary.csv", "csv_export"),
+        ] {
+            let result = surrogate_side_effects
+                .iter()
+                .filter_map(|row| row.get("runtime_result"))
+                .find(|result| result.get("artifact_path").and_then(Value::as_str) == Some(path))
+                .unwrap_or_else(|| panic!("missing runtime side effect for {path}"));
+            assert_eq!(
+                result.get("provenance").and_then(Value::as_str),
+                Some("runtime_artifact_record")
+            );
+            assert_eq!(
+                result.get("artifact_kind").and_then(Value::as_str),
+                Some(artifact_kind)
+            );
+            assert!(result
+                .get("hash")
+                .and_then(Value::as_str)
+                .is_some_and(|hash| (16..=64).contains(&hash.len())
+                    && hash.chars().all(|ch| ch.is_ascii_hexdigit())));
+        }
+        for (binding, table_name, row_count) in [
+            ("case_result_collection", "simulation_results", 8),
+            ("predictions", "predictions", 3),
+        ] {
+            let result = surrogate_side_effects
+                .iter()
+                .filter_map(|row| row.get("runtime_result"))
+                .find(|result| result.get("binding").and_then(Value::as_str) == Some(binding))
+                .unwrap_or_else(|| panic!("missing runtime DB side effect for {binding}"));
+            assert_eq!(
+                result.get("provenance").and_then(Value::as_str),
+                Some("runtime_db_write")
+            );
+            assert_eq!(
+                result.get("database").and_then(Value::as_str),
+                Some("outputs/surrogate_results.sqlite")
+            );
+            assert_eq!(
+                result.get("transaction_status").and_then(Value::as_str),
+                Some("committed")
+            );
+            assert_eq!(
+                result.get("schema_status").and_then(Value::as_str),
+                Some("ok")
+            );
+            assert_eq!(
+                result.get("row_count").and_then(Value::as_u64),
+                Some(row_count)
+            );
+            assert_eq!(
+                result.get("status").and_then(Value::as_str),
+                Some("committed")
+            );
+            assert!(result
+                .get("manifest_path")
+                .and_then(Value::as_str)
+                .is_some_and(|path| path.ends_with(".db_write_manifest.json")));
+            assert!(result
+                .get("manifest_hash")
+                .and_then(Value::as_str)
+                .is_some_and(|hash| (16..=64).contains(&hash.len())
+                    && hash.chars().all(|ch| ch.is_ascii_hexdigit())));
+            assert!(result
+                .get("database_hash_after")
+                .and_then(Value::as_str)
+                .is_some_and(|hash| (16..=64).contains(&hash.len())
+                    && hash.chars().all(|ch| ch.is_ascii_hexdigit())));
+            assert!(result
+                .get("tables")
+                .and_then(Value::as_array)
+                .is_some_and(|tables| tables.iter().any(|table| {
+                    table.get("name").and_then(Value::as_str) == Some(table_name)
+                        && table.get("row_count").and_then(Value::as_u64) == Some(row_count)
+                })));
+        }
+        assert_eq!(
+            surrogate_review
+                .pointer("/review_document/runtime_evidence/side_effect_result_count")
+                .and_then(Value::as_u64),
+            Some(6)
+        );
+        assert!(surrogate_output
+            .report_html
+            .contains("<span>Side effects</span><strong>6</strong>"));
+        assert!(surrogate_output
+            .report_html
+            .contains("outputs/training_designs_standard.txt"));
+        assert!(surrogate_output
+            .report_html
+            .contains("database=outputs/surrogate_results.sqlite"));
+        assert!(surrogate_output.report_html.contains("manifest_hash="));
+        assert!(surrogate_output
+            .report_html
+            .contains("database_hash_after="));
+        assert!(surrogate_output.report_html.contains("1 table, 8 rows"));
+        assert!(surrogate_output.report_html.contains("1 table, 3 rows"));
+
         let uncertainty_source = repo_root
             .join("examples")
             .join("workflows")
@@ -19672,6 +19977,51 @@ mod tests {
             .contains("\"artifact_kind\": \"write_text\""));
         assert!(output.review_json.contains("\"hash\": \""));
         assert!(output.review_json.contains("\"rule\": \"content_hash\""));
+        let review_value =
+            serde_json::from_str::<Value>(&output.review_json).expect("runtime review json");
+        let side_effects = review_value
+            .pointer("/review_document/side_effects")
+            .and_then(Value::as_array)
+            .expect("runtime side effects");
+        assert_eq!(
+            side_effects
+                .iter()
+                .filter(|row| row.get("runtime_result").is_some_and(Value::is_object))
+                .count(),
+            3
+        );
+        for artifact_kind in ["csv_export", "write_text", "write_json"] {
+            let result = side_effects
+                .iter()
+                .filter_map(|row| row.get("runtime_result"))
+                .find(|result| {
+                    result.get("artifact_kind").and_then(Value::as_str) == Some(artifact_kind)
+                })
+                .unwrap_or_else(|| panic!("missing {artifact_kind} runtime side effect"));
+            assert_eq!(
+                result.get("provenance").and_then(Value::as_str),
+                Some("runtime_artifact_record")
+            );
+            assert!(result
+                .get("artifact_path")
+                .and_then(Value::as_str)
+                .is_some_and(|path| !path.is_empty()));
+            assert!(result
+                .get("hash")
+                .and_then(Value::as_str)
+                .is_some_and(|hash| (16..=64).contains(&hash.len())
+                    && hash.chars().all(|ch| ch.is_ascii_hexdigit())));
+        }
+        assert_eq!(
+            review_value
+                .pointer("/review_document/runtime_evidence/side_effect_result_count")
+                .and_then(Value::as_u64),
+            Some(3)
+        );
+        assert!(output
+            .report_html
+            .contains("<span>Side effects</span><strong>3</strong>"));
+        assert!(output.report_html.contains("outputs/summary.txt"));
         assert!(output.output_manifest_path.exists());
         assert_eq!(second_output.csv_export_paths.len(), 1);
     }

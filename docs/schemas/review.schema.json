@@ -250,9 +250,22 @@
       "properties": {
         "format": { "const": "eng-review-document-preview-1" },
         "status": {
-          "enum": ["metadata_ready", "warnings_present", "diagnostics_present"]
+          "enum": [
+            "metadata_ready",
+            "warnings_present",
+            "diagnostics_present",
+            "runtime_ready",
+            "runtime_issues"
+          ]
         },
         "workflow_signature": { "type": "string" },
+        "semantic_hash": { "type": "string" },
+        "semantic_hash_scope": { "const": "runtime_enriched" },
+        "section_hashes": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "runtime_evidence": { "$ref": "#/$defs/reviewRuntimeEvidence" },
         "root_contract": { "$ref": "#/$defs/reviewRootContract" },
         "workflow_modules": {
           "type": "array",
@@ -669,7 +682,124 @@
         "kind": { "type": "string" },
         "target": { "type": "string" },
         "status": { "type": "string" },
-        "line": { "type": "integer", "minimum": 1 }
+        "line": { "type": "integer", "minimum": 1 },
+        "runtime_result": { "$ref": "#/$defs/reviewSideEffectRuntimeResult" }
+      }
+    },
+    "reviewRuntimeEvidence": {
+      "type": "object",
+      "properties": {
+        "status": { "enum": ["runtime_ready", "runtime_issues"] },
+        "resolved_input_count": { "type": "integer", "minimum": 0 },
+        "schema_result_count": { "type": "integer", "minimum": 0 },
+        "numeric_value_count": { "type": "integer", "minimum": 0 },
+        "table_count": { "type": "integer", "minimum": 0 },
+        "timeseries_count": { "type": "integer", "minimum": 0 },
+        "timeseries_coverage_count": { "type": "integer", "minimum": 0 },
+        "symbol_result_count": { "type": "integer", "minimum": 0 },
+        "time_axis_count": { "type": "integer", "minimum": 0 },
+        "calculation_result_count": { "type": "integer", "minimum": 0 },
+        "table_transform_count": { "type": "integer", "minimum": 0 },
+        "report_output_count": { "type": "integer", "minimum": 0 },
+        "validation_count": { "type": "integer", "minimum": 0 },
+        "side_effect_result_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "reviewSideEffectRuntimeResult": {
+      "oneOf": [
+        { "$ref": "#/$defs/reviewArtifactSideEffectResult" },
+        { "$ref": "#/$defs/reviewDbWriteSideEffectResult" }
+      ]
+    },
+    "reviewArtifactSideEffectResult": {
+      "type": "object",
+      "required": [
+        "provenance",
+        "artifact_kind",
+        "artifact_class",
+        "artifact_path",
+        "hash",
+        "status",
+        "validation"
+      ],
+      "properties": {
+        "provenance": { "const": "runtime_artifact_record" },
+        "artifact_kind": { "type": "string" },
+        "artifact_class": { "type": "string" },
+        "artifact_path": { "type": "string" },
+        "hash": { "type": "string" },
+        "overwrite_policy": { "type": ["string", "null"] },
+        "status": { "type": "string" },
+        "validation": { "$ref": "#/$defs/reviewArtifactValidation" }
+      }
+    },
+    "reviewDbWriteSideEffectResult": {
+      "type": "object",
+      "required": [
+        "provenance",
+        "artifact_kind",
+        "binding",
+        "database",
+        "manifest_path",
+        "manifest_hash",
+        "transaction_status",
+        "schema_status",
+        "table_count",
+        "row_count",
+        "tables",
+        "status",
+        "validation"
+      ],
+      "properties": {
+        "provenance": { "const": "runtime_db_write" },
+        "artifact_kind": { "const": "db_write_manifest" },
+        "binding": { "type": "string" },
+        "database": { "type": ["string", "null"] },
+        "manifest_path": { "type": "string" },
+        "manifest_hash": { "type": ["string", "null"] },
+        "database_hash_before": { "type": ["string", "null"] },
+        "database_hash_after": { "type": ["string", "null"] },
+        "transaction_status": { "type": ["string", "null"] },
+        "schema_status": { "type": ["string", "null"] },
+        "table_count": { "type": "integer", "minimum": 0 },
+        "row_count": { "type": "integer", "minimum": 0 },
+        "tables": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reviewDbWriteSideEffectTable" }
+        },
+        "diagnostic_count": { "type": "integer", "minimum": 0 },
+        "diagnostics": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "status": { "type": "string" },
+        "validation": { "$ref": "#/$defs/reviewArtifactValidation" }
+      }
+    },
+    "reviewDbWriteSideEffectTable": {
+      "type": "object",
+      "required": ["name", "mode", "key", "schema", "row_count"],
+      "properties": {
+        "name": { "type": "string" },
+        "mode": { "type": "string" },
+        "key": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "schema": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "row_count": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "reviewArtifactValidation": {
+      "type": "object",
+      "required": ["status", "rule", "message"],
+      "properties": {
+        "status": { "type": "string" },
+        "rule": { "type": "string" },
+        "message": { "type": "string" }
       }
     },
     "reviewExternalBoundary": {
@@ -885,7 +1015,7 @@
       "type": "object",
       "required": ["format", "path", "expression", "quantity_kind", "display_unit", "line"],
       "properties": {
-        "format": { "enum": ["text", "json"] },
+        "format": { "enum": ["text", "json", "standard_text", "db"] },
         "path": { "type": "string" },
         "expression": { "type": "string" },
         "quantity_kind": { "type": "string" },

@@ -8,7 +8,8 @@ semantic diff payload. Saved runs enrich the same ReviewDocument rows with
 runtime values and statuses, and the native IDE exposes baseline selection plus
 section-hash and item-level comparison. Runtime-generated `report.html`
 validates the final saved document and displays the same fingerprint, core
-runtime evidence, TimeSeries/coverage counts, and validation outcomes.
+runtime evidence, TimeSeries/coverage counts, generated-file and DB-write
+side-effect evidence, and validation outcomes.
 
 ## Core Principle
 
@@ -104,8 +105,11 @@ table, TimeSeries, coverage, source-derived time-axis, calculation, transform,
 output, and validation rows with values, statuses, and source/hash evidence.
 Table, TimeSeries, and coverage values are projected consistently across their
 matching units/quantity, symbol, derived-value, and calculation rows.
-Specialized solver, assembly, model, and DB record families remain follow-up
-runtime projection work.
+Generated-file side effects add artifact kind/path/hash evidence. Native
+SQLite write side effects add database and manifest paths/hashes, transaction
+and schema status, table schemas, and row counts. Specialized solver,
+assembly, model, and non-write DB record families remain follow-up runtime
+projection work.
 
 ## Root Workflow Review Contract
 
@@ -205,8 +209,9 @@ risk and fallback entries
 from that document, adds `runtime_result` to matching normalized rows in
 inputs, schemas, units/quantities, symbols, time axes, calculations, table
 transforms, report outputs, and validations, and records aggregate
-`runtime_evidence`. Runtime updates to boundaries, side effects, caches, and
-fallbacks remain in their existing normalized rows.
+`runtime_evidence`. Generated-file and DB-write side effects receive the
+same nested `runtime_result` contract in their existing normalized rows;
+boundaries, caches, and fallbacks retain their current enrichment shapes.
 
 The runtime finalizer compares each normalized section with the static
 baseline. It preserves static hashes for unchanged sections, refreshes only
@@ -255,11 +260,12 @@ Runtime report generation consumes either a full `review.json` wrapper or a
 bare validated ReviewDocument through the compiler-owned extractor. The saved
 run path passes the final enriched wrapper, so the HTML Review fingerprint
 matches `review.json.review_document.semantic_hash`. Its Runtime Review
-table displays normalized result/evidence/status rows, and its Validations
-table uses the normalized full expression and runtime result instead of the
-parallel ReportSpec validation list. Specialized report panels continue to use
-their existing typed ReportSpec records until corresponding ReviewDocument
-rows are complete.
+table displays normalized result/evidence/status rows, including side-effect
+artifact and SQLite table/row evidence plus an aggregate side-effect count.
+Its Validations table uses the normalized full expression and runtime result
+instead of the parallel ReportSpec validation list. Specialized report panels
+continue to use their existing typed ReportSpec records until corresponding
+ReviewDocument rows are complete.
 
 The current native IDE Review inspector consumes `review_document` directly for
 root counts, semantic hashes, runtime inputs and values, variables/symbols,
