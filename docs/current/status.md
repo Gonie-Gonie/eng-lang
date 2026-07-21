@@ -137,8 +137,8 @@ review material. It is not a broad solver claim.
   declaration forms may be interleaved; fast and explicit declarations may also
   switch style inside the suffix. Any declaration form may use one or more
   preserved imported scalar calls directly or as arithmetic operands when argument
-  counts and dimensions match; explicit and `const` result dimensions must match
-  their annotations.
+  counts and dimensions match. Those calls may nest recursively inside scalar
+  arguments; explicit and `const` result dimensions must match their annotations.
   This repairs absolute spans and line numbers
   after variable-width, inserted, or removed standalone trivia and suffix
   line-ending changes. Coordinated declaration and alias renames are accepted when
@@ -157,8 +157,8 @@ review material. It is not a broad solver claim.
   Token-bearing
   non-declaration lines, incomplete or duplicate renames, forward or unresolved
   references,
-  dimensionally incompatible arithmetic, unsupported calls or calls nested inside
-  function arguments, workflow expressions, diagnostics,
+  dimensionally incompatible arithmetic, invalid or unsupported calls, workflow
+  expressions, diagnostics,
   static imports that contribute non-scalar functions or other definitions,
   import-line edits, imports inside the affected suffix, caches, and richer
   language use full analysis.

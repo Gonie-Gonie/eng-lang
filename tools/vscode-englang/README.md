@@ -26,10 +26,10 @@ embedding compiler logic in JavaScript.
   shared suffix supports literals, backward aliases, pure registered-unit arithmetic,
   and one or more dimension-valid imported scalar function calls as direct values or
   arithmetic operands on every declaration form, with explicit and `const`
-  result-dimension matching,
+  result-dimension matching and recursive scalar-call arguments,
   plus coordinated edits, additions/removals, resized/inserted/removed standalone
-  trivia, and line-ending shifts, with full-analysis fallback for calls nested inside
-  function arguments and other constructs
+  trivia, and line-ending shifts, with full-analysis fallback for invalid,
+  non-scalar, and other unsupported constructs
 - debounced diagnostics for unsaved buffers after a short typing pause,
   including open dependent EngLang files when an imported buffer changes
 - debounced role-aware color refresh and stale decoration clearing across open
@@ -255,7 +255,8 @@ that suffix once. All three declaration forms may be interleaved; fast and
 explicit declarations may also switch style inside the affected suffix. Any
 declaration form may use one or more preserved imported scalar calls as direct values
 or arithmetic operands when argument counts and dimensions match; explicit and
-`const` results must match the declared quantity. This
+`const` results must match the declared quantity. Registered scalar calls may nest
+recursively inside compatible scalar arguments. This
 repairs absolute source spans and line numbers when comments or blank lines are
 resized, inserted, or removed, or when suffix line endings change. Coordinated declaration and alias
 renames are accepted when names remain unique and references resolve backward in
@@ -275,9 +276,8 @@ dimensions use registered declaration-name disambiguation (for example,
 temperature deltas and ratios), then retain a compatible operand type when the
 quantity family is otherwise ambiguous.
 Token-bearing non-declaration lines, incomplete or duplicate renames, forward or
-unresolved references, dimensionally incompatible arithmetic, unsupported calls or
-calls nested inside function arguments, non-scalar constants or functions, workflow
-expressions, diagnostics, other
+unresolved references, dimensionally incompatible arithmetic, invalid or unsupported
+calls, non-scalar constants or functions, workflow expressions, diagnostics, other
 imported definitions, import-line edits, imports inside the affected suffix,
 caches, and richer language run a full compiler analysis.
 Changing an open import hard-invalidates its recursive open dependents, while

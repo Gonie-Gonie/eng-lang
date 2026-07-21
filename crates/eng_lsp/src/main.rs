@@ -11061,9 +11061,9 @@ fn keep_ratio(value: Ratio [1]) -> Ratio [1] {
             .expect("static scalar module should be written");
         let path = root.join("current.eng");
         let initial_source = r#"use "shared.eng"
-base = double_length(shared_length) + shared_length
-const local_factor: Ratio [1] = keep_ratio(0.5) * shared_factor
-adjusted: Length [m] = double_length(base * local_factor) + shared_length
+base = double_length(double_length(shared_length)) + shared_length
+const local_factor: Ratio [1] = keep_ratio(keep_ratio(0.5)) * shared_factor
+adjusted: Length [m] = double_length(double_length(base * local_factor)) + shared_length
 "#;
         std::fs::write(&path, initial_source).expect("importing source should be written");
         let module_path = module_path
@@ -11106,10 +11106,10 @@ adjusted: Length [m] = double_length(base * local_factor) + shared_length
         assert_eq!(documents[&uri].scalar_binding_reuse_count(), 0);
 
         let changed_source = r#"use "shared.eng"
-base = double_length(shared_length) + shared_length
-const local_factor: Ratio [1] = keep_ratio(0.75) * shared_factor
-adjusted: Length [cm] = double_length(base * local_factor) + shared_length
-total = double_length(adjusted) + shared_length
+base = double_length(double_length(shared_length)) + shared_length
+const local_factor: Ratio [1] = keep_ratio(keep_ratio(0.75)) * shared_factor
+adjusted: Length [cm] = double_length(double_length(base * local_factor)) + shared_length
+total = double_length(double_length(adjusted)) + shared_length
 "#;
         let changed_notification = json!({
             "method": "textDocument/didChange",
@@ -11178,10 +11178,10 @@ fn keep_ratio(value: Ratio [1]) -> Ratio [1] {
         );
 
         let resumed_source = r#"use "shared.eng"
-base = double_length(shared_length) + shared_length
-const local_factor: Ratio [1] = keep_ratio(0.9) * shared_factor
-adjusted: Length [cm] = double_length(base * local_factor) + shared_length
-total = double_length(adjusted) + shared_length
+base = double_length(double_length(shared_length)) + shared_length
+const local_factor: Ratio [1] = keep_ratio(keep_ratio(0.9)) * shared_factor
+adjusted: Length [cm] = double_length(double_length(base * local_factor)) + shared_length
+total = double_length(double_length(adjusted)) + shared_length
 "#;
         let resumed_notification = json!({
             "method": "textDocument/didChange",

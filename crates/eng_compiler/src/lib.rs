@@ -626,9 +626,9 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// be interleaved; fast and explicit declarations may also change style inside the affected suffix.
 /// Expressions are limited to numeric literals, backward aliases, and pure scalar `+`, `-`, `*`,
 /// and `/` arithmetic over registered-unit literals, parentheses, earlier scalar declarations, and
-/// direct dimension-valid calls to unchanged imported pure scalar functions. Explicit and `const`
-/// result dimensions must match their annotations. Calls nested inside function arguments still
-/// fall back.
+/// dimension-valid calls to unchanged imported pure scalar functions, including recursively nested
+/// scalar calls in function arguments. Explicit and `const` result dimensions must match their
+/// annotations.
 /// The compiler preserves all records before the first declaration at or after the first raw-line
 /// difference, verifies the old suffix against the prior report, then patches inferred, constant,
 /// expected, typed, hover, type-info, unit-derivation, syntax, and workflow records as one
@@ -11009,7 +11009,7 @@ fn add_lengths(left: Length [m], right: Length [m]) -> Length [m] {
     sum = left + right
     return sum
 }
-const imported_adjusted: Length [m] = add_lengths(imported_length, imported_length) * imported_factor
+const imported_adjusted: Length [m] = add_lengths(add_lengths(imported_length, imported_length), imported_length) * imported_factor
 "#,
         )
         .expect("shared module should be written");
@@ -11017,17 +11017,17 @@ const imported_adjusted: Length [m] = add_lengths(imported_length, imported_leng
         let previous_source = r#"use "shared.eng"
 use eng.stats
 # root scalar declarations
-base = add_lengths(imported_adjusted, imported_length) + imported_length
+base = add_lengths(add_lengths(imported_adjusted, imported_length), imported_length) + imported_length
 const local_factor: Ratio [1] = 0.5
-adjusted: Length [m] = add_lengths(base, imported_length) * local_factor
+adjusted: Length [m] = add_lengths(add_lengths(base, imported_length), imported_length) * local_factor
 "#;
         let source = r#"use "shared.eng"
 use eng.stats
 # root scalar declarations
-base = add_lengths(imported_adjusted, imported_length) + imported_length
+base = add_lengths(add_lengths(imported_adjusted, imported_length), imported_length) + imported_length
 const local_factor: Ratio [1] = 0.75
-adjusted: Length [cm] = add_lengths(base, imported_length) * local_factor
-total = add_lengths(adjusted, imported_length) + add_lengths(base, imported_length)
+adjusted: Length [cm] = add_lengths(add_lengths(base, imported_length), imported_length) * local_factor
+total = add_lengths(add_lengths(adjusted, imported_length), imported_length) + add_lengths(base, imported_length)
 "#;
         std::fs::write(&main_path, previous_source).expect("root module should be written");
         let previous = check_source(&main_path, previous_source, &CheckOptions::default());
@@ -11044,7 +11044,7 @@ total = add_lengths(adjusted, imported_length) + add_lengths(base, imported_leng
             .iter()
             .all(|constant| !constant.span.is_root_source()));
         assert!(semantic::supports_incremental_fast_binding_expression(
-            "add_lengths(imported_adjusted, imported_length) + imported_length",
+            "add_lengths(add_lengths(imported_adjusted, imported_length), imported_length) + imported_length",
             &previous.semantic_program.typed_bindings[..3],
             &previous.semantic_program.functions,
         ));
@@ -11091,13 +11091,13 @@ total = add_lengths(adjusted, imported_length) + add_lengths(base, imported_leng
             report_shape,
         ));
         assert!(semantic::supports_incremental_annotated_scalar_expression(
-            "add_lengths(base, imported_length) * local_factor",
+            "add_lengths(add_lengths(base, imported_length), imported_length) * local_factor",
             "Length",
             &previous.semantic_program.typed_bindings[..5],
             &previous.semantic_program.functions,
         ));
         assert!(semantic::supports_incremental_fast_binding_expression(
-            "add_lengths(adjusted, imported_length) + add_lengths(base, imported_length)",
+            "add_lengths(add_lengths(adjusted, imported_length), imported_length) + add_lengths(base, imported_length)",
             &previous.semantic_program.typed_bindings,
             &previous.semantic_program.functions,
         ));
@@ -11179,8 +11179,8 @@ use eng.stats
         let restarted_source = r#"use "shared.eng"
 use eng.stats
 # root scalar declarations cleared
-copied_length = add_lengths(imported_adjusted, imported_length) + imported_length
-result: Length [m] = add_lengths(copied_length, imported_length) + imported_length
+copied_length = add_lengths(add_lengths(imported_adjusted, imported_length), imported_length)
+result: Length [m] = add_lengths(add_lengths(copied_length, imported_length), imported_length) + imported_length
 "#;
         let restarted = recheck_scalar_declaration_suffix_incrementally(
             &cleared,
@@ -11192,10 +11192,10 @@ result: Length [m] = add_lengths(copied_length, imported_length) + imported_leng
         assert_fresh_equivalent(&restarted, &restarted_fresh, restarted_source);
 
         let fast_previous_source = r#"use "shared.eng"
-fast_result = add_lengths(imported_adjusted, imported_length) + imported_length
+fast_result = add_lengths(add_lengths(imported_adjusted, imported_length), imported_length)
 "#;
         let fast_source = r#"use "shared.eng"
-fast_result = add_lengths(imported_length, imported_length) + add_lengths(imported_adjusted, imported_length)
+fast_result = add_lengths(add_lengths(imported_length, imported_length), imported_adjusted) + imported_length
 "#;
         let fast_previous =
             check_source(&main_path, fast_previous_source, &CheckOptions::default());
@@ -11219,11 +11219,11 @@ fast_result = add_lengths(imported_length, imported_length) + add_lengths(import
             ),
             previous_source.replace(
                 "add_lengths(imported_adjusted, imported_length)",
-                "add_lengths(add_lengths(imported_adjusted, imported_length), imported_length)",
+                "add_lengths(missing_length(imported_adjusted), imported_length)",
             ),
             previous_source.replace(
-                "add_lengths(imported_adjusted, imported_length) + imported_length",
-                "add_lengths(imported_adjusted, imported_length) + * imported_length",
+                "add_lengths(add_lengths(imported_adjusted, imported_length), imported_length) + imported_length",
+                "add_lengths(add_lengths(imported_adjusted, imported_length), imported_length) + * imported_length",
             ),
         ] {
             assert!(
@@ -11233,15 +11233,15 @@ fast_result = add_lengths(imported_length, imported_length) + add_lengths(import
                     &unsupported_call,
                 )
                 .is_none(),
-                "invalid or nested scalar function call should use a full check: {unsupported_call:?}"
+                "invalid scalar function call should use a full check: {unsupported_call:?}"
             );
         }
 
         let explicit_previous_source = r#"use "shared.eng"
-explicit_result: Length [m] = add_lengths(imported_adjusted, imported_length) + imported_length
+explicit_result: Length [m] = add_lengths(add_lengths(imported_adjusted, imported_length), imported_length) + imported_length
 "#;
         let explicit_source = r#"use "shared.eng"
-explicit_result: Length [cm] = add_lengths(imported_length, imported_length) + add_lengths(imported_adjusted, imported_length)
+explicit_result: Length [cm] = add_lengths(add_lengths(imported_length, imported_length), imported_adjusted) + imported_length
 "#;
         let explicit_previous = check_source(
             &main_path,
@@ -11265,12 +11265,12 @@ explicit_result: Length [cm] = add_lengths(imported_length, imported_length) + a
             explicit_previous_source
                 .replace("explicit_result: Length [m]", "explicit_result: Ratio [1]"),
             explicit_previous_source.replace(
-                "add_lengths(imported_adjusted, imported_length) + imported_length",
-                "add_lengths(imported_adjusted, imported_length) + imported_factor",
+                "add_lengths(add_lengths(imported_adjusted, imported_length), imported_length) + imported_length",
+                "add_lengths(add_lengths(imported_adjusted, imported_length), imported_length) + imported_factor",
             ),
             explicit_previous_source.replace(
                 "add_lengths(imported_adjusted, imported_length)",
-                "add_lengths(add_lengths(imported_adjusted, imported_length), imported_length)",
+                "add_lengths(missing_length(imported_adjusted), imported_length)",
             ),
         ] {
             assert!(
@@ -11280,15 +11280,15 @@ explicit_result: Length [cm] = add_lengths(imported_length, imported_length) + a
                     &unsupported_explicit_call,
                 )
                 .is_none(),
-                "invalid or nested explicit scalar call should use a full check: {unsupported_explicit_call:?}"
+                "invalid explicit scalar call should use a full check: {unsupported_explicit_call:?}"
             );
         }
 
         let const_call_previous_source = r#"use "shared.eng"
-const const_result: Length [m] = add_lengths(imported_adjusted, imported_length) + imported_length
+const const_result: Length [m] = add_lengths(add_lengths(imported_adjusted, imported_length), imported_length) + imported_length
 "#;
         let const_call_source = r#"use "shared.eng"
-const const_result: Length [cm] = add_lengths(imported_length, imported_length) + add_lengths(imported_adjusted, imported_length)
+const const_result: Length [cm] = add_lengths(add_lengths(imported_length, imported_length), imported_adjusted) + imported_length
 "#;
         let const_call_previous = check_source(
             &main_path,
@@ -11316,12 +11316,12 @@ const const_result: Length [cm] = add_lengths(imported_length, imported_length) 
                 "const const_result: Ratio [1]",
             ),
             const_call_previous_source.replace(
-                "add_lengths(imported_adjusted, imported_length) + imported_length",
-                "add_lengths(imported_adjusted, imported_length) + imported_factor",
+                "add_lengths(add_lengths(imported_adjusted, imported_length), imported_length) + imported_length",
+                "add_lengths(add_lengths(imported_adjusted, imported_length), imported_length) + imported_factor",
             ),
             const_call_previous_source.replace(
                 "add_lengths(imported_adjusted, imported_length)",
-                "add_lengths(add_lengths(imported_adjusted, imported_length), imported_length)",
+                "add_lengths(missing_length(imported_adjusted), imported_length)",
             ),
         ] {
             assert!(
@@ -11331,7 +11331,7 @@ const const_result: Length [cm] = add_lengths(imported_length, imported_length) 
                     &unsupported_const_call,
                 )
                 .is_none(),
-                "invalid or nested const scalar call should use a full check: {unsupported_const_call:?}"
+                "invalid const scalar call should use a full check: {unsupported_const_call:?}"
             );
         }
 
@@ -19706,14 +19706,15 @@ write csv "outputs/q.csv", Q
                 "}\n",
                 "base = 2 m\n",
                 "offset = 1 m\n",
-                "combined = add_lengths(base, offset) + add_lengths(offset, base)\n",
-                "scaled = add_lengths(base, offset) * 0.5\n",
+                "nested = add_lengths(add_lengths(base, offset), offset)\n",
+                "combined = add_lengths(add_lengths(base, offset), offset) + add_lengths(offset, base)\n",
+                "scaled = add_lengths(add_lengths(base, offset), offset) * 0.5\n",
             ),
             &CheckOptions::default(),
         );
 
         assert!(!report.has_errors(), "{:#?}", report.diagnostics);
-        for name in ["combined", "scaled"] {
+        for name in ["nested", "combined", "scaled"] {
             let declaration = report
                 .inferred_declarations
                 .iter()
@@ -19722,6 +19723,35 @@ write csv "outputs/q.csv", Q
             assert_eq!(declaration.quantity_kind, "Length");
             assert_eq!(declaration.display_unit, "m");
         }
+    }
+
+    #[test]
+    fn rejects_invalid_nested_scalar_function_calls() {
+        let report = check_source(
+            "invalid-nested-function.eng",
+            concat!(
+                "fn add_lengths(left: Length [m], right: Length [m]) -> Length [m] {\n",
+                "    return left + right\n",
+                "}\n",
+                "base = 2 m\n",
+                "factor = 0.5\n",
+                "wrong_dimension = add_lengths(add_lengths(base, factor), base)\n",
+                "unknown_nested = add_lengths(missing_length(base), base)\n",
+            ),
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert_eq!(
+            report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == "E-FN-CALL-003")
+                .count(),
+            2,
+            "{:#?}",
+            report.diagnostics
+        );
     }
 
     #[test]

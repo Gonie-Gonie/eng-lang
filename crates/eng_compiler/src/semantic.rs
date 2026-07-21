@@ -1059,10 +1059,10 @@ pub(crate) struct IncrementalScalarDeclarationAnalysis {
 /// registered-unit literals and backward scalar references. Any declaration form may also use one
 /// or more trusted imported pure scalar calls as direct values or arithmetic operands when every
 /// argument resolves against that environment; explicit and `const` declarations additionally
-/// require a result dimension that matches their annotation. The arithmetic grammar is shared with
-/// component parameter validation; calls nested inside arguments, workflow expressions, and
-/// non-scalar functions cannot enter this local semantic path. An empty suffix is accepted so the
-/// caller can remove the final affected declarations atomically.
+/// require a result dimension that matches their annotation. Scalar calls may nest recursively
+/// inside other scalar-call arguments. The arithmetic grammar is shared with component parameter
+/// validation; workflow expressions and non-scalar functions cannot enter this local semantic path.
+/// An empty suffix is accepted so the caller can remove the final affected declarations atomically.
 pub(crate) fn analyze_incremental_scalar_declarations(
     program: &ParsedProgram,
     prefix_typed_bindings: &[TypedBinding],
@@ -1296,7 +1296,13 @@ fn incremental_scalar_function_call<'a>(
     let function =
         registered_scalar_function(&call.name, functions, ScalarFunctionTrust::UnitConsistent)?;
     (call.args.len() == function.parameters.len()
-        && function_call_args_dimensionally_valid(&call, function, available_bindings))
+        && function_call_args_dimensionally_valid(
+            &call,
+            function,
+            available_bindings,
+            functions,
+            ScalarFunctionTrust::UnitConsistent,
+        ))
     .then_some(function)
 }
 
@@ -1344,16 +1350,27 @@ fn evaluate_scalar_arithmetic_expression(
     functions: &[FunctionInfo],
     function_trust: ScalarFunctionTrust,
 ) -> Option<(ComponentParameterExpressionValue, Vec<SemanticType>, usize)> {
+    let (value, referenced_types, function_call_count, saw_operator) =
+        evaluate_scalar_expression(expression, available_bindings, functions, function_trust)?;
+    saw_operator.then_some((value, referenced_types, function_call_count))
+}
+
+fn evaluate_scalar_expression(
+    expression: &str,
+    available_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    function_trust: ScalarFunctionTrust,
+) -> Option<(
+    ComponentParameterExpressionValue,
+    Vec<SemanticType>,
+    usize,
+    bool,
+)> {
     let Ok(tokens) = tokenize_component_parameter_expression(expression, &[], 0) else {
         return None;
     };
-    let (tokens, referenced_types, function_call_count) = resolve_scalar_expression_tokens(
-        &tokens,
-        available_bindings,
-        functions,
-        function_trust,
-        true,
-    )?;
+    let (tokens, referenced_types, function_call_count) =
+        resolve_scalar_expression_tokens(&tokens, available_bindings, functions, function_trust)?;
     let saw_operator = tokens.iter().any(|token| {
         matches!(
             token,
@@ -1363,12 +1380,8 @@ fn evaluate_scalar_arithmetic_expression(
                 | ComponentParameterExpressionToken::Slash
         )
     });
-    if !saw_operator {
-        return None;
-    }
-
     let value = parse_scalar_expression_tokens(tokens)?;
-    Some((value, referenced_types, function_call_count))
+    Some((value, referenced_types, function_call_count, saw_operator))
 }
 
 fn resolve_scalar_expression_tokens(
@@ -1376,7 +1389,6 @@ fn resolve_scalar_expression_tokens(
     available_bindings: &[TypedBinding],
     functions: &[FunctionInfo],
     function_trust: ScalarFunctionTrust,
-    allow_function_calls: bool,
 ) -> Option<(
     Vec<ComponentParameterExpressionToken>,
     Vec<SemanticType>,
@@ -1394,9 +1406,6 @@ fn resolve_scalar_expression_tokens(
                     Some(ComponentParameterExpressionToken::LeftParen)
                 ) =>
             {
-                if !allow_function_calls {
-                    return None;
-                }
                 let close_index = matching_scalar_token_paren(tokens, index + 1)?;
                 let function = registered_scalar_function(name, functions, function_trust)?;
                 let argument_tokens =
@@ -1411,16 +1420,13 @@ fn resolve_scalar_expression_tokens(
                             available_bindings,
                             functions,
                             function_trust,
-                            false,
                         )?;
-                    if nested_call_count != 0 {
-                        return None;
-                    }
                     let argument = parse_scalar_expression_tokens(argument)?;
                     if !dimensions_compatible(&parameter.dimension, &argument.dimension) {
                         return None;
                     }
                     referenced_types.append(&mut argument_types);
+                    function_call_count = function_call_count.checked_add(nested_call_count)?;
                 }
                 let return_type = semantic_type(
                     &function.return_quantity_kind,
@@ -7901,7 +7907,13 @@ fn function_call_semantic_type(
         .find(|function| function.name == call.name)?;
     let display_unit = function.return_display_unit.clone();
     if call.args.len() == function.parameters.len()
-        && function_call_args_dimensionally_valid(&call, function, typed_bindings)
+        && function_call_args_dimensionally_valid(
+            &call,
+            function,
+            typed_bindings,
+            functions,
+            ScalarFunctionTrust::DeclaredSignature,
+        )
     {
         return semantic_type(&function.return_quantity_kind, &display_unit);
     }
@@ -8024,7 +8036,12 @@ fn validate_function_call_expression(
         .zip(&function.parameters)
     {
         let arg_span = source_span_for_child_range(expression_span, arg_range.start, arg_range.end);
-        let Some(actual_dimension) = expression_dimension_for_bindings(arg, typed_bindings) else {
+        let Some(actual_dimension) = scalar_function_argument_dimension(
+            arg,
+            typed_bindings,
+            functions,
+            ScalarFunctionTrust::DeclaredSignature,
+        ) else {
             diagnostics.push(
                 Diagnostic::error(
                     "E-FN-CALL-003",
@@ -8033,7 +8050,9 @@ fn validate_function_call_expression(
                         "Argument `{arg}` for `{}` could not be type-checked.",
                         function.name
                     ),
-                    Some("Use a typed binding, a literal with units, or a compatible expression."),
+                    Some(
+                        "Use a typed binding, a unit-bearing literal, compatible scalar arithmetic, or a valid scalar function call.",
+                    ),
                 )
                 .with_source_span(arg_span),
             );
@@ -8064,14 +8083,46 @@ fn function_call_args_dimensionally_valid(
     call: &FunctionCall,
     function: &FunctionInfo,
     typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    function_trust: ScalarFunctionTrust,
 ) -> bool {
     call.args
         .iter()
         .zip(&function.parameters)
         .all(|(arg, parameter)| {
-            expression_dimension_for_bindings(arg, typed_bindings)
+            scalar_function_argument_dimension(arg, typed_bindings, functions, function_trust)
                 .is_some_and(|dimension| dimensions_compatible(&parameter.dimension, &dimension))
         })
+}
+
+fn scalar_function_argument_dimension(
+    expression: &str,
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    function_trust: ScalarFunctionTrust,
+) -> Option<String> {
+    if let Some((value, _, _, _)) =
+        evaluate_scalar_expression(expression, typed_bindings, functions, function_trust)
+    {
+        return Some(value.dimension);
+    }
+
+    let tokens = tokenize_component_parameter_expression(expression, &[], 0).ok()?;
+    let has_non_legacy_call = tokens.windows(2).any(|tokens| {
+        let [
+            ComponentParameterExpressionToken::Identifier(name),
+            ComponentParameterExpressionToken::LeftParen,
+        ] = tokens
+        else {
+            return false;
+        };
+        functions.iter().any(|function| function.name == *name)
+            || !(DIMENSIONLESS_MATH_FUNCTIONS.contains(&name.as_str()) || name == "der")
+    });
+    if has_non_legacy_call {
+        return None;
+    }
+    expression_dimension_for_bindings(expression, typed_bindings)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
