@@ -86,6 +86,12 @@ Current coverage:
   table-transform row counts, and validation outcomes into matching normalized
   rows, then compare the static and runtime documents through the shared diff
   engine.
+- Report tests accept full and bare validated ReviewDocuments, reject incomplete
+  documents, prefer normalized validations over legacy ReportSpec validation
+  rows, and guard unit-safe runtime summaries. Runtime, artifact, and workflow
+  gates assert that `report.html` contains the same semantic fingerprint as
+  the final saved `review.json` plus the Runtime Review result/evidence
+  columns.
 - The example smoke runs `eng review --output`, `eng review --against`,
   and `eng review diff <old> <new>` through the built CLI binary. It asserts
   that `static_review.json` and `semantic_diff.json` are written and

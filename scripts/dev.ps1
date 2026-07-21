@@ -632,6 +632,30 @@ function Invoke-WorkflowsTest {
         if ($ProcessCount -ne 0 -or $ProcessListCount -ne 0) {
             throw "Native workflow smoke must not execute external processes: $Workflow"
         }
+        $RuntimeReportPath = Join-Path $RepoRoot "build\result\report.html"
+        $RuntimeReviewPath = Join-Path $RepoRoot "build\result\review.json"
+        if (-not (Test-Path -LiteralPath $RuntimeReportPath -PathType Leaf) -or -not (Test-Path -LiteralPath $RuntimeReviewPath -PathType Leaf)) {
+            throw "Native workflow smoke must write report.html and review.json: $Workflow"
+        }
+        $RuntimeReportHtml = Get-Content -LiteralPath $RuntimeReportPath -Raw
+        $RuntimeReviewData = Get-Content -LiteralPath $RuntimeReviewPath -Raw | ConvertFrom-Json
+        $RuntimeReviewFingerprint = [string]$RuntimeReviewData.review_document.semantic_hash
+        if ([string]::IsNullOrWhiteSpace($RuntimeReviewFingerprint)) {
+            throw "Native workflow ReviewDocument must expose a semantic fingerprint: $Workflow"
+        }
+        foreach ($RequiredRuntimeReportToken in @(
+            "<h2>Runtime Review</h2>",
+            "Review fingerprint <code>",
+            "<th>Runtime Result</th>",
+            "<th>Evidence</th>"
+        )) {
+            if (-not $RuntimeReportHtml.Contains($RequiredRuntimeReportToken)) {
+                throw "Native workflow report.html missing ReviewDocument token '$RequiredRuntimeReportToken': $Workflow"
+            }
+        }
+        if (-not $RuntimeReportHtml.Contains($RuntimeReviewFingerprint)) {
+            throw "Native workflow report.html fingerprint must match the saved ReviewDocument: $Workflow"
+        }
         foreach ($NativeWorkflowArtifactTextPath in @(
             (Join-Path $RepoRoot "build\result\result.engres"),
             (Join-Path $RepoRoot "build\result\review.json"),
@@ -3493,6 +3517,27 @@ function Invoke-ArtifactsCheck {
         Write-Host "Cargo not found. Run .\dev.bat setup."
         exit 1
     }
+    $ReportSource = Get-Content -LiteralPath (Join-Path $RepoRoot "crates\eng_report\src\lib.rs") -Raw
+    foreach ($RequiredReportReviewToken in @(
+        "pub fn render_html_with_spec_and_review_document",
+        "extract_review_document(review_input)?",
+        "render_review_document_section",
+        "render_review_validations_section",
+        "Review fingerprint"
+    )) {
+        if (-not $ReportSource.Contains($RequiredReportReviewToken)) {
+            throw "Report HTML ReviewDocument contract missing token $RequiredReportReviewToken"
+        }
+    }
+    $RuntimeSource = Get-Content -LiteralPath (Join-Path $RepoRoot "crates\eng_runtime\src\lib.rs") -Raw
+    foreach ($RequiredRuntimeReportToken in @(
+        "let report_review: Value = serde_json::from_str(&review_json)?;",
+        "eng_report::render_html_with_spec_and_review_document"
+    )) {
+        if (-not $RuntimeSource.Contains($RequiredRuntimeReportToken)) {
+            throw "Runtime must render report.html from the final ReviewDocument; missing token $RequiredRuntimeReportToken"
+        }
+    }
     Invoke-Native $cargo "build" "-p" "eng_cli"
     $Eng = Join-Path $RepoRoot "target\debug\eng.exe"
 
@@ -3513,6 +3558,17 @@ function Invoke-ArtifactsCheck {
     Assert-ComponentSolverGolden $thermalAssemblyGolden $Eng
     Assert-ComponentSolverGolden $multiDomainGolden $Eng
     Assert-BehaviorNodesGolden $behaviorNodesGolden $Eng
+
+    $ArtifactReportPath = Join-Path $RepoRoot "build\result\report.html"
+    $ArtifactReviewPath = Join-Path $RepoRoot "build\result\review.json"
+    Assert-Artifact (Test-Path -LiteralPath $ArtifactReportPath -PathType Leaf) "Artifact check missing report.html"
+    Assert-Artifact (Test-Path -LiteralPath $ArtifactReviewPath -PathType Leaf) "Artifact check missing review.json"
+    $ArtifactReportHtml = Get-Content -LiteralPath $ArtifactReportPath -Raw
+    $ArtifactReview = Get-Content -LiteralPath $ArtifactReviewPath -Raw | ConvertFrom-Json
+    $ArtifactReviewFingerprint = [string]$ArtifactReview.review_document.semantic_hash
+    Assert-Artifact (-not [string]::IsNullOrWhiteSpace($ArtifactReviewFingerprint)) "Artifact ReviewDocument missing semantic fingerprint"
+    Assert-Artifact ($ArtifactReportHtml.Contains("<h2>Runtime Review</h2>")) "Artifact report.html missing Runtime Review section"
+    Assert-Artifact ($ArtifactReportHtml.Contains($ArtifactReviewFingerprint)) "Artifact report.html fingerprint must match review.json"
 
     Write-Host "Artifact check passed. Validated schema files and internal system artifact fixtures."
 }

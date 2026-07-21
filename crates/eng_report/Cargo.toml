@@ -8,6 +8,7 @@ repository.workspace = true
 [dependencies]
 eng_compiler = { path = "../eng_compiler" }
 eng_jit = { path = "../eng_jit" }
+serde_json = "1"
 
 [lib]
 path = "src/lib.rs"

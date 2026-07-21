@@ -6,7 +6,9 @@ inspector are the first supported normalized Review IR slice. `eng review
 --against` and `eng review diff <old> <new>` emit the same CLI item-level
 semantic diff payload. Saved runs enrich the same ReviewDocument rows with
 runtime values and statuses, and the native IDE exposes baseline selection plus
-section-hash and item-level comparison.
+section-hash and item-level comparison. Runtime-generated `report.html`
+validates the final saved document and displays the same fingerprint, core
+runtime evidence, and validation outcomes.
 
 ## Core Principle
 
@@ -97,8 +99,10 @@ The current compiler slice fills static meaning: source spans, declarations,
 quantities, schemas, time axes, report-output candidates, calculation trace
 fields, commands, options, validation expressions, process declarations,
 side-effect boundaries, fallbacks, risk levels, and semantic section hashes.
-Runtime can later fill values, statuses, hashes, process exit codes, generated
-outputs, test results, and profile diagnostics into the same document.
+Saved runs currently fill matching core input, schema, scalar, TimeSeries,
+calculation, transform, output, and validation rows with values, statuses, and
+source/hash evidence. Specialized solver, assembly, model, and DB record
+families remain follow-up runtime projection work.
 
 ## Root Workflow Review Contract
 
@@ -243,6 +247,16 @@ uncertainty panel
 risk and fallback panel
 semantic diff panel
 ```
+
+Runtime report generation consumes either a full `review.json` wrapper or a
+bare validated ReviewDocument through the compiler-owned extractor. The saved
+run path passes the final enriched wrapper, so the HTML Review fingerprint
+matches `review.json.review_document.semantic_hash`. Its Runtime Review
+table displays normalized result/evidence/status rows, and its Validations
+table uses the normalized full expression and runtime result instead of the
+parallel ReportSpec validation list. Specialized report panels continue to use
+their existing typed ReportSpec records until corresponding ReviewDocument
+rows are complete.
 
 The current native IDE Review inspector consumes `review_document` directly for
 root counts, semantic hashes, runtime inputs and values, variables/symbols,

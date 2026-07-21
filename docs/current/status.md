@@ -248,6 +248,9 @@ is not mistaken for public module support.
     nested runtime results for core inputs, schemas, scalar/TimeSeries values,
     calculations, table transforms, outputs, and validations, then refresh
     changed section hashes while preserving unchanged static hashes.
+    Runtime-generated `report.html` validates that final document and uses
+    it for the review fingerprint, core runtime result/evidence table, and full
+    validation expressions.
   - One compiler-owned item-level semantic diff payload is available through
     `eng review --against`, `eng review diff`, and the native IDE Review panel.
     Specialized solver, assembly, model, and DB runtime rows remain follow-up

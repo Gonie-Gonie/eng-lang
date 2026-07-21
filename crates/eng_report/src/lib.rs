@@ -1,5 +1,8 @@
-use eng_compiler::{CheckReport, DomainTypeParameterInfo, Severity};
+use eng_compiler::{
+    extract_review_document, CheckReport, DomainTypeParameterInfo, ReviewDocumentError, Severity,
+};
 use eng_jit::{candidate_executor_status, plan_for_report};
+use serde_json::Value;
 
 pub const REPORT_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const REPORT_SPEC_VERSION: u32 = 1;
@@ -6241,7 +6244,7 @@ fn push_report_kernel_plan_json(json: &mut String, plan: &ReportKernelPlan) {
 }
 
 pub fn render_html(report: &CheckReport, plot_relative_path: &str) -> String {
-    render_html_inner(report, plot_relative_path, None)
+    render_html_inner(report, plot_relative_path, None, None)
 }
 
 pub fn render_html_with_spec(
@@ -6249,13 +6252,29 @@ pub fn render_html_with_spec(
     plot_relative_path: &str,
     spec: &ReportSpec,
 ) -> String {
-    render_html_inner(report, plot_relative_path, Some(spec))
+    render_html_inner(report, plot_relative_path, Some(spec), None)
+}
+
+pub fn render_html_with_spec_and_review_document(
+    report: &CheckReport,
+    plot_relative_path: &str,
+    spec: &ReportSpec,
+    review_input: &Value,
+) -> Result<String, ReviewDocumentError> {
+    let review_document = extract_review_document(review_input)?;
+    Ok(render_html_inner(
+        report,
+        plot_relative_path,
+        Some(spec),
+        Some(review_document),
+    ))
 }
 
 fn render_html_inner(
     report: &CheckReport,
     plot_relative_path: &str,
     spec: Option<&ReportSpec>,
+    review_document: Option<&Value>,
 ) -> String {
     let title = html_escape(&format!(
         "EngLang Review - {}",
@@ -6979,7 +6998,13 @@ fn render_html_inner(
     let computed_metrics_section = spec
         .map(render_computed_metrics_section)
         .unwrap_or_default();
-    let validations_section = spec.map(render_validations_section).unwrap_or_default();
+    let review_document_section = review_document
+        .map(render_review_document_section)
+        .unwrap_or_default();
+    let validations_section = review_document.map_or_else(
+        || spec.map(render_validations_section).unwrap_or_default(),
+        render_review_validations_section,
+    );
     let quality_report_section = spec.map(render_quality_report_section).unwrap_or_default();
     let time_axes_section = spec.map(render_time_axes_section).unwrap_or_default();
     let time_alignments_section = spec.map(render_time_alignments_section).unwrap_or_default();
@@ -7050,6 +7075,7 @@ fn render_html_inner(
       border-bottom: 1px solid #e7ebf0;
       padding: 10px 12px;
       vertical-align: top;
+      overflow-wrap: anywhere;
     }}
     th {{
       background: #eef2f7;
@@ -7057,6 +7083,9 @@ fn render_html_inner(
     }}
     code {{
       font-family: Consolas, "SFMono-Regular", monospace;
+    }}
+    .review-fingerprint {{
+      overflow-wrap: anywhere;
     }}
     .plot {{
       width: 100%;
@@ -7102,6 +7131,7 @@ fn render_html_inner(
       <div class="metric"><span>Compiler</span><strong>{compiler_version}</strong></div>
       <div class="metric"><span>Report</span><strong>{report_version}</strong></div>
     </section>
+    {review_document_section}
     <h2>Args Metadata</h2>
     <table>
       <thead><tr><th>Line</th><th>Struct</th><th>Field</th><th>Type</th><th>Default</th><th>Required</th></tr></thead>
@@ -7225,6 +7255,279 @@ fn render_html_inner(
         source_hash = html_escape(&report.source_hash),
         compiler_version = html_escape(eng_compiler::COMPILER_VERSION),
         report_version = html_escape(REPORT_VERSION)
+    )
+}
+
+fn review_document_array<'a>(document: &'a Value, key: &str) -> &'a [Value] {
+    document
+        .get(key)
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or(&[])
+}
+
+fn review_text<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
+    value.get(key).and_then(Value::as_str)
+}
+
+fn review_scalar_text(value: Option<&Value>) -> String {
+    match value {
+        Some(Value::String(value)) => value.clone(),
+        Some(Value::Number(value)) => value.to_string(),
+        Some(Value::Bool(value)) => value.to_string(),
+        _ => "-".to_owned(),
+    }
+}
+
+fn review_runtime_result(item: &Value) -> Option<&Value> {
+    item.get("runtime_result").filter(|value| value.is_object())
+}
+
+fn review_runtime_status(item: &Value) -> &str {
+    review_runtime_result(item)
+        .and_then(|result| review_text(result, "status"))
+        .or_else(|| review_text(item, "status"))
+        .unwrap_or("-")
+}
+
+fn review_runtime_evidence(item: &Value) -> String {
+    let Some(result) = review_runtime_result(item) else {
+        return "-".to_owned();
+    };
+    let mut evidence = Vec::new();
+    for (key, label) in [
+        ("provenance", ""),
+        ("source", "source="),
+        ("path", "path="),
+        ("source_hash", "hash="),
+        ("schema", "schema="),
+        ("representation", "representation="),
+        ("materialization", "materialization="),
+    ] {
+        if let Some(value) = review_text(result, key).filter(|value| !value.is_empty()) {
+            evidence.push(format!("{label}{value}"));
+        }
+    }
+    if let Some(tables) = result.get("tables").and_then(Value::as_array) {
+        for table in tables {
+            let binding = review_text(table, "binding").unwrap_or("table");
+            let source = review_text(table, "source").unwrap_or("-");
+            let hash = review_text(table, "source_hash").unwrap_or("-");
+            evidence.push(format!("{binding}: source={source}, hash={hash}"));
+        }
+    }
+    evidence.sort();
+    evidence.dedup();
+    if evidence.is_empty() {
+        "-".to_owned()
+    } else {
+        evidence.join("; ")
+    }
+}
+
+fn review_runtime_summary(item: &Value) -> String {
+    let Some(result) = review_runtime_result(item) else {
+        return "-".to_owned();
+    };
+    let unit = review_text(result, "unit").unwrap_or("");
+    let with_unit = |value: String| {
+        if unit.is_empty() {
+            value
+        } else {
+            format!("{value} {unit}")
+        }
+    };
+
+    if let Some(left_value) = result.get("left_value").filter(|value| !value.is_null()) {
+        let left = review_scalar_text(Some(left_value));
+        let operator = review_text(result, "operator").unwrap_or("");
+        if let Some(right_value) = result.get("right_value").filter(|value| !value.is_null()) {
+            return with_unit(
+                [
+                    left,
+                    operator.to_owned(),
+                    review_scalar_text(Some(right_value)),
+                ]
+                .into_iter()
+                .filter(|value| !value.is_empty())
+                .collect::<Vec<_>>()
+                .join(" "),
+            );
+        }
+        let right = review_text(result, "right").unwrap_or("");
+        return [with_unit(left), operator.to_owned(), right.to_owned()]
+            .into_iter()
+            .filter(|value| !value.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ");
+    }
+    if let Some(value) = result.get("value").filter(|value| !value.is_null()) {
+        return with_unit(review_scalar_text(Some(value)));
+    }
+    if let Some(values) = result.get("values").and_then(Value::as_array) {
+        if !values.is_empty() {
+            return values
+                .iter()
+                .map(|value| {
+                    let name = review_text(value, "name").unwrap_or("value");
+                    let unit = review_text(value, "unit").unwrap_or("");
+                    let number = review_scalar_text(value.get("value"));
+                    if unit.is_empty() {
+                        format!("{name}={number}")
+                    } else {
+                        format!("{name}={number} {unit}")
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("; ");
+        }
+    }
+    if let Some(tables) = result.get("tables").and_then(Value::as_array) {
+        if !tables.is_empty() {
+            let rows = tables
+                .iter()
+                .filter_map(|table| table.get("row_count").and_then(Value::as_u64))
+                .sum::<u64>();
+            let noun = if tables.len() == 1 { "table" } else { "tables" };
+            return format!("{} {noun}, {rows} rows", tables.len());
+        }
+    }
+    if let Some(output_rows) = result.get("output_row_count").and_then(Value::as_u64) {
+        if let Some(input_rows) = result.get("input_row_count").and_then(Value::as_u64) {
+            return format!("{input_rows} -> {output_rows} rows");
+        }
+        return format!("{output_rows} rows");
+    }
+    if let Some(rows) = result.get("row_count").and_then(Value::as_u64) {
+        return format!("{rows} rows");
+    }
+    if let Some(points) = result.get("point_count").and_then(Value::as_u64) {
+        return format!("{points} points");
+    }
+    if let Some(count) = result.get("count").and_then(Value::as_u64) {
+        let start = result.get("start").filter(|value| !value.is_null());
+        let end = result.get("end").filter(|value| !value.is_null());
+        if start.is_some() || end.is_some() {
+            return format!(
+                "{count} samples; {} -> {}{}",
+                review_scalar_text(start),
+                review_scalar_text(end),
+                if unit.is_empty() {
+                    String::new()
+                } else {
+                    format!(" {unit}")
+                }
+            );
+        }
+        return format!("{count} samples");
+    }
+    review_runtime_status(item).to_owned()
+}
+
+fn review_row_name(row: &Value) -> &str {
+    ["name", "binding", "target", "source"]
+        .iter()
+        .find_map(|key| review_text(row, key))
+        .unwrap_or("-")
+}
+
+fn render_review_document_section(document: &Value) -> String {
+    let evidence = document
+        .get("runtime_evidence")
+        .filter(|value| value.is_object())
+        .unwrap_or(&Value::Null);
+    let mut rows = String::new();
+    for (section, label) in [
+        ("inputs", "Input"),
+        ("schemas", "Schema"),
+        ("symbols", "Symbol"),
+        ("time_axes", "Time axis"),
+        ("calculations", "Calculation"),
+        ("table_transforms", "Table transform"),
+        ("report_outputs", "Report output"),
+    ] {
+        for row in review_document_array(document, section) {
+            if review_runtime_result(row).is_none() {
+                continue;
+            }
+            rows.push_str(&format!(
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                html_escape(label),
+                row.get("line")
+                    .and_then(Value::as_u64)
+                    .map(|line| line.to_string())
+                    .unwrap_or_else(|| "-".to_owned()),
+                html_escape(review_row_name(row)),
+                html_escape(&review_runtime_summary(row)),
+                html_escape(&review_runtime_evidence(row)),
+                html_escape(review_runtime_status(row))
+            ));
+        }
+    }
+    if rows.is_empty() {
+        rows.push_str("<tr><td colspan=6>No runtime ReviewDocument values.</td></tr>");
+    }
+
+    format!(
+        r#"<h2>Runtime Review</h2>
+    <section class="summary" aria-label="Runtime review summary">
+      <div class="metric"><span>Status</span><strong>{}</strong></div>
+      <div class="metric"><span>Scope</span><strong>{}</strong></div>
+      <div class="metric"><span>Values</span><strong>{}</strong></div>
+      <div class="metric"><span>Tables</span><strong>{}</strong></div>
+      <div class="metric"><span>Validations</span><strong>{}</strong></div>
+    </section>
+    <p class="review-fingerprint">Review fingerprint <code>{}</code></p>
+    <table>
+      <thead><tr><th>Section</th><th>Line</th><th>Name</th><th>Runtime Result</th><th>Evidence</th><th>Status</th></tr></thead>
+      <tbody>{rows}</tbody>
+    </table>"#,
+        html_escape(review_text(document, "status").unwrap_or("-")),
+        html_escape(review_text(document, "semantic_hash_scope").unwrap_or("static")),
+        evidence
+            .get("numeric_value_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(0),
+        evidence
+            .get("table_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(0),
+        evidence
+            .get("validation_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(0),
+        html_escape(review_text(document, "semantic_hash").unwrap_or("-"))
+    )
+}
+
+fn render_review_validations_section(document: &Value) -> String {
+    let validations = review_document_array(document, "validations");
+    if validations.is_empty() {
+        return String::new();
+    }
+    let rows = validations
+        .iter()
+        .map(|validation| {
+            format!(
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                validation
+                    .get("line")
+                    .and_then(Value::as_u64)
+                    .map(|line| line.to_string())
+                    .unwrap_or_else(|| "-".to_owned()),
+                html_escape(review_text(validation, "expression").unwrap_or("-")),
+                html_escape(&review_runtime_summary(validation)),
+                html_escape(review_runtime_status(validation))
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("");
+    format!(
+        r#"<h2>Validations</h2>
+    <table>
+      <thead><tr><th>Line</th><th>Expression</th><th>Runtime Result</th><th>Status</th></tr></thead>
+      <tbody>{rows}</tbody>
+    </table>"#
     )
 }
 
@@ -8788,6 +9091,7 @@ fn time_series_quantity(quantity_kind: &str) -> Option<(String, String)> {
 mod tests {
     use super::*;
     use eng_compiler::{check_source, CheckOptions};
+    use serde_json::json;
 
     #[test]
     fn plotspec_uses_timeseries_axis_unit_labels() {
@@ -9380,6 +9684,120 @@ mod tests {
         assert!(html.contains("inputs=input:temperature_signal:AbsoluteTemperature"));
         assert!(html.contains("inputs=input:delay(out.T, 1 s):AbsoluteTemperature"));
         assert!(html.contains("outputs=output:predicted_temperature:AbsoluteTemperature"));
+    }
+
+    #[test]
+    fn report_html_uses_runtime_review_document_values_and_validations() {
+        let report = check_source("ok.eng", "occupied = 90 min\n", &CheckOptions::default());
+        let mut spec =
+            report_spec_from_report(&report, "plots/plot_manifest.json", "plot-manifest-hash");
+        spec.validations.push(ReportValidationResult {
+            expression: "legacy-spec-validation".to_owned(),
+            left: "legacy".to_owned(),
+            operator: "==".to_owned(),
+            right: "legacy".to_owned(),
+            left_value: None,
+            right_value: None,
+            unit: String::new(),
+            status: "legacy".to_owned(),
+            line: 99,
+        });
+        let review = json!({
+            "review_document": {
+                "semantic_hash": "runtime-fingerprint",
+                "semantic_hash_scope": "runtime_enriched",
+                "section_hashes": {},
+                "status": "runtime_ready",
+                "runtime_evidence": {
+                    "numeric_value_count": 1,
+                    "table_count": 0,
+                    "validation_count": 1
+                },
+                "inputs": [{
+                    "kind": "arg",
+                    "name": "input_path",
+                    "line": 1,
+                    "runtime_result": {
+                        "provenance": "resolved_arg",
+                        "value": "data/runtime.csv",
+                        "source": "cli",
+                        "status": "resolved"
+                    }
+                }],
+                "symbols": [{
+                    "kind": "binding",
+                    "name": "occupied",
+                    "line": 1,
+                    "runtime_result": {
+                        "provenance": "runtime_numeric_value",
+                        "value": 90,
+                        "unit": "min",
+                        "representation": "native_scalar",
+                        "materialization": "computed",
+                        "status": "computed"
+                    }
+                }],
+                "validations": [{
+                    "line": 2,
+                    "expression": "occupied between 60 min and 120 min",
+                    "runtime_result": {
+                        "provenance": "runtime_validation",
+                        "left": "occupied",
+                        "operator": "between",
+                        "right": "60 min and 120 min",
+                        "left_value": 90,
+                        "right_value": null,
+                        "unit": "min",
+                        "status": "passed"
+                    }
+                }]
+            }
+        });
+
+        let html = render_html_with_spec_and_review_document(
+            &report,
+            "plots/timeseries.svg",
+            &spec,
+            &review,
+        )
+        .expect("valid runtime ReviewDocument");
+        let bare_html = render_html_with_spec_and_review_document(
+            &report,
+            "plots/timeseries.svg",
+            &spec,
+            &review["review_document"],
+        )
+        .expect("valid bare runtime ReviewDocument");
+
+        assert_eq!(bare_html, html);
+        assert!(html.contains("<h2>Runtime Review</h2>"));
+        assert!(html.contains("runtime_enriched"));
+        assert!(html.contains("runtime-fingerprint"));
+        assert!(html.contains("data/runtime.csv"));
+        assert!(html.contains("source=cli"));
+        assert!(html.contains("90 min"));
+        assert!(html.contains("runtime_numeric_value"));
+        assert!(html.contains("occupied between 60 min and 120 min"));
+        assert!(html.contains("90 min between 60 min and 120 min"));
+        assert!(!html.contains("120 min min"));
+        assert!(!html.contains("legacy-spec-validation"));
+        assert_eq!(html.matches("<h2>Validations</h2>").count(), 1);
+    }
+
+    #[test]
+    fn report_html_rejects_invalid_review_document() {
+        let report = check_source("ok.eng", "occupied = 90 min\n", &CheckOptions::default());
+        let spec =
+            report_spec_from_report(&report, "plots/plot_manifest.json", "plot-manifest-hash");
+        let error = render_html_with_spec_and_review_document(
+            &report,
+            "plots/timeseries.svg",
+            &spec,
+            &json!({ "semantic_hash": "runtime-fingerprint" }),
+        )
+        .expect_err("incomplete ReviewDocument must fail");
+
+        assert_eq!(error, ReviewDocumentError::MissingSectionHashes);
     }
 
     fn sample_plot_spec(plot_type: &str) -> PlotSpec {

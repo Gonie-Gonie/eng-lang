@@ -28,9 +28,11 @@ and next cleanup action.
   review JSON, report spec, and result artifacts.
 - Main internal: bar/histogram variants, DateTime-indexed TimeSeries coverage
   artifacts, richer report metadata, and the normalized `review_document`
-  projection.
-- Next cleanup: route more report panels through ReviewDocument and extend its
-  runtime projection to specialized solver, assembly, model, and DB records.
+  projection. Runtime report HTML now reads its fingerprint, core value/evidence
+  table, and validation table from that final document.
+- Next cleanup: route the remaining specialized report panels through
+  ReviewDocument and extend its runtime projection to solver, assembly, model,
+  and DB records.
 
 ## T4 System / Equation
 

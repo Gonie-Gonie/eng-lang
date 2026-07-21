@@ -188,11 +188,11 @@ tests = ["cargo test -p eng_runtime run_plan"]
 [module."eng.report"]
 status = "native_preview"
 backing = "eng_report"
-purpose = "Report block projection to report_spec/review/output manifests and HTML report artifacts; broader pure .eng report helper vocabulary remains planned."
-artifacts = ["report_spec", "report_html", "review", "output_manifest"]
+purpose = "Report block projection to report_spec/output manifests plus HTML runtime values and validations from the final normalized ReviewDocument; broader pure .eng report helper vocabulary remains planned."
+artifacts = ["report_spec", "report_html", "review_document.runtime_result", "output_manifest"]
 diagnostics = []
 examples = ["examples/workflows/03_uncertain_sensor_report"]
-tests = ["cargo test -p eng_report"]
+tests = ["cargo test -p eng_report report_html_", "cargo test -p eng_runtime run_source_materializes_uncertainty_validation_results", "dev.bat workflows-test"]
 
 [module."eng.stats"]
 status = "native_preview"

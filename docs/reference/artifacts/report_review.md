@@ -589,6 +589,23 @@ hash contract includes `symbols` and `config_promotions` in addition to the
 other listed sections. Runtime data therefore participates in the same native
 semantic diff instead of living only in parallel top-level arrays.
 
+### Runtime HTML Projection
+
+Runtime-generated `report.html` is rendered from the final saved
+ReviewDocument through a validated `eng_report` API. The API accepts a full
+`review.json` wrapper or a bare document and returns an error when
+`semantic_hash` or `section_hashes` is missing. The report's Runtime
+Review section shows the document status, hash scope, runtime evidence counts,
+semantic fingerprint, core normalized values, source/hash provenance, and row
+status. The Validations section uses each normalized full `expression` and
+`runtime_result`; it does not substitute the parallel ReportSpec validation
+rows when a ReviewDocument is supplied.
+
+The fingerprint printed in `report.html` therefore matches
+`review.json.review_document.semantic_hash`. Existing specialized solver,
+assembly, quality, uncertainty, model, and DB panels continue to use their
+typed ReportSpec records until equivalent normalized rows are available.
+
 Calculation entries include input symbols, output quantity, unit-derivation
 steps, where expansions, and function calls when the compiler can infer them.
 External process declarations appear under `external_boundaries`; declared

@@ -72,7 +72,10 @@ separate.
   time axes, symbols, derived values, calculations, table transforms, report
   outputs, validations, side effects, external boundaries, caches, fallbacks,
   and risk entries. Saved runs add source-matched runtime results and refresh
-  only the section hashes whose normalized content changed.
+  only the section hashes whose normalized content changed. Runtime-generated
+  report HTML validates the final saved ReviewDocument and projects its
+  fingerprint, core value/evidence rows, statuses, and full validation
+  expressions.
 - Evidence: official examples, artifact schemas, `artifacts-check`, report/
   review guide, `eng review`, shared compiler diff tests, and IDE smoke path
   covering normalized Review cockpit sections, semantic comparison, external
@@ -80,8 +83,9 @@ separate.
 - Not included: complete runtime projection for every specialized solver,
   assembly, model, and DB record family or a complete risk/fallback taxonomy
   across all tracks.
-- Next cleanup action: route report HTML through the normalized ReviewDocument
-  and extend runtime rows to the remaining specialized record families.
+- Next cleanup action: route the remaining specialized solver, assembly,
+  model, and DB report panels through normalized rows as those record families
+  gain complete runtime projection.
 
 ### Measured-Vs-Simulated Validation
 

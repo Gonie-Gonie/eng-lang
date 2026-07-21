@@ -2110,7 +2110,7 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native: Report block projection to report_spec/review/output manifests and HTML report artifacts",
+                                 "detail":  "Native: Report block projection to report_spec/output manifests plus HTML runtime values and validations from the final normalized ReviewDocument",
                                  "kind":  "stdlib",
                                  "label":  "eng.report",
                                  "lsp_kind":  9

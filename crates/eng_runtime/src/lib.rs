@@ -156,6 +156,8 @@ pub enum RuntimeError {
     Io(std::io::Error),
     Compile(Box<CheckReport>),
     Bytecode(eng_compiler::BytecodeParseError),
+    ReviewJson(serde_json::Error),
+    ReviewDocument(eng_compiler::ReviewDocumentError),
     Vm(vm::VmError),
     TestsFailed(String),
 }
@@ -170,6 +172,10 @@ impl fmt::Display for RuntimeError {
                 report.diagnostic_count(eng_compiler::Severity::Error)
             ),
             Self::Bytecode(error) => write!(formatter, "bytecode decode failed: {error}"),
+            Self::ReviewJson(error) => write!(formatter, "runtime review JSON is invalid: {error}"),
+            Self::ReviewDocument(error) => {
+                write!(formatter, "runtime ReviewDocument is invalid: {error}")
+            }
             Self::Vm(error) => write!(formatter, "VM execution failed: {error}"),
             Self::TestsFailed(message) => write!(formatter, "{message}"),
         }
@@ -187,6 +193,18 @@ impl From<std::io::Error> for RuntimeError {
 impl From<eng_compiler::BytecodeParseError> for RuntimeError {
     fn from(value: eng_compiler::BytecodeParseError) -> Self {
         Self::Bytecode(value)
+    }
+}
+
+impl From<serde_json::Error> for RuntimeError {
+    fn from(value: serde_json::Error) -> Self {
+        Self::ReviewJson(value)
+    }
+}
+
+impl From<eng_compiler::ReviewDocumentError> for RuntimeError {
+    fn from(value: eng_compiler::ReviewDocumentError) -> Self {
+        Self::ReviewDocument(value)
     }
 }
 
@@ -723,8 +741,6 @@ pub fn run_source(
         template_render_records: &template_render_output.records,
         db_manifest_records: &db_manifest_records,
     });
-    let report_html =
-        eng_report::render_html_with_spec(&check_report, "plots/timeseries.svg", &report_spec);
     let result_json = result_json(ResultJsonInput {
         path,
         report: &check_report,
@@ -760,6 +776,13 @@ pub fn run_source(
         rerun_decision: &rerun_decision,
     });
     review_json = enrich_runtime_review_workflow_graph(&review_json, &initial_run_plan_json);
+    let report_review: Value = serde_json::from_str(&review_json)?;
+    let report_html = eng_report::render_html_with_spec_and_review_document(
+        &check_report,
+        "plots/timeseries.svg",
+        &report_spec,
+        &report_review,
+    )?;
     let run_plan_json = run_plan_json(RunPlanInput {
         source_path: path,
         report: &check_report,
@@ -23368,6 +23391,20 @@ print "mode={args.mode}"
                 .pointer("/review_document/semantic_hash_scope")
                 .and_then(Value::as_str),
             Some("runtime_enriched")
+        );
+        let review_fingerprint = review_json_value
+            .pointer("/review_document/semantic_hash")
+            .and_then(Value::as_str)
+            .expect("ReviewDocument fingerprint");
+        assert!(output.report_html.contains("<h2>Runtime Review</h2>"));
+        assert!(output.report_html.contains("runtime_enriched"));
+        assert!(output.report_html.contains(review_fingerprint));
+        assert!(output.report_html.contains("mean(Q) between 4 kW and 6 kW"));
+        assert!(output.report_html.contains(" kW between 4 kW and 6 kW"));
+        assert!(!output.report_html.contains("6 kW kW"));
+        assert_eq!(
+            output.report_html.matches("<h2>Validations</h2>").count(),
+            1
         );
         assert!(output.report_spec_json.contains("probability(Q < 7 kW)"));
         assert!(!virtual_path.exists());

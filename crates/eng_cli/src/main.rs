@@ -625,19 +625,7 @@ fn command_run(args: Vec<String>) -> ExitCode {
             print_diagnostics(&report);
             ExitCode::from(2)
         }
-        Err(RuntimeError::TestsFailed(message)) => {
-            eprintln!("{message}");
-            ExitCode::from(1)
-        }
-        Err(RuntimeError::Io(error)) => {
-            eprintln!("{error}");
-            ExitCode::from(1)
-        }
-        Err(RuntimeError::Bytecode(error)) => {
-            eprintln!("{error}");
-            ExitCode::from(1)
-        }
-        Err(RuntimeError::Vm(error)) => {
+        Err(error) => {
             eprintln!("{error}");
             ExitCode::from(1)
         }
@@ -948,19 +936,7 @@ fn command_build(args: Vec<String>) -> ExitCode {
             print_diagnostics(&report);
             ExitCode::from(2)
         }
-        Err(RuntimeError::TestsFailed(message)) => {
-            eprintln!("{message}");
-            ExitCode::from(1)
-        }
-        Err(RuntimeError::Io(error)) => {
-            eprintln!("{error}");
-            ExitCode::from(1)
-        }
-        Err(RuntimeError::Bytecode(error)) => {
-            eprintln!("{error}");
-            ExitCode::from(1)
-        }
-        Err(RuntimeError::Vm(error)) => {
+        Err(error) => {
             eprintln!("{error}");
             ExitCode::from(1)
         }
