@@ -7299,6 +7299,10 @@ fn review_runtime_evidence(item: &Value) -> String {
         ("provenance", ""),
         ("source", "source="),
         ("path", "path="),
+        ("source_table", "table="),
+        ("source_column", "column="),
+        ("axis", "axis="),
+        ("x_unit", "x_unit="),
         ("source_hash", "hash="),
         ("schema", "schema="),
         ("representation", "representation="),
@@ -7316,8 +7320,6 @@ fn review_runtime_evidence(item: &Value) -> String {
             evidence.push(format!("{binding}: source={source}, hash={hash}"));
         }
     }
-    evidence.sort();
-    evidence.dedup();
     if evidence.is_empty() {
         "-".to_owned()
     } else {
@@ -7391,6 +7393,16 @@ fn review_runtime_summary(item: &Value) -> String {
             let noun = if tables.len() == 1 { "table" } else { "tables" };
             return format!("{} {noun}, {rows} rows", tables.len());
         }
+    }
+    if let Some(actual_count) = result.get("actual_count").and_then(Value::as_u64) {
+        let missing_count = result
+            .get("missing_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        if let Some(expected_count) = result.get("expected_count").and_then(Value::as_u64) {
+            return format!("{actual_count}/{expected_count} samples; missing {missing_count}");
+        }
+        return format!("{actual_count} samples; missing {missing_count}");
     }
     if let Some(output_rows) = result.get("output_row_count").and_then(Value::as_u64) {
         if let Some(input_rows) = result.get("input_row_count").and_then(Value::as_u64) {
@@ -7475,6 +7487,8 @@ fn render_review_document_section(document: &Value) -> String {
       <div class="metric"><span>Scope</span><strong>{}</strong></div>
       <div class="metric"><span>Values</span><strong>{}</strong></div>
       <div class="metric"><span>Tables</span><strong>{}</strong></div>
+      <div class="metric"><span>Time series</span><strong>{}</strong></div>
+      <div class="metric"><span>Coverage</span><strong>{}</strong></div>
       <div class="metric"><span>Validations</span><strong>{}</strong></div>
     </section>
     <p class="review-fingerprint">Review fingerprint <code>{}</code></p>
@@ -7490,6 +7504,14 @@ fn render_review_document_section(document: &Value) -> String {
             .unwrap_or(0),
         evidence
             .get("table_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(0),
+        evidence
+            .get("timeseries_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(0),
+        evidence
+            .get("timeseries_coverage_count")
             .and_then(Value::as_u64)
             .unwrap_or(0),
         evidence
@@ -9711,6 +9733,8 @@ mod tests {
                 "runtime_evidence": {
                     "numeric_value_count": 1,
                     "table_count": 0,
+                    "timeseries_count": 1,
+                    "timeseries_coverage_count": 1,
                     "validation_count": 1
                 },
                 "inputs": [{
@@ -9735,6 +9759,35 @@ mod tests {
                         "representation": "native_scalar",
                         "materialization": "computed",
                         "status": "computed"
+                    }
+                }, {
+                    "kind": "binding",
+                    "name": "coverage",
+                    "line": 3,
+                    "runtime_result": {
+                        "provenance": "runtime_timeseries_coverage",
+                        "source_table": "sensor",
+                        "source_column": "time",
+                        "actual_count": 4,
+                        "expected_count": 4,
+                        "missing_count": 0,
+                        "status": "complete"
+                    }
+                }],
+                "time_axes": [{
+                    "binding": "occupied",
+                    "axis": "Time",
+                    "line": 1,
+                    "runtime_result": {
+                        "provenance": "runtime_time_axis",
+                        "source_table": "sensor",
+                        "source_column": "time",
+                        "axis": "Time",
+                        "unit": "min",
+                        "start": 0,
+                        "end": 90,
+                        "count": 2,
+                        "status": "materialized"
                     }
                 }],
                 "validations": [{
@@ -9777,6 +9830,13 @@ mod tests {
         assert!(html.contains("source=cli"));
         assert!(html.contains("90 min"));
         assert!(html.contains("runtime_numeric_value"));
+        assert!(html.contains("runtime_timeseries_coverage"));
+        assert!(html.contains("4/4 samples; missing 0"));
+        assert!(html.contains("table=sensor"));
+        assert!(html.contains("column=time"));
+        assert!(html.contains("axis=Time"));
+        assert!(html.contains("<span>Time series</span><strong>1</strong>"));
+        assert!(html.contains("<span>Coverage</span><strong>1</strong>"));
         assert!(html.contains("occupied between 60 min and 120 min"));
         assert!(html.contains("90 min between 60 min and 120 min"));
         assert!(!html.contains("120 min min"));

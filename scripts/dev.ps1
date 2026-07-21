@@ -1348,6 +1348,55 @@ function Invoke-WorkflowsTest {
             })
             Assert-ArtifactNumber $SensorCoverage.Count 1 "Workflow 03 native coverage contract count"
 
+            Assert-ArtifactNumber $ReviewData.review_document.runtime_evidence.time_axis_count 2 "Workflow 03 ReviewDocument runtime time-axis count"
+            Assert-ArtifactNumber $ReviewData.review_document.runtime_evidence.timeseries_coverage_count 2 "Workflow 03 ReviewDocument runtime coverage count"
+            $RuntimeTimeAxisRows = @($ReviewData.review_document.time_axes | Where-Object {
+                [string]$_.runtime_result.provenance -eq "runtime_time_axis" -and
+                [string]$_.runtime_result.source_table -eq "sensor" -and
+                [string]$_.runtime_result.axis -eq "Time" -and
+                [int]$_.runtime_result.count -eq 4 -and
+                [string]$_.runtime_result.status -eq "materialized"
+            })
+            Assert-ArtifactNumber $RuntimeTimeAxisRows.Count 2 "Workflow 03 normalized runtime time-axis row count"
+
+            foreach ($ReviewSection in @("units_quantities", "symbols", "derived_values", "calculations")) {
+                $ReviewSectionRows = @($ReviewData.review_document.$ReviewSection)
+                foreach ($ExpectedRuntimeRow in @(
+                    @{ Name = "sensor"; Provenance = "runtime_table"; Status = "materialized" },
+                    @{ Name = "Q_sensor"; Provenance = "runtime_timeseries"; Status = "materialized" },
+                    @{ Name = "coverage"; Provenance = "runtime_timeseries_coverage"; Status = "complete" }
+                )) {
+                    $MatchingRuntimeRows = @($ReviewSectionRows | Where-Object {
+                        [string]$_.name -eq [string]$ExpectedRuntimeRow.Name -and
+                        [string]$_.runtime_result.provenance -eq [string]$ExpectedRuntimeRow.Provenance -and
+                        [string]$_.runtime_result.status -eq [string]$ExpectedRuntimeRow.Status
+                    })
+                    Assert-Artifact ($MatchingRuntimeRows.Count -ge 1) "Workflow 03 $ReviewSection must project $($ExpectedRuntimeRow.Name) as $($ExpectedRuntimeRow.Provenance)"
+                }
+            }
+            $NormalizedCoverageRows = @($ReviewData.review_document.symbols | Where-Object {
+                [string]$_.name -eq "coverage" -and
+                [string]$_.runtime_result.provenance -eq "runtime_timeseries_coverage" -and
+                [string]$_.runtime_result.source_table -eq "sensor" -and
+                [string]$_.runtime_result.source_column -eq "time" -and
+                [int]$_.runtime_result.expected_count -eq 4 -and
+                [int]$_.runtime_result.actual_count -eq 4 -and
+                [int]$_.runtime_result.missing_count -eq 0 -and
+                [string]$_.runtime_result.status -eq "complete"
+            })
+            Assert-ArtifactNumber $NormalizedCoverageRows.Count 1 "Workflow 03 normalized runtime coverage row count"
+            foreach ($RequiredRuntimeReviewHtmlToken in @(
+                "runtime_timeseries_coverage",
+                "4/4 samples; missing 0",
+                "table=sensor",
+                "column=time",
+                "axis=Time"
+            )) {
+                if (-not $RuntimeReportHtml.Contains($RequiredRuntimeReviewHtmlToken)) {
+                    throw "Workflow 03 Runtime Review HTML missing token '$RequiredRuntimeReviewHtmlToken'"
+                }
+            }
+
             $SensorUncertaintyCalcs = @($ResultData.typed_payload.timeseries_uncertainty_calculations)
             Assert-ArtifactNumber $SensorUncertaintyCalcs.Count 4 "Workflow 03 runtime uncertainty calculation count"
             foreach ($RequiredCalc in @(
@@ -7303,7 +7352,10 @@ function Assert-VscodeExtensionContract {
     foreach ($RequiredRuntimeReviewProjectionToken in @(
         "finalize_runtime_review_document",
         "enrich_runtime_review_numeric_sections",
+        "enrich_runtime_review_materialized_values",
         "enrich_runtime_review_table_transforms",
+        '"runtime_timeseries_coverage"',
+        '"runtime_time_axis"',
         '"runtime_evidence"',
         '"runtime_result"'
     )) {

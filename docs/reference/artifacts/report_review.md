@@ -577,10 +577,14 @@ This projection gives reviewers one stable path for meaning-level inspection
 without replacing the detailed top-level sections. `eng review` emits the
 static compiler projection. `eng run --save-artifacts` adds a nested
 `runtime_result` to matching rows for resolved Args, schema diagnostics,
-scalar and TimeSeries values, time axes, calculations, table transforms,
-report outputs, and validations. It also records aggregate counts under
-`runtime_evidence` and changes the root status to `runtime_ready` or
-`runtime_issues`.
+scalar values, materialized tables, TimeSeries, explicit coverage checks,
+source-derived time axes, calculations, table transforms, report outputs, and
+validations. Materialized tables, TimeSeries, and coverage checks are projected
+across matching `units_quantities`, `symbols`, `derived_values`, and
+`calculations` rows instead of remaining available only in top-level runtime
+arrays. It also records aggregate counts, including TimeSeries and coverage
+counts, under `runtime_evidence` and changes the root status to
+`runtime_ready` or `runtime_issues`.
 
 The runtime finalizer compares normalized sections with the static baseline,
 preserves unchanged section hashes, refreshes changed hashes, and recomputes
@@ -596,8 +600,9 @@ ReviewDocument through a validated `eng_report` API. The API accepts a full
 `review.json` wrapper or a bare document and returns an error when
 `semantic_hash` or `section_hashes` is missing. The report's Runtime
 Review section shows the document status, hash scope, runtime evidence counts,
-semantic fingerprint, core normalized values, source/hash provenance, and row
-status. The Validations section uses each normalized full `expression` and
+semantic fingerprint, core normalized values, coverage actual/expected/missing
+sample summaries, source/hash/table/column/axis provenance, and row status. The
+Validations section uses each normalized full `expression` and
 `runtime_result`; it does not substitute the parallel ReportSpec validation
 rows when a ReviewDocument is supplied.
 

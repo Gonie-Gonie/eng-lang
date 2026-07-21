@@ -13101,7 +13101,7 @@ fn finalize_runtime_review_document(
     enrich_runtime_review_inputs(document, report);
     enrich_runtime_review_schemas(document, runtime_data);
     enrich_runtime_review_numeric_sections(document, runtime_data);
-    enrich_runtime_review_symbols(document, runtime_data);
+    enrich_runtime_review_materialized_values(document, runtime_data);
     enrich_runtime_review_time_axes(document, runtime_data);
     enrich_runtime_review_calculations(document, runtime_data);
     enrich_runtime_review_table_transforms(document, runtime_data);
@@ -13139,6 +13139,7 @@ fn finalize_runtime_review_document(
             "numeric_value_count": runtime_data.numeric_values.len(),
             "table_count": runtime_data.tables.len(),
             "timeseries_count": runtime_data.time_series.len(),
+            "timeseries_coverage_count": runtime_data.timeseries_coverage.len(),
             "symbol_result_count": review_runtime_result_count(document, "symbols"),
             "time_axis_count": review_runtime_result_count(document, "time_axes"),
             "calculation_result_count": review_runtime_result_count(document, "calculations"),
@@ -13402,47 +13403,95 @@ fn enrich_runtime_review_numeric_sections(
     }
 }
 
-fn enrich_runtime_review_symbols(
+fn runtime_table_review_value(table: &runtime_data::RuntimeTable) -> Value {
+    json!({
+        "provenance": "runtime_table",
+        "schema": table.schema_name,
+        "source": table.source,
+        "source_hash": table.source_hash,
+        "row_count": table.row_count,
+        "column_count": table.columns.len(),
+        "parse_failure_count": table.parse_failures.len(),
+        "status": if table.parse_failures.is_empty() {
+            "materialized"
+        } else {
+            "materialized_with_parse_failures"
+        }
+    })
+}
+
+fn runtime_timeseries_coverage_review_value(
+    coverage: &runtime_data::RuntimeTimeSeriesCoverage,
+) -> Value {
+    json!({
+        "provenance": "runtime_timeseries_coverage",
+        "binding": coverage.binding,
+        "source_table": coverage.source_table,
+        "source_column": coverage.source_column,
+        "unit": coverage.unit,
+        "start": coverage.start,
+        "end": coverage.end,
+        "source_start": coverage.source_start,
+        "source_end": coverage.source_end,
+        "expected_step": coverage.expected_step,
+        "expected_count": coverage.expected_count,
+        "actual_count": coverage.actual_count,
+        "missing_count": coverage.missing_count,
+        "missing_interval_count": coverage.missing_intervals.len(),
+        "max_gap": coverage.max_gap,
+        "coverage_year": coverage.coverage_year,
+        "leap_year_policy": coverage.leap_year_policy,
+        "status": coverage.status
+    })
+}
+
+fn enrich_runtime_review_materialized_values(
     document: &mut serde_json::Map<String, Value>,
     runtime_data: &RuntimeData,
 ) {
-    let Some(rows) = review_document_rows_mut(document, "symbols") else {
-        return;
-    };
-    for row in rows {
-        let Some(name) = review_row_name(row).map(str::to_owned) else {
+    for section in [
+        "units_quantities",
+        "symbols",
+        "derived_values",
+        "calculations",
+    ] {
+        let Some(rows) = review_document_rows_mut(document, section) else {
             continue;
         };
-        if let Some(table) = runtime_data
-            .tables
-            .iter()
-            .find(|table| review_row_matches(row, &table.binding, table.line))
-        {
-            set_review_runtime_result(
-                row,
-                json!({
-                    "provenance": "runtime_table",
-                    "schema": table.schema_name,
-                    "source": table.source,
-                    "source_hash": table.source_hash,
-                    "row_count": table.row_count,
-                    "column_count": table.columns.len(),
-                    "parse_failure_count": table.parse_failures.len(),
-                    "status": if table.parse_failures.is_empty() {
-                        "materialized"
-                    } else {
-                        "materialized_with_parse_failures"
-                    }
-                }),
-            );
-            continue;
-        }
-        if let Some(series) = runtime_data
-            .time_series
-            .iter()
-            .find(|series| series.name == name)
-        {
-            set_review_runtime_result(row, runtime_timeseries_review_value(series));
+        for row in rows {
+            if row.get("runtime_result").is_some_and(Value::is_object) {
+                continue;
+            }
+            let Some(name) = review_row_name(row).map(str::to_owned) else {
+                continue;
+            };
+            let line = row
+                .get("line")
+                .and_then(Value::as_u64)
+                .and_then(|line| usize::try_from(line).ok())
+                .unwrap_or(0);
+            if let Some(table) = runtime_data
+                .tables
+                .iter()
+                .find(|table| review_row_matches(row, &table.binding, table.line))
+            {
+                set_review_runtime_result(row, runtime_table_review_value(table));
+                continue;
+            }
+            if let Some(series) = runtime_data
+                .time_series
+                .iter()
+                .find(|series| series.name == name)
+            {
+                set_review_runtime_result(row, runtime_timeseries_review_value(series));
+                continue;
+            }
+            if let Some(coverage) = runtime_data.timeseries_coverage.iter().find(|coverage| {
+                (coverage.binding == name || coverage.name == name)
+                    && (line == 0 || coverage.line == line)
+            }) {
+                set_review_runtime_result(row, runtime_timeseries_coverage_review_value(coverage));
+            }
         }
     }
 }
@@ -13461,6 +13510,27 @@ fn runtime_timeseries_review_value(series: &runtime_data::RuntimeTimeSeries) -> 
     })
 }
 
+fn runtime_time_axis_review_value(axis: &runtime_data::RuntimeTimeAxis) -> Value {
+    json!({
+        "provenance": "runtime_time_axis",
+        "source_table": axis.source_table,
+        "source_column": axis.source_column,
+        "axis": axis.axis,
+        "unit": axis.unit,
+        "start": axis.start,
+        "end": axis.end,
+        "count": axis.count,
+        "nominal_step": axis.nominal_step,
+        "irregular": axis.irregular,
+        "missing_count": axis.missing_count,
+        "status": if axis.missing_count == 0 {
+            "materialized"
+        } else {
+            "gapped"
+        }
+    })
+}
+
 fn enrich_runtime_review_time_axes(
     document: &mut serde_json::Map<String, Value>,
     runtime_data: &RuntimeData,
@@ -13469,37 +13539,33 @@ fn enrich_runtime_review_time_axes(
         return;
     };
     for row in rows {
-        let Some(binding) = row.get("binding").and_then(Value::as_str) else {
-            continue;
-        };
-        let Some(axis) = runtime_data
-            .time_axes
-            .iter()
-            .find(|axis| axis.name == binding)
+        let Some(binding) = row
+            .get("binding")
+            .and_then(Value::as_str)
+            .map(str::to_owned)
         else {
             continue;
         };
-        set_review_runtime_result(
-            row,
-            json!({
-                "provenance": "runtime_time_axis",
-                "source_table": axis.source_table,
-                "source_column": axis.source_column,
-                "axis": axis.axis,
-                "unit": axis.unit,
-                "start": axis.start,
-                "end": axis.end,
-                "count": axis.count,
-                "nominal_step": axis.nominal_step,
-                "irregular": axis.irregular,
-                "missing_count": axis.missing_count,
-                "status": if axis.missing_count == 0 {
-                    "materialized"
-                } else {
-                    "gapped"
-                }
-            }),
-        );
+        let declared_axis = row.get("axis").and_then(Value::as_str).map(str::to_owned);
+        let source_series = runtime_data
+            .time_series
+            .iter()
+            .find(|series| series.name == binding);
+        let Some(axis) = runtime_data.time_axes.iter().find(|axis| {
+            let declared_axis_matches = declared_axis
+                .as_deref()
+                .is_none_or(|declared_axis| axis.axis == declared_axis);
+            axis.name == binding
+                || (axis.source_table == binding && declared_axis_matches)
+                || source_series.is_some_and(|series| {
+                    axis.source_table == series.source_table
+                        && axis.axis == series.axis
+                        && axis.unit == series.x_unit
+                })
+        }) else {
+            continue;
+        };
+        set_review_runtime_result(row, runtime_time_axis_review_value(axis));
     }
 }
 
@@ -20511,6 +20577,92 @@ mod tests {
         );
         let review_value: Value =
             serde_json::from_str(&output.review_json).expect("review artifact json");
+        let review_time_axis =
+            json_array_item_by_binding(&review_value, "/review_document/time_axes", "weather")
+                .expect("review document runtime time axis");
+        assert_eq!(
+            review_time_axis
+                .pointer("/runtime_result/provenance")
+                .and_then(Value::as_str),
+            Some("runtime_time_axis")
+        );
+        assert_eq!(
+            review_time_axis
+                .pointer("/runtime_result/source_table")
+                .and_then(Value::as_str),
+            Some("weather")
+        );
+        assert_eq!(
+            review_time_axis
+                .pointer("/runtime_result/count")
+                .and_then(Value::as_u64),
+            Some(2)
+        );
+        assert_eq!(
+            review_time_axis
+                .pointer("/runtime_result/status")
+                .and_then(Value::as_str),
+            Some("materialized")
+        );
+        for section in [
+            "units_quantities",
+            "symbols",
+            "derived_values",
+            "calculations",
+        ] {
+            let pointer = format!("/review_document/{section}");
+            let coverage_row =
+                json_array_item_by_field(&review_value, &pointer, "name", "coverage")
+                    .unwrap_or_else(|| panic!("review document {section} coverage row"));
+            let runtime_result = coverage_row
+                .get("runtime_result")
+                .expect("coverage runtime result");
+            assert_eq!(
+                runtime_result.get("provenance").and_then(Value::as_str),
+                Some("runtime_timeseries_coverage"),
+                "{section} coverage provenance"
+            );
+            assert_eq!(
+                runtime_result.get("expected_count").and_then(Value::as_u64),
+                Some(8784),
+                "{section} coverage expected count"
+            );
+            assert_eq!(
+                runtime_result.get("actual_count").and_then(Value::as_u64),
+                Some(2),
+                "{section} coverage actual count"
+            );
+            assert_eq!(
+                runtime_result.get("missing_count").and_then(Value::as_u64),
+                Some(8782),
+                "{section} coverage missing count"
+            );
+            assert_eq!(
+                runtime_result.get("status").and_then(Value::as_str),
+                Some("gapped"),
+                "{section} coverage status"
+            );
+
+            let weather_row = json_array_item_by_field(&review_value, &pointer, "name", "weather")
+                .unwrap_or_else(|| panic!("review document {section} weather row"));
+            assert_eq!(
+                weather_row
+                    .pointer("/runtime_result/provenance")
+                    .and_then(Value::as_str),
+                Some("runtime_table"),
+                "{section} weather provenance"
+            );
+        }
+        assert_eq!(
+            review_value
+                .pointer("/review_document/runtime_evidence/timeseries_coverage_count")
+                .and_then(Value::as_u64),
+            Some(2)
+        );
+        assert!(output.report_html.contains("2/8784 samples; missing 8782"));
+        assert!(output.report_html.contains("runtime_timeseries_coverage"));
+        assert!(output.report_html.contains("table=weather"));
+        assert!(output.report_html.contains("column=time"));
         let review_fill = json_array_item_by_binding(&review_value, "/timeseries_fill", "coverage")
             .expect("review timeseries fill");
         let review_fallback =

@@ -83,15 +83,20 @@ Current coverage:
 - Compiler tests also prove deterministic runtime section rehashing, unchanged
   static-hash preservation, and `symbols`/`config_promotions` hash coverage.
 - Runtime tests project declared-unit scalar results, schema/table evidence,
-  table-transform row counts, and validation outcomes into matching normalized
-  rows, then compare the static and runtime documents through the shared diff
-  engine.
+  materialized tables, TimeSeries, explicit coverage checks, source-derived
+  time axes, table-transform row counts, and validation outcomes into matching
+  normalized rows, then compare the static and runtime documents through the
+  shared diff engine. The coverage regression checks the same table and
+  coverage result across units/quantity, symbol, derived-value, and calculation
+  rows.
 - Report tests accept full and bare validated ReviewDocuments, reject incomplete
   documents, prefer normalized validations over legacy ReportSpec validation
   rows, and guard unit-safe runtime summaries. Runtime, artifact, and workflow
   gates assert that `report.html` contains the same semantic fingerprint as
   the final saved `review.json` plus the Runtime Review result/evidence
-  columns.
+  columns. Workflow 03 additionally requires both normalized time-axis rows,
+  native table/TimeSeries/coverage provenance, exact sample counts, and the
+  matching HTML coverage summary.
 - The example smoke runs `eng review --output`, `eng review --against`,
   and `eng review diff <old> <new>` through the built CLI binary. It asserts
   that `static_review.json` and `semantic_diff.json` are written and

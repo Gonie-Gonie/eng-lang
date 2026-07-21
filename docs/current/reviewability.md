@@ -8,7 +8,7 @@ semantic diff payload. Saved runs enrich the same ReviewDocument rows with
 runtime values and statuses, and the native IDE exposes baseline selection plus
 section-hash and item-level comparison. Runtime-generated `report.html`
 validates the final saved document and displays the same fingerprint, core
-runtime evidence, and validation outcomes.
+runtime evidence, TimeSeries/coverage counts, and validation outcomes.
 
 ## Core Principle
 
@@ -99,10 +99,13 @@ The current compiler slice fills static meaning: source spans, declarations,
 quantities, schemas, time axes, report-output candidates, calculation trace
 fields, commands, options, validation expressions, process declarations,
 side-effect boundaries, fallbacks, risk levels, and semantic section hashes.
-Saved runs currently fill matching core input, schema, scalar, TimeSeries,
-calculation, transform, output, and validation rows with values, statuses, and
-source/hash evidence. Specialized solver, assembly, model, and DB record
-families remain follow-up runtime projection work.
+Saved runs currently fill matching core input, schema, scalar, materialized
+table, TimeSeries, coverage, source-derived time-axis, calculation, transform,
+output, and validation rows with values, statuses, and source/hash evidence.
+Table, TimeSeries, and coverage values are projected consistently across their
+matching units/quantity, symbol, derived-value, and calculation rows.
+Specialized solver, assembly, model, and DB record families remain follow-up
+runtime projection work.
 
 ## Root Workflow Review Contract
 

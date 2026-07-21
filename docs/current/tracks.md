@@ -26,10 +26,11 @@ and next cleanup action.
 - Purpose: turn engineering calculations into inspectable artifacts.
 - Public scope: TimeSeries statistics, integration, PlotSpec/SVG, report HTML,
   review JSON, report spec, and result artifacts.
-- Main internal: bar/histogram variants, DateTime-indexed TimeSeries coverage
-  artifacts, richer report metadata, and the normalized `review_document`
-  projection. Runtime report HTML now reads its fingerprint, core value/evidence
-  table, and validation table from that final document.
+- Main internal: bar/histogram variants, richer report metadata, and specialized
+  normalized `review_document` projection beyond the current core rows.
+  Runtime report HTML now reads its fingerprint, table/TimeSeries/coverage and
+  time-axis evidence, sample summaries, and validation table from that final
+  document.
 - Next cleanup: route the remaining specialized report panels through
   ReviewDocument and extend its runtime projection to solver, assembly, model,
   and DB records.

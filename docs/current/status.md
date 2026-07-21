@@ -245,12 +245,14 @@ is not mistaken for public module support.
   - Current handling: keep current `review.json`/`report.html` public;
     `review.json.review_document`, `eng review`, and IDE Review inspector
     cover the first risk/fallback/external-boundary slice. Saved runs add
-    nested runtime results for core inputs, schemas, scalar/TimeSeries values,
-    calculations, table transforms, outputs, and validations, then refresh
-    changed section hashes while preserving unchanged static hashes.
+    nested runtime results for core inputs, schemas, scalar values,
+    materialized tables, TimeSeries, explicit coverage checks, source-derived
+    time axes, calculations, table transforms, outputs, and validations, then
+    refresh changed section hashes while preserving unchanged static hashes.
     Runtime-generated `report.html` validates that final document and uses
-    it for the review fingerprint, core runtime result/evidence table, and full
-    validation expressions.
+    it for the review fingerprint, core runtime result/evidence table,
+    TimeSeries/coverage counts and sample summaries, and full validation
+    expressions.
   - One compiler-owned item-level semantic diff payload is available through
     `eng review --against`, `eng review diff`, and the native IDE Review panel.
     Specialized solver, assembly, model, and DB runtime rows remain follow-up

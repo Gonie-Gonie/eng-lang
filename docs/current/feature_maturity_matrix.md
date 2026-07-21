@@ -72,10 +72,12 @@ separate.
   time axes, symbols, derived values, calculations, table transforms, report
   outputs, validations, side effects, external boundaries, caches, fallbacks,
   and risk entries. Saved runs add source-matched runtime results and refresh
-  only the section hashes whose normalized content changed. Runtime-generated
+  only the section hashes whose normalized content changed. Core projection
+  includes materialized tables, TimeSeries, explicit coverage checks, and
+  source-derived time axes across matching normalized rows. Runtime-generated
   report HTML validates the final saved ReviewDocument and projects its
-  fingerprint, core value/evidence rows, statuses, and full validation
-  expressions.
+  fingerprint, value/evidence rows, TimeSeries/coverage counts, coverage sample
+  summaries, statuses, and full validation expressions.
 - Evidence: official examples, artifact schemas, `artifacts-check`, report/
   review guide, `eng review`, shared compiler diff tests, and IDE smoke path
   covering normalized Review cockpit sections, semantic comparison, external
