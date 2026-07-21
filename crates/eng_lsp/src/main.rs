@@ -10918,6 +10918,124 @@ mod tests {
     }
 
     #[test]
+    fn scalar_const_edits_use_incremental_compiler_recheck() {
+        let root = std::env::temp_dir().join(format!(
+            "eng_lsp_scalar_const_analysis_cache_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("scalar const fixture should be created");
+        let path = root.join("current.eng");
+        let initial_source = concat!(
+            "base = 2 m\n",
+            "const factor: Ratio = 0.5\n",
+            "adjusted: Length [m] = base * factor\n",
+            "total = adjusted + 0 m\n",
+        );
+        std::fs::write(&path, initial_source).expect("scalar const source should be written");
+        let path = path
+            .canonicalize()
+            .expect("scalar const source should exist");
+        let uri = file_uri_from_path(&path);
+        let mut documents = Documents::new();
+        documents.insert(
+            uri.clone(),
+            DocumentState::new(initial_source.to_owned(), Some(1)),
+        );
+
+        let _initial = snapshot_for_open_documents(&path, initial_source, &documents);
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 0);
+
+        let changed_source = concat!(
+            "base = 2 m\n",
+            "const gain: Ratio [1] = 0.75\n",
+            "adjusted: Length [cm] = base * gain\n",
+            "total = adjusted + 0 m\n",
+        );
+        let changed_notification = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 2 },
+                "contentChanges": [{ "text": changed_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&changed_notification, &documents)
+                .expect("scalar const rename should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, changed_source, &documents),
+            snapshot_for_source(&path, changed_source)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 1);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 2, 0, true, true)
+        );
+
+        let appended_source = concat!(
+            "base = 2 m\n",
+            "const gain: Ratio [1] = 0.75\n",
+            "adjusted: Length [cm] = base * gain\n",
+            "total = adjusted + 0 m\n",
+            "const reserve: Length [m] = total + 50 cm\n",
+            "final = reserve + 0 m\n",
+        );
+        let appended_notification = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 3 },
+                "contentChanges": [{ "text": appended_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&appended_notification, &documents)
+                .expect("appended scalar const should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, appended_source, &documents),
+            snapshot_for_source(&path, appended_source)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 2);
+
+        let fallback_source = concat!(
+            "base = 2 m\n",
+            "const gain: Ratio = sqrt(4)\n",
+            "adjusted: Length [m] = base\n",
+            "total = adjusted + 0 m\n",
+        );
+        let fallback_notification = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 4 },
+                "contentChanges": [{ "text": fallback_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&fallback_notification, &documents)
+                .expect("scalar const function expression should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, fallback_source, &documents),
+            snapshot_for_source(&path, fallback_source)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 2);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 4, 0, true, true),
+            "function calls in scalar constants must use a fresh compiler report"
+        );
+
+        std::fs::remove_dir_all(&root).expect("scalar const fixture should be removed");
+    }
+
+    #[test]
     fn changed_import_republishes_only_recursive_open_dependents() {
         let root = std::env::temp_dir().join(format!(
             "eng_lsp_open_import_diagnostics_{}",

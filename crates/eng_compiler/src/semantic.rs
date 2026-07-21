@@ -1044,6 +1044,7 @@ pub struct SemanticOutput {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct IncrementalScalarDeclarationAnalysis {
     pub(crate) inferred_declarations: Vec<InferredDeclaration>,
+    pub(crate) consts: Vec<ConstInfo>,
     pub(crate) expected_types: Vec<ExpectedType>,
     pub(crate) typed_bindings: Vec<TypedBinding>,
     pub(crate) hover_hints: Vec<HoverHint>,
@@ -1053,11 +1054,12 @@ pub(crate) struct IncrementalScalarDeclarationAnalysis {
 
 /// Analyzes a side-effect-free scalar declaration suffix against a trusted prefix environment.
 ///
-/// Fast bindings and explicit declarations may be interleaved. Accepted expressions are numeric
-/// literals, backward aliases, or pure scalar arithmetic over registered-unit literals and backward
-/// scalar references. The arithmetic grammar is deliberately shared with component parameter
-/// validation so calls and workflow expressions cannot enter this local semantic path. An empty
-/// suffix is accepted so the caller can remove the final affected declarations atomically.
+/// Fast bindings, explicit declarations, and top-level scalar constants may be interleaved.
+/// Accepted expressions are numeric literals, backward aliases, or pure scalar arithmetic over
+/// registered-unit literals and backward scalar references. The arithmetic grammar is deliberately
+/// shared with component parameter validation so calls and workflow expressions cannot enter this
+/// local semantic path. An empty suffix is accepted so the caller can remove the final affected
+/// declarations atomically.
 pub(crate) fn analyze_incremental_scalar_declarations(
     program: &ParsedProgram,
     prefix_typed_bindings: &[TypedBinding],
@@ -1074,6 +1076,7 @@ pub(crate) fn analyze_incremental_scalar_declarations(
 
     let mut diagnostics = Vec::new();
     let mut inferred_declarations = Vec::new();
+    let mut consts = Vec::new();
     let mut expected_types = Vec::new();
     let prefix_count = prefix_typed_bindings.len();
     let mut typed_bindings = prefix_typed_bindings.to_vec();
@@ -1087,6 +1090,7 @@ pub(crate) fn analyze_incremental_scalar_declarations(
     let mut timeseries_kernels = Vec::new();
     let mut fast_binding_count = 0usize;
     let mut explicit_declaration_count = 0usize;
+    let mut const_declaration_count = 0usize;
 
     for item in &program.items {
         match item {
@@ -1137,14 +1141,40 @@ pub(crate) fn analyze_incremental_scalar_declarations(
                 );
                 explicit_declaration_count = explicit_declaration_count.checked_add(1)?;
             }
+            AstItem::Const(declaration) if declaration.context == ParseContext::TopLevel => {
+                if !crate::quantities::all_quantity_completions()
+                    .iter()
+                    .any(|quantity| quantity.quantity_kind == declaration.type_name)
+                    || !supports_incremental_scalar_expression(
+                        &declaration.expression,
+                        &typed_bindings,
+                    )
+                {
+                    return None;
+                }
+                analyze_const_decl(
+                    declaration,
+                    &mut consts,
+                    &mut diagnostics,
+                    &mut expected_types,
+                    &mut hover_hints,
+                    &mut typed_bindings,
+                    &mut type_infos,
+                    &mut unit_derivations,
+                );
+                const_declaration_count = const_declaration_count.checked_add(1)?;
+            }
             _ => return None,
         }
     }
 
-    let declaration_count = fast_binding_count.checked_add(explicit_declaration_count)?;
+    let annotated_declaration_count =
+        explicit_declaration_count.checked_add(const_declaration_count)?;
+    let declaration_count = fast_binding_count.checked_add(annotated_declaration_count)?;
     if !diagnostics.is_empty()
         || inferred_declarations.len() != fast_binding_count
-        || expected_types.len() != explicit_declaration_count
+        || consts.len() != const_declaration_count
+        || expected_types.len() != annotated_declaration_count
         || typed_bindings.len() != prefix_count.checked_add(declaration_count)?
         || hover_hints.len() != declaration_count
         || type_infos.len() != declaration_count
@@ -1161,6 +1191,7 @@ pub(crate) fn analyze_incremental_scalar_declarations(
 
     Some(IncrementalScalarDeclarationAnalysis {
         inferred_declarations,
+        consts,
         expected_types,
         typed_bindings: typed_bindings.split_off(prefix_count),
         hover_hints,

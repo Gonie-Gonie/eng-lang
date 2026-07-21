@@ -126,19 +126,21 @@ review material. It is not a broad solver claim.
   token-free comment/blank-line edits can retarget that report when every token
   and token-bearing line stays at the same absolute source location. In a clean
   document containing only top-level fast scalar bindings, registered explicit
-  scalar declarations, and compiler-validated pure scalar expressions over
-  numeric or registered-unit literals and earlier typed bindings, changed
-  declaration lines or standalone token-free trivia preserve the report before
-  the first declaration at or after the first change and reparse/semantically
-  reanalyze that suffix. Fast and explicit declarations may be interleaved or
+  scalar declarations, pure top-level scalar `const` declarations, and
+  compiler-validated pure scalar expressions over numeric or registered-unit
+  literals and earlier typed bindings, changed declaration lines or standalone
+  token-free trivia preserve the report before the first declaration at or after
+  the first change and reparse/semantically reanalyze that suffix. All three
+  declaration forms may be interleaved; fast and explicit declarations may also
   switch style inside the suffix. This repairs absolute spans and line numbers
   after variable-width, inserted, or removed standalone trivia and suffix
   line-ending changes. Coordinated declaration and alias renames are accepted when
   names remain unique and every reference resolves backward in source order.
   Declaration additions/removals, complete clearing, and restart from trivia-only
-  text update inferred and expected records, shared semantic vectors, syntax
-  counts, and the first workflow line together. Token-bearing non-declaration
-  lines, incomplete or duplicate renames, forward or unresolved references,
+  text update inferred, constant, and expected records, shared semantic vectors,
+  syntax counts, and the first workflow line together. Token-bearing
+  non-declaration lines, incomplete or duplicate renames, forward or unresolved
+  references,
   dimensionally incompatible arithmetic, calls, workflow expressions,
   diagnostics, imports, caches, and richer language use full analysis.
   Source changes invalidate recursive open import dependents while preserving

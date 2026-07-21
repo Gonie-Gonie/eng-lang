@@ -568,7 +568,8 @@ pub fn retarget_check_report_for_token_stable_trivia(
 /// the top-level workflow line atomically. The compiler verifies the old suffix result against the
 /// prior report before patching. Imports, diagnostics, caches, calls, workflow expressions, richer
 /// language constructs, and edits without an affected binding return `None` so the caller can run a
-/// normal check or another reuse path.
+/// normal check or another reuse path. Top-level `const` declarations are accepted only by the
+/// unified [`recheck_scalar_declaration_suffix_incrementally`] entry point.
 ///
 /// The caller must preserve the source path, check options, argument overrides, and import
 /// environment, just as for [`retarget_check_report_for_token_stable_trivia`].
@@ -593,8 +594,9 @@ pub fn recheck_scalar_binding_suffix_incrementally(
 /// Both sources must contain only successful top-level explicit declarations with registered
 /// scalar quantity types, pure scalar expressions, and token-free trivia. This path preserves the
 /// records before the first changed declaration and patches expected-type, typed-binding, hover,
-/// type-info, unit-derivation, syntax-count, and workflow-line records together. Mixed fast and
-/// explicit declarations, calls, diagnostics, imports, caches, and richer constructs return `None`.
+/// type-info, unit-derivation, syntax-count, and workflow-line records together. Mixed fast,
+/// explicit, or `const` declarations, calls, diagnostics, imports, caches, and richer constructs
+/// return `None`.
 pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
     report: &CheckReport,
     previous_source: &str,
@@ -610,12 +612,13 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 
 /// Rechecks a changed suffix containing top-level scalar declarations.
 ///
-/// Fast bindings and explicit scalar declarations may be interleaved and may change style inside
-/// the affected suffix. Expressions are limited to numeric literals, backward aliases, and pure
-/// scalar `+`, `-`, `*`, and `/` arithmetic over registered-unit literals, parentheses, and earlier
-/// scalar declarations. The compiler preserves all records before the first declaration at or after
-/// the first raw-line difference, verifies the old suffix against the prior report, then patches the
-/// inferred, expected, typed, hover, type-info, unit-derivation, syntax, and workflow records as one
+/// Fast bindings, explicit scalar declarations, and pure top-level scalar `const` declarations may
+/// be interleaved; fast and explicit declarations may also change style inside the affected suffix.
+/// Expressions are limited to numeric literals, backward aliases, and pure scalar `+`, `-`, `*`,
+/// and `/` arithmetic over registered-unit literals, parentheses, and earlier scalar declarations.
+/// The compiler preserves all records before the first declaration at or after the first raw-line
+/// difference, verifies the old suffix against the prior report, then patches inferred, constant,
+/// expected, typed, hover, type-info, unit-derivation, syntax, and workflow records as one
 /// transaction. Imports, diagnostics, calls, caches, richer workflow constructs, unresolved or
 /// duplicate names, and edits without an affected declaration return `None` for a normal full check.
 ///
@@ -642,11 +645,16 @@ enum IncrementalScalarDeclarationMode {
 }
 
 impl IncrementalScalarDeclarationMode {
-    fn accepts(self, fast_binding_count: usize, explicit_declaration_count: usize) -> bool {
+    fn accepts(
+        self,
+        fast_binding_count: usize,
+        explicit_declaration_count: usize,
+        const_declaration_count: usize,
+    ) -> bool {
         match self {
             Self::Any => true,
-            Self::FastOnly => explicit_declaration_count == 0,
-            Self::ExplicitOnly => fast_binding_count == 0,
+            Self::FastOnly => explicit_declaration_count == 0 && const_declaration_count == 0,
+            Self::ExplicitOnly => fast_binding_count == 0 && const_declaration_count == 0,
         }
     }
 }
@@ -696,6 +704,7 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
         || !mode.accepts(
             report.syntax_summary.fast_bindings,
             report.syntax_summary.explicit_declarations,
+            report.syntax_summary.const_declarations,
         )
     {
         return None;
@@ -706,9 +715,11 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
     if !mode.accepts(
         previous_suffix.fast_binding_count,
         previous_suffix.explicit_declaration_count,
+        previous_suffix.const_declaration_count,
     ) || !mode.accepts(
         source_suffix.fast_binding_count,
         source_suffix.explicit_declaration_count,
+        source_suffix.const_declaration_count,
     ) || (previous_suffix.declarations.is_empty() && source_suffix.declarations.is_empty())
     {
         return None;
@@ -723,11 +734,19 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
         .inferred_declarations
         .len()
         .checked_sub(previous_suffix.fast_binding_count)?;
+    let first_const_record = report
+        .semantic_program
+        .consts
+        .len()
+        .checked_sub(previous_suffix.const_declaration_count)?;
+    let previous_annotated_declaration_count = previous_suffix
+        .explicit_declaration_count
+        .checked_add(previous_suffix.const_declaration_count)?;
     let first_expected_record = report
         .semantic_program
         .expected_types
         .len()
-        .checked_sub(previous_suffix.explicit_declaration_count)?;
+        .checked_sub(previous_annotated_declaration_count)?;
     if let Some(previous_changed) = previous_suffix.declarations.first() {
         let previous_binding = report
             .semantic_program
@@ -767,13 +786,22 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
         prefix_typed_bindings,
     )?;
     if previous_analysis.inferred_declarations.len() != previous_suffix.fast_binding_count
-        || previous_analysis.expected_types.len() != previous_suffix.explicit_declaration_count
+        || previous_analysis.consts.len() != previous_suffix.const_declaration_count
+        || previous_analysis.expected_types.len()
+            != previous_suffix
+                .explicit_declaration_count
+                .checked_add(previous_suffix.const_declaration_count)?
         || source_analysis.inferred_declarations.len() != source_suffix.fast_binding_count
-        || source_analysis.expected_types.len() != source_suffix.explicit_declaration_count
+        || source_analysis.consts.len() != source_suffix.const_declaration_count
+        || source_analysis.expected_types.len()
+            != source_suffix
+                .explicit_declaration_count
+                .checked_add(source_suffix.const_declaration_count)?
         || !incremental_scalar_declaration_analysis_matches_report(
             report,
             first_typed_record,
             first_inferred_record,
+            first_const_record,
             first_expected_record,
             &previous_analysis,
         )
@@ -787,6 +815,8 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
         .inferred_declarations
         .extend(source_analysis.inferred_declarations);
     let semantic = &mut reused.semantic_program;
+    semantic.consts.truncate(first_const_record);
+    semantic.consts.extend(source_analysis.consts);
     semantic.expected_types.truncate(first_expected_record);
     semantic
         .expected_types
@@ -823,6 +853,11 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
         .explicit_declarations
         .checked_sub(previous_suffix.explicit_declaration_count)?
         .checked_add(source_suffix.explicit_declaration_count)?;
+    reused.syntax_summary.const_declarations = reused
+        .syntax_summary
+        .const_declarations
+        .checked_sub(previous_suffix.const_declaration_count)?
+        .checked_add(source_suffix.const_declaration_count)?;
     reused.syntax_summary.lines = source_lines.len();
     if first_typed_record == 0 {
         semantic.workflow.line = source_suffix
@@ -840,6 +875,7 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
 enum ScalarDeclarationKind {
     FastBinding,
     ExplicitDeclaration,
+    ConstDeclaration,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -854,6 +890,7 @@ struct ParsedScalarDeclarationSuffix {
     declarations: Vec<ScalarDeclarationRecord>,
     fast_binding_count: usize,
     explicit_declaration_count: usize,
+    const_declaration_count: usize,
     token_count: usize,
 }
 
@@ -894,6 +931,11 @@ fn parse_scalar_declaration_suffix(
                 line: declaration.line,
                 kind: ScalarDeclarationKind::ExplicitDeclaration,
             }),
+            AstItem::Const(declaration) => Some(ScalarDeclarationRecord {
+                name: declaration.name.clone(),
+                line: declaration.line,
+                kind: ScalarDeclarationKind::ConstDeclaration,
+            }),
             _ => None,
         })
         .collect::<Option<Vec<_>>>()?;
@@ -901,10 +943,22 @@ fn parse_scalar_declaration_suffix(
         .iter()
         .filter(|declaration| declaration.kind == ScalarDeclarationKind::FastBinding)
         .count();
-    let explicit_declaration_count = declarations.len().checked_sub(fast_binding_count)?;
-    if syntax_summary.ast_items != declarations.len()
+    let explicit_declaration_count = declarations
+        .iter()
+        .filter(|declaration| declaration.kind == ScalarDeclarationKind::ExplicitDeclaration)
+        .count();
+    let const_declaration_count = declarations
+        .iter()
+        .filter(|declaration| declaration.kind == ScalarDeclarationKind::ConstDeclaration)
+        .count();
+    let declaration_count = fast_binding_count
+        .checked_add(explicit_declaration_count)?
+        .checked_add(const_declaration_count)?;
+    if declaration_count != declarations.len()
+        || syntax_summary.ast_items != declarations.len()
         || syntax_summary.fast_bindings != fast_binding_count
         || syntax_summary.explicit_declarations != explicit_declaration_count
+        || syntax_summary.const_declarations != const_declaration_count
     {
         return None;
     }
@@ -914,6 +968,7 @@ fn parse_scalar_declaration_suffix(
         declarations,
         fast_binding_count,
         explicit_declaration_count,
+        const_declaration_count,
         token_count: syntax_summary.tokens,
     })
 }
@@ -922,10 +977,17 @@ fn report_has_incremental_scalar_declaration_shape(
     report: &CheckReport,
     empty_semantic_program: &SemanticProgram,
 ) -> bool {
+    let Some(annotated_declaration_count) = report
+        .syntax_summary
+        .explicit_declarations
+        .checked_add(report.syntax_summary.const_declarations)
+    else {
+        return false;
+    };
     let Some(declaration_count) = report
         .syntax_summary
         .fast_bindings
-        .checked_add(report.syntax_summary.explicit_declarations)
+        .checked_add(annotated_declaration_count)
     else {
         return false;
     };
@@ -937,7 +999,8 @@ fn report_has_incremental_scalar_declaration_shape(
         || !semantic_program_has_only_scalar_declaration_records(
             &report.semantic_program,
             declaration_count,
-            report.syntax_summary.explicit_declarations,
+            annotated_declaration_count,
+            report.syntax_summary.const_declarations,
             empty_semantic_program,
         )
     {
@@ -955,8 +1018,16 @@ fn report_has_incremental_scalar_declaration_shape(
         .iter()
         .map(|declaration| (declaration.name.as_str(), declaration.line))
         .collect::<HashSet<_>>();
+    let const_keys = report
+        .semantic_program
+        .consts
+        .iter()
+        .map(|declaration| (declaration.name.as_str(), declaration.line))
+        .collect::<HashSet<_>>();
     if expected_keys.len() != report.semantic_program.expected_types.len()
         || inferred_keys.len() != report.inferred_declarations.len()
+        || const_keys.len() != report.semantic_program.consts.len()
+        || !const_keys.is_subset(&expected_keys)
         || !expected_keys.is_disjoint(&inferred_keys)
     {
         return false;
@@ -1001,10 +1072,12 @@ fn report_has_incremental_scalar_declaration_shape(
 fn semantic_program_has_only_scalar_declaration_records(
     program: &SemanticProgram,
     declaration_count: usize,
-    explicit_declaration_count: usize,
+    annotated_declaration_count: usize,
+    const_declaration_count: usize,
     empty: &SemanticProgram,
 ) -> bool {
-    if program.expected_types.len() != explicit_declaration_count
+    if program.consts.len() != const_declaration_count
+        || program.expected_types.len() != annotated_declaration_count
         || program.typed_bindings.len() != declaration_count
         || program.hover_hints.len() != declaration_count
         || program.type_infos.len() != declaration_count
@@ -1014,6 +1087,7 @@ fn semantic_program_has_only_scalar_declaration_records(
     }
 
     let mut residue = program.clone();
+    residue.consts.clear();
     residue.expected_types.clear();
     residue.typed_bindings.clear();
     residue.hover_hints.clear();
@@ -1027,11 +1101,14 @@ fn incremental_scalar_declaration_analysis_matches_report(
     report: &CheckReport,
     first_typed_record: usize,
     first_inferred_record: usize,
+    first_const_record: usize,
     first_expected_record: usize,
     analysis: &semantic::IncrementalScalarDeclarationAnalysis,
 ) -> bool {
     report.inferred_declarations.get(first_inferred_record..)
         == Some(analysis.inferred_declarations.as_slice())
+        && report.semantic_program.consts.get(first_const_record..)
+            == Some(analysis.consts.as_slice())
         && report
             .semantic_program
             .expected_types
@@ -10119,6 +10196,221 @@ mod tests {
         assert_eq!(restarted.semantic_program.workflow.line, 2);
         assert_eq!(restarted.inferred_declarations.len(), 1);
         assert_eq!(restarted.semantic_program.expected_types.len(), 1);
+    }
+
+    #[test]
+    fn incrementally_rechecks_scalar_consts_with_fresh_equivalence() {
+        fn assert_fresh_equivalent(reused: &CheckReport, fresh: &CheckReport, source: &str) {
+            assert_eq!(reused.source_path, fresh.source_path);
+            assert_eq!(reused.source_files, fresh.source_files);
+            assert_eq!(reused.source_hash, fresh.source_hash);
+            assert_eq!(reused.source_lines, fresh.source_lines);
+            assert_eq!(reused.diagnostics, fresh.diagnostics);
+            assert_eq!(reused.inferred_declarations, fresh.inferred_declarations);
+            assert_eq!(reused.syntax_summary, fresh.syntax_summary);
+            assert_eq!(reused.semantic_program, fresh.semantic_program);
+            assert_eq!(
+                reused.quantity_completion_count,
+                fresh.quantity_completion_count
+            );
+            assert_eq!(reused.unit_info_count, fresh.unit_info_count);
+            assert_eq!(review_json(reused), review_json(fresh));
+            assert_eq!(
+                encode_bytecode(&build_bytecode_program(reused, source)),
+                encode_bytecode(&build_bytecode_program(fresh, source))
+            );
+        }
+
+        let previous_source = concat!(
+            "base = 2 m\n",
+            "const scale: Ratio = 0.5\n",
+            "adjusted: Length [m] = base * scale\n",
+            "const allowance: Length [cm] = adjusted + 25 cm\n",
+            "total = allowance + base + 0 m\n",
+        );
+        let source = concat!(
+            "base = 2 m\n",
+            "# scalar constants changed\n",
+            "const factor: Ratio [1] = 0.75\n",
+            "adjusted: Length [cm] = base * factor\n",
+            "const reserve: Length [m] = adjusted + 50 cm\n",
+            "total = reserve + base + 0 m\n",
+        );
+        let previous = check_source(
+            "incremental-const.eng",
+            previous_source,
+            &CheckOptions::default(),
+        );
+        assert!(
+            previous.diagnostics.is_empty(),
+            "unexpected const fixture diagnostics: {:#?}",
+            previous.diagnostics
+        );
+        assert_eq!(previous.syntax_summary.fast_bindings, 2);
+        assert_eq!(previous.syntax_summary.explicit_declarations, 1);
+        assert_eq!(previous.syntax_summary.const_declarations, 2);
+        let empty_semantic_program = semantic::analyze(&ParsedProgram {
+            lines: Vec::new(),
+            items: Vec::new(),
+        })
+        .semantic_program;
+        assert!(
+            report_has_incremental_scalar_declaration_shape(&previous, &empty_semantic_program),
+            "the successful const report should satisfy the incremental scalar shape"
+        );
+
+        let reused =
+            recheck_scalar_declaration_suffix_incrementally(&previous, previous_source, source)
+                .expect("pure scalar constants should share the declaration suffix recheck");
+        let fresh = check_source("incremental-const.eng", source, &CheckOptions::default());
+        assert_fresh_equivalent(&reused, &fresh, source);
+        assert_eq!(
+            reused.semantic_program.typed_bindings.first(),
+            previous.semantic_program.typed_bindings.first(),
+            "the binding before changed trivia should remain exact"
+        );
+        assert_eq!(
+            reused
+                .semantic_program
+                .consts
+                .iter()
+                .map(|constant| constant.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["factor", "reserve"]
+        );
+        assert!(
+            recheck_scalar_binding_suffix_incrementally(&previous, previous_source, source)
+                .is_none()
+        );
+        assert!(recheck_explicit_scalar_declaration_suffix_incrementally(
+            &previous,
+            previous_source,
+            source
+        )
+        .is_none());
+
+        let appended_source = concat!(
+            "base = 2 m\n",
+            "# scalar constants changed\n",
+            "const factor: Ratio [1] = 0.75\n",
+            "adjusted: Length [cm] = base * factor\n",
+            "const reserve: Length [m] = adjusted + 50 cm\n",
+            "total = reserve + base + 0 m\n",
+            "const margin: Length [m] = total / factor\n",
+            "final = margin + reserve + 0 m\n",
+        );
+        let appended =
+            recheck_scalar_declaration_suffix_incrementally(&reused, source, appended_source)
+                .expect("appended scalar constants should extend every matching semantic vector");
+        let appended_fresh = check_source(
+            "incremental-const.eng",
+            appended_source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(&appended, &appended_fresh, appended_source);
+        assert_eq!(appended.syntax_summary.const_declarations, 3);
+        assert_eq!(appended.semantic_program.consts.len(), 3);
+
+        let reduced_source = concat!(
+            "base = 2 m\n",
+            "# scalar constants changed\n",
+            "const factor: Ratio [1] = 0.75\n",
+            "adjusted: Length [cm] = base * factor\n",
+            "total = adjusted + base + 0 m\n",
+            "const margin: Length [cm] = total / factor\n",
+            "final = margin + adjusted + 0 m\n",
+        );
+        let reduced = recheck_scalar_declaration_suffix_incrementally(
+            &appended,
+            appended_source,
+            reduced_source,
+        )
+        .expect("removing a middle scalar constant should patch the remaining suffix");
+        let reduced_fresh = check_source(
+            "incremental-const.eng",
+            reduced_source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(&reduced, &reduced_fresh, reduced_source);
+        assert_eq!(reduced.syntax_summary.const_declarations, 2);
+        assert_eq!(
+            reduced
+                .semantic_program
+                .consts
+                .iter()
+                .map(|constant| constant.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["factor", "margin"]
+        );
+
+        let cleared_source = "# scalar declarations cleared\r\n";
+        let cleared = recheck_scalar_declaration_suffix_incrementally(
+            &reduced,
+            reduced_source,
+            cleared_source,
+        )
+        .expect("clearing scalar constants should clear the const semantic vector");
+        let cleared_fresh = check_source(
+            "incremental-const.eng",
+            cleared_source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(&cleared, &cleared_fresh, cleared_source);
+        assert!(cleared.semantic_program.consts.is_empty());
+
+        let restarted_source = concat!(
+            "# scalar declarations cleared\r\n",
+            "const distance: Length [m] = 4 m\r\n",
+            "distance_copy = distance\r\n",
+        );
+        let restarted = recheck_scalar_declaration_suffix_incrementally(
+            &cleared,
+            cleared_source,
+            restarted_source,
+        )
+        .expect("a scalar constant should restart a trivia-only report");
+        let restarted_fresh = check_source(
+            "incremental-const.eng",
+            restarted_source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(&restarted, &restarted_fresh, restarted_source);
+        assert_eq!(restarted.semantic_program.workflow.line, 2);
+        assert_eq!(restarted.semantic_program.consts.len(), 1);
+        assert_eq!(restarted.inferred_declarations.len(), 1);
+    }
+
+    #[test]
+    fn scalar_const_incremental_recheck_uses_strict_fallbacks() {
+        let previous_source = concat!(
+            "base = 2 m\n",
+            "const factor: Ratio = 0.5\n",
+            "adjusted: Length [m] = base * factor\n",
+        );
+        let previous = check_source(
+            "incremental-const.eng",
+            previous_source,
+            &CheckOptions::default(),
+        );
+
+        for unsupported in [
+            "base = 2 m\nconst factor: Ratio = sqrt(4)\nadjusted: Length [m] = base * factor\n",
+            "base = 2 m\nconst factor: Ratio = missing\nadjusted: Length [m] = base * factor\n",
+            "base = 2 m\nconst factor: Ratio = later\nlater = 0.5\n",
+            "base = 2 m\nconst base: Length [m] = 3 m\nadjusted = base + 1 m\n",
+            "base = 2 m\nconst input: CsvFile = file(\"input.csv\")\nadjusted = base + 1 m\n",
+            "use \"other.eng\"\nconst factor: Ratio = 0.5\nadjusted = 2 m\n",
+        ] {
+            assert!(
+                recheck_scalar_declaration_suffix_incrementally(
+                    &previous,
+                    previous_source,
+                    unsupported,
+                )
+                .is_none(),
+                "unsupported scalar const edit should use a full check: {unsupported:?}"
+            );
+        }
     }
 
     #[test]

@@ -237,15 +237,16 @@ separate.
   `recheck_scalar_declaration_suffix_incrementally` that preserves the unchanged
   prefix and reparses/semantically reanalyzes from the first scalar declaration at
   or after the first changed declaration or standalone token-free trivia line.
-  Clean scalar documents may interleave fast bindings and registered explicit
-  annotations, switch declaration style in the affected suffix, and use numeric
+  Clean scalar documents may interleave fast bindings, registered explicit
+  annotations, and pure top-level scalar `const` declarations; fast and explicit
+  forms may switch style in the affected suffix. Expressions may use numeric
   literals, backward aliases, or pure scalar arithmetic over registered-unit
   literals, parentheses, and earlier typed bindings. The path covers coordinated
   multi-line value/type/unit edits, renames, declaration additions/removals,
   complete clearing and trivia-only restart, variable-width/inserted/removed
-  trivia, and suffix line-ending shifts while patching inferred, expected, shared
-  semantic, syntax-count, and workflow-line records together. The older
-  fast-binding-only and explicit-declaration-only APIs are mode-limited
+  trivia, and suffix line-ending shifts while patching inferred, constant,
+  expected, shared semantic, syntax-count, and workflow-line records together.
+  The older fast-binding-only and explicit-declaration-only APIs are mode-limited
   compatibility wrappers over this engine; lazy shared editor snapshots,
   recursive import-dependent invalidation, a VS Code persistent stdio client
   with document sync and direct protocol semantic tokens, request-ID-scoped protocol
@@ -255,9 +256,9 @@ separate.
   validation records, stdio tests, and optional VS Code source.
 - Not included: a stable public compatibility guarantee across EngLang releases
   or general partial parse/semantic recomputation beyond the bounded scalar
-  declaration contract, including forward/unresolved references, calls, workflow
-  expressions, token-bearing non-declaration lines, and richer language constructs
-  inside a changed document.
+  declaration contract, including forward/unresolved references, calls, non-scalar
+  constants, workflow expressions, token-bearing non-declaration lines, and richer
+  language constructs inside a changed document.
 - Next cleanup action: keep the implemented persistent service tested while its
   public maturity remains explicit.
 
