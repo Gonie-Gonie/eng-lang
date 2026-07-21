@@ -737,7 +737,7 @@ const EDITOR_LEGACY_WORKFLOW_OPTION_ALIASES: &[&str] =
 const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     ("date", "calendar date constructor"),
     ("dir", "eng.path directory path helper"),
-    ("env", "environment variable lookup"),
+    ("env", "non-secret environment value with optional fallback"),
     ("exists", "eng.path existence check"),
     ("extension", "eng.path extension helper"),
     ("file", "eng.path file path helper"),
@@ -745,7 +745,7 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     ("parent", "eng.path parent directory helper"),
     ("secret", "redacted secret constructor"),
     ("stem", "eng.path filename stem helper"),
-    ("url", "HTTP or HTTPS URL constructor"),
+    ("url", "typed HTTP(S) URL constructor"),
     ("filter", "Filter table rows with a `where` block"),
     ("select", "Select named columns from a table"),
     ("derive", "Add a derived column to a table"),
@@ -19955,6 +19955,7 @@ report {
         let source = r#"source_file = file("data/input.csv")
 output_dir = dir("outputs")
 endpoint = url("https://example.org/data")
+mode = env("ENGLANG_TEST_B1068_UNSET", "offline")
 api_key = secret env("API_KEY")
 output_exists = exists(output_dir)
 output_file = join(output_dir, "result.csv")
@@ -19966,10 +19967,15 @@ joined_rows = join left_rows with right_rows
 "#;
         let snapshot = snapshot_for_source(Path::new("builtin_roles.eng"), source);
 
+        assert!(snapshot
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-FN-CALL-001"));
         for (line, label) in [
             ("source_file = file", "file"),
             ("output_dir = dir", "dir"),
             ("endpoint = url", "url"),
+            ("mode = env", "env"),
             ("api_key = secret", "secret"),
             ("api_key = secret", "env"),
             ("output_exists = exists", "exists"),
@@ -22348,6 +22354,44 @@ with {
             .help
             .as_deref()
             .is_some_and(|help| help.contains("render template")));
+    }
+
+    #[test]
+    fn value_constructor_diagnostics_use_compiler_owned_ranges() {
+        let source = r#"args {
+    arg_env: String = env(name),
+    arg_url: Url = url(),
+}
+
+bad_env = env(name)
+bad_url = url()
+"#;
+        let snapshot = snapshot_for_source(Path::new("constructor_calls.eng"), source);
+        let lines = source.lines().collect::<Vec<_>>();
+
+        for (line_index, code, expected) in [
+            (1, "E-ENV-CALL-001", "name"),
+            (2, "E-URL-CALL-001", "url"),
+            (5, "E-ENV-CALL-001", "name"),
+            (6, "E-URL-CALL-001", "url"),
+        ] {
+            let diagnostic = snapshot
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.line == line_index + 1 && diagnostic.code == code)
+                .unwrap_or_else(|| panic!("missing {code}: {:?}", snapshot.diagnostics));
+            let line = lines[line_index];
+            let byte_start = line.rfind(expected).expect("diagnostic source text");
+            assert_eq!(diagnostic.start_character, utf16_len(&line[..byte_start]));
+            assert_eq!(
+                diagnostic.end_character,
+                utf16_len(&line[..byte_start + expected.len()])
+            );
+        }
+        assert!(snapshot
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-FN-CALL-001"));
     }
 
     #[test]

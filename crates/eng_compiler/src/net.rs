@@ -801,8 +801,12 @@ fn resolve_literal_value(trimmed: &str) -> Option<String> {
 }
 
 fn strip_call_string_arg(expression: &str, function_name: &str) -> Option<String> {
-    let prefix = format!("{function_name}(");
-    let inner = expression.strip_prefix(&prefix)?.strip_suffix(')')?.trim();
+    let expression = expression.trim();
+    let open = expression.find('(')?;
+    if expression[..open].trim() != function_name {
+        return None;
+    }
+    let inner = expression[open + 1..].strip_suffix(')')?.trim();
     Some(strip_string_literal(inner))
 }
 

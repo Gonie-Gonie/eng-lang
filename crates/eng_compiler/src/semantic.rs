@@ -645,6 +645,7 @@ pub struct ArgsFieldInfo {
     pub type_name: String,
     pub type_span: SourceSpan,
     pub default_value: Option<String>,
+    pub default_value_span: Option<SourceSpan>,
     pub redacted: bool,
     pub required: bool,
     pub line: usize,
@@ -1851,7 +1852,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             }
             AstItem::ArgsField(field) => {
                 if let Some(args_block_index) = current_args_block_index {
-                    analyze_args_field(field, &mut args_blocks[args_block_index]);
+                    analyze_args_field(field, &mut args_blocks[args_block_index], &mut diagnostics);
                 }
             }
             AstItem::SystemVariable(variable) => match variable.context {
@@ -8362,6 +8363,136 @@ fn parse_object_method_call(
     })
 }
 
+fn validate_value_constructor_call(
+    expression: &str,
+    expression_span: SourceSpan,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(call) = parse_function_call(expression) else {
+        return;
+    };
+    match call.name.as_str() {
+        "url" => validate_url_constructor_call(expression_span, line, &call, diagnostics),
+        "env" => validate_env_constructor_call(expression_span, line, &call, diagnostics),
+        _ => {}
+    }
+}
+
+fn validate_url_constructor_call(
+    expression_span: SourceSpan,
+    line: usize,
+    call: &FunctionCall,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let name_span =
+        source_span_for_child_range(expression_span, call.name_range.start, call.name_range.end);
+    if call.args.len() != 1 {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-URL-CALL-001",
+                line,
+                &format!(
+                    "url expects one quoted HTTP(S) address, but got {} argument(s).",
+                    call.args.len()
+                ),
+                Some(r#"Use url("https://example.org/data")."#),
+            )
+            .with_source_span(name_span),
+        );
+        return;
+    }
+    let argument = call.args[0].trim();
+    let argument_span = source_span_for_child_range(
+        expression_span,
+        call.arg_ranges[0].start,
+        call.arg_ranges[0].end,
+    );
+    let Some(value) = string_literal_content(argument) else {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-URL-CALL-001",
+                line,
+                "url expects a quoted HTTP(S) address.",
+                Some(r#"Use url("https://example.org/data"); use a declared Url binding at HTTP call sites."#),
+            )
+            .with_source_span(argument_span),
+        );
+        return;
+    };
+    if !(value.starts_with("http://") || value.starts_with("https://")) {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-NET-INVALID-URL",
+                line,
+                &format!("URL constructor value {value:?} is not an absolute HTTP(S) URL."),
+                Some(r#"Use url("https://...")."#),
+            )
+            .with_source_span(argument_span),
+        );
+    }
+}
+
+fn validate_env_constructor_call(
+    expression_span: SourceSpan,
+    line: usize,
+    call: &FunctionCall,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let name_span =
+        source_span_for_child_range(expression_span, call.name_range.start, call.name_range.end);
+    if !(1..=2).contains(&call.args.len()) {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-ENV-CALL-001",
+                line,
+                &format!(
+                    "env expects a variable name and optional fallback, but got {} argument(s).",
+                    call.args.len()
+                ),
+                Some(r#"Use env("NAME") or env("NAME", "fallback")."#),
+            )
+            .with_source_span(name_span),
+        );
+        return;
+    }
+    for (index, argument) in call.args.iter().enumerate() {
+        let argument = argument.trim();
+        let argument_span = source_span_for_child_range(
+            expression_span,
+            call.arg_ranges[index].start,
+            call.arg_ranges[index].end,
+        );
+        let Some(value) = string_literal_content(argument) else {
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-ENV-CALL-001",
+                    line,
+                    if index == 0 {
+                        "env variable names must be quoted strings."
+                    } else {
+                        "env fallback values must be quoted strings."
+                    },
+                    Some(r#"Use env("NAME") or env("NAME", "fallback")."#),
+                )
+                .with_source_span(argument_span),
+            );
+            continue;
+        };
+        if index == 0 && (value.is_empty() || value.contains(['=', '\0'])) {
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-ENV-CALL-001",
+                    line,
+                    "env variable names must be non-empty and cannot contain '=' or NUL.",
+                    Some(r#"Use a variable name such as env("ENG_PROFILE", "default")."#),
+                )
+                .with_source_span(argument_span),
+            );
+        }
+    }
+}
+
 fn should_validate_function_call(expression: &str, functions: &[FunctionInfo]) -> bool {
     let Some(call) = parse_function_call(expression) else {
         return false;
@@ -8404,6 +8535,8 @@ fn is_builtin_function(name: &str) -> bool {
             | "align"
             | "resample"
             | "apply"
+            | "url"
+            | "env"
             | "file"
             | "dir"
             | "join"
@@ -8558,13 +8691,23 @@ fn export_field_name(expression: &str) -> String {
         .to_owned()
 }
 
-fn analyze_args_field(field: &ArgsFieldDecl, args_block: &mut ArgsBlockInfo) {
+fn analyze_args_field(
+    field: &ArgsFieldDecl,
+    args_block: &mut ArgsBlockInfo,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if let (Some(default_value), Some(default_value_span)) =
+        (&field.default_value, field.default_value_span)
+    {
+        validate_value_constructor_call(default_value, default_value_span, field.line, diagnostics);
+    }
     args_block.fields.push(ArgsFieldInfo {
         name: field.name.clone(),
         span: field.span,
         type_name: field.type_name.clone(),
         type_span: field.type_span,
         default_value: field.default_value.clone(),
+        default_value_span: field.default_value_span,
         redacted: secret_type_inner(&field.type_name).is_some(),
         required: field.default_value.is_none(),
         line: field.line,
@@ -14811,6 +14954,12 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
     if let Some(diagnostic) = unsupported_case_apply_step_diagnostic(binding) {
         accum.diagnostics.push(diagnostic);
     }
+    validate_value_constructor_call(
+        &binding.expression,
+        binding.expression_span,
+        binding.line,
+        accum.diagnostics,
+    );
 
     let function_call_type = if !binding.is_command_style
         && should_validate_function_call(&binding.expression, accum.functions)
@@ -15244,8 +15393,12 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
         return semantic_type("HttpResponse", "eng.net");
     }
 
-    if lowered_expression.starts_with("url(") {
+    if parse_function_call(expression).is_some_and(|call| call.name == "url") {
         return semantic_type("Url", "eng.net");
+    }
+
+    if parse_function_call(expression).is_some_and(|call| call.name == "env") {
+        return semantic_type("String", "");
     }
 
     if lowered_expression.starts_with("secret env(") {
@@ -15769,10 +15922,9 @@ fn expression_has_side_effect(expression: &str) -> bool {
 }
 
 fn expression_depends_on_runtime(expression: &str) -> bool {
-    let lowered = expression.to_ascii_lowercase();
-    ["env(", "today(", "now(", "current_dir(", "cwd("]
+    ["env", "today", "now", "current_dir", "cwd"]
         .iter()
-        .any(|needle| lowered.contains(needle))
+        .any(|name| crate::expression_contains_call(expression, name))
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -16386,6 +16538,8 @@ mod tests {
         assert!(!is_builtin_function("p0"));
         assert!(!is_builtin_function("p101"));
         assert!(is_builtin_function("probability"));
+        assert!(is_builtin_function("url"));
+        assert!(is_builtin_function("env"));
         assert!(!is_builtin_function("render"));
         assert!(!is_builtin_function("phantom"));
     }

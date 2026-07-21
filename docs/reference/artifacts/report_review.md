@@ -832,7 +832,9 @@ use `depends_on` for data/model/table dependencies, `uses_cache` for cache
 records owned by process/network nodes, and `produces` for node-to-artifact
 outputs. `run_lock.json`
 records the input hash used for rerun comparison: source hash, execution
-profile, CLI args hash, dependency hash, and run-plan artifact hashes. When
+profile, CLI args hash, dependency hash, and run-plan artifact hashes.
+`env(...)` and `exists` observations contribute resolved value/status
+fingerprints to the dependency hash. When
 `eng run --skip-unchanged --save-artifacts` sees the same prior lock, rerun
 metadata is recorded as `decision = skip` and `rerun_status = skipped`, after
 the saved artifact hashes still match the prior lock.

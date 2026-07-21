@@ -360,9 +360,10 @@ fn validate_cache_key_parts(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let normalized = raw_cache_key.to_ascii_lowercase();
-    let nondeterministic = ["now(", "random(", "rand(", "uuid(", "env(", "secret "]
+    let nondeterministic = ["now", "random", "rand", "uuid", "env"]
         .iter()
-        .any(|pattern| normalized.contains(pattern));
+        .any(|name| crate::expression_contains_call(raw_cache_key, name))
+        || normalized.contains("secret ");
     if nondeterministic {
         diagnostics.push(Diagnostic::error(
             "E-CACHE-KEY-NONDETERMINISTIC",

@@ -196,6 +196,9 @@ External boundary constructors/checks such as `file(...)`, `dir(...)`,
 `support.function.temporal.englang`; workflow-step helpers such as `apply(...)`
 and `run_case` use `support.function.workflow-step.englang`; solver helpers such
 as `der(...)` and `delay(...)` use `support.function.solver.englang`.
+`url(...)` and non-secret `env(...)` are public typed value calls; the latter
+accepts an optional fallback and records environment provenance. `secret
+env(...)` remains the redacted credential form.
 TimeSeries quality verbs such as `fill`, `align`, and `resample` use
 validation-colored fallback scopes to match their phrase scopes. String
 interpolation and the native IDE lexical first paint consume the same

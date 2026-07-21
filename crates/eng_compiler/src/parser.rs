@@ -1761,12 +1761,16 @@ fn parse_args_field_decl(
     if type_name.is_empty() {
         return None;
     }
+    let default_value_span = default_value
+        .as_ref()
+        .and_then(|_| source_span_after_equals_without_trailing_comma(first.span, line_text));
 
     Some(ArgsFieldDecl {
         name,
         type_name,
         type_span,
         default_value,
+        default_value_span,
         line: first.span.line,
         span: first.span,
     })
@@ -4188,6 +4192,21 @@ fn typed_declaration_parts(
 fn source_span_after_equals(line_anchor: SourceSpan, line_text: &str) -> Option<SourceSpan> {
     let expression_start = line_text.find('=')? + '='.len_utf8();
     let (start, end) = trimmed_byte_range(line_text, expression_start, line_text.len())?;
+    Some(source_span_for_line_range(line_anchor, start, end))
+}
+
+fn source_span_after_equals_without_trailing_comma(
+    line_anchor: SourceSpan,
+    line_text: &str,
+) -> Option<SourceSpan> {
+    let expression_start = line_text.find('=')? + '='.len_utf8();
+    let trimmed_end = line_text.trim_end().len();
+    let expression_end = if line_text[..trimmed_end].ends_with(',') {
+        trimmed_end.saturating_sub(','.len_utf8())
+    } else {
+        trimmed_end
+    };
+    let (start, end) = trimmed_byte_range(line_text, expression_start, expression_end)?;
     Some(source_span_for_line_range(line_anchor, start, end))
 }
 

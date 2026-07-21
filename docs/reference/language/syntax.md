@@ -286,6 +286,41 @@ The current runtime resolves relative paths against the source file directory.
 For `examples/official/10_path_policy/main.eng`, the review/result/report-spec
 artifacts contain an `environment_dependencies` entry for `exists args.input`.
 
+## URL And Environment Values
+
+`url("https://...")` constructs a typed `Url` value. It takes exactly one
+quoted absolute HTTP(S) address and can be bound once, passed to an HTTP
+statement, printed, or reused through an alias:
+
+```eng partial
+endpoint = url("https://example.org/data")
+print "endpoint = {endpoint}"
+```
+
+`env("NAME")` reads a non-secret process environment value as `String`.
+Provide a second quoted argument when the workflow has a portable fallback:
+
+```eng partial
+profile = env("ENG_PROFILE", "local")
+print "profile = {profile}"
+```
+
+Both constructors can be used as `args` defaults. Resolved Args values contain
+the URL or environment text itself, not the constructor source expression, and
+malformed defaults receive the same constructor diagnostics as top-level
+bindings.
+
+The compiler records the expression, resolved value, and `resolved`,
+`fallback`, or `missing` status in `environment_dependencies`. A missing
+value without a fallback stops `eng run` with `E-ENV-MISSING-001`; it is
+never rendered as an unresolved placeholder. Environment dependency values
+also participate in `run_lock.json`, so `--skip-unchanged` cannot reuse a
+result after the value changes.
+
+Use `secret env("NAME")`, not `env("NAME")`, for credentials or tokens.
+Secret values remain redacted in review and result artifacts. `env(...)` is
+intentionally the visible, non-secret configuration path.
+
 ## Read-Only I/O
 
 Use read-only I/O when a workflow needs small UTF-8 text/config companion files

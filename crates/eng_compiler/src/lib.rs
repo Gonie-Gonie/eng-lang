@@ -2042,6 +2042,50 @@ fn expression_mentions_identifier(expression: &str, identifier: &str) -> bool {
         .any(|token| token == identifier)
 }
 
+pub(crate) fn expression_contains_call(expression: &str, function_name: &str) -> bool {
+    let bytes = expression.as_bytes();
+    let mut index = 0usize;
+    let mut in_string = false;
+    while index < bytes.len() {
+        if in_string {
+            match bytes[index] {
+                b'\\' => index = (index + 2).min(bytes.len()),
+                b'"' => {
+                    in_string = false;
+                    index += 1;
+                }
+                _ => index += 1,
+            }
+            continue;
+        }
+        if bytes[index] == b'"' {
+            in_string = true;
+            index += 1;
+            continue;
+        }
+        if !(bytes[index].is_ascii_alphabetic() || bytes[index] == b'_') {
+            index += 1;
+            continue;
+        }
+        let start = index;
+        index += 1;
+        while index < bytes.len() && (bytes[index].is_ascii_alphanumeric() || bytes[index] == b'_')
+        {
+            index += 1;
+        }
+        if !expression[start..index].eq_ignore_ascii_case(function_name) {
+            continue;
+        }
+        while index < bytes.len() && bytes[index].is_ascii_whitespace() {
+            index += 1;
+        }
+        if bytes.get(index) == Some(&b'(') {
+            return true;
+        }
+    }
+    false
+}
+
 fn is_identifier_text(value: &str) -> bool {
     let mut chars = value.chars();
     let Some(first) = chars.next() else {
@@ -2194,8 +2238,15 @@ fn evaluate_arg_default(expression: &str, program: &SemanticProgram) -> Option<S
     if let Some(value) = evaluate_path_expression(expression, &[]) {
         return Some(value);
     }
-    if let Some(value) = evaluate_env_default(expression) {
+    if let Some(value) = evaluate_url_expression(expression) {
         return Some(value);
+    }
+    if let Some(observation) = evaluate_env_expression(expression) {
+        return Some(
+            observation
+                .value
+                .unwrap_or_else(|| "<unresolved>".to_owned()),
+        );
     }
     if let Some(const_info) = program.consts.iter().find(|const_info| {
         const_info.importable
@@ -2236,22 +2287,33 @@ fn collect_environment_dependencies(
             let Some(default_value) = &field.default_value else {
                 continue;
             };
-            if !arg_default_depends_on_runtime(default_value) {
+            let env_observation = evaluate_env_expression(default_value);
+            if env_observation.is_none() && !arg_default_depends_on_runtime(default_value) {
                 continue;
             }
-            let resolved_value = program
-                .arg_values
-                .iter()
-                .find(|arg| arg.name == field.name)
-                .map(|arg| arg.value.clone())
-                .unwrap_or_else(|| "<unresolved>".to_owned());
+            let Some(arg_value) = program.arg_values.iter().find(|arg| arg.name == field.name)
+            else {
+                continue;
+            };
+            if arg_value.source != "default" {
+                continue;
+            }
+            let (resolved_value, status) = match env_observation {
+                Some(observation) => (
+                    observation
+                        .value
+                        .unwrap_or_else(|| "<unresolved>".to_owned()),
+                    observation.status,
+                ),
+                None => (arg_value.value.clone(), "recorded".to_owned()),
+            };
             dependencies.push(EnvironmentDependencyInfo {
                 name: field.name.clone(),
                 kind: environment_dependency_kind(default_value).to_owned(),
                 expression: default_value.clone(),
                 resolved_value,
                 source_hash: None,
-                status: "recorded".to_owned(),
+                status,
                 line: field.line,
             });
         }
@@ -2262,6 +2324,20 @@ fn collect_environment_dependencies(
             continue;
         };
         if binding.context != ParseContext::TopLevel {
+            continue;
+        }
+        if let Some(observation) = evaluate_env_expression(&binding.expression) {
+            dependencies.push(EnvironmentDependencyInfo {
+                name: binding.name.clone(),
+                kind: "env".to_owned(),
+                expression: binding.expression.clone(),
+                resolved_value: observation
+                    .value
+                    .unwrap_or_else(|| "<unresolved>".to_owned()),
+                source_hash: None,
+                status: observation.status,
+                line: binding.line,
+            });
             continue;
         }
         if let Some(observation) =
@@ -2299,12 +2375,15 @@ fn collect_environment_dependencies(
 }
 
 fn environment_dependency_kind(expression: &str) -> &'static str {
-    let lowered = expression.to_ascii_lowercase();
-    if lowered.contains("env(") {
+    if expression_contains_call(expression, "env") {
         "env"
-    } else if lowered.contains("today(") || lowered.contains("now(") {
+    } else if expression_contains_call(expression, "today")
+        || expression_contains_call(expression, "now")
+    {
         "time"
-    } else if lowered.contains("current_dir(") || lowered.contains("cwd(") {
+    } else if expression_contains_call(expression, "current_dir")
+        || expression_contains_call(expression, "cwd")
+    {
         "current_directory"
     } else {
         "runtime"
@@ -2314,6 +2393,12 @@ fn environment_dependency_kind(expression: &str) -> &'static str {
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct ExistsObservation {
     value: String,
+    status: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct EnvObservation {
+    value: Option<String>,
     status: String,
 }
 
@@ -2726,16 +2811,63 @@ fn strip_call_string_arg(expression: &str, function_name: &str) -> Option<String
     Some(strip_string_literal(inner))
 }
 
-fn evaluate_env_default(expression: &str) -> Option<String> {
-    let inner = expression
-        .trim()
-        .strip_prefix("env(")?
-        .strip_suffix(')')?
-        .trim();
+fn evaluate_url_expression(expression: &str) -> Option<String> {
+    let expression = expression.trim();
+    let open = expression.find('(')?;
+    if expression[..open].trim() != "url" {
+        return None;
+    }
+    let inner = expression[open + 1..].strip_suffix(')')?.trim();
     let parts = split_call_args(inner);
-    let name = parts.first().map(|value| strip_string_literal(value))?;
-    let fallback = parts.get(1).map(|value| strip_string_literal(value));
-    env::var(&name).ok().or(fallback)
+    if parts.len() != 1 {
+        return None;
+    }
+    quoted_string_literal(parts.first()?)
+}
+
+fn evaluate_env_expression(expression: &str) -> Option<EnvObservation> {
+    let expression = expression.trim();
+    let open = expression.find('(')?;
+    if expression[..open].trim() != "env" {
+        return None;
+    }
+    let inner = expression[open + 1..].strip_suffix(')')?.trim();
+    let parts = split_call_args(inner);
+    if !(1..=2).contains(&parts.len()) {
+        return None;
+    }
+    let name = quoted_string_literal(parts.first()?)?;
+    if name.is_empty() || name.contains(['=', '\0']) {
+        return None;
+    }
+    let fallback = match parts.get(1) {
+        Some(value) => Some(quoted_string_literal(value)?),
+        None => None,
+    };
+    match env::var(&name) {
+        Ok(value) => Some(EnvObservation {
+            value: Some(value),
+            status: "resolved".to_owned(),
+        }),
+        Err(_) => match fallback {
+            Some(value) => Some(EnvObservation {
+                value: Some(value),
+                status: "fallback".to_owned(),
+            }),
+            None => Some(EnvObservation {
+                value: None,
+                status: "missing".to_owned(),
+            }),
+        },
+    }
+}
+
+fn quoted_string_literal(value: &str) -> Option<String> {
+    value
+        .trim()
+        .strip_prefix('"')
+        .and_then(|inner| inner.strip_suffix('"'))
+        .map(str::to_owned)
 }
 
 fn zero_arg_call_name(expression: &str) -> Option<&str> {
@@ -2808,10 +2940,9 @@ fn arg_default_has_side_effect(expression: &str) -> bool {
 }
 
 fn arg_default_depends_on_runtime(expression: &str) -> bool {
-    let lowered = expression.to_ascii_lowercase();
-    ["env(", "today(", "now(", "current_dir(", "cwd("]
+    ["env", "today", "now", "current_dir", "cwd"]
         .iter()
-        .any(|needle| lowered.contains(needle))
+        .any(|name| expression_contains_call(expression, name))
 }
 
 fn parse_bool_arg(value: &str) -> Option<String> {
@@ -12847,6 +12978,17 @@ factor = 0.5
             Some("\"baseline\"")
         );
 
+        let default_span = args.fields[0]
+            .default_value_span
+            .expect("Args default source span");
+        assert_eq!(
+            &source[default_span.start..default_span.end],
+            args.fields[0]
+                .default_value
+                .as_deref()
+                .expect("Args default")
+        );
+
         let review = review_json(&report);
         assert!(review.contains("\"args_summary\""));
         assert!(review.contains("\"case_name\""));
@@ -13411,6 +13553,127 @@ factor = 0.5
                 .count(),
             1
         );
+    }
+
+    #[test]
+    fn value_constructors_typecheck_and_record_environment_provenance() {
+        let source = r#"args {
+    api_endpoint: Url = url ("https://example.org/args")
+    arg_mode: String = env ("ENGLANG_TEST_B1068_UNSET_0F6E2D2A4F7C4C35A7252B7D5A9F27D1", "offline")
+}
+
+endpoint = url ("https://example.org/data")
+mode = env ("ENGLANG_TEST_B1068_UNSET_0F6E2D2A4F7C4C35A7252B7D5A9F27D1", "offline")
+response = http get endpoint
+print "endpoint={endpoint} mode={mode}"
+"#;
+        let report = check_source("constructors.eng", source, &CheckOptions::default());
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-FN-CALL-001"));
+        for (name, quantity_kind) in [("endpoint", "Url"), ("mode", "String")] {
+            assert!(report
+                .semantic_program
+                .typed_bindings
+                .iter()
+                .any(|binding| binding.name == name
+                    && binding.semantic_type.quantity_kind == quantity_kind));
+        }
+        let dependency = report
+            .semantic_program
+            .environment_dependencies
+            .iter()
+            .find(|dependency| dependency.name == "mode")
+            .expect("environment dependency");
+        assert_eq!(dependency.kind, "env");
+        assert_eq!(dependency.resolved_value, "offline");
+        assert_eq!(dependency.status, "fallback");
+        for (name, expected) in [
+            ("api_endpoint", "https://example.org/args"),
+            ("arg_mode", "offline"),
+        ] {
+            assert!(report
+                .semantic_program
+                .arg_values
+                .iter()
+                .any(|arg| arg.name == name && arg.value == expected));
+        }
+        let arg_dependency = report
+            .semantic_program
+            .environment_dependencies
+            .iter()
+            .find(|dependency| dependency.name == "arg_mode")
+            .expect("Args environment dependency");
+        assert_eq!(arg_dependency.resolved_value, "offline");
+        assert_eq!(arg_dependency.status, "fallback");
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "W-ARGS-RUNTIME-DEFAULT-001" && diagnostic.line == 3
+        }));
+        assert!(report.semantic_program.net_requests.iter().any(|request| {
+            request.binding == "response" && request.url_value == "https://example.org/data"
+        }));
+        assert!(!expression_contains_call(r#""env (IGNORED)""#, "env"));
+    }
+
+    #[test]
+    fn value_constructor_diagnostics_preserve_exact_source_spans() {
+        let source = r#"note = "url env"
+bad_url = url()
+bad_env = env(name)
+too_many = env("A", "B", "C")
+bad_scheme = url("ftp://example.org/data")
+"#;
+        let report = check_source("bad-constructors.eng", source, &CheckOptions::default());
+        let diagnostic_text = |code: &str, line: usize| {
+            let diagnostic = report
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code && diagnostic.line == line)
+                .unwrap_or_else(|| {
+                    panic!("missing {code} on line {line}: {:?}", report.diagnostics)
+                });
+            let span = diagnostic
+                .source_span
+                .unwrap_or_else(|| panic!("{code} should own a source span"));
+            &source[span.start..span.end]
+        };
+
+        assert_eq!(diagnostic_text("E-URL-CALL-001", 2), "url");
+        assert_eq!(diagnostic_text("E-ENV-CALL-001", 3), "name");
+        assert_eq!(diagnostic_text("E-ENV-CALL-001", 4), "env");
+        let quote = char::from(34);
+        assert_eq!(
+            diagnostic_text("E-NET-INVALID-URL", 5),
+            format!("{quote}ftp://example.org/data{quote}")
+        );
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-FN-CALL-001"));
+
+        let args_source = r#"args {
+    endpoint: Url = url(),
+    mode: String = env(name),
+}
+"#;
+        let args_report = check_source(
+            "bad-constructor-defaults.eng",
+            args_source,
+            &CheckOptions::default(),
+        );
+        for (code, line, expected) in [("E-URL-CALL-001", 2, "url"), ("E-ENV-CALL-001", 3, "name")]
+        {
+            let diagnostic = args_report
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code && diagnostic.line == line)
+                .unwrap_or_else(|| panic!("missing {code}: {:?}", args_report.diagnostics));
+            let span = diagnostic.source_span.expect("constructor default span");
+            assert_eq!(&args_source[span.start..span.end], expected);
+        }
     }
 
     #[test]
@@ -22926,6 +23189,21 @@ schema SensorData {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "E-CACHE-KEY-NONDETERMINISTIC"));
+
+        let spaced_report = check_source(
+            "spaced-call.eng",
+            r#"response = http get url("https://example.org/data.json")
+with {
+    cache = true
+    cache_key = [now (), env ("MODE", "demo")]
+}
+"#,
+            &CheckOptions::default(),
+        );
+        assert!(spaced_report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| { diagnostic.code == "E-CACHE-KEY-NONDETERMINISTIC" }));
     }
 
     #[test]

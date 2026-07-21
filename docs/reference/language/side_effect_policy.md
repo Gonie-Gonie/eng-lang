@@ -65,8 +65,13 @@ Environment-dependent helpers should be visible in review/provenance:
 
 ```eng partial
 input_exists = exists args.input
+profile = env("ENG_PROFILE", "local")
 print "input exists = {input_exists}"
+print "profile = {profile}"
 ```
+
+`env(...)` is for non-secret configuration. Credentials and tokens use
+`secret env(...)`, whose value remains redacted.
 
 Implemented behavior in the current package scope:
 
@@ -74,6 +79,12 @@ Implemented behavior in the current package scope:
 - file("...") and dir("...") are accepted in args defaults.
 - join(...), parent(...), stem(...), and extension(...) are typed pure path helpers.
 - exists path_expression is typed as Bool and resolved relative to the source file.
+- url("https://...") constructs a reusable typed Url value.
+- env("NAME", "fallback") is typed as String, evaluated natively, and records
+  resolved/fallback/missing provenance; a missing value without a fallback
+  stops execution.
+- environment and existence observations participate in the run-lock dependency
+  hash so skip-unchanged runs cannot reuse stale external state.
 - read text/json/toml path_expression is typed as String and resolved relative
   to the source file.
 - review.json includes top-level environment_dependencies.

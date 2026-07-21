@@ -387,6 +387,21 @@ fn ensure_profile_allowed(
     Ok(())
 }
 
+fn ensure_environment_dependencies_resolved(report: &CheckReport) -> Result<(), RuntimeError> {
+    if let Some(dependency) = report
+        .semantic_program
+        .environment_dependencies
+        .iter()
+        .find(|dependency| dependency.kind == "env" && dependency.status == "missing")
+    {
+        return Err(invalid_input(&format!(
+            "E-ENV-MISSING-001: environment variable for {} is not set; provide the variable or an env fallback",
+            dependency.expression
+        )));
+    }
+    Ok(())
+}
+
 pub fn doctor(repo_root: &Path) -> DoctorReport {
     let mut checks = Vec::new();
     checks.push(DoctorCheck {
@@ -453,6 +468,7 @@ pub fn run_source(
     if check_report.has_errors() {
         return Err(RuntimeError::Compile(Box::new(check_report)));
     }
+    ensure_environment_dependencies_resolved(&check_report)?;
     let profile_diagnostics = profile_diagnostics(&options.profile, &check_report);
     ensure_profile_allowed(&options.profile, &profile_diagnostics)?;
     let stem = path
@@ -7022,14 +7038,18 @@ fn run_lock_dependencies(report: &CheckReport) -> Vec<Value> {
         }));
     }
     for dependency in &report.semantic_program.environment_dependencies {
-        if let Some(hash) = &dependency.source_hash {
-            dependencies.push(json!({
-                "kind": &dependency.kind,
-                "binding": &dependency.name,
-                "path": &dependency.resolved_value,
-                "hash": hash
-            }));
-        }
+        let dependency_hash = dependency.source_hash.clone().unwrap_or_else(|| {
+            hash_text(&format!(
+                "{}|{}|{}",
+                dependency.kind, dependency.resolved_value, dependency.status
+            ))
+        });
+        dependencies.push(json!({
+            "kind": &dependency.kind,
+            "binding": &dependency.name,
+            "path": &dependency.resolved_value,
+            "hash": dependency_hash
+        }));
     }
     dependencies
 }
@@ -9596,6 +9616,12 @@ fn evaluate_runtime_expression(
     runtime_data: &RuntimeData,
 ) -> Option<RuntimeFormatValue> {
     let expression = expression.trim();
+    if let Some(value) = evaluate_runtime_environment_expression(expression, report) {
+        return Some(RuntimeFormatValue::Text(value));
+    }
+    if let Some(value) = evaluate_runtime_url_expression(expression) {
+        return Some(RuntimeFormatValue::Text(value));
+    }
     if let Some(value) = evaluate_runtime_read_expression(expression, report) {
         return Some(RuntimeFormatValue::Text(value));
     }
@@ -9819,6 +9845,48 @@ fn evaluate_runtime_expression(
         )));
     }
     None
+}
+
+fn evaluate_runtime_environment_expression(
+    expression: &str,
+    report: &CheckReport,
+) -> Option<String> {
+    let dependency = report
+        .semantic_program
+        .environment_dependencies
+        .iter()
+        .find(|dependency| {
+            if dependency.kind != "env" || dependency.status == "missing" {
+                return false;
+            }
+            if dependency.expression.trim() == expression {
+                return true;
+            }
+            dependency.name == expression
+                && report.inferred_declarations.iter().any(|declaration| {
+                    declaration.name == dependency.name
+                        && declaration.expression == dependency.expression
+                })
+        })?;
+    Some(dependency.resolved_value.clone())
+}
+
+fn evaluate_runtime_url_expression(expression: &str) -> Option<String> {
+    let expression = expression.trim();
+    let open = expression.find('(')?;
+    if expression[..open].trim() != "url" {
+        return None;
+    }
+    let inner = expression[open + 1..].strip_suffix(')')?;
+    let args = split_top_level(inner, &[',']);
+    if args.len() != 1 {
+        return None;
+    }
+    let value = args[0].trim();
+    if !(value.starts_with('"') && value.ends_with('"')) {
+        return None;
+    }
+    Some(strip_runtime_string_value(value))
 }
 
 fn evaluate_coverage_expression(
@@ -20998,6 +21066,94 @@ mod tests {
         .expect("run");
 
         assert_eq!(output.stdout.trim(), "10.0 kW");
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
+    fn run_source_evaluates_url_and_environment_value_constructors() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-value-constructors");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-value-constructors-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+        let source = r#"args {
+    arg_endpoint: Url = url ("https://example.org/args")
+    arg_mode: String = env ("ENGLANG_TEST_B1068_UNSET_0F6E2D2A4F7C4C35A7252B7D5A9F27D1", "offline")
+}
+
+endpoint = url ("https://example.org/data")
+mode = env ("ENGLANG_TEST_B1068_UNSET_0F6E2D2A4F7C4C35A7252B7D5A9F27D1", "offline")
+print "endpoint={endpoint} mode={mode} arg_endpoint={args.arg_endpoint} arg_mode={args.arg_mode}"
+"#;
+
+        let output =
+            run_source(&virtual_path, source, &build_root, &RunOptions::default()).expect("run");
+
+        assert_eq!(
+            output.stdout.trim(),
+            "endpoint=https://example.org/data mode=offline arg_endpoint=https://example.org/args arg_mode=offline"
+        );
+        let result: Value = serde_json::from_str(&output.result_json).expect("result json");
+        let dependency = result
+            .pointer("/provenance/environment_dependencies")
+            .and_then(Value::as_array)
+            .and_then(|dependencies| {
+                dependencies
+                    .iter()
+                    .find(|dependency| dependency["name"] == "mode")
+            })
+            .expect("environment dependency");
+        assert_eq!(dependency["kind"], "env");
+        assert_eq!(dependency["resolved_value"], "offline");
+        assert_eq!(dependency["status"], "fallback");
+        let run_lock: Value = serde_json::from_str(&output.run_lock_json).expect("run lock json");
+        assert!(run_lock
+            .pointer("/dependencies")
+            .and_then(Value::as_array)
+            .is_some_and(|dependencies| dependencies.iter().any(|dependency| {
+                dependency["kind"] == "env"
+                    && dependency["binding"] == "mode"
+                    && dependency["path"] == "offline"
+                    && dependency["hash"]
+                        .as_str()
+                        .is_some_and(|hash| !hash.is_empty())
+            })));
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
+    fn run_source_rejects_a_missing_environment_value_without_fallback() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-missing-env");
+        let build_root = repo_root.join("build").join("runtime-missing-env-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+        let source = r#"args {
+    mode: String = env ("ENGLANG_TEST_B1068_UNSET_0F6E2D2A4F7C4C35A7252B7D5A9F27D1")
+}
+
+print "mode={args.mode}"
+"#;
+
+        let error = run_source(&virtual_path, source, &build_root, &RunOptions::default())
+            .expect_err("missing environment value");
+
+        assert!(error.to_string().contains("E-ENV-MISSING-001"));
+        assert!(error
+            .to_string()
+            .contains("provide the variable or an env fallback"));
         assert!(!virtual_path.exists());
     }
 

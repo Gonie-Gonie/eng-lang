@@ -95,8 +95,10 @@ separate.
 
 - Public package: `Stable`
 - Main status: `Stable`
-- User-facing scope: path helpers, provenance-visible `exists`, read
-  text/json/toml, explicit write text/json, constrained copy/move/delete/mkdir,
+- User-facing scope: path helpers, provenance-visible `exists`, typed
+  `url(...)`, native non-secret `env(...)` with fallback/missing behavior
+  and run-lock invalidation, read text/json/toml, explicit write text/json,
+  constrained copy/move/delete/mkdir,
   native text template rendering with render manifests, output manifest
   artifact registry, run log, process results with tool version,
   expected-output status, stdout/stderr hashes, test results, and

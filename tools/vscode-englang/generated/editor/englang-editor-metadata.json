@@ -245,7 +245,7 @@
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "environment variable lookup",
+                                 "detail":  "non-secret environment value with optional fallback",
                                  "kind":  "function",
                                  "label":  "env",
                                  "lsp_kind":  3
@@ -293,7 +293,7 @@
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "HTTP or HTTPS URL constructor",
+                                 "detail":  "typed HTTP(S) URL constructor",
                                  "kind":  "function",
                                  "label":  "url",
                                  "lsp_kind":  3
@@ -2028,7 +2028,7 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Supported: Typed path helpers, joins, names, and review-visible existence checks.",
+                                 "detail":  "Supported: Typed path helpers, joins, names, review-visible existence checks, and provenance-recorded non-secret environment values.",
                                  "kind":  "stdlib",
                                  "label":  "eng.path",
                                  "lsp_kind":  9
@@ -2087,6 +2087,12 @@
                                  "insert_snippet":  "exists ${1:args.input}",
                                  "kind":  "stdlib",
                                  "label":  "exists path",
+                                 "lsp_kind":  9
+                             },
+                             {
+                                 "detail":  "eng.path env(name: String, fallback?: String) -\u003e String",
+                                 "kind":  "stdlib",
+                                 "label":  "env(...)",
                                  "lsp_kind":  9
                              },
                              {
@@ -2808,7 +2814,7 @@
                                  "lsp_kind":  11
                              }
                          ],
-    "completion_items_count":  452,
+    "completion_items_count":  453,
     "format":  "eng-lsp-editor-metadata-v2",
     "semantic_token_legend":  {
                                   "token_modifiers":  [

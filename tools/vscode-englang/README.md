@@ -49,6 +49,10 @@ embedding compiler logic in JavaScript.
 - compiler-owned built-in coloring and completion for dimensionless scalar math
   functions, plus solver-role coloring for component `predictor(...)` and
   call-style `predict(...)` without repainting command-style model prediction
+- compiler-aligned external-value helpers: `url(...)` and non-secret
+  `env(...)` are typed executable built-ins, malformed calls use exact
+  constructor diagnostics in bindings and Args defaults, and completion
+  wording distinguishes `env` from redacted `secret env`
 - packaged role-coloring metadata so themes can color EngLang code
   consistently without custom rules
 - optional `EngLang Dark` and `EngLang Light` color themes with explicit

@@ -82,6 +82,7 @@ E-TABLE-UNKNOWN-COLUMN table filter predicate references a column outside the pr
 E-TABLE-PREDICATE-TYPE table filter predicate compares a schema column with an incompatible literal
 E-TABLE-JOIN-KEY-MISMATCH join key does not compare columns from the joined tables
 E-TABLE-SCHEMA-MISMATCH table join key columns have incompatible schema types
+E-URL-CALL-001        url constructor requires one quoted HTTP(S) address
 E-NET-INVALID-URL     supplied or resolved network URL is not absolute HTTP(S)
 E-NET-RETRY-POLICY    network retry value is not an integer from 0 to 5
 E-NET-TIMEOUT         network timeout value is not a positive finite duration
@@ -102,6 +103,8 @@ E-CACHE-UNHASHED-REPRO repro profile cache record has no observed hash
 W-CACHE-STALE         cache directory contains an entry outside the current cache manifest
 E-TEMPLATE-MISSING-VALUE template rendering referenced a missing value
 E-RENDER-CALL-001      render used function-call syntax instead of render template
+E-ENV-CALL-001         env lookup requires a quoted name and optional quoted fallback
+E-ENV-MISSING-001      env lookup had no process value and no fallback at run time
 E-ARGS-UNKNOWN-001     CLI Args flag does not match `args { ... }`
 E-ARGS-REQUIRED-001    required Args field was not provided for run
 E-ARGS-TYPE-001        Args value cannot be converted to the declared type
@@ -489,6 +492,8 @@ source, profile, CLI args, and dependency hashes match the prior lock,
 `rerun_decision.decision = skip` and `rerun_status = skipped`; otherwise it
 records a normal executed rerun status. The skip path also verifies saved
 artifact hashes from the prior lock before reusing the saved result.
+`env(...)` and `exists` observations are included in the dependency hash,
+so changed external state prevents an unchanged-run skip.
 Explicit `export`, `write`, and constrained `copy/move/delete/mkdir` statements
 write or mutate files under `build/result` and are recorded in
 `output_manifest.json`. Explicit `run command` statements execute during the

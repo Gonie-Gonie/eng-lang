@@ -97,6 +97,9 @@ review material. It is not a broad solver claim.
 
 - Typed path helpers: `file`, `dir`, `join`, `parent`, `stem`, `extension`.
 - Provenance-visible `exists`.
+- Typed `url("https://...")` values and native non-secret
+  `env("NAME", "fallback")` values with resolved/fallback/missing provenance,
+  explicit missing-value failure, and run-lock dependency hashing.
 - Read-only UTF-8 `read text`, `read json`, and `read toml` expressions with
   source-relative resolution and source hash provenance; `read json` payloads
   can be promoted to config contracts or JSON-record tables.
