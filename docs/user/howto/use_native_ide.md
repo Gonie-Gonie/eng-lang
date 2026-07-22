@@ -87,8 +87,16 @@ Editor
   module surfaces such as `eng.path`, `eng.io`, `eng.fs`, and `eng.process`.
   The base completion vocabulary comes from the same generated editor catalog
   used by the VS Code extension, with only larger native IDE snippets added on
-  top. Checked files use role-aware colors for keywords, units, quantities,
-  workflow operations, and review-risk highlighting. As the buffer changes,
+  top. While the caret is inside a call, the editor shows the active typed
+  parameter, overload position, and parameter documentation for local or
+  statically imported user functions, zero-argument class-object methods, and
+  callable built-ins such as `join(...)`, `normal(...)`, and `sqrt(...)`.
+  The request uses the current unsaved buffer and every other modified open
+  EngLang tab, and a result is discarded if the caret or any participating
+  buffer changes. Escape dismisses the popup. Command-style workflow verbs
+  remain completion and diagnostic surfaces rather than fabricated function
+  signatures. Checked files use role-aware colors for keywords, units,
+  quantities, workflow operations, and review-risk highlighting. As the buffer changes,
   the editor keeps immediate shared syntax colors and automatically refreshes
   precise colors and Problems diagnostics from the unsaved buffer after a
   short typing pause. Live analysis resolves recursive static imports from

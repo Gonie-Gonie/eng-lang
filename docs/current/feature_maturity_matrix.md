@@ -137,8 +137,11 @@ separate.
 - User-facing scope: portable package, standalone runner, curated PDFs, package
   smoke, native IDE for check/run/inspect with task-focused Checks and
   Uncertainty panels plus a separate advanced System panel, PlotSpec/report
-  opening, and side-effect panels.
-- Evidence: release-check, package-smoke, IDE smoke.
+  opening, side-effect panels, and compiler-backed typed call help for
+  local/imported user functions, zero-argument class-object methods, and
+  callable built-in overloads.
+- Evidence: release-check, package-smoke, IDE smoke, native editor-safety
+  tests for UTF-16 positions, dirty imports, and stale call-help results.
 - Not included: a public cross-release compatibility commitment for the
   persistent editor protocol or a production editor platform claim.
 - Next cleanup action: lead IDE docs with TimeSeries/schema/unit/report review.
@@ -367,6 +370,10 @@ separate.
   Parser-lowered command bindings carry explicit provenance; this keeps the
   internal template-render lowering valid without exposing `render(...)` as a
   callable built-in.
+  The native IDE routes call help through the same signature resolver, sends
+  every modified open EngLang import with the current buffer, rejects results
+  after caret or document changes, and uses a two-second exact-input analysis
+  cache so its live check can reuse the immediately preceding report.
   The older fast-binding-only and explicit-declaration-only APIs are mode-limited
   compatibility wrappers over this engine; lazy shared editor snapshots,
   recursive import-dependent invalidation, a VS Code persistent stdio client

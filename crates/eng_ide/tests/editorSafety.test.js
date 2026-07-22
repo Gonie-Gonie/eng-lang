@@ -13,6 +13,8 @@ let saveFailurePath = null;
 let saveFilesPromise = null;
 let codeActionPayload = null;
 let definitionPromise = null;
+let signatureHelpPayload = null;
+let signatureHelpPromise = null;
 let prepareRenamePayload = null;
 let workspaceSymbolPayload = null;
 let workspaceSymbolPromise = null;
@@ -93,6 +95,9 @@ const context = vm.createContext({
           }
           if (command === "ide_definition") {
             return definitionPromise || Promise.resolve(null);
+          }
+          if (command === "ide_signature_help") {
+            return signatureHelpPromise || Promise.resolve(signatureHelpPayload);
           }
           if (command === "ide_prepare_rename") {
             return Promise.resolve(prepareRenamePayload || {});
@@ -406,6 +411,225 @@ function definitionRequestUsesUtf16Caret() {
   assert.strictEqual(run("globalThis.definitionRequest.path"), "main.eng");
   assert.strictEqual(run("globalThis.definitionRequest.line"), 1);
   assert.strictEqual(run("globalThis.definitionRequest.character"), 4);
+}
+
+function signatureHelpContextsTrackNestedCallsAndComments() {
+  const nested = 'result = outer(inner("ignored, )", 2';
+  const nestedContext = JSON.parse(run(
+    "JSON.stringify(signatureHelpCallContext("
+      + JSON.stringify(nested)
+      + ", "
+      + nested.length
+      + "))"
+  ));
+  assert.deepStrictEqual(nestedContext, {
+    activeParameter: 1,
+    callee: "inner",
+    openOffset: nested.indexOf("inner(") + "inner".length
+  });
+
+  const multiline = [
+    "result = outer(",
+    "  inner(1, 2),",
+    "  # ignored(fake_call(",
+    "  next"
+  ].join("\n");
+  const multilineContext = JSON.parse(run(
+    "JSON.stringify(signatureHelpCallContext("
+      + JSON.stringify(multiline)
+      + ", "
+      + multiline.length
+      + "))"
+  ));
+  assert.strictEqual(multilineContext.callee, "outer");
+  assert.strictEqual(multilineContext.activeParameter, 1);
+
+  for (const ignored of [
+    "fn incomplete(",
+    "method summary(",
+    "value = outer(1, # comment",
+    "value = outer(1, // comment"
+  ]) {
+    assert.strictEqual(
+      run(
+        "signatureHelpCallContext("
+          + JSON.stringify(ignored)
+          + ", "
+          + ignored.length
+          + ")"
+      ),
+      null
+    );
+  }
+  const member = "summary = wall.summary(";
+  assert.strictEqual(
+    run(
+      "signatureHelpCallContext("
+        + JSON.stringify(member)
+        + ", "
+        + member.length
+        + ").callee"
+    ),
+    "wall.summary"
+  );
+}
+
+async function signatureHelpUsesUtf16DirtyBuffersAndRejectsLateResults() {
+  invokeCalls.length = 0;
+  const signatureSource = "result = annotate(\"\uD83D\uDE00\", ";
+  signatureHelpPayload = {
+    signatures: [
+      {
+        label: "annotate(label: String) -> String",
+        documentation: { kind: "markdown", value: "One argument." },
+        parameters: [
+          { label: "label: String", documentation: { kind: "markdown", value: "Required label." } }
+        ]
+      },
+      {
+        label: "annotate(label: String, value: Length [m]) -> Length [m]",
+        documentation: { kind: "markdown", value: "Two arguments." },
+        parameters: [
+          { label: "label: String", documentation: { kind: "markdown", value: "Required label." } },
+          { label: "value: Length [m]", documentation: { kind: "markdown", value: "Required value." } }
+        ]
+      }
+    ],
+    activeSignature: 1,
+    activeParameter: 1
+  };
+  run([
+    "globalThis.signaturePreviousState = {",
+    "  root: state.root,",
+    "  currentPath: state.currentPath,",
+    "  source: state.source,",
+    "  savedSource: state.savedSource,",
+    "  dirty: state.dirty,",
+    "  tabs: state.tabs,",
+    "  completionItems: state.completionItems,",
+    "  completionIndex: state.completionIndex",
+    "};",
+    'state.root = "C:/Repo";',
+    'state.currentPath = "main.eng";',
+    "state.source = " + JSON.stringify(signatureSource) + ";",
+    "state.savedSource = state.source;",
+    "state.dirty = false;",
+    'state.completionItems = [{ label: "annotate", detail: "function" }];',
+    "state.completionIndex = 0;",
+    "state.tabs = [",
+    '  { path: "main.eng", source: state.source, savedSource: state.source, dirty: false },',
+    '  { path: "lib.eng", source: "fn annotate() {}", savedSource: "", dirty: true }',
+    "];",
+    "globalThis.realByIdForSignatureHelp = byId;",
+    "globalThis.signatureEditor = {",
+    "  value: state.source,",
+    "  selectionStart: state.source.length,",
+    "  selectionEnd: state.source.length,",
+    '  selectionDirection: "none",',
+    "  scrollTop: 0,",
+    "  scrollLeft: 0,",
+    "  clientWidth: 800,",
+    "  clientHeight: 500,",
+    "  focus() {}",
+    "};",
+    "globalThis.signatureOverlay = {",
+    "  hidden: true,",
+    '  innerHTML: "",',
+    "  scrollHeight: 62,",
+    "  dataset: {},",
+    "  style: {},",
+    "  classList: {",
+    "    add(name) { if (name === \"hidden\") globalThis.signatureOverlay.hidden = true; },",
+    "    remove(name) { if (name === \"hidden\") globalThis.signatureOverlay.hidden = false; }",
+    "  }",
+    "};",
+    "globalThis.signatureCompletionOverlay = {",
+    '  innerHTML: "",',
+    "  style: {},",
+    "  classList: { add() {}, remove() {} }",
+    "};",
+    "byId = (id) => ({",
+    "  editor: globalThis.signatureEditor,",
+    "  signatureHelpOverlay: globalThis.signatureOverlay,",
+    "  completionOverlay: globalThis.signatureCompletionOverlay",
+    "})[id] || null;",
+    "invalidateSignatureHelp();",
+    "globalThis.signaturePosition = editorCursorPosition(state.source, state.source.length);",
+    "globalThis.signatureDocuments = dirtyWorkspaceDocuments(state.currentPath);",
+    "globalThis.signatureRequest = {",
+    "  revision: signatureHelpRevision,",
+    "  path: state.currentPath,",
+    "  source: state.source,",
+    "  line: globalThis.signaturePosition.line,",
+    "  character: globalThis.signaturePosition.column,",
+    "  context: signatureHelpCallContext(state.source, state.source.length),",
+    "  documents: globalThis.signatureDocuments",
+    "};"
+  ].join("\n"));
+
+  await run("runSignatureHelp(globalThis.signatureRequest)");
+  const signatureCall = invokeCalls[invokeCalls.length - 1];
+  assert.strictEqual(signatureCall.command, "ide_signature_help");
+  assert.strictEqual(signatureCall.args.line, 0);
+  assert.strictEqual(signatureCall.args.character, signatureSource.length);
+  assert.deepStrictEqual(
+    Array.from(signatureCall.args.documents, (document) => ({ ...document })),
+    [{ path: "lib.eng", source: "fn annotate() {}" }]
+  );
+  assert.strictEqual(run("state.signatureHelp.help.activeSignature"), 1);
+  assert.match(
+    run("globalThis.signatureOverlay.innerHTML"),
+    /<strong class="signature-help-parameter">value: Length \[m\]<\/strong>/
+  );
+  assert.match(run("globalThis.signatureOverlay.innerHTML"), />2\/2</);
+  assert.match(run("globalThis.signatureOverlay.innerHTML"), /Required value\./);
+  assert.strictEqual(run("globalThis.signatureOverlay.hidden"), false);
+  assert.strictEqual(run("globalThis.signatureOverlay.dataset.placement"), "below");
+  assert.strictEqual(run("globalThis.signatureOverlay.style.top"), "38px");
+  assert.strictEqual(run("globalThis.signatureCompletionOverlay.style.top"), "106px");
+
+  let resolveSignatureHelp;
+  signatureHelpPromise = new Promise((resolve) => {
+    resolveSignatureHelp = resolve;
+  });
+  run([
+    "hideSignatureHelp();",
+    "signatureHelpRevision += 1;",
+    "globalThis.lateSignatureRequest = {",
+    "  ...globalThis.signatureRequest,",
+    "  revision: signatureHelpRevision,",
+    "  documents: dirtyWorkspaceDocuments(state.currentPath)",
+    "};"
+  ].join("\n"));
+  const pending = run("runSignatureHelp(globalThis.lateSignatureRequest)");
+  run('state.tabs.find((tab) => tab.path === "lib.eng").source = "fn annotate(value: Number) {}";');
+  resolveSignatureHelp(signatureHelpPayload);
+  await pending;
+  assert.strictEqual(run("state.signatureHelp"), null);
+
+  run([
+    "invalidateSignatureHelp();",
+    "byId = globalThis.realByIdForSignatureHelp;",
+    "state.root = globalThis.signaturePreviousState.root;",
+    "state.currentPath = globalThis.signaturePreviousState.currentPath;",
+    "state.source = globalThis.signaturePreviousState.source;",
+    "state.savedSource = globalThis.signaturePreviousState.savedSource;",
+    "state.dirty = globalThis.signaturePreviousState.dirty;",
+    "state.tabs = globalThis.signaturePreviousState.tabs;",
+    "state.completionItems = globalThis.signaturePreviousState.completionItems;",
+    "state.completionIndex = globalThis.signaturePreviousState.completionIndex;",
+    "delete globalThis.signatureEditor;",
+    "delete globalThis.signatureOverlay;",
+    "delete globalThis.signatureCompletionOverlay;",
+    "delete globalThis.signaturePosition;",
+    "delete globalThis.signatureDocuments;",
+    "delete globalThis.signatureRequest;",
+    "delete globalThis.lateSignatureRequest;",
+    "delete globalThis.signaturePreviousState;",
+    "delete globalThis.realByIdForSignatureHelp;"
+  ].join("\n"));
+  signatureHelpPromise = null;
+  signatureHelpPayload = null;
 }
 
 async function definitionNavigationPreservesDirtyOpenTab() {
@@ -2789,6 +3013,8 @@ async function main() {
   saveShortcutUsesCurrentAction();
   definitionPathsNormalizeWorkspaceTargets();
   definitionRequestUsesUtf16Caret();
+  signatureHelpContextsTrackNestedCallsAndComments();
+  await signatureHelpUsesUtf16DirtyBuffersAndRejectsLateResults();
   await definitionNavigationPreservesDirtyOpenTab();
   await definitionNavigationUsesAndGuardsAllDirtyWorkspaceBuffers();
   definitionShortcutUsesCurrentAction();

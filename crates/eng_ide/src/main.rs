@@ -6,7 +6,8 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, bundled_module_registry, check_source,
@@ -33,11 +34,21 @@ const MAX_NATIVE_IDE_SAVE_TOTAL_BYTES: usize = 16 * 1024 * 1024;
 const MAX_NATIVE_IDE_REVIEW_DOCUMENT_BYTES: usize = 8 * 1024 * 1024;
 const MAX_NATIVE_IDE_WORKSPACE_QUERY_BYTES: usize = 512;
 const WORKSPACE_OPEN_DOCUMENT_FORMAT: &str = "eng-lsp-open-documents-v1";
+const NATIVE_IDE_ANALYSIS_CACHE_TTL: Duration = Duration::from_secs(2);
 
 #[derive(Default)]
 struct IdeState {
     last_output: Mutex<Option<CachedRunOutput>>,
     terminal_session_source: Mutex<String>,
+    analysis: Mutex<Option<CachedIdeAnalysis>>,
+}
+
+struct CachedIdeAnalysis {
+    path: PathBuf,
+    source: String,
+    documents: Vec<(PathBuf, String)>,
+    report: Arc<CheckReport>,
+    checked_at: Instant,
 }
 
 #[derive(Clone, Serialize)]
@@ -549,23 +560,91 @@ fn ide_check(
     path: String,
     source: String,
     documents: Vec<WorkspaceDocumentInput>,
+    state: State<'_, IdeState>,
 ) -> Result<CheckView, String> {
+    let (path, documents) = validated_ide_analysis_input(&path, documents)?;
+    let report = ide_analysis_report(&state, &path, &source, &documents)?;
+    Ok(check_view_from_report(&report, Some(&source)))
+}
+
+#[tauri::command]
+fn ide_signature_help(
+    path: String,
+    source: String,
+    line: usize,
+    character: usize,
+    documents: Vec<WorkspaceDocumentInput>,
+    state: State<'_, IdeState>,
+) -> Result<Value, String> {
+    let (path, documents) = validated_ide_analysis_input(&path, documents)?;
+    let report = ide_analysis_report(&state, &path, &source, &documents)?;
+    Ok(signature_help_view(&report, &source, line, character))
+}
+
+fn validated_ide_analysis_input(
+    path: &str,
+    documents: Vec<WorkspaceDocumentInput>,
+) -> Result<(PathBuf, Vec<(PathBuf, String)>), String> {
     let root = workspace_root()
         .canonicalize()
         .map_err(|error| format!("Could not resolve the EngLang workspace: {error}"))?;
-    let path = canonical_workspace_document_path(&root, &path)?;
+    let path = canonical_workspace_document_path(&root, path)?;
     let documents = validated_workspace_documents(&root, documents)?;
+    Ok((path, documents))
+}
+
+fn ide_analysis_report(
+    state: &IdeState,
+    path: &Path,
+    source: &str,
+    documents: &[(PathBuf, String)],
+) -> Result<Arc<CheckReport>, String> {
+    {
+        let cached = state
+            .analysis
+            .lock()
+            .map_err(|_| "Native IDE analysis cache is unavailable.".to_owned())?;
+        if let Some(cached) = cached.as_ref() {
+            if cached.checked_at.elapsed() <= NATIVE_IDE_ANALYSIS_CACHE_TTL
+                && cached.path == path
+                && cached.source == source
+                && cached.documents == documents
+            {
+                return Ok(Arc::clone(&cached.report));
+            }
+        }
+    }
+
     let mut import_overrides = ImportSourceOverrides::new();
     for (path, source) in documents {
         import_overrides
-            .insert(path, source)
+            .insert(path.clone(), source.clone())
             .map_err(|error| format!("Could not load an open EngLang document: {error}"))?;
     }
-    Ok(check_view_with_import_overrides(
-        &path,
-        &source,
+    let report = Arc::new(check_source_with_import_overrides(
+        path,
+        source,
         &import_overrides,
-    ))
+        &CheckOptions::default(),
+    ));
+    let mut cached = state
+        .analysis
+        .lock()
+        .map_err(|_| "Native IDE analysis cache is unavailable.".to_owned())?;
+    *cached = Some(CachedIdeAnalysis {
+        path: path.to_path_buf(),
+        source: source.to_owned(),
+        documents: documents.to_vec(),
+        report: Arc::clone(&report),
+        checked_at: Instant::now(),
+    });
+    Ok(report)
+}
+
+fn signature_help_view(report: &CheckReport, source: &str, line: usize, character: usize) -> Value {
+    eng_lsp::signature_help_at(report, source, line, character)
+        .map(|help| eng_lsp::signature_help_lsp_json(&help))
+        .unwrap_or(Value::Null)
 }
 
 #[tauri::command]
@@ -1221,6 +1300,7 @@ fn main() {
             ide_save_file,
             ide_save_files,
             ide_check,
+            ide_signature_help,
             ide_workspace_symbols,
             ide_code_actions,
             ide_definition,
@@ -1374,20 +1454,6 @@ fn run_virtual_source_file(
 
 fn check_view(path: &Path, source: &str) -> CheckView {
     let report = check_source(path, source, &CheckOptions::default());
-    check_view_from_report(&report, Some(source))
-}
-
-fn check_view_with_import_overrides(
-    path: &Path,
-    source: &str,
-    import_overrides: &ImportSourceOverrides,
-) -> CheckView {
-    let report = check_source_with_import_overrides(
-        path,
-        source,
-        import_overrides,
-        &CheckOptions::default(),
-    );
     check_view_from_report(&report, Some(source))
 }
 
@@ -5056,6 +5122,18 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "function checkRequestIsCurrent(request)",
         "request.revision === liveCheckRevision",
         "request.path === state.currentPath && request.source === state.source",
+        "const SIGNATURE_HELP_DELAY_MS = 120;",
+        "signatureHelpOverlay",
+        "function scheduleSignatureHelp()",
+        "function runSignatureHelp(request)",
+        "function signatureHelpRequestIsCurrent(request)",
+        r#"if (event.key !== "Escape") scheduleSignatureHelp();"#,
+        "function signatureHelpCallContext(source, offset)",
+        "function renderSignatureHelpLabel(signature, activeParameter)",
+        "function positionSignatureHelpOverlay(overlay, editor)",
+        r#"overlay.dataset.placement = placement;"#,
+        r#"signatureOverlay?.dataset?.placement === "below""#,
+        r#"call("ide_signature_help", {"#,
         "function refreshLiveCheckUi()",
         "function refreshCheckPanels()",
         "function diagnosticCountLabel(label, count)",
@@ -5215,6 +5293,14 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "run_lsp_query",
         "parse_workspace_symbols_output",
         "workspace_symbol_output_accepts_complete_workspace_locations",
+        "NATIVE_IDE_ANALYSIS_CACHE_TTL",
+        "fn ide_signature_help",
+        "fn ide_analysis_report",
+        "eng_lsp::signature_help_at",
+        "eng_lsp::signature_help_lsp_json",
+        "Arc::clone(&cached.report)",
+        "native_ide_analysis_cache_reuses_only_fresh_exact_inputs",
+        "native_ide_signature_help_uses_compiler_analysis_and_utf16_positions",
     ] {
         if !main_rs.contains(required) {
             return Err(format!(
@@ -5367,6 +5453,76 @@ mod tests {
         assert_eq!(diagnostic.column, diagnostic.start_character + 1);
         assert_eq!(diagnostic.end_column, diagnostic.end_character + 1);
         assert!(diagnostic.range_text.starts_with("L1:C"));
+    }
+
+    #[test]
+    fn native_ide_signature_help_uses_compiler_analysis_and_utf16_positions() {
+        let source = "fn annotate(label: String, value: Length [m]) -> Length [m] {\n    return value\n}\n\nresult = annotate(\"\u{1F600}\", 2 m)\nrange = uniform(1 kW, 2 kW, samples=11)\n";
+        let report = check_source(
+            Path::new("native_ide_signature_help.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let annotate_line = source
+            .lines()
+            .position(|line| line.contains("result ="))
+            .expect("annotate call line");
+        let annotate_text = source.lines().nth(annotate_line).expect("annotate call");
+        let annotate_character = annotate_text
+            [..annotate_text.find("2 m").expect("value argument")]
+            .encode_utf16()
+            .count();
+        let annotate = signature_help_view(&report, source, annotate_line, annotate_character);
+
+        assert_eq!(annotate["activeParameter"], 1);
+        assert_eq!(
+            annotate["signatures"][0]["label"],
+            "annotate(label: String [-], value: Length [m]) -> Length [m]"
+        );
+        assert_eq!(
+            annotate["signatures"][0]["parameters"][1]["label"],
+            "value: Length [m]"
+        );
+
+        let uniform_line = source
+            .lines()
+            .position(|line| line.contains("range ="))
+            .expect("uniform call line");
+        let uniform_text = source.lines().nth(uniform_line).expect("uniform call");
+        let uniform_character = uniform_text.find("samples=").expect("samples argument");
+        let uniform = signature_help_view(&report, source, uniform_line, uniform_character);
+
+        assert_eq!(uniform["activeSignature"], 1);
+        assert_eq!(uniform["activeParameter"], 2);
+        assert_eq!(
+            uniform["signatures"][1]["label"],
+            "uniform(lower: Quantity, upper: Quantity, samples?: Int) -> Uncertain[Quantity]"
+        );
+    }
+
+    #[test]
+    fn native_ide_analysis_cache_reuses_only_fresh_exact_inputs() {
+        let state = IdeState::default();
+        let path = Path::new("native_ide_analysis_cache.eng");
+        let documents = Vec::new();
+        let first = ide_analysis_report(&state, path, "value = 1 m\n", &documents)
+            .expect("initial analysis");
+        let reused = ide_analysis_report(&state, path, "value = 1 m\n", &documents)
+            .expect("reused analysis");
+        assert!(Arc::ptr_eq(&first, &reused));
+
+        let changed = ide_analysis_report(&state, path, "value = 2 m\n", &documents)
+            .expect("changed analysis");
+        assert!(!Arc::ptr_eq(&reused, &changed));
+
+        {
+            let mut cached = state.analysis.lock().expect("analysis cache");
+            cached.as_mut().expect("cached analysis").checked_at =
+                Instant::now() - NATIVE_IDE_ANALYSIS_CACHE_TTL - Duration::from_millis(1);
+        }
+        let refreshed = ide_analysis_report(&state, path, "value = 2 m\n", &documents)
+            .expect("expired analysis");
+        assert!(!Arc::ptr_eq(&changed, &refreshed));
     }
 
     #[test]

@@ -8464,6 +8464,18 @@ function Invoke-IdeCheck {
         "function checkRequestIsCurrent(request)",
         "request.revision === liveCheckRevision",
         "request.path === state.currentPath && request.source === state.source",
+        "const SIGNATURE_HELP_DELAY_MS = 120;",
+        "signatureHelpOverlay",
+        "function scheduleSignatureHelp()",
+        "function runSignatureHelp(request)",
+        "function signatureHelpRequestIsCurrent(request)",
+        'if (event.key !== "Escape") scheduleSignatureHelp();',
+        "function signatureHelpCallContext(source, offset)",
+        "function renderSignatureHelpLabel(signature, activeParameter)",
+        "function positionSignatureHelpOverlay(overlay, editor)",
+        "overlay.dataset.placement = placement;",
+        'signatureOverlay?.dataset?.placement === "below"',
+        'call("ide_signature_help", {',
         "function refreshLiveCheckUi()",
         "function refreshCheckPanels()",
         "function diagnosticCountLabel(label, count)",
@@ -9012,6 +9024,21 @@ function Invoke-IdeCheck {
             throw "Native IDE backend missing contract token $RequiredIdeBackendToken"
         }
     }
+    foreach ($RequiredNativeIdeSignatureHelpBackendToken in @(
+        "NATIVE_IDE_ANALYSIS_CACHE_TTL",
+        "fn ide_signature_help",
+        "fn ide_analysis_report",
+        "eng_lsp::signature_help_at",
+        "eng_lsp::signature_help_lsp_json",
+        "cached.documents == documents",
+        "Arc::clone(&cached.report)",
+        "native_ide_analysis_cache_reuses_only_fresh_exact_inputs",
+        "native_ide_signature_help_uses_compiler_analysis_and_utf16_positions"
+    )) {
+        if (-not $IdeMainSource.Contains($RequiredNativeIdeSignatureHelpBackendToken)) {
+            throw "Native IDE signature help backend missing token $RequiredNativeIdeSignatureHelpBackendToken"
+        }
+    }
     foreach ($RequiredNativeIdeSafeSaveToken in @(
         "SaveFileInput",
         "expected_source",
@@ -9035,7 +9062,7 @@ function Invoke-IdeCheck {
         "check_source_with_import_overrides",
         "ImportSourceOverrides",
         "validated_workspace_documents",
-        "check_view_with_import_overrides"
+        "ide_analysis_report"
     )) {
         if (-not $IdeMainSource.Contains($RequiredOpenImportCheckToken)) {
             throw "Native IDE live check must resolve modified open imports: $RequiredOpenImportCheckToken"

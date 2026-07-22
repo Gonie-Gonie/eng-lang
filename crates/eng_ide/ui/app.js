@@ -3,6 +3,7 @@ const listen = window.__TAURI__?.event?.listen;
 const RUN_HISTORY_LIMIT = 40;
 const RUN_HISTORY_STORAGE_PREFIX = "englang.nativeIde.runHistory.v1:";
 const LIVE_CHECK_DELAY_MS = 350;
+const SIGNATURE_HELP_DELAY_MS = 120;
 const WORKSPACE_SYMBOL_DELAY_MS = 160;
 const MAX_REVIEW_BASELINE_BYTES = 8 * 1024 * 1024;
 const EDITOR_INDENT = "    ";
@@ -125,6 +126,7 @@ const state = {
   completions: [],
   completionItems: [],
   completionIndex: 0,
+  signatureHelp: null,
   syntaxCatalog: emptySyntaxCatalog(),
   lexicalCatalog: buildLexicalCatalog(emptySyntaxCatalog()),
   modules: [],
@@ -183,6 +185,8 @@ const state = {
 let dragDropBound = false;
 let liveCheckTimer = null;
 let liveCheckRevision = 0;
+let signatureHelpTimer = null;
+let signatureHelpRevision = 0;
 let navigationRevision = 0;
 let definitionRequestRevision = 0;
 let documentHighlightRequestRevision = 0;
@@ -608,6 +612,7 @@ function bufferRequestIsCurrent(request) {
 function beginNavigation() {
   navigationRevision += 1;
   invalidateLiveCheck();
+  invalidateSignatureHelp();
   return navigationRevision;
 }
 
@@ -718,6 +723,7 @@ function render() {
           <div id="editorBracketOverlayContent" class="editor-bracket-overlay-content"></div>
         </div>
         <textarea id="editor" class="editor" spellcheck="false" wrap="off">${escapeHtml(state.source)}</textarea>
+        <div id="signatureHelpOverlay" class="signature-help-popover hidden" role="status"></div>
         <div id="completionOverlay" class="completion-popover hidden"></div>
       </div>
     </main>
@@ -742,6 +748,7 @@ function render() {
   restoreCurrentEditorView();
   syncEditorHighlightScroll();
   updateCursorInsight();
+  drawSignatureHelpOverlay();
   if (state.sideTab === "plot" && state.plotSpec) drawPlot("sidePlotCanvas");
 }
 
@@ -1054,6 +1061,7 @@ function bind() {
   editor.addEventListener("keyup", (event) => {
     updateCursorInsight();
     updateEditorFindStatus();
+    if (event.key !== "Escape") scheduleSignatureHelp();
     if (["ArrowDown", "ArrowUp", "Enter", "Tab", "Escape"].includes(event.key)) return;
     updateCompletionOverlay();
   });
@@ -1062,19 +1070,24 @@ function bind() {
     updateEditorFindStatus();
     if ((event.ctrlKey || event.metaKey) && !event.altKey && event.button === 0) {
       hideCompletions();
+      invalidateSignatureHelp();
       void goToDefinitionAtCaret();
       return;
     }
     updateCompletionOverlay();
+    scheduleSignatureHelp();
   });
   editor.addEventListener("mouseup", () => {
     updateCursorInsight();
     updateEditorFindStatus();
+    scheduleSignatureHelp();
   });
   editor.addEventListener("select", () => {
     updateCursorInsight();
     updateEditorFindStatus();
+    scheduleSignatureHelp();
   });
+  editor.addEventListener("blur", invalidateSignatureHelp);
   editor.addEventListener("input", (event) => {
     state.source = event.target.value;
     state.dirty = state.source !== state.savedSource;
@@ -1090,6 +1103,7 @@ function bind() {
     updateEditorFindStatus();
     if (checkChanged) refreshCheckPanels();
     updateCompletionOverlay();
+    scheduleSignatureHelp();
     scheduleLiveCheck();
   });
   bindEditorBreadcrumbs();
@@ -1299,6 +1313,7 @@ function focusOutline() {
   state.editorFindOpen = false;
   byId("editorFindBar")?.classList.add("hidden");
   hideCompletions();
+  invalidateSignatureHelp();
   if (!state.outlineOpen) {
     state.outlineOpen = true;
     refreshOutlinePanel();
@@ -7368,6 +7383,7 @@ function bindEditorFindControls() {
 
 function openEditorFind() {
   hideCompletions();
+  invalidateSignatureHelp();
   const editor = byId("editor");
   const selectedQuery = selectedEditorFindQuery(editor);
   if (selectedQuery) {
@@ -7510,9 +7526,10 @@ function handleEditorKeyDown(event) {
     insertCompletion(state.completionItems[state.completionIndex]);
     return;
   }
-  if (overlayVisible && event.key === "Escape") {
+  if ((overlayVisible || state.signatureHelp) && event.key === "Escape") {
     event.preventDefault();
     hideCompletions();
+    invalidateSignatureHelp();
     return;
   }
   if (overlayVisible && event.key === "ArrowDown") {
@@ -7746,6 +7763,7 @@ function syncEditorManualEdit(editor) {
   updateCursorInsight();
   updateEditorFindStatus();
   if (checkChanged) refreshCheckPanels();
+  scheduleSignatureHelp();
   scheduleLiveCheck();
   editor.focus();
 }
@@ -7802,6 +7820,289 @@ function preferredLineEnding(source) {
   return match ? match[0] : "\n";
 }
 
+function invalidateSignatureHelp() {
+  if (signatureHelpTimer !== null) {
+    clearTimeout(signatureHelpTimer);
+    signatureHelpTimer = null;
+  }
+  signatureHelpRevision += 1;
+  hideSignatureHelp();
+  return signatureHelpRevision;
+}
+
+function scheduleSignatureHelp() {
+  const editor = byId("editor");
+  if (
+    !editor
+    || !state.currentPath
+    || editor.selectionStart !== editor.selectionEnd
+  ) {
+    invalidateSignatureHelp();
+    return;
+  }
+  const context = signatureHelpCallContext(editor.value, editor.selectionStart);
+  if (!context) {
+    invalidateSignatureHelp();
+    return;
+  }
+  const position = editorCursorPosition(editor.value, editor.selectionStart);
+  const request = {
+    revision: invalidateSignatureHelp(),
+    path: state.currentPath,
+    source: editor.value,
+    line: position.line,
+    character: position.column,
+    context,
+    documents: dirtyWorkspaceDocuments(state.currentPath)
+  };
+  signatureHelpTimer = setTimeout(() => {
+    signatureHelpTimer = null;
+    void runSignatureHelp(request);
+  }, SIGNATURE_HELP_DELAY_MS);
+}
+
+async function runSignatureHelp(request) {
+  try {
+    const payload = await call("ide_signature_help", {
+      path: request.path,
+      source: request.source,
+      line: request.line,
+      character: request.character,
+      documents: request.documents
+    });
+    if (!signatureHelpRequestIsCurrent(request)) return;
+    const help = normalizeSignatureHelp(payload);
+    if (!help) {
+      hideSignatureHelp();
+      return;
+    }
+    state.signatureHelp = { help, request };
+    drawSignatureHelpOverlay();
+  } catch (_error) {
+    if (!signatureHelpRequestIsCurrent(request)) return;
+    hideSignatureHelp();
+  }
+}
+
+function signatureHelpRequestIsCurrent(request) {
+  if (
+    !request
+    || request.revision !== signatureHelpRevision
+    || !bufferRequestIsCurrent(request)
+    || !workspaceDocumentsAreCurrent(request.documents, request.path)
+  ) {
+    return false;
+  }
+  const editor = byId("editor");
+  if (
+    !editor
+    || editor.selectionStart !== editor.selectionEnd
+    || editor.value !== request.source
+  ) {
+    return false;
+  }
+  const position = editorCursorPosition(editor.value, editor.selectionStart);
+  return position.line === request.line && position.column === request.character;
+}
+
+function signatureHelpCallContext(source, offset) {
+  const text = String(source ?? "");
+  const safeOffset = Math.max(0, Math.min(Number(offset) || 0, text.length));
+  const prefix = text.slice(0, safeOffset);
+  const openOffset = signatureHelpOpenParen(prefix);
+  if (openOffset < 0) return null;
+
+  let targetEnd = openOffset;
+  while (targetEnd > 0 && /\s/.test(prefix[targetEnd - 1])) targetEnd -= 1;
+  let targetStart = targetEnd;
+  while (targetStart > 0 && /[A-Za-z0-9_.]/.test(prefix[targetStart - 1])) {
+    targetStart -= 1;
+  }
+  const callee = prefix.slice(targetStart, targetEnd);
+  if (
+    !callee
+    || !callee.split(".").every((part) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(part))
+  ) {
+    return null;
+  }
+
+  const declaration = prefix.slice(0, targetStart).trimEnd().match(/([A-Za-z_][A-Za-z0-9_]*)$/);
+  if (declaration && ["fn", "method"].includes(declaration[1])) return null;
+  const activeParameter = signatureHelpActiveParameter(prefix.slice(openOffset + 1));
+  if (activeParameter === null) return null;
+  return { activeParameter, callee, openOffset };
+}
+
+function signatureHelpOpenParen(value) {
+  const stack = [];
+  let inString = false;
+  let escaped = false;
+  let inLineComment = false;
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (inLineComment) {
+      if (character === "\n" || character === "\r") inLineComment = false;
+      continue;
+    }
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === "\"") inString = false;
+      continue;
+    }
+    if (character === "\"") {
+      inString = true;
+    } else if (character === "#") {
+      inLineComment = true;
+    } else if (character === "/" && value[index + 1] === "/") {
+      inLineComment = true;
+      index += 1;
+    } else if (character === "(") {
+      stack.push(index);
+    } else if (character === ")") {
+      stack.pop();
+    }
+  }
+  return stack.length ? stack[stack.length - 1] : -1;
+}
+
+function signatureHelpActiveParameter(argumentsSource) {
+  let activeParameter = 0;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let inLineComment = false;
+  for (let index = 0; index < argumentsSource.length; index += 1) {
+    const character = argumentsSource[index];
+    if (inLineComment) {
+      if (character === "\n" || character === "\r") inLineComment = false;
+      continue;
+    }
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === "\"") inString = false;
+      continue;
+    }
+    if (character === "\"") {
+      inString = true;
+    } else if (character === "#") {
+      inLineComment = true;
+    } else if (character === "/" && argumentsSource[index + 1] === "/") {
+      inLineComment = true;
+      index += 1;
+    } else if (["(", "[", "{"].includes(character)) {
+      depth += 1;
+    } else if ([")", "]", "}"].includes(character)) {
+      depth = Math.max(0, depth - 1);
+    } else if (character === "," && depth === 0) {
+      activeParameter += 1;
+    }
+  }
+  return inLineComment ? null : activeParameter;
+}
+
+function normalizeSignatureHelp(payload) {
+  if (!payload || !Array.isArray(payload.signatures) || !payload.signatures.length) {
+    return null;
+  }
+  const signatures = payload.signatures.map((signature) => ({
+    label: String(signature?.label || ""),
+    documentation: signatureHelpDocumentationText(signature?.documentation),
+    parameters: Array.isArray(signature?.parameters)
+      ? signature.parameters.map((parameter) => ({
+        label: String(parameter?.label || ""),
+        documentation: signatureHelpDocumentationText(parameter?.documentation)
+      })).filter((parameter) => parameter.label)
+      : []
+  })).filter((signature) => signature.label);
+  if (!signatures.length) return null;
+  const requestedSignature = Number(payload.activeSignature);
+  const activeSignature = Number.isInteger(requestedSignature)
+    ? Math.max(0, Math.min(requestedSignature, signatures.length - 1))
+    : 0;
+  const requestedParameter = Number(payload.activeParameter);
+  const activeParameter = Number.isInteger(requestedParameter)
+    ? Math.max(0, Math.min(requestedParameter, Math.max(0, signatures[activeSignature].parameters.length - 1)))
+    : 0;
+  return { activeParameter, activeSignature, signatures };
+}
+
+function signatureHelpDocumentationText(documentation) {
+  const value = typeof documentation === "string"
+    ? documentation
+    : String(documentation?.value || "");
+  return value.split(String.fromCharCode(96)).join("").replace(/\s+/g, " ").trim();
+}
+
+function drawSignatureHelpOverlay() {
+  const overlay = byId("signatureHelpOverlay");
+  const editor = byId("editor");
+  const current = state.signatureHelp;
+  if (!overlay || !editor || !current) {
+    hideSignatureHelpOverlay();
+    return;
+  }
+  if (!signatureHelpRequestIsCurrent(current.request)) {
+    hideSignatureHelp();
+    return;
+  }
+  const help = current.help;
+  const signature = help.signatures[help.activeSignature];
+  const parameter = signature.parameters[help.activeParameter];
+  const count = help.signatures.length > 1
+    ? '<span class="signature-help-count">' + (help.activeSignature + 1) + "/" + help.signatures.length + "</span>"
+    : "";
+  const documentation = parameter?.documentation || signature.documentation;
+  overlay.innerHTML = '<div class="signature-help-head"><code class="signature-help-label">'
+    + renderSignatureHelpLabel(signature, help.activeParameter)
+    + "</code>" + count + "</div>"
+    + (documentation
+      ? '<div class="signature-help-doc">' + escapeHtml(documentation) + "</div>"
+      : "");
+  overlay.classList.remove("hidden");
+  positionSignatureHelpOverlay(overlay, editor);
+  if (state.completionItems.length) drawCompletionOverlay();
+}
+
+function renderSignatureHelpLabel(signature, activeParameter) {
+  const label = String(signature?.label || "");
+  const parameterLabel = String(signature?.parameters?.[activeParameter]?.label || "");
+  const parameterStart = parameterLabel ? label.indexOf(parameterLabel) : -1;
+  if (parameterStart < 0) return escapeHtml(label);
+  return escapeHtml(label.slice(0, parameterStart))
+    + '<strong class="signature-help-parameter">'
+    + escapeHtml(parameterLabel)
+    + "</strong>"
+    + escapeHtml(label.slice(parameterStart + parameterLabel.length));
+}
+
+function positionSignatureHelpOverlay(overlay, editor) {
+  const position = caretOverlayPosition(editor);
+  const width = Math.max(160, Math.min(640, Number(editor.clientWidth || 640) - 16));
+  const left = Math.max(8, Math.min(position.left, Number(editor.clientWidth || width) - width - 8));
+  overlay.style.width = width + "px";
+  overlay.style.left = left + "px";
+  const height = Math.max(48, Number(overlay.scrollHeight || 0));
+  const aboveTop = position.top - height - 6;
+  const placement = aboveTop >= 8 ? "above" : "below";
+  overlay.dataset.placement = placement;
+  overlay.style.top = (placement === "above" ? aboveTop : position.top + 6) + "px";
+}
+
+function hideSignatureHelp() {
+  state.signatureHelp = null;
+  hideSignatureHelpOverlay();
+  if (state.completionItems.length) drawCompletionOverlay();
+}
+
+function hideSignatureHelpOverlay() {
+  const overlay = byId("signatureHelpOverlay");
+  if (!overlay) return;
+  overlay.classList.add("hidden");
+  overlay.innerHTML = "";
+}
+
 function updateCompletionOverlay(force = false) {
   const editor = byId("editor");
   if (!editor) return;
@@ -7825,7 +8126,15 @@ function drawCompletionOverlay() {
   if (!overlay || !editor || !state.completionItems.length) return;
   const position = caretOverlayPosition(editor);
   overlay.style.left = `${position.left}px`;
-  overlay.style.top = `${position.top}px`;
+  const signatureOverlay = byId("signatureHelpOverlay");
+  const signatureBelow = signatureOverlay?.dataset?.placement === "below"
+    && !signatureOverlay.classList?.contains?.("hidden");
+  const signatureBottom = signatureBelow
+    ? Number.parseFloat(signatureOverlay.style.top || "0")
+      + Math.max(48, Number(signatureOverlay.offsetHeight || signatureOverlay.scrollHeight || 0))
+      + 6
+    : position.top;
+  overlay.style.top = `${Math.max(position.top, signatureBottom)}px`;
   overlay.innerHTML = state.completionItems.map((item, index) => `
     <button class="completion-item ${index === state.completionIndex ? "active" : ""}" data-completion-index="${index}">
       <span>${escapeHtml(item.label)}</span>
@@ -8447,6 +8756,7 @@ function insertCompletion(item) {
   updateEditorHighlight();
   updateCursorInsight();
   hideCompletions();
+  scheduleSignatureHelp();
   if (checkChanged) refreshCheckPanels();
   scheduleLiveCheck();
   editor.focus();
@@ -9710,6 +10020,7 @@ function syncEditorHighlightScroll() {
   }
   if (gutterLines) gutterLines.style.top = `${-Math.max(0, Number(editor.scrollTop) || 0)}px`;
   syncEditorBracketOverlayScroll(editor);
+  if (state.signatureHelp) drawSignatureHelpOverlay();
 }
 
 function editorGutterWidth(source = state.source) {

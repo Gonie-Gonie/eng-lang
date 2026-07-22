@@ -55,9 +55,12 @@ and next cleanup action.
 - Main internal: a dedicated advanced System panel for solver results,
   state-space operators, and equation dependencies; component/kernel inspector
   rows; editor metadata smoke checks; optional VS Code extension source; and a
-  compiler-owned typed call signature help for local/imported user functions,
-  zero-argument class-object methods, and structured built-in API contracts;
-  and a scalar suffix recheck that can preserve strictly verified
+  compiler-owned typed call signature resolver shared by the native IDE and
+  VS Code for local/imported user functions, zero-argument class-object
+  methods, and structured built-in API contracts. Native requests include
+  modified open imports, reject stale caret/document results, and briefly reuse
+  only exact live-analysis inputs. The track also includes a scalar suffix
+  recheck that can preserve strictly verified
   imported state-space, immutable class-object, and complete system-owned
   component-graph metadata without exposing ordinary system-local names at
   root. A changed direct scalar class-object field or zero-argument method

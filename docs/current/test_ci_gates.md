@@ -23,6 +23,7 @@ The documentation plans in `EngLang_Documentation_Reorganization_and_User_Guide_
 | Native workflow status | `dev.bat workflow-native-status` | Quickly reports workflow 01/02/03 native-only source/docs status and latest process/run-graph artifact evidence without rerunning the full smoke gate. |
 | LSP/editor check | `dev.bat lsp-check` | Runs library, persistent-stdio, semantic-token, user/class/built-in signature-help, visual-contract, exact-source, token-free-trivia, variable-width scalar-declaration, backward-alias and pure scalar-arithmetic type propagation, mixed fast/explicit style transitions, annotation/RHS/cardinality rechecks, rename/cardinality changes, complete clear/restart, resized/inserted/removed trivia and line-ending suffix rechecks, strict full-fallback, recursive import invalidation, verified imported state-space/class-object/complete component-graph prefix reuse, direct class-object field/method suffix edits, stale semantic-metadata fallback, and system-local name-isolation regressions. |
 | VS Code extension check | `dev.bat vscode-test` | Builds LSP editor metadata, validates the compiler-owned built-in signature catalog and callable completion labels, emits semantic snapshots for every example and grammar fixture, checks scope mappings and non-overlap, runs grammar, signature-help, and extension contracts, and uses the installed VS Code TextMate runtime to compare role-bearing semantic tokens with first-paint scopes across all examples. |
+| Native IDE check | `dev.bat ide-check` | Checks the native app contract, compiler-backed call help, nested/comment/declaration context filtering, UTF-16 caret forwarding, dirty-import snapshots, overload rendering, stale-result rejection, Rust compilation, IDE smoke, and the shared VS Code extension contract. |
 | Editor visual contract | `dev.bat editor-visual-check` | Builds `eng-lsp`, validates bounded VS Code Light/Dark plus native IDE fixtures, clean/intentional diagnostics, semantic token coverage, inspected screenshot manifest integrity, and the zero-diff comparison engine path. |
 | Editor visual comparison | `dev.bat editor-visual-compare <capture-dir>` | Compares supplied Light/Dark/native captures with accepted baselines using fixed dimensions, RGB thresholds, summary JSON, and generated diff PNGs. |
 | Package smoke | `dev.bat package-smoke` | Validates the portable public package path. Workflow fixtures stay in workflow smoke until promoted. |
@@ -213,6 +214,10 @@ Current coverage:
   validation, and alignment results to remain in Checks while solver results,
   state-space operators, and equation dependencies render in the separate
   System panel with semantic-token navigation.
+- The same native IDE gates require call-help requests to use compiler-owned
+  user, class-method, and built-in signatures; include modified open imports;
+  preserve UTF-16 positions; highlight the active overload parameter; and
+  discard results after the caret or any participating buffer changes.
 - `dev.bat workflow-native-status` provides the fast read-only status view for those same source/docs guards plus the latest process and run-graph artifacts.
 - These examples are intentionally covered by workflow smoke rather than public
   package smoke until their native modules are promoted into package scope.

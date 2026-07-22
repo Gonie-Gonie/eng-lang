@@ -1469,6 +1469,59 @@ button:hover {
   color: #166534;
 }
 
+.signature-help-popover {
+  position: absolute;
+  z-index: 21;
+  min-width: 160px;
+  max-height: 150px;
+  overflow: auto;
+  border: 1px solid #8f9db0;
+  border-radius: 5px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(20, 31, 48, 0.16);
+  padding: 7px 9px;
+}
+
+.signature-help-popover.hidden {
+  display: none;
+}
+
+.signature-help-head {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.signature-help-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #172033;
+  font: 12px/1.45 Consolas, "Cascadia Mono", monospace;
+  white-space: normal;
+}
+
+.signature-help-parameter {
+  color: #0b5cab;
+  background: #e6f1fc;
+  font-weight: 700;
+}
+
+.signature-help-count {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font: 11px/1.45 Consolas, "Cascadia Mono", monospace;
+}
+
+.signature-help-doc {
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+  color: #4b596b;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .completion-popover {
   position: absolute;
   z-index: 20;

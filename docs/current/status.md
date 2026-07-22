@@ -130,6 +130,12 @@ review material. It is not a broad solver claim.
   state-space operators, and equation dependencies, checked-code role-aware
   highlight overlay, module registry browser, table transform inspector rows,
   PlotSpec viewing, report opening, and side-effect artifact panels.
+- Native IDE call help now uses the same compiler report and typed signature
+  resolver as the LSP for local/imported user functions, zero-argument
+  class-object methods, and compiler-owned built-in overloads. It validates
+  UTF-16 caret positions and all modified open EngLang imports, rejects stale
+  responses, and briefly reuses only an exact path/source/open-document
+  analysis so the following live check does not duplicate compilation.
 - Packaged editor-tooling binary plus an internal persistent VS Code stdio
   client for document sync, diagnostics, semantic tokens, typed signature help
   for user functions, zero-argument class-object methods, and compiler-owned
