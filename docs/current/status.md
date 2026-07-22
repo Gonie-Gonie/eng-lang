@@ -131,7 +131,8 @@ review material. It is not a broad solver claim.
   highlight overlay, module registry browser, table transform inspector rows,
   PlotSpec viewing, report opening, and side-effect artifact panels.
 - Packaged editor-tooling binary plus an internal persistent VS Code stdio
-  client for document sync, diagnostics, semantic tokens, and editor requests.
+  client for document sync, diagnostics, semantic tokens, typed signature help
+  for user functions and zero-argument class-object methods, and editor requests.
   Exact-source editor requests share one compiler report and lazy snapshot;
   token-free comment/blank-line edits can retarget that report when every token
   and token-bearing line stays at the same absolute source location. A separate

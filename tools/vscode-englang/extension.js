@@ -22,6 +22,7 @@ const {
   EngWorkspaceSymbolProvider
 } = require("./navigationProviders");
 const { EngSemanticTokensProvider } = require("./semanticTokensProvider");
+const { EngSignatureHelpProvider } = require("./signatureHelpProvider");
 const { loadEditorMetadata } = require("./editorMetadata");
 const {
   currentWorkspaceRoot,
@@ -537,6 +538,15 @@ function activate(context) {
         cachedSnapshotForDocument: (document) => reviewCache.get(document.uri.fsPath),
         cacheSnapshotForDocument: (document, snapshot) => reviewCache.set(document.uri.fsPath, snapshot)
       })
+    ),
+    vscode.languages.registerSignatureHelpProvider(
+      LANGUAGE_ID,
+      new EngSignatureHelpProvider({
+        isEngDocument,
+        signatureHelpForPosition: lspRequests.signatureHelpForPosition
+      }),
+      "(",
+      ","
     ),
     vscode.languages.registerCompletionItemProvider(
       LANGUAGE_ID,

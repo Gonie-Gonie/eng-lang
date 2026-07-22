@@ -10,9 +10,10 @@ embedding compiler logic in JavaScript.
   schema/types, units, built-in functions, with-block options, and literals
 - stable file diagnostics from the EngLang CLI checker, with code links,
   token-precise ranges, option-value underlines, and legacy/deprecated tags in VS Code Problems
-- optional live editor diagnostics, hover, completion, document/workspace
-  symbols, semantic same-symbol highlights, and folding from the current
-  unsaved buffer plus every modified open EngLang import in the workspace
+- optional live editor diagnostics, hover, completion, typed call signature
+  help, document/workspace symbols, semantic same-symbol highlights, and
+  folding from the current unsaved buffer plus every modified open EngLang
+  import in the workspace
 - one persistent `eng-lsp --stdio` session with incremental UTF-16 document
   sync, versioned live diagnostics, cancellable editor requests, and direct
   protocol semantic tokens
@@ -67,6 +68,9 @@ embedding compiler logic in JavaScript.
   severity, and exact range under the caret
 - hover from compiler review metadata
 - position-aware completion from compiler/editor metadata
+- compiler-derived signature help while typing local or statically imported
+  user-function calls and zero-argument class-object method calls; nested and
+  multiline calls select the active parameter using UTF-16 editor positions
 - owner-aware `run_case` completion and highlighting for `scheduler`, `workers`,
   sequential/parallel policy values, and CaseRunResult runner/worker/lifecycle
   fields

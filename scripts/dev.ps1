@@ -4212,6 +4212,7 @@ function Assert-VscodeExtensionContract {
     $CompletionProviderPath = Join-Path $ExtensionRoot "completionProvider.js"
     $DiagnosticsProviderPath = Join-Path $ExtensionRoot "diagnosticsProvider.js"
     $HoverProviderPath = Join-Path $ExtensionRoot "hoverProvider.js"
+    $SignatureHelpProviderPath = Join-Path $ExtensionRoot "signatureHelpProvider.js"
     $CodeActionProviderPath = Join-Path $ExtensionRoot "codeActionProvider.js"
     $FoldingRangeProviderPath = Join-Path $ExtensionRoot "foldingRangeProvider.js"
     $FormattingProviderPath = Join-Path $ExtensionRoot "formattingProvider.js"
@@ -4239,6 +4240,7 @@ function Assert-VscodeExtensionContract {
     $DiagnosticsBackendTestPath = Join-Path $ExtensionRoot "test\diagnosticsBackend.test.js"
     $FormattingProviderTestPath = Join-Path $ExtensionRoot "test\formattingProvider.test.js"
     $HoverProviderTestPath = Join-Path $ExtensionRoot "test\hoverProvider.test.js"
+    $SignatureHelpProviderTestPath = Join-Path $ExtensionRoot "test\signatureHelpProvider.test.js"
     $DocumentHighlightsTestPath = Join-Path $ExtensionRoot "test\documentHighlights.test.js"
     $EditorRequestRaceTestPath = Join-Path $ExtensionRoot "test\editorRequestRace.test.js"
     $RenameTestPath = Join-Path $ExtensionRoot "test\rename.test.js"
@@ -4289,6 +4291,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $HoverProviderPath)) {
         throw "missing VS Code hover provider at $HoverProviderPath"
+    }
+    if (-not (Test-Path $SignatureHelpProviderPath)) {
+        throw "missing VS Code signature help provider at $SignatureHelpProviderPath"
     }
     if (-not (Test-Path $CodeActionProviderPath)) {
         throw "missing VS Code code action provider at $CodeActionProviderPath"
@@ -4370,6 +4375,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $HoverProviderTestPath)) {
         throw "missing VS Code semantic role hover smoke at $HoverProviderTestPath"
+    }
+    if (-not (Test-Path $SignatureHelpProviderTestPath)) {
+        throw "missing VS Code signature help provider smoke at $SignatureHelpProviderTestPath"
     }
     if (-not (Test-Path $DocumentHighlightsTestPath)) {
         throw "missing VS Code semantic document highlight smoke at $DocumentHighlightsTestPath"
@@ -5407,6 +5415,7 @@ function Assert-VscodeExtensionContract {
     $CompletionProviderSource = Get-Content -LiteralPath $CompletionProviderPath -Raw
     $DiagnosticsProviderSource = Get-Content -LiteralPath $DiagnosticsProviderPath -Raw
     $HoverProviderSource = Get-Content -LiteralPath $HoverProviderPath -Raw
+    $SignatureHelpProviderSource = Get-Content -LiteralPath $SignatureHelpProviderPath -Raw
     $CodeActionProviderSource = Get-Content -LiteralPath $CodeActionProviderPath -Raw
     $FoldingRangeProviderSource = Get-Content -LiteralPath $FoldingRangeProviderPath -Raw
     $FormattingProviderSource = Get-Content -LiteralPath $FormattingProviderPath -Raw
@@ -5428,6 +5437,7 @@ function Assert-VscodeExtensionContract {
     $CodeActionsTestSource = Get-Content -LiteralPath $CodeActionsTestPath -Raw
     $EditorRequestRaceTestSource = Get-Content -LiteralPath $EditorRequestRaceTestPath -Raw
     $PersistentLspClientTestSource = Get-Content -LiteralPath $PersistentLspClientTestPath -Raw
+    $SignatureHelpProviderTestSource = Get-Content -LiteralPath $SignatureHelpProviderTestPath -Raw
     $DiagnosticsSource = $ExtensionSource + "`n" + $DiagnosticsProviderSource
     foreach ($RequiredStatusBarToken in @(
         "createStatusBarItem",
@@ -5536,6 +5546,8 @@ function Assert-VscodeExtensionContract {
         'sendRequest("shutdown"',
         'sendNotification("exit"',
         '"englang/snapshot"',
+        '"textDocument/signatureHelp"',
+        "signatureHelpForPosition",
         '"textDocument/semanticTokens/full"',
         "semanticTokensForDocument",
         "semanticTokensFromLsp",
@@ -6109,6 +6121,7 @@ function Assert-VscodeExtensionContract {
     $ProviderFreshnessContracts = @(
         @{ Label = "completion"; Source = $CompletionProviderSource; MinimumVersionGuardCount = 1 },
         @{ Label = "hover"; Source = $HoverProviderSource; MinimumVersionGuardCount = 1 },
+        @{ Label = "signature help"; Source = $SignatureHelpProviderSource; MinimumVersionGuardCount = 1 },
         @{ Label = "navigation"; Source = $NavigationProvidersSource; MinimumVersionGuardCount = 5 },
         @{ Label = "folding"; Source = $FoldingRangeProviderSource; MinimumVersionGuardCount = 1 },
         @{ Label = "semantic tokens"; Source = $SemanticTokensProviderSource; MinimumVersionGuardCount = 1 },
@@ -6202,6 +6215,25 @@ function Assert-VscodeExtensionContract {
     }
     if ($ExtensionSource.Contains("class EngHoverProvider") -or $ExtensionSource.Contains("function findHoverForWord") -or $ExtensionSource.Contains("function hoverNameMatches") -or $ExtensionSource.Contains("function hoverRangeAtPosition") -or $ExtensionSource.Contains("function hoverCandidatesAtPosition")) {
         throw "VS Code extension must keep hover provider helpers in hoverProvider.js"
+    }
+    $SignatureHelpSource = $ExtensionSource + "`n" + $SignatureHelpProviderSource + "`n" + $PersistentLspClientSource + "`n" + $SignatureHelpProviderTestSource
+    foreach ($RequiredSignatureHelpToken in @(
+        'require("./signatureHelpProvider")',
+        "new EngSignatureHelpProvider",
+        "registerSignatureHelpProvider",
+        "async provideSignatureHelp",
+        "signatureHelpForPosition",
+        '"textDocument/signatureHelp"',
+        "signatureHelpFromLsp",
+        "SignatureInformation",
+        "ParameterInformation"
+    )) {
+        if (-not $SignatureHelpSource.Contains($RequiredSignatureHelpToken)) {
+            throw "VS Code extension missing signature help token $RequiredSignatureHelpToken"
+        }
+    }
+    if ($ExtensionSource.Contains("class EngSignatureHelpProvider") -or $ExtensionSource.Contains("function signatureHelpFromLsp")) {
+        throw "VS Code extension must keep signature help conversion in signatureHelpProvider.js"
     }
     if (-not $ExtensionSource.Contains('require("./editorMetadata")') -or -not $ExtensionSource.Contains("loadEditorMetadata(__dirname)")) {
         throw "VS Code extension must load editor metadata through editorMetadata.js"
@@ -7072,6 +7104,17 @@ function Assert-VscodeExtensionContract {
             throw "eng-lsp CLI missing semantic document highlight token $RequiredLspDocumentHighlightToken"
         }
     }
+    foreach ($RequiredLspSignatureHelpToken in @(
+        '"signatureHelpProvider"',
+        '"textDocument/signatureHelp"',
+        "signature_help_for_request",
+        "signature_help_at",
+        "signature_help_lsp_json"
+    )) {
+        if (-not ($LspCliSource.Contains($RequiredLspSignatureHelpToken) -or $LspSource.Contains($RequiredLspSignatureHelpToken))) {
+            throw "eng-lsp missing signature help token $RequiredLspSignatureHelpToken"
+        }
+    }
     foreach ($RequiredLspWorkspaceEditorToken in @(
         "--workspace-snapshot-stdin",
         "--workspace-completion-stdin",
@@ -7661,6 +7704,7 @@ function Assert-VscodeExtensionContract {
         $FoldingRangeProviderPath,
         $FormattingProviderPath,
         $HoverProviderPath,
+        $SignatureHelpProviderPath,
         $NavigationProvidersPath,
         $SemanticTokensProviderPath,
         $LspCodeActionsPath,
@@ -7684,6 +7728,7 @@ function Assert-VscodeExtensionContract {
         $DiagnosticsBackendTestPath,
         $FormattingProviderTestPath,
         $HoverProviderTestPath,
+        $SignatureHelpProviderTestPath,
         $DocumentHighlightsTestPath,
         $EditorRequestRaceTestPath,
         $RenameTestPath,
@@ -7701,6 +7746,7 @@ function Assert-VscodeExtensionContract {
     Invoke-JavaScriptProgram -Path $DiagnosticsBackendTestPath -Label "VS Code fake eng.exe diagnostics backend smoke"
     Invoke-JavaScriptProgram -Path $FormattingProviderTestPath -Label "VS Code compiler-backed formatting provider smoke"
     Invoke-JavaScriptProgram -Path $HoverProviderTestPath -Label "VS Code semantic role hover smoke"
+    Invoke-JavaScriptProgram -Path $SignatureHelpProviderTestPath -Label "VS Code signature help provider smoke"
     Invoke-JavaScriptProgram -Path $DocumentHighlightsTestPath -Label "VS Code semantic document highlight smoke"
     Invoke-JavaScriptProgram -Path $EditorRequestRaceTestPath -Label "VS Code editor request race smoke"
     Invoke-JavaScriptProgram -Path $RenameTestPath -Label "VS Code semantic rename smoke"
@@ -10357,6 +10403,9 @@ function Invoke-PackageSmoke {
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\hoverProvider.js"))) {
             throw "portable package did not include VS Code hover provider"
         }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\signatureHelpProvider.js"))) {
+            throw "portable package did not include VS Code signature help provider"
+        }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\codeActionProvider.js"))) {
             throw "portable package did not include VS Code code action provider"
         }
@@ -10398,6 +10447,9 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\test\persistentLspClient.test.js"))) {
             throw "portable package did not include VS Code persistent LSP client smoke"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\test\signatureHelpProvider.test.js"))) {
+            throw "portable package did not include VS Code signature help provider smoke"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\artifactRegistry.js"))) {
             throw "portable package did not include VS Code artifact registry"

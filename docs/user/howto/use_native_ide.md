@@ -306,9 +306,11 @@ unsaved active buffer until the file is saved. Direct settings changes to
 diagnostics mode or Problems settings also refresh or clear the active EngLang editor.
 
 The extension shares the same checked-code diagnostics, hover, completion, and
-role-aware highlighting data as the native IDE. Live diagnostics, hover,
-completion, go-to-definition, Find All References, rename preparation, and
-rename pass the current file plus every modified open EngLang file in the
+role-aware highlighting data as the native IDE. It also shows typed parameter
+help while entering local or statically imported user-function calls and
+zero-argument class-object method calls. Live diagnostics, hover, completion,
+call signature help, go-to-definition, Find All References, rename preparation,
+and rename pass the current file plus every modified open EngLang file in the
 workspace to the compiler. Recursive static imports use open text before disk,
 and results are discarded if the participating document set, dirty state, or
 version changes. Problems, role-aware colors, and review decorations in other

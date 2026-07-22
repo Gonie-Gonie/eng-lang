@@ -55,7 +55,8 @@ and next cleanup action.
 - Main internal: a dedicated advanced System panel for solver results,
   state-space operators, and equation dependencies; component/kernel inspector
   rows; editor metadata smoke checks; optional VS Code extension source; and a
-  compiler-owned scalar suffix recheck that can preserve strictly verified
+  compiler-owned typed call signature help for local/imported user functions
+  and zero-argument class-object methods; and a scalar suffix recheck that can preserve strictly verified
   imported state-space, immutable class-object, and complete system-owned
   component-graph metadata without exposing ordinary system-local names at
   root. A changed direct scalar class-object field or zero-argument method
@@ -64,7 +65,8 @@ and next cleanup action.
   advanced system, component-graph, and kernel detail, then replace the current
   compilation-wide component-instance namespace with explicit per-system
   assembly ownership, then broaden changed-block parsing beyond the bounded
-  scalar suffix.
+  scalar suffix, then derive built-in API signatures from compiler-owned
+  contracts instead of duplicating them in editor code.
 
 ## T6 Uncertainty
 

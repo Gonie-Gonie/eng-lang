@@ -801,6 +801,18 @@ function createPersistentLspRequests(options = {}) {
     );
   }
 
+  function signatureHelpForPosition(document, position, cancellationToken) {
+    return callProtocol(
+      "signature help request",
+      () => client.requestDocument(
+        "textDocument/signatureHelp",
+        document,
+        { position: lspPosition(position) },
+        cancellationToken
+      )
+    );
+  }
+
   function semanticTokensForDocument(document, cancellationToken) {
     return callProtocol(
       "semantic token request",
@@ -915,6 +927,7 @@ function createPersistentLspRequests(options = {}) {
     formatDocumentSource: fallback.formatDocumentSource,
     codeActionsForDocumentSource: fallback.codeActionsForDocumentSource,
     hoverForPosition,
+    signatureHelpForPosition,
     semanticTokensForDocument,
     documentSymbolsForDocument,
     foldingRangesForDocument,

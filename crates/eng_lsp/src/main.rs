@@ -19,9 +19,9 @@ use eng_lsp::{
     completion_items_for_source_position_with_import_overrides, completion_json, diagnostic_json,
     document_symbols_lsp_json, editor_metadata_json, editor_syntax_catalog_json,
     folding_ranges_lsp_json, hover_json, semantic_legend, semantic_tokens_lsp_data,
-    semantic_tokens_lsp_json, snapshot_for_path, snapshot_for_source,
-    snapshot_for_source_with_import_overrides, snapshot_from_report_with_source,
-    workflow_option_label_exists, LSP_SNAPSHOT_FORMAT,
+    semantic_tokens_lsp_json, signature_help_at, signature_help_lsp_json, snapshot_for_path,
+    snapshot_for_source, snapshot_for_source_with_import_overrides,
+    snapshot_from_report_with_source, workflow_option_label_exists, LSP_SNAPSHOT_FORMAT,
 };
 use serde_json::{json, Value};
 
@@ -1619,6 +1619,10 @@ fn run_lsp() -> io::Result<()> {
                                 "completionProvider": {
                                     "triggerCharacters": [" ", ":", "[", "."]
                                 },
+                                "signatureHelpProvider": {
+                                    "triggerCharacters": ["(", ","],
+                                    "retriggerCharacters": [","]
+                                },
                                 "codeActionProvider": {
                                     "codeActionKinds": ["quickfix"],
                                     "resolveProvider": false
@@ -1714,6 +1718,16 @@ fn run_lsp() -> io::Result<()> {
                 write_request_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": items }),
+                    cancellation.as_ref(),
+                )?;
+            }
+            "textDocument/signatureHelp" => {
+                let signature_help = signature_help_for_request(&request, &documents)
+                    .map(|help| signature_help_lsp_json(&help))
+                    .unwrap_or(Value::Null);
+                write_request_response(
+                    &mut output,
+                    json!({ "jsonrpc": "2.0", "id": id, "result": signature_help }),
                     cancellation.as_ref(),
                 )?;
             }
@@ -7240,6 +7254,25 @@ fn completions_for_request(request: &Value, documents: &Documents) -> Vec<eng_ls
     completion_items_for_path_position(&path, line, character).unwrap_or_default()
 }
 
+fn signature_help_for_request(
+    request: &Value,
+    documents: &Documents,
+) -> Option<eng_lsp::LspSignatureHelp> {
+    let uri = request_uri(request)?;
+    let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
+    let line = request
+        .pointer("/params/position/line")
+        .and_then(Value::as_u64)
+        .unwrap_or(0) as usize;
+    let character = request
+        .pointer("/params/position/character")
+        .and_then(Value::as_u64)
+        .unwrap_or(0) as usize;
+    let text = document_text_for_uri(uri, documents)?;
+    let analysis = analysis_for_open_documents(&path, &text, documents);
+    signature_help_at(&analysis.report, &text, line, character)
+}
+
 fn hover_for_request(request: &Value, documents: &Documents) -> Option<eng_lsp::LspHover> {
     let uri = request_uri(request)?;
     let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
@@ -11587,6 +11620,20 @@ adjusted: Length [m] = double_length(double_length(base * local_factor)) + share
         assert_eq!(requested_hover.name, "base");
         assert_eq!(requested_hover.quantity_kind, "Length");
         assert_eq!(requested_hover.display_unit, "m");
+        let signature_request = json!({
+            "method": "textDocument/signatureHelp",
+            "params": {
+                "textDocument": { "uri": uri },
+                "position": { "line": 1, "character": "base = double_length(".len() }
+            }
+        });
+        let signature = signature_help_for_request(&signature_request, &documents)
+            .expect("the persistent editor session should serve imported function signatures");
+        assert_eq!(signature.active_parameter, 0);
+        assert_eq!(
+            signature.signatures[0].label,
+            "double_length(value: Length [m]) -> Length [m]"
+        );
         assert_eq!(documents[&uri].scalar_binding_reuse_count(), 0);
 
         let changed_source = r#"use "shared.eng"
@@ -11615,7 +11662,7 @@ total = double_length(double_length(adjusted)) + shared_length
         assert_eq!(documents[&uri].scalar_binding_reuse_count(), 1);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
-            (1, 2, 0, true, true)
+            (2, 2, 0, true, true)
         );
 
         let changed_module_source = r#"const shared_length: Length [m] = 3 m
@@ -11645,7 +11692,7 @@ fn keep_ratio(value: Ratio [1]) -> Ratio [1] {
         invalidate_dependent_document_analyses(&changed_module_uri, &affected);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
-            (1, 2, 0, false, false),
+            (2, 2, 0, false, false),
             "an imported buffer edit must invalidate the dependent root report"
         );
 
@@ -11657,7 +11704,7 @@ fn keep_ratio(value: Ratio [1]) -> Ratio [1] {
         assert_eq!(documents[&uri].scalar_binding_reuse_count(), 1);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
-            (1, 3, 0, true, true),
+            (2, 3, 0, true, true),
             "the dependent root must rebuild against the changed import environment"
         );
 

@@ -78,6 +78,14 @@ fn stdio_server_round_trips_core_lsp_requests() {
     assert_eq!(initialize["result"]["serverInfo"]["name"], "eng-lsp");
     assert_eq!(initialize["result"]["capabilities"]["hoverProvider"], true);
     assert_eq!(
+        initialize["result"]["capabilities"]["signatureHelpProvider"]["triggerCharacters"],
+        json!(["(", ","])
+    );
+    assert_eq!(
+        initialize["result"]["capabilities"]["signatureHelpProvider"]["retriggerCharacters"],
+        json!([","])
+    );
+    assert_eq!(
         initialize["result"]["capabilities"]["definitionProvider"],
         true
     );
@@ -792,6 +800,72 @@ fn stdio_server_round_trips_core_lsp_requests() {
     assert!(where_hover_text.contains("where.Q_for_energy"));
     assert!(where_hover_text.contains("where local"));
     assert!(where_hover_text.contains("HeatRate"));
+
+    let signature_source = r#"fn combine(left: Length [m], right: Length [m]) -> Length [m] {
+    return left + right
+}
+
+result = combine(1 m, 2 m)
+"#;
+    let signature_path = repo_root().join("build/editor-tests/signature_help_stdio.eng");
+    let signature_uri = file_uri(&signature_path);
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {
+                    "uri": signature_uri,
+                    "languageId": "englang",
+                    "version": 1,
+                    "text": signature_source
+                }
+            }
+        }),
+    );
+    let signature_published = read_message(&mut stdout);
+    assert_eq!(
+        signature_published["method"],
+        "textDocument/publishDiagnostics"
+    );
+    let signature_line = signature_source
+        .lines()
+        .position(|line| line.contains("result ="))
+        .expect("signature call line");
+    let signature_line_text = signature_source
+        .lines()
+        .nth(signature_line)
+        .expect("signature call source");
+    let signature_character = signature_line_text[..signature_line_text
+        .find("2 m")
+        .expect("second signature argument")]
+        .encode_utf16()
+        .count();
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 91,
+            "method": "textDocument/signatureHelp",
+            "params": {
+                "textDocument": { "uri": signature_uri },
+                "position": { "line": signature_line, "character": signature_character }
+            }
+        }),
+    );
+    let signature_help = read_message(&mut stdout);
+    assert_eq!(signature_help["id"], 91);
+    assert_eq!(signature_help["result"]["activeSignature"], 0);
+    assert_eq!(signature_help["result"]["activeParameter"], 1);
+    assert_eq!(
+        signature_help["result"]["signatures"][0]["label"],
+        "combine(left: Length [m], right: Length [m]) -> Length [m]"
+    );
+    assert_eq!(
+        signature_help["result"]["signatures"][0]["parameters"][1]["label"],
+        "right: Length [m]"
+    );
 
     write_message(
         &mut stdin,

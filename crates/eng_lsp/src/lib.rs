@@ -5,11 +5,11 @@ use eng_compiler::{
     all_quantity_completions, all_unit_infos, bundled_module_registry, check_source,
     check_source_with_import_overrides, classify_diagnostic_review_risk, classify_review_risk,
     is_percentile_statistic, read_only_io_expression, review_validation_records,
-    uncertainty_argument_alias, CheckOptions, CheckReport, ClassFieldInfo, CommandStyleInfo,
-    Diagnostic, DomainTypeParameterInfo, FileOperationInfo, FunctionInfo, ImportSourceOverrides,
-    ReviewValidationRecord, SemanticProgram, Severity, SourceSpan, WithBlockInfo, WithOptionInfo,
-    WriteInfo, DIMENSIONLESS_MATH_FUNCTIONS, PERCENTILE_STATISTIC_PATTERN,
-    UNCERTAINTY_ARGUMENT_ALIASES,
+    uncertainty_argument_alias, CheckOptions, CheckReport, ClassFieldInfo, ClassMethodInfo,
+    CommandStyleInfo, Diagnostic, DomainTypeParameterInfo, FileOperationInfo, FunctionInfo,
+    FunctionParamInfo, ImportSourceOverrides, ReviewValidationRecord, SemanticProgram, Severity,
+    SourceSpan, WithBlockInfo, WithOptionInfo, WriteInfo, DIMENSIONLESS_MATH_FUNCTIONS,
+    PERCENTILE_STATISTIC_PATTERN, UNCERTAINTY_ARGUMENT_ALIASES,
 };
 use serde_json::{json, Value};
 
@@ -58,6 +58,26 @@ pub struct LspHover {
     pub quantity_kind: String,
     pub display_unit: String,
     pub status: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LspSignatureHelp {
+    pub signatures: Vec<LspSignatureInformation>,
+    pub active_signature: usize,
+    pub active_parameter: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LspSignatureInformation {
+    pub label: String,
+    pub documentation: String,
+    pub parameters: Vec<LspParameterInformation>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LspParameterInformation {
+    pub label: String,
+    pub documentation: String,
 }
 
 impl LspHover {
@@ -9355,6 +9375,27 @@ pub fn hover_json(hover: &LspHover) -> Value {
     })
 }
 
+pub fn signature_help_lsp_json(help: &LspSignatureHelp) -> Value {
+    json!({
+        "signatures": help.signatures.iter().map(|signature| json!({
+            "label": signature.label,
+            "documentation": {
+                "kind": "markdown",
+                "value": signature.documentation,
+            },
+            "parameters": signature.parameters.iter().map(|parameter| json!({
+                "label": parameter.label,
+                "documentation": {
+                    "kind": "markdown",
+                    "value": parameter.documentation,
+                },
+            })).collect::<Vec<_>>(),
+        })).collect::<Vec<_>>(),
+        "activeSignature": help.active_signature,
+        "activeParameter": help.active_parameter,
+    })
+}
+
 fn hover_kind_label(kind: &str) -> String {
     match kind.trim() {
         "variable" => "Variable".to_owned(),
@@ -10784,6 +10825,213 @@ fn table_transform_source_schema_name<'a>(
         .or_else(|| table_transform_source_schema_name(report, &transform.source_table, depth + 1))
 }
 
+#[derive(Debug, Eq, PartialEq)]
+struct SignatureHelpContext {
+    callee: String,
+    active_parameter: usize,
+}
+
+pub fn signature_help_at(
+    report: &CheckReport,
+    source: &str,
+    line: usize,
+    character: usize,
+) -> Option<LspSignatureHelp> {
+    let context = signature_help_context(source, line, character)?;
+    if let Some(function) = report
+        .semantic_program
+        .functions
+        .iter()
+        .find(|function| function.name == context.callee)
+    {
+        return Some(function_signature_help(function, context.active_parameter));
+    }
+    class_method_signature_help(report, &context)
+}
+
+fn function_signature_help(function: &FunctionInfo, active_parameter: usize) -> LspSignatureHelp {
+    let parameters = function
+        .parameters
+        .iter()
+        .map(|parameter| LspParameterInformation {
+            label: function_parameter_label(parameter),
+            documentation: format!(
+                "Quantity: `{}`; display unit: `{}`.",
+                parameter.quantity_kind,
+                display_unit_label(&parameter.display_unit)
+            ),
+        })
+        .collect::<Vec<_>>();
+    LspSignatureHelp {
+        signatures: vec![LspSignatureInformation {
+            label: function_call_signature_label(function),
+            documentation: format!(
+                "User-defined function returning `{} [{}]`.",
+                function.return_quantity_kind,
+                display_unit_label(&function.return_display_unit)
+            ),
+            parameters,
+        }],
+        active_signature: 0,
+        active_parameter: active_parameter.min(function.parameters.len().saturating_sub(1)),
+    }
+}
+
+fn class_method_signature_help(
+    report: &CheckReport,
+    context: &SignatureHelpContext,
+) -> Option<LspSignatureHelp> {
+    let (receiver, method_name) = context.callee.rsplit_once('.')?;
+    let object = report
+        .semantic_program
+        .class_objects
+        .iter()
+        .find(|object| receiver_matches_binding_name(receiver, &object.name))?;
+    let class_info = report
+        .semantic_program
+        .classes
+        .iter()
+        .find(|class_info| class_info.name == object.class_name)?;
+    let method = class_info
+        .methods
+        .iter()
+        .find(|method| method.name == method_name)?;
+    Some(LspSignatureHelp {
+        signatures: vec![LspSignatureInformation {
+            label: class_method_call_signature_label(&context.callee, method),
+            documentation: format!(
+                "Zero-argument method from `{}` returning `{} [{}]`.",
+                object.class_name,
+                method.return_type,
+                display_unit_label(&method.return_display_unit)
+            ),
+            parameters: Vec::new(),
+        }],
+        active_signature: 0,
+        active_parameter: 0,
+    })
+}
+
+fn function_call_signature_label(function: &FunctionInfo) -> String {
+    let parameters = function
+        .parameters
+        .iter()
+        .map(function_parameter_label)
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "{}({}) -> {} [{}]",
+        function.name,
+        parameters,
+        function.return_quantity_kind,
+        display_unit_label(&function.return_display_unit)
+    )
+}
+
+fn function_parameter_label(parameter: &FunctionParamInfo) -> String {
+    format!(
+        "{}: {} [{}]",
+        parameter.name,
+        parameter.quantity_kind,
+        display_unit_label(&parameter.display_unit)
+    )
+}
+
+fn class_method_call_signature_label(callee: &str, method: &ClassMethodInfo) -> String {
+    format!(
+        "{}() -> {} [{}]",
+        callee,
+        method.return_type,
+        display_unit_label(&method.return_display_unit)
+    )
+}
+
+fn signature_help_context(
+    source: &str,
+    line: usize,
+    character: usize,
+) -> Option<SignatureHelpContext> {
+    let before_cursor = source_prefix_at_position(source, line, character)?;
+    let open_paren = last_unmatched_open_paren(&before_cursor)?;
+    let (callee, callee_start) = call_target_before_open_paren(&before_cursor, open_paren)?;
+    if declaration_keyword_before_target(&before_cursor, callee_start)
+        .is_some_and(|keyword| matches!(keyword, "fn" | "method"))
+    {
+        return None;
+    }
+    let active_parameter = active_signature_parameter(&before_cursor[open_paren + 1..])?;
+    Some(SignatureHelpContext {
+        callee,
+        active_parameter,
+    })
+}
+
+fn call_target_before_open_paren(value: &str, open_paren: usize) -> Option<(String, usize)> {
+    let bytes = value.as_bytes();
+    let mut end = open_paren.min(bytes.len());
+    while end > 0 && bytes[end - 1].is_ascii_whitespace() {
+        end -= 1;
+    }
+    let mut start = end;
+    while start > 0 && (is_ident_byte(bytes[start - 1]) || bytes[start - 1] == b'.') {
+        start -= 1;
+    }
+    let target = value.get(start..end)?;
+    if target.is_empty() || !target.split('.').all(is_identifier) {
+        return None;
+    }
+    Some((target.to_owned(), start))
+}
+
+fn declaration_keyword_before_target(value: &str, target_start: usize) -> Option<&str> {
+    let bytes = value.as_bytes();
+    let mut end = target_start.min(bytes.len());
+    while end > 0 && bytes[end - 1].is_ascii_whitespace() {
+        end -= 1;
+    }
+    let mut start = end;
+    while start > 0 && is_ident_byte(bytes[start - 1]) {
+        start -= 1;
+    }
+    (start < end && is_ident_start(bytes[start])).then_some(&value[start..end])
+}
+
+fn active_signature_parameter(arguments: &str) -> Option<usize> {
+    let mut active_parameter = 0usize;
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut in_line_comment = false;
+    for (index, character) in arguments.char_indices() {
+        if in_line_comment {
+            if character == '\n' {
+                in_line_comment = false;
+            }
+            continue;
+        }
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match character {
+            '"' => in_string = true,
+            '#' => in_line_comment = true,
+            '/' if arguments[index..].starts_with("//") => in_line_comment = true,
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth = depth.saturating_sub(1),
+            ',' if depth == 0 => active_parameter += 1,
+            _ => {}
+        }
+    }
+    (!in_line_comment).then_some(active_parameter)
+}
+
 pub fn completion_items_at(
     report: &CheckReport,
     source: &str,
@@ -11468,14 +11716,16 @@ fn function_argument_completion_context(
 
 fn source_prefix_at_position(source: &str, line: usize, character: usize) -> Option<String> {
     let mut prefix = String::new();
-    for (line_index, line_text) in source.lines().enumerate() {
+    for (line_index, raw_line_text) in source.split('\n').enumerate() {
+        let line_text = raw_line_text.strip_suffix('\r').unwrap_or(raw_line_text);
         if line_index < line {
             prefix.push_str(line_text);
             prefix.push('\n');
             continue;
         }
         if line_index == line {
-            prefix.extend(line_text.chars().take(character));
+            let byte_offset = utf16_offset_to_byte(line_text, character)?;
+            prefix.push_str(&line_text[..byte_offset]);
             return Some(prefix);
         }
         break;
@@ -11520,7 +11770,14 @@ fn last_unmatched_open_paren(value: &str) -> Option<usize> {
     let mut stack = Vec::new();
     let mut in_string = false;
     let mut escaped = false;
+    let mut in_line_comment = false;
     for (index, character) in value.char_indices() {
+        if in_line_comment {
+            if character == '\n' {
+                in_line_comment = false;
+            }
+            continue;
+        }
         if in_string {
             if escaped {
                 escaped = false;
@@ -11533,6 +11790,8 @@ fn last_unmatched_open_paren(value: &str) -> Option<usize> {
         }
         match character {
             '"' => in_string = true,
+            '#' => in_line_comment = true,
+            '/' if value[index..].starts_with("//") => in_line_comment = true,
             '(' => stack.push(index),
             ')' => {
                 stack.pop();
@@ -23130,6 +23389,133 @@ with {
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "expected_sha256"));
+    }
+
+    #[test]
+    fn signature_help_uses_typed_function_parameters_and_utf16_positions() {
+        let source = r#"fn annotate(label: String, value: Length [m]) -> Length [m] {
+    return value
+}
+
+result = annotate("🧪", 2 m)
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.contains("result ="))
+            .expect("call line");
+        let line_text = source.lines().nth(line).expect("call source");
+        let value_start = line_text.find("2 m").expect("second argument");
+        let character = line_text[..value_start].encode_utf16().count();
+        let report = check_source(
+            Path::new("function_signature_help.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+
+        let help = signature_help_at(&report, source, line, character)
+            .expect("function call should expose signature help");
+        assert_eq!(help.active_signature, 0);
+        assert_eq!(help.active_parameter, 1);
+        assert_eq!(
+            help.signatures[0].label,
+            "annotate(label: String [-], value: Length [m]) -> Length [m]"
+        );
+        assert_eq!(help.signatures[0].parameters[1].label, "value: Length [m]");
+        assert!(help.signatures[0].parameters[1]
+            .documentation
+            .contains("display unit: `m`"));
+        let json = signature_help_lsp_json(&help);
+        assert_eq!(json["activeParameter"], 1);
+        assert_eq!(
+            json["signatures"][0]["parameters"][1]["label"],
+            "value: Length [m]"
+        );
+    }
+
+    #[test]
+    fn signature_help_selects_the_innermost_multiline_call_and_ignores_comments() {
+        let source = r#"fn scale(value: Length [m], factor: Ratio [1]) -> Length [m] {
+    return value * factor
+}
+fn add(left: Length [m], right: Length [m]) -> Length [m] {
+    return left + right
+}
+
+# ignored(fake_call(
+result = add(
+    scale(1 m, 2),
+    3 m
+)
+"#;
+        let report = check_source(
+            Path::new("nested_signature_help.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let scale_line = source
+            .lines()
+            .position(|line| line.contains("scale(1 m"))
+            .expect("nested call line");
+        let scale_text = source.lines().nth(scale_line).expect("nested call source");
+        let scale_character = scale_text[..scale_text.find('2').expect("scale factor")]
+            .encode_utf16()
+            .count();
+        let inner = signature_help_at(&report, source, scale_line, scale_character)
+            .expect("inner call signature");
+        assert!(inner.signatures[0].label.starts_with("scale("));
+        assert_eq!(inner.active_parameter, 1);
+
+        let add_line = source
+            .lines()
+            .position(|line| line.trim() == "3 m")
+            .expect("outer second argument line");
+        let outer = signature_help_at(&report, source, add_line, 4).expect("outer call signature");
+        assert!(outer.signatures[0].label.starts_with("add("));
+        assert_eq!(outer.active_parameter, 1);
+
+        assert!(signature_help_context("fn incomplete(", 0, "fn incomplete(".len()).is_none());
+        assert!(signature_help_context(
+            "value = add(1 m, # comment",
+            0,
+            "value = add(1 m, # comment".len()
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn signature_help_resolves_zero_argument_class_object_methods() {
+        let source = r#"class Construction {
+    name: String
+    method summary() -> String = self.name
+}
+
+wall = Construction {
+    name = "south_wall"
+}
+
+summary = wall.summary()
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.contains("summary ="))
+            .expect("method call line");
+        let line_text = source.lines().nth(line).expect("method call source");
+        let character =
+            line_text.find("wall.summary(").expect("method call") + "wall.summary(".len();
+        let report = check_source(
+            Path::new("class_method_signature_help.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+
+        let help = signature_help_at(&report, source, line, character)
+            .expect("class object method should expose signature help");
+        assert_eq!(help.active_parameter, 0);
+        assert_eq!(help.signatures[0].label, "wall.summary() -> String [-]");
+        assert!(help.signatures[0].parameters.is_empty());
+        assert!(help.signatures[0]
+            .documentation
+            .contains("from `Construction`"));
     }
 
     #[test]

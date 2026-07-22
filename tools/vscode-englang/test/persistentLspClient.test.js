@@ -168,6 +168,19 @@ class FakeLspServer {
           contents: { kind: "markdown", value: "**value**" }
         });
         break;
+      case "textDocument/signatureHelp":
+        this.respond(message.id, {
+          signatures: [{
+            label: "combine(left: Length [m], right: Length [m]) -> Length [m]",
+            parameters: [
+              { label: "left: Length [m]" },
+              { label: "right: Length [m]" }
+            ]
+          }],
+          activeSignature: 0,
+          activeParameter: 1
+        });
+        break;
       case "englang/snapshot":
         this.respond(message.id, {
           format: "eng-lsp-snapshot-v1",
@@ -360,6 +373,16 @@ async function main() {
   });
   const semantic = await requests.semanticTokensForDocument(document);
   assert.deepStrictEqual(semantic.data, [0, 0, 5, 1, 3]);
+  const signatureHelp = await requests.signatureHelpForPosition(
+    document,
+    { line: 0, character: 9 }
+  );
+  assert.strictEqual(signatureHelp.activeParameter, 1);
+  assert.ok(signatureHelp.signatures[0].label.startsWith("combine("));
+  const signatureRequest = servers[0].messages.find(
+    (message) => message.method === "textDocument/signatureHelp"
+  );
+  assert.deepStrictEqual(signatureRequest.params.position, { line: 0, character: 9 });
   const snapshot = await requests.snapshotDocumentSource(document, {});
   assert.strictEqual(snapshot.format, "eng-lsp-snapshot-v1");
   assert.deepStrictEqual(fallbackCalls, []);

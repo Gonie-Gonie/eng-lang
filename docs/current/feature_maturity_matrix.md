@@ -370,12 +370,15 @@ separate.
   The older fast-binding-only and explicit-declaration-only APIs are mode-limited
   compatibility wrappers over this engine; lazy shared editor snapshots,
   recursive import-dependent invalidation, a VS Code persistent stdio client
-  with document sync and direct protocol semantic tokens, request-ID-scoped protocol
-  cancellation with cooperative workspace scan interruption, compiler-owned
+  with document sync, direct protocol semantic tokens, and standard
+  `textDocument/signatureHelp` for local/imported user functions and
+  zero-argument class-object methods, request-ID-scoped protocol cancellation
+  with cooperative workspace scan interruption, compiler-owned
   declaration and explicit Outline selection ranges, import-source isolation
   across diagnostics/semantic overlays/hover fallback, source-origin-aware
   validation records, stdio tests, and optional VS Code source.
-- Not included: a stable public compatibility guarantee across EngLang releases
+- Not included: signature help for the general built-in/workflow API catalog, a
+  stable public compatibility guarantee across EngLang releases
   or general partial parse/semantic recomputation beyond the bounded scalar
   declaration contract, including forward/unresolved references, non-scalar
   suffix declarations, invalid, unregistered, non-unit-consistent, or
