@@ -672,12 +672,15 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// static file imports when every compiler import record exactly matches its root source line, span,
 /// kind, and status. Static imports additionally require the complete recursive path-to-source-ID
 /// registry to reproduce exactly and limit imported semantic definitions to schemas, constants,
-/// functions, basic or state-space systems, domains, and classes with internally consistent
-/// registered source ownership. System headers, variables and parallel type/editor records,
-/// equations, residual IR, static solver plans, state-space vector layouts, and linear-operator
-/// matrices are verified together. Imported components and class objects remain ineligible. Only
-/// root import declaration lines are reparsed for verification; imported definitions and other
-/// richer prefix constructs are not reparsed or reanalyzed.
+/// functions, basic or state-space systems, domains, classes, and component templates with
+/// internally consistent registered source ownership. System headers, variables and parallel
+/// type/editor records, equations, residual IR, static solver plans, state-space vector layouts,
+/// and linear-operator matrices are verified together. Component headers, parameters, inputs,
+/// ports, local expressions, root-owned instances and connections, and their derived assembly
+/// graphs must also reproduce exactly. System-scoped component instances and connections from
+/// imported modules remain non-importable, and imported class objects remain ineligible. Only root
+/// import declaration lines are reparsed for verification; imported definitions and other richer
+/// prefix constructs are not reparsed or reanalyzed.
 /// Changes inside it, a token-bearing non-declaration in the affected suffix, diagnostics,
 /// unsupported calls, unverifiable cache or axis metadata, unresolved or duplicate names, and edits
 /// without an affected declaration return `None` for a normal full check.
@@ -1622,6 +1625,9 @@ fn incremental_report_requires_rich_prefix_contract(
     !report.semantic_program.schemas.is_empty()
         || !report.semantic_program.systems.is_empty()
         || !report.semantic_program.domains.is_empty()
+        || !report.semantic_program.component_templates.is_empty()
+        || !report.semantic_program.component_instances.is_empty()
+        || !report.semantic_program.connections.is_empty()
         || !report.semantic_program.classes.is_empty()
         || report
             .semantic_program
@@ -1647,21 +1653,13 @@ fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckRep
     let program = &report.semantic_program;
 
     let unsupported_imported_definition = program
-        .component_templates
+        .component_instances
         .iter()
         .any(|info| !info.span.is_root_source())
-        || program
-            .component_instances
-            .iter()
-            .any(|info| !info.span.is_root_source())
         || program
             .connections
             .iter()
             .any(|info| !info.left_span.is_root_source() || !info.right_span.is_root_source())
-        || program
-            .component_assemblies
-            .iter()
-            .any(|info| !info.span.is_root_source())
         || program
             .class_objects
             .iter()
@@ -1669,7 +1667,9 @@ fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckRep
     if unsupported_imported_definition {
         return false;
     }
-    if report.syntax_summary.systems != program.systems.len() {
+    if report.syntax_summary.systems != program.systems.len()
+        || report.syntax_summary.components != program.component_templates.len()
+    {
         return false;
     }
 
@@ -1706,6 +1706,24 @@ fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckRep
                 })
                 .count()
                 == 1
+    };
+
+    let component_metadata_matches = {
+        let mut template_names = HashSet::new();
+        let templates_match = program.component_templates.iter().all(|component| {
+            template_names.insert(component.name.as_str())
+                && incremental_component_template_ownership_matches_report(component, &source_ids)
+        });
+        let mut instance_names = HashSet::new();
+        let instances_match = program.component_instances.iter().all(|instance| {
+            instance_names.insert(instance.name.as_str())
+                && incremental_component_instance_ownership_matches_report(
+                    instance,
+                    &source_ids,
+                    program,
+                )
+        });
+        templates_match && instances_match
     };
 
     program.consts.iter().all(|constant| {
@@ -1771,6 +1789,7 @@ fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckRep
             .classes
             .iter()
             .all(|class| incremental_class_definition_ownership_matches_report(class, &source_ids))
+        && component_metadata_matches
 }
 
 fn incremental_system_definition_ownership_matches_report(
@@ -2236,6 +2255,132 @@ fn incremental_domain_definition_ownership_matches_report(
         })
 }
 
+fn incremental_component_template_ownership_matches_report(
+    component: &semantic::ComponentInfo,
+    source_ids: &HashSet<usize>,
+) -> bool {
+    let source_id = component.span.source_id;
+    if !source_ids.contains(&source_id)
+        || component.line != component.span.line
+        || component.template_name.is_some()
+        || !component.constructor_arguments.is_empty()
+    {
+        return false;
+    }
+
+    let mut scalar_names = HashSet::new();
+    if !component
+        .parameters
+        .iter()
+        .chain(component.inputs.iter())
+        .all(|parameter| {
+            scalar_names.insert(parameter.name.as_str())
+                && incremental_component_scalar_ownership_matches_report(parameter, source_id)
+        })
+    {
+        return false;
+    }
+
+    let mut port_names = HashSet::new();
+    if !component.ports.iter().all(|port| {
+        port_names.insert(port.name.as_str())
+            && port.span.source_id == source_id
+            && port.line == port.span.line
+            && port.domain_span.source_id == source_id
+            && port.status == "domain_resolved"
+    }) {
+        return false;
+    }
+
+    let mut local_names = HashSet::new();
+    let mut equation_index = 0usize;
+    component.local_expressions.iter().all(|local| {
+        if !local_names.insert(local.name.as_str())
+            || local.expression_span.source_id != source_id
+            || local.line != local.expression_span.line
+        {
+            return false;
+        }
+        match local.status.as_str() {
+            "declared" => local.span.is_some_and(|span| {
+                span.source_id == source_id
+                    && span.line == local.line
+                    && local.equation_left_span.is_none()
+                    && local.equation_right_span.is_none()
+            }),
+            "component_equation_source" => {
+                equation_index += 1;
+                local.name == format!("equation_{equation_index}")
+                    && local.span.is_none()
+                    && local
+                        .equation_left_span
+                        .is_some_and(|span| span.source_id == source_id && span.line == local.line)
+                    && local
+                        .equation_right_span
+                        .is_some_and(|span| span.source_id == source_id && span.line == local.line)
+            }
+            _ => false,
+        }
+    })
+}
+
+fn incremental_component_scalar_ownership_matches_report(
+    parameter: &semantic::ComponentParameterInfo,
+    source_id: usize,
+) -> bool {
+    let quantity = crate::quantities::all_quantity_completions()
+        .iter()
+        .find(|quantity| quantity.quantity_kind == parameter.quantity_kind);
+    parameter.span.source_id == source_id
+        && parameter.line == parameter.span.line
+        && parameter.type_span.source_id == source_id
+        && parameter
+            .unit_span
+            .is_none_or(|span| span.source_id == source_id && span.line == parameter.line)
+        && parameter
+            .default_value_span
+            .is_none_or(|span| span.source_id == source_id && span.line == parameter.line)
+        && parameter.default_value.is_some() == parameter.default_value_span.is_some()
+        && quantity.is_some_and(|quantity| {
+            parameter.canonical_unit == quantity.canonical_unit
+                && parameter.dimension == quantity.dimension
+        })
+        && if parameter.default_value.is_some() {
+            parameter.value.is_some()
+                && parameter.source == "default"
+                && parameter.status == "defaulted"
+        } else {
+            parameter.value.is_none()
+                && parameter.source == "required"
+                && parameter.status == "required"
+        }
+}
+
+fn incremental_component_instance_ownership_matches_report(
+    instance: &semantic::ComponentInfo,
+    source_ids: &HashSet<usize>,
+    program: &semantic::SemanticProgram,
+) -> bool {
+    let source_id = instance.span.source_id;
+    let Some(template_name) = instance.template_name.as_deref() else {
+        return false;
+    };
+    let mut argument_names = HashSet::new();
+    source_ids.contains(&source_id)
+        && instance.line == instance.span.line
+        && program
+            .component_templates
+            .iter()
+            .filter(|template| template.name == template_name)
+            .count()
+            == 1
+        && instance.constructor_arguments.iter().all(|argument| {
+            argument_names.insert(argument.name.as_str())
+                && argument.value_span.source_id == source_id
+                && argument.value_span.line == instance.line
+        })
+}
+
 fn incremental_class_definition_ownership_matches_report(
     class: &semantic::ClassInfo,
     source_ids: &HashSet<usize>,
@@ -2282,6 +2427,7 @@ fn incremental_rich_prefix_derived_metadata_matches(report: &CheckReport) -> boo
         && cache_analysis.records == report.semantic_program.cache_records
         && crate::stats::axis_infos(&report.semantic_program.typed_bindings)
             == report.semantic_program.axis_infos
+        && semantic::component_metadata_matches_derived(&report.semantic_program)
 }
 
 fn incremental_rich_prefix_owns_workflow_line(
@@ -2916,7 +3062,12 @@ fn resolve_import_path(
 fn importable_definition_item(item: &AstItem) -> bool {
     match item {
         AstItem::Function(_) | AstItem::Return(_) => true,
-        AstItem::FastBinding(binding) => binding.context == ParseContext::Function,
+        AstItem::FastBinding(binding) => {
+            matches!(
+                binding.context,
+                ParseContext::Function | ParseContext::Component
+            )
+        }
         AstItem::Const(declaration) => declaration.context == ParseContext::TopLevel,
         AstItem::Schema(_)
         | AstItem::Constraint(_)
@@ -13558,6 +13709,195 @@ adjusted = base * factor
     }
 
     #[test]
+    fn incrementally_rechecks_scalar_suffix_after_unchanged_component_import() {
+        fn assert_fresh_equivalent(reused: &CheckReport, fresh: &CheckReport, source: &str) {
+            assert_eq!(reused.source_path, fresh.source_path);
+            assert_eq!(reused.source_files, fresh.source_files);
+            assert_eq!(reused.source_hash, fresh.source_hash);
+            assert_eq!(reused.source_lines, fresh.source_lines);
+            assert_eq!(reused.diagnostics, fresh.diagnostics);
+            assert_eq!(reused.inferred_declarations, fresh.inferred_declarations);
+            assert_eq!(reused.syntax_summary, fresh.syntax_summary);
+            assert_eq!(reused.semantic_program, fresh.semantic_program);
+            assert_eq!(
+                reused.quantity_completion_count,
+                fresh.quantity_completion_count
+            );
+            assert_eq!(reused.unit_info_count, fresh.unit_info_count);
+            assert_eq!(review_json(reused), review_json(fresh));
+            assert_eq!(
+                encode_bytecode(&build_bytecode_program(reused, source)),
+                encode_bytecode(&build_bytecode_program(fresh, source))
+            );
+        }
+
+        let root = std::env::temp_dir().join(format!(
+            "eng_compiler_incremental_component_import_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("component import fixture should be created");
+        std::fs::write(
+            root.join("component.eng"),
+            r#"component ImportedController {
+    parameter gain: Ratio [1] = 0.5
+    input setpoint: Ratio [1] = 1
+    local_value = gain
+}
+"#,
+        )
+        .expect("imported component module should be written");
+        std::fs::write(root.join("shared.eng"), "use \"component.eng\"\n")
+            .expect("recursive component module should be written");
+        let main_path = root.join("main.eng");
+        let previous_source = r#"use "shared.eng"
+system ImportedComponentWorkflow {
+    controller = ImportedController(gain=0.75)
+}
+base = 2 m
+factor = 0.5
+"#;
+        let source = r#"use "shared.eng"
+system ImportedComponentWorkflow {
+    controller = ImportedController(gain=0.75)
+}
+base = 180 cm
+factor = 0.75
+adjusted = base * factor
+"#;
+        std::fs::write(&main_path, previous_source).expect("component root should be written");
+        let previous = check_source(&main_path, previous_source, &CheckOptions::default());
+        assert!(
+            previous.diagnostics.is_empty(),
+            "unexpected imported component diagnostics: {:#?}",
+            previous.diagnostics
+        );
+        assert_eq!(previous.source_files.len(), 3);
+        assert_eq!(previous.semantic_program.component_templates.len(), 1);
+        assert_eq!(previous.semantic_program.component_instances.len(), 1);
+        assert_eq!(previous.semantic_program.component_assemblies.len(), 1);
+        let template = &previous.semantic_program.component_templates[0];
+        assert_eq!(template.name, "ImportedController");
+        assert_eq!(template.parameters.len(), 1);
+        assert_eq!(template.inputs.len(), 1);
+        assert_eq!(template.local_expressions.len(), 1);
+        assert!(!template.span.is_root_source());
+        assert!(!template.local_expressions[0]
+            .span
+            .expect("component local should retain its name span")
+            .is_root_source());
+        let instance = &previous.semantic_program.component_instances[0];
+        assert_eq!(instance.name, "controller");
+        assert!(instance.span.is_root_source());
+        assert_eq!(instance.parameters[0].value.as_deref(), Some("0.75"));
+        assert_eq!(instance.parameters[0].status, "constructor_override");
+        assert_eq!(
+            previous.semantic_program.component_assemblies[0].local_expression_count,
+            1
+        );
+        assert!(incremental_rich_prefix_definition_ownership_matches_report(
+            &previous
+        ));
+        assert!(semantic::component_metadata_matches_derived(
+            &previous.semantic_program
+        ));
+
+        let reused =
+            recheck_scalar_declaration_suffix_incrementally(&previous, previous_source, source)
+                .expect(
+                    "an unchanged recursive component import should preserve the scalar suffix",
+                );
+        let fresh = check_source(&main_path, source, &CheckOptions::default());
+        assert_fresh_equivalent(&reused, &fresh, source);
+        assert_eq!(
+            reused.semantic_program.component_templates,
+            previous.semantic_program.component_templates
+        );
+        assert_eq!(
+            reused.semantic_program.component_instances,
+            previous.semantic_program.component_instances
+        );
+        assert_eq!(
+            reused.semantic_program.component_assemblies,
+            previous.semantic_program.component_assemblies
+        );
+
+        let mut stale_local_owner = previous.clone();
+        stale_local_owner.semantic_program.component_templates[0].local_expressions[0]
+            .expression_span
+            .source_id = SourceSpan::ROOT_SOURCE_ID;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_local_owner,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "inconsistent component-local ownership must use full analysis"
+        );
+
+        let mut stale_local_contract = previous.clone();
+        stale_local_contract.semantic_program.component_templates[0].local_expressions[0]
+            .type_status = "stale".to_owned();
+        stale_local_contract.semantic_program.component_instances[0].local_expressions[0]
+            .type_status = "stale".to_owned();
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_local_contract,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "stale component-local type metadata must use full analysis"
+        );
+
+        let mut stale_template_default = previous.clone();
+        stale_template_default.semantic_program.component_templates[0].parameters[0].value =
+            Some("0.6".to_owned());
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_template_default,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "stale component parameter defaults must use full analysis"
+        );
+
+        let mut stale_instance = previous.clone();
+        stale_instance.semantic_program.component_instances[0].parameters[0].value =
+            Some("0.9".to_owned());
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_instance,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "an instance that no longer matches its template must use full analysis"
+        );
+
+        let mut stale_assembly = previous.clone();
+        stale_assembly.semantic_program.component_assemblies[0].local_expression_count += 1;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_assembly,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "stale component assembly metadata must use full analysis"
+        );
+        assert!(
+            recheck_scalar_binding_suffix_incrementally(&previous, previous_source, source)
+                .is_none(),
+            "the fast-only API must retain its scalar-only component import contract"
+        );
+
+        std::fs::remove_dir_all(&root).expect("component import fixture should be removed");
+    }
+
+    #[test]
     fn incrementally_rechecks_scalar_suffix_after_unchanged_static_class_import() {
         fn assert_fresh_equivalent(reused: &CheckReport, fresh: &CheckReport, source: &str) {
             assert_eq!(reused.source_path, fresh.source_path);
@@ -22343,6 +22683,99 @@ with {
         let review = review_json(&report);
         assert!(review.contains("\"function_summary\""));
         assert!(review.contains("\"heat_loss\""));
+    }
+
+    #[test]
+    fn imports_complete_component_bodies_into_root_assemblies() {
+        let root = std::env::temp_dir().join(format!(
+            "englang-component-import-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("temp dir");
+        fs::write(
+            root.join("thermal.eng"),
+            r#"domain ImportedThermal {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+    conservation sum(Q) = 0
+}
+
+component ImportedSource {
+    port heat: ImportedThermal
+    temperature_signal = heat.T
+    delayed_temperature = delay(temperature_signal, 5 s)
+}
+
+component ImportedSink {
+    port heat: ImportedThermal
+}
+"#,
+        )
+        .expect("thermal component source");
+        let main_path = root.join("main.eng");
+        fs::write(
+            &main_path,
+            r#"use "thermal.eng"
+
+system ImportedAssembly {
+    source = ImportedSource()
+    sink = ImportedSink()
+    connect source.heat to sink.heat
+}
+"#,
+        )
+        .expect("main source");
+
+        let report = check_file(&main_path, &CheckOptions::default()).expect("check file");
+        assert!(!report.has_errors(), "{:#?}", report.diagnostics);
+        assert_eq!(report.semantic_program.component_templates.len(), 2);
+        assert_eq!(report.semantic_program.component_instances.len(), 2);
+        let source_template = report
+            .semantic_program
+            .component_templates
+            .iter()
+            .find(|component| component.name == "ImportedSource")
+            .expect("imported source template");
+        assert_eq!(
+            source_template
+                .local_expressions
+                .iter()
+                .map(|local| local.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["temperature_signal", "delayed_temperature"]
+        );
+        assert!(source_template.local_expressions.iter().all(|local| !local
+            .span
+            .expect("imported component local name span")
+            .is_root_source()));
+        assert_eq!(
+            source_template.local_expressions[0].quantity_kind,
+            "AbsoluteTemperature"
+        );
+        assert_eq!(
+            source_template.local_expressions[1].type_status,
+            "delay_output_matches_signal"
+        );
+        let source_instance = report
+            .semantic_program
+            .component_instances
+            .iter()
+            .find(|component| component.name == "source")
+            .expect("root source instance");
+        assert!(source_instance.span.is_root_source());
+        assert_eq!(
+            source_instance.local_expressions,
+            source_template.local_expressions
+        );
+        let assembly = &report.semantic_program.component_assemblies[0];
+        assert_eq!(assembly.local_expression_count, 2);
+        assert_eq!(
+            assembly.solver_preview.delay_history,
+            BEHAVIOR_STATUS_DECLARED
+        );
+
+        fs::remove_dir_all(&root).expect("temp dir cleanup");
     }
 
     #[test]

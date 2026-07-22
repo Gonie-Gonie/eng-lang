@@ -10934,6 +10934,12 @@ domain ImportedSignal[Axis DOF] package "example.signal" version "1.0.0" {
     through flow: Ratio [1]
     conservation sum(flow) = 0
 }
+
+component ImportedEditorController {
+    parameter gain: Ratio [1] = 0.5
+    input setpoint: Ratio [1] = 1
+    local_value = gain
+}
 "#,
         )
         .expect("static domain module should be written");
@@ -10992,6 +10998,14 @@ const imported_factor: Ratio [1] = 0.5
             assert_eq!(report.semantic_program.state_space_type_blocks.len(), 2);
             assert_eq!(report.semantic_program.state_space_vectors.len(), 3);
             assert_eq!(report.semantic_program.linear_operators.len(), 2);
+            assert_eq!(report.semantic_program.component_templates.len(), 1);
+            assert_eq!(
+                report.semantic_program.component_templates[0]
+                    .local_expressions
+                    .len(),
+                1
+            );
+            assert_eq!(report.semantic_program.component_assemblies.len(), 1);
         }
         assert_eq!(documents[&uri].scalar_binding_reuse_count(), 0);
         assert_eq!(
@@ -11035,10 +11049,29 @@ const imported_factor: Ratio [1] = 0.5
             snapshot_for_source(&path, changed_source)
         );
         assert_eq!(documents[&uri].scalar_binding_reuse_count(), 1);
+        {
+            let cache = documents[&uri]
+                .analysis_cache
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            let report = &cache
+                .analysis
+                .as_ref()
+                .expect("reused component import analysis")
+                .report;
+            assert_eq!(
+                report.semantic_program.component_templates[0].local_expressions[0].name,
+                "local_value"
+            );
+            assert_eq!(
+                report.semantic_program.component_assemblies[0].local_expression_count,
+                1
+            );
+        }
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
             (0, 2, 0, true, true),
-            "the unchanged recursive state-space/system/class/domain/schema import, module, file, axis, cache, helper, and print prefix should preserve the scalar suffix fast path"
+            "the unchanged recursive state-space/system/class/domain/component/schema import, module, file, axis, cache, helper, and print prefix should preserve the scalar suffix fast path"
         );
 
         let fallback_source = changed_source.replace(

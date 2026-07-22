@@ -2,11 +2,11 @@ use crate::ast::{
     ArgsFieldDecl, AssertDecl, AstItem, ClassFieldDecl, ClassMethodDecl, ClassObjectCopyDecl,
     ClassObjectDecl, ClassObjectFieldDecl, ClassValidationDecl, CommandClauseDecl,
     CommandStyleDecl, ConnectDecl, ConstDecl, CsvExportDecl, CsvExportFieldDecl, DbTableTargetDecl,
-    DomainTypeParameterDecl, DomainVariableDecl, ExpectationDecl, ExplicitDecl, FastBinding,
-    FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl, PortDecl,
-    PrintDecl, ProcessRunDecl, ReturnDecl, StateSpaceTypeBlockDecl, StateSpaceTypeMemberDecl,
-    StateSpaceVectorDecl, SystemVariableDecl, TestDecl, WhereBindingDecl, WithOptionDecl,
-    WriteDecl,
+    DomainTypeParameterDecl, DomainVariableDecl, EquationDecl, ExpectationDecl, ExplicitDecl,
+    FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl,
+    PortDecl, PrintDecl, ProcessRunDecl, ReturnDecl, StateSpaceTypeBlockDecl,
+    StateSpaceTypeMemberDecl, StateSpaceVectorDecl, SystemVariableDecl, TestDecl, WhereBindingDecl,
+    WithOptionDecl, WriteDecl,
 };
 use crate::behavior::{BEHAVIOR_STATUS_DECLARED, BEHAVIOR_STATUS_NOT_DECLARED};
 use crate::cache::CacheRecordInfo;
@@ -1036,6 +1036,212 @@ impl SemanticProgram {
             .iter()
             .chain(self.component_instances.iter())
     }
+}
+
+pub(crate) fn component_metadata_matches_derived(program: &SemanticProgram) -> bool {
+    let mut templates = Vec::with_capacity(program.component_templates.len());
+    for template in &program.component_templates {
+        let Some(rebuilt) =
+            rebuild_component_template_metadata(template, &program.domains, &program.consts)
+        else {
+            return false;
+        };
+        if &rebuilt != template {
+            return false;
+        }
+        templates.push(rebuilt);
+    }
+
+    let mut assembly_components = if program.component_instances.is_empty() {
+        templates
+    } else {
+        let mut rebuilt = Vec::with_capacity(program.component_instances.len());
+        let mut diagnostics = Vec::new();
+        for instance in &program.component_instances {
+            let Some(template_name) = instance.template_name.as_deref() else {
+                return false;
+            };
+            let mut matching_templates = program
+                .component_templates
+                .iter()
+                .filter(|template| template.name == template_name);
+            let Some(template) = matching_templates.next() else {
+                return false;
+            };
+            if matching_templates.next().is_some() {
+                return false;
+            }
+            let binding = FastBinding {
+                name: instance.name.clone(),
+                expression: template_name.to_owned(),
+                expression_span: instance.span,
+                is_command_style: false,
+                promotion: None,
+                db_read: None,
+                line: instance.line,
+                span: instance.span,
+                context: ParseContext::System,
+            };
+            let Some(rebuilt_instance) = instantiate_component_template(
+                template,
+                &binding,
+                &instance.constructor_arguments,
+                &program.consts,
+                &mut diagnostics,
+            ) else {
+                return false;
+            };
+            rebuilt.push(rebuilt_instance);
+        }
+        if !diagnostics.is_empty() {
+            return false;
+        }
+        rebuilt
+    };
+
+    let raw_connections = program
+        .connections
+        .iter()
+        .map(|connection| ConnectDecl {
+            left: connection.left.clone(),
+            left_span: connection.left_span,
+            right: connection.right.clone(),
+            right_span: connection.right_span,
+            line: connection.line,
+            span: source_span_covering(connection.left_span, connection.right_span),
+        })
+        .collect::<Vec<_>>();
+    let mut diagnostics = Vec::new();
+    let connections = analyze_connections(
+        &program.domains,
+        &mut assembly_components,
+        &raw_connections,
+        &mut diagnostics,
+    );
+    if !diagnostics.is_empty()
+        || connections != program.connections
+        || (!program.component_instances.is_empty()
+            && assembly_components != program.component_instances)
+    {
+        return false;
+    }
+    let assemblies = build_component_assembly_graphs(
+        &program.domains,
+        &assembly_components,
+        &connections,
+        &mut diagnostics,
+    );
+    emit_component_assembly_boundary_warnings(&assemblies, &mut diagnostics);
+    diagnostics.is_empty() && assemblies == program.component_assemblies
+}
+
+fn rebuild_component_template_metadata(
+    template: &ComponentInfo,
+    domains: &[DomainInfo],
+    consts: &[ConstInfo],
+) -> Option<ComponentInfo> {
+    let mut rebuilt = ComponentInfo {
+        name: template.name.clone(),
+        span: template.span,
+        template_name: None,
+        constructor_arguments: Vec::new(),
+        parameters: Vec::with_capacity(template.parameters.len()),
+        inputs: Vec::with_capacity(template.inputs.len()),
+        ports: Vec::with_capacity(template.ports.len()),
+        local_expressions: Vec::with_capacity(template.local_expressions.len()),
+        line: template.line,
+    };
+    let mut diagnostics = Vec::new();
+    for parameter in &template.parameters {
+        let declaration = SystemVariableDecl {
+            role: "parameter".to_owned(),
+            name: parameter.name.clone(),
+            name_span: parameter.span,
+            type_name: parameter.quantity_kind.clone(),
+            type_span: parameter.type_span,
+            unit: parameter.unit_span.map(|_| parameter.display_unit.clone()),
+            unit_span: parameter.unit_span,
+            expression: parameter.default_value.clone(),
+            expression_span: parameter.default_value_span,
+            line: parameter.line,
+            span: parameter.span,
+            context: ParseContext::Component,
+        };
+        analyze_component_parameter(&declaration, &mut rebuilt, consts, &mut diagnostics);
+    }
+    for input in &template.inputs {
+        let declaration = SystemVariableDecl {
+            role: "input".to_owned(),
+            name: input.name.clone(),
+            name_span: input.span,
+            type_name: input.quantity_kind.clone(),
+            type_span: input.type_span,
+            unit: input.unit_span.map(|_| input.display_unit.clone()),
+            unit_span: input.unit_span,
+            expression: input.default_value.clone(),
+            expression_span: input.default_value_span,
+            line: input.line,
+            span: input.span,
+            context: ParseContext::Component,
+        };
+        analyze_component_input(&declaration, &mut rebuilt, consts, &mut diagnostics);
+    }
+    for port in &template.ports {
+        analyze_port(
+            &PortDecl {
+                name: port.name.clone(),
+                name_span: port.span,
+                domain: port.domain.clone(),
+                domain_span: port.domain_span,
+                line: port.line,
+                span: source_span_covering(port.span, port.domain_span),
+            },
+            &mut rebuilt,
+        );
+    }
+    for local in &template.local_expressions {
+        match local.status.as_str() {
+            "declared" => {
+                let span = local.span?;
+                analyze_component_local_expression(
+                    &FastBinding {
+                        name: local.name.clone(),
+                        expression: local.expression.clone(),
+                        expression_span: local.expression_span,
+                        is_command_style: false,
+                        promotion: None,
+                        db_read: None,
+                        line: local.line,
+                        span,
+                        context: ParseContext::Component,
+                    },
+                    &mut rebuilt,
+                    domains,
+                );
+            }
+            "component_equation_source" => {
+                let (left, right) = local.expression.split_once(" eq ")?;
+                let left_span = local.equation_left_span?;
+                let right_span = local.equation_right_span?;
+                analyze_component_equation(
+                    &EquationDecl {
+                        left: left.to_owned(),
+                        left_span,
+                        right: right.to_owned(),
+                        right_span,
+                        line: local.line,
+                        span: source_span_covering(left_span, right_span),
+                        context: ParseContext::Component,
+                    },
+                    &mut rebuilt,
+                );
+            }
+            _ => return None,
+        }
+    }
+    resolve_component_port_domains(domains, std::slice::from_mut(&mut rebuilt), None);
+    validate_component_behavior_calls(domains, std::slice::from_ref(&rebuilt), &mut diagnostics);
+    diagnostics.is_empty().then_some(rebuilt)
 }
 
 #[derive(Clone, Debug, PartialEq)]

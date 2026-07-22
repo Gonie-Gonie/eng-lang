@@ -214,12 +214,16 @@ source annotation, while `display_unit` is the resolved display unit. Import
 and const diagnostics, semantic tokens, and outline selection ranges consume
 these fields directly.
 
-The strict scalar-suffix recheck may preserve an unchanged imported state-space
-prefix only after replaying its source registry and reproducing type-block members,
-vector layouts, operator endpoints, shapes, compatibility, canonical matrices, and
-parallel editor records from semantic declarations. Its suffix environment includes
-eligible root scalar declarations and importable constants, never system-local
-variables. Any ownership or derived-metadata mismatch returns to a full check.
+The strict scalar-suffix recheck may preserve unchanged imported state-space and
+component-template prefixes only after replaying their source registry. State-space
+members, vector layouts, operator endpoints, shapes, compatibility, canonical
+matrices, and parallel editor records must reproduce from semantic declarations.
+Component headers, parameters, inputs, ports, local expressions/equations,
+sequential signal contracts, root-owned instances/connections, and assembly graphs
+must also reproduce. Its suffix environment includes eligible root scalar
+declarations and importable constants, never system- or component-local variables.
+System-scoped component instances/connections from imported modules are not imported.
+Any ownership or derived-metadata mismatch returns to a full check.
 
 Function declarations retain exact parameter name/type/optional-unit spans and
 return type/optional-unit spans. `FunctionParamInfo.unit` and

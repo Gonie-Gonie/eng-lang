@@ -292,8 +292,9 @@ separate.
   recursive path-to-source-ID registry to reproduce exactly and restrict
   preserved imported semantic definitions to schemas, constants, functions,
   basic and state-space systems, state-space type blocks, vectors and linear
-  operators, domains, and classes whose internal spans retain registered
-  source ownership. Basic and state-space system headers, variables and parallel
+  operators, domains, classes, and component templates whose internal spans
+  retain registered source ownership. Basic and state-space system headers,
+  variables and parallel
   expected/typed/hover/type/unit records, equations, residual IR, and `ready`
   solver plans with sparsity metadata are verified together. Imported
   state-space type blocks and members, typed or legacy vectors, and both
@@ -302,8 +303,13 @@ separate.
   shapes, compatibility, and canonical matrices. Domain headers,
   type parameters, across/through variables, and conservation expressions are
   verified together. Class headers, fields and defaults, validation expressions,
-  and method return/expression metadata are verified together. Imported
-  components and class objects use full analysis.
+  and method return/expression metadata are verified together. Component
+  parameters, inputs, ports, local expressions and equations retain imported
+  source ownership; port resolution, sequential local signal contracts,
+  root-owned instance cloning and connections, and derived assembly graphs must
+  reproduce exactly. System-scoped component instances and connections declared
+  in imported modules remain non-importable. Imported class objects use full
+  analysis.
   Callers must preserve the resolved import environment.
   Preserved imported definitions retain source ownership. Only eligible
   root-scope scalar declarations and importable constants enter suffix analysis,

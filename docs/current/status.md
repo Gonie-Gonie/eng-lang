@@ -154,8 +154,9 @@ review material. It is not a broad solver claim.
   require the complete recursive path-to-source-ID registry to reproduce
   exactly. Preserved imported semantic definitions are limited to schemas,
   constants, functions, basic and state-space systems, state-space type blocks,
-  vectors and linear operators, domains, and classes with internally consistent
-  registered source ownership. System headers, variables and parallel
+  vectors and linear operators, domains, classes, and component templates with
+  internally consistent registered source ownership. System headers, variables
+  and parallel
   expected/typed/hover/type/unit records, equations, residual IR, and `ready`
   solver plans with sparsity metadata are verified together. State-space type
   members, typed or legacy vector layouts, operator endpoints, shapes,
@@ -164,7 +165,12 @@ review material. It is not a broad solver claim.
   headers, type parameters, across/through variables, and conservation
   expressions are verified together. Class headers, fields and defaults,
   validation expressions, and method return/expression metadata are verified
-  together; imported components and class objects use full analysis. The scalar
+  together. Component headers, parameters, inputs, ports, local expressions and
+  equations retain imported source ownership; port resolution, sequential local
+  signal contracts, root-owned instance cloning and connections, and the derived
+  assembly graph must reproduce exactly. System-scoped component instances and
+  connections declared in imported modules remain non-importable, and imported
+  class objects use full analysis. The scalar
   suffix environment contains only eligible root declarations and importable
   constants, so duplicate or same-spelled system-local values cannot leak into
   root expressions. The caller must preserve the resolved import environment, and
@@ -222,8 +228,8 @@ review material. It is not a broad solver claim.
   references,
   dimensionally incompatible arithmetic, invalid or unsupported calls, workflow
   expressions, diagnostics,
-  static imports that contribute unverified definitions such as components or
-  class objects,
+  static imports that contribute non-importable system-scoped component
+  instances/connections or unverified class objects,
   import-line edits, imports inside the affected suffix, caches, and richer
   language use full analysis.
   Source changes invalidate recursive open import dependents while preserving
