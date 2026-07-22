@@ -203,6 +203,9 @@ lexical fallback consults the same call lists; equal spellings in unrelated
 named arguments are not colored as deprecated uncertainty aliases. TextMate
 uncertainty regions recursively consume nested parentheses and nested
 uncertainty calls so an inner call cannot terminate the outer argument context.
+The native IDE likewise carries its lexical call stack across source lines,
+skips parentheses inside strings and comments, and retains original line offsets
+when lexical fallback renders gaps around semantic tokens.
 
 External boundary constructors/checks such as `file(...)`, `dir(...)`,
 `url(...)`, `env(...)`, `secret env(...)`, and `exists(...)` use

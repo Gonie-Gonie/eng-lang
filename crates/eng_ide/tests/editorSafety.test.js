@@ -2359,7 +2359,11 @@ function liveCheckTracksAllDirtyImportedBuffers() {
 
 function uncertaintyAliasLexicalFallbackUsesGeneratedCallContexts() {
   run(`
-    globalThis.previousLexicalCatalog = state.lexicalCatalog;
+    globalThis.previousUncertaintyLexicalState = {
+      source: state.source,
+      highlightSource: state.highlightSource,
+      lexicalCatalog: state.lexicalCatalog
+    };
     state.lexicalCatalog = buildLexicalCatalog({
       workflow_options: [
         { label: "error" },
@@ -2396,7 +2400,80 @@ function uncertaintyAliasLexicalFallbackUsesGeneratedCallContexts() {
     "hl-property"
   );
 
-  run("state.lexicalCatalog = globalThis.previousLexicalCatalog");
+  run(`
+    state.source = [
+      "Q = propagate(",
+      "  source,",
+      "  scale=max(",
+      "    1, 2",
+      "  ),",
+      "  note = \\"ignored )\\",",
+      "  # ignored )",
+      "  bias=0",
+      ")",
+      "R = normal(",
+      "  sigma=1",
+      ")",
+      "P = probability(",
+      "  error=1",
+      ")"
+    ].join("\\n");
+    state.highlightSource = null;
+    globalThis.multilineUncertaintyAliasHtml = renderHighlightedSource().split("\\n");
+  `);
+
+  const biasLine = run("globalThis.multilineUncertaintyAliasHtml[7]");
+  const sigmaLine = run("globalThis.multilineUncertaintyAliasHtml[10]");
+  const unrelatedErrorLine = run("globalThis.multilineUncertaintyAliasHtml[13]");
+  assert.ok(
+    biasLine.includes('<span class="hl-token hl-property hl-mod-deprecated">bias</span>'),
+    biasLine
+  );
+  assert.ok(
+    sigmaLine.includes('<span class="hl-token hl-property hl-mod-deprecated">sigma</span>'),
+    sigmaLine
+  );
+  assert.ok(
+    unrelatedErrorLine.includes('<span class="hl-token hl-property">error</span>'),
+    unrelatedErrorLine
+  );
+  assert.ok(!unrelatedErrorLine.includes("hl-mod-deprecated"), unrelatedErrorLine);
+  assert.strictEqual(
+    run(`JSON.stringify(state.source.split("\\n").reduce(
+      (stack, line) => lexicalCallStackAfter(line, stack),
+      []
+    ))`),
+    "[]"
+  );
+
+  const splitSameLine = run(`renderHighlightedLine(
+    "Q = propagate(source, bias=0)",
+    [{ line: 0, start: 4, length: 9, type: "function", modifiers: ["uncertain"] }],
+    0
+  )`);
+  assert.ok(
+    splitSameLine.includes('<span class="hl-token hl-property hl-mod-deprecated">bias</span>'),
+    splitSameLine
+  );
+
+  const splitMultiline = run(`renderHighlightedLine(
+    "  source, bias=0",
+    [{ line: 1, start: 2, length: 6, type: "variable", modifiers: [] }],
+    1,
+    ["propagate"]
+  )`);
+  assert.ok(
+    splitMultiline.includes('<span class="hl-token hl-property hl-mod-deprecated">bias</span>'),
+    splitMultiline
+  );
+
+  run(`
+    state.source = globalThis.previousUncertaintyLexicalState.source;
+    state.highlightSource = globalThis.previousUncertaintyLexicalState.highlightSource;
+    state.lexicalCatalog = globalThis.previousUncertaintyLexicalState.lexicalCatalog;
+    delete globalThis.multilineUncertaintyAliasHtml;
+    delete globalThis.previousUncertaintyLexicalState;
+  `);
 }
 
 async function main() {

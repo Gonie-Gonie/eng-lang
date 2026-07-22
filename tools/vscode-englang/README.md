@@ -701,7 +701,10 @@ spellings that are not added back to completions.
 `syntax_catalog.uncertainty_argument_aliases` separately records each
 context-sensitive uncertainty alias, its canonical key, and the constructors
 where it applies; VS Code diagnostics/grammar and the native IDE lexical
-fallback consume that registry. `syntax_catalog.units` contains
+fallback consume that registry. The native IDE keeps that constructor context
+across source lines and preserves original offsets in lexical gaps around
+semantic tokens, so multiline calls do not flicker into a broad alias color
+while analysis refreshes. `syntax_catalog.units` contains
 compiler unit labels; `syntax_catalog.legacy_unit_aliases` contains
 highlight-only compatibility aliases such as byte-size units and `%`.
 `syntax_catalog.model_fields`, `syntax_catalog.prediction_table_fields`,

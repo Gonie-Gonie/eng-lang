@@ -9363,15 +9363,20 @@ function updateEditorLineNumbers() {
 
 function renderHighlightedSource() {
   const lines = String(state.source ?? "").split(/\r\n|\r|\n/);
-  if (state.source !== state.highlightSource) {
-    return lines.map(renderLexicalHighlightedLine).join("\n") || "\n";
-  }
-  const tokensByLine = semanticTokensByLine(semanticTokenPayload().tokens || []);
-  return lines.map((line, index) => renderHighlightedLine(line, tokensByLine.get(index) || [], index)).join("\n") || "\n";
+  const tokensByLine = state.source === state.highlightSource
+    ? semanticTokensByLine(semanticTokenPayload().tokens || [])
+    : new Map();
+  let callStack = [];
+  const rendered = lines.map((line, index) => {
+    const html = renderHighlightedLine(line, tokensByLine.get(index) || [], index, callStack);
+    callStack = lexicalCallStackAfter(line, callStack);
+    return html;
+  });
+  return rendered.join("\n") || "\n";
 }
 
-function renderHighlightedLine(line, tokens, lineIndex) {
-  if (!tokens.length) return renderLexicalHighlightedLine(line);
+function renderHighlightedLine(line, tokens, lineIndex, callStack = []) {
+  if (!tokens.length) return renderLexicalHighlightedLine(line, { callStack });
   const ranges = tokens
     .map((token) => semanticTokenRange(line, token))
     .filter(Boolean)
@@ -9380,7 +9385,11 @@ function renderHighlightedLine(line, tokens, lineIndex) {
   let html = "";
   for (const range of ranges) {
     if (range.start < cursor || range.end <= range.start) continue;
-    html += renderLexicalHighlightedLine(line.slice(cursor, range.start));
+    html += renderLexicalHighlightedLine(line.slice(cursor, range.start), {
+      sourceLine: line,
+      lineOffset: cursor,
+      callStack
+    });
     const referenceKind = documentHighlightKindForToken(range.token, lineIndex);
     const referenceClass = referenceKind === 3
       ? " hl-reference hl-reference-write"
@@ -9392,7 +9401,11 @@ function renderHighlightedLine(line, tokens, lineIndex) {
     html += `<span class="${escapeAttr(`${semanticTokenClass(range.token)}${referenceClass}`)}">${escapeHtml(line.slice(range.start, range.end))}</span>`;
     cursor = range.end;
   }
-  html += renderLexicalHighlightedLine(line.slice(cursor));
+  html += renderLexicalHighlightedLine(line.slice(cursor), {
+    sourceLine: line,
+    lineOffset: cursor,
+    callStack
+  });
   return html;
 }
 
@@ -9410,7 +9423,10 @@ function documentHighlightKindForToken(token, lineIndex) {
   return Number(highlight?.kind || 0);
 }
 
-function renderLexicalHighlightedLine(line) {
+function renderLexicalHighlightedLine(line, context = {}) {
+  const sourceLine = String(context.sourceLine ?? line);
+  const lineOffset = Math.max(0, Number(context.lineOffset) || 0);
+  const callStack = Array.isArray(context.callStack) ? context.callStack : [];
   let index = 0;
   let html = "";
   while (index < line.length) {
@@ -9438,7 +9454,11 @@ function renderLexicalHighlightedLine(line) {
     const numberMatch = /^[0-9]+(?:\.[0-9]+)?/.exec(rest);
     if (numberMatch) {
       const numberEnd = index + numberMatch[0].length;
-      const numberClass = isLexicalDimensionlessUnit(line, index, numberEnd)
+      const numberClass = isLexicalDimensionlessUnit(
+        sourceLine,
+        lineOffset + index,
+        lineOffset + numberEnd
+      )
         ? "hl-mod-unit"
         : "hl-number";
       html += lexicalSpan(numberClass, numberMatch[0]);
@@ -9464,7 +9484,12 @@ function renderLexicalHighlightedLine(line) {
     const wordMatch = /^[A-Za-z_][A-Za-z0-9_]*(?:-[A-Za-z0-9_]+)?/.exec(rest);
     if (wordMatch) {
       const word = wordMatch[0];
-      const cssClass = lexicalClassForWord(word, line, index);
+      const cssClass = lexicalClassForWord(
+        word,
+        sourceLine,
+        lineOffset + index,
+        callStack
+      );
       html += cssClass ? lexicalSpan(cssClass, word) : escapeHtml(word);
       index += word.length;
       continue;
@@ -9562,10 +9587,16 @@ function renderLexicalInterpolation(text) {
   return renderLexicalHighlightedLine(text);
 }
 
-function lexicalClassForWord(word, line, index) {
+function lexicalClassForWord(word, line, index, initialCallStack = []) {
   if (line[index - 1] === ".") return "hl-property";
   const lexical = state.lexicalCatalog || buildLexicalCatalog(emptySyntaxCatalog());
-  const uncertaintyAliasClass = lexicalUncertaintyArgumentAliasClass(word, line, index, lexical);
+  const uncertaintyAliasClass = lexicalUncertaintyArgumentAliasClass(
+    word,
+    line,
+    index,
+    lexical,
+    initialCallStack
+  );
   if (uncertaintyAliasClass) return uncertaintyAliasClass;
   if (lexical.workflowStatusLiterals?.has(word) && isWorkflowStatusLiteralContext(line, index)) {
     return "hl-keyword hl-mod-workflowStep";
@@ -9584,31 +9615,40 @@ function lexicalClassForWord(word, line, index) {
   return lexicalCompletionClass(word);
 }
 
-function lexicalUncertaintyArgumentAliasClass(word, line, index, lexical) {
+function lexicalUncertaintyArgumentAliasClass(word, line, index, lexical, initialCallStack = []) {
   const item = lexical?.uncertaintyArgumentAliases?.get(word);
   if (!item || !/^\s*=/.test(String(line || "").slice(index + word.length))) {
     return "";
   }
-  const call = lexicalEnclosingCallName(line, index);
+  const call = lexicalEnclosingCallName(line, index, initialCallStack);
   return item.calls.has(call) ? "hl-property hl-mod-deprecated" : "";
 }
 
-function lexicalEnclosingCallName(line, index) {
+function lexicalEnclosingCallName(line, index, initialCallStack = []) {
+  return lexicalCallStackAt(line, index, initialCallStack).at(-1) || "";
+}
+
+function lexicalCallStackAfter(line, initialCallStack = []) {
+  return lexicalCallStackAt(line, String(line || "").length, initialCallStack);
+}
+
+function lexicalCallStackAt(line, index, initialCallStack = []) {
   const text = String(line || "");
-  const stack = [];
+  const stack = Array.isArray(initialCallStack) ? [...initialCallStack] : [];
+  const limit = Math.min(text.length, Math.max(0, Number(index) || 0));
   let cursor = 0;
-  while (cursor < Math.min(index, text.length)) {
+  while (cursor < limit) {
     const rest = text.slice(cursor);
     if (rest.startsWith("//") || rest.startsWith("#")) break;
     if (text[cursor] === "\"") {
-      cursor = scanStringEnd(text, cursor);
+      cursor = Math.min(limit, scanStringEnd(text, cursor));
       continue;
     }
     const word = /^[A-Za-z_][A-Za-z0-9_]*/.exec(rest);
     if (word) {
       let next = cursor + word[0].length;
-      while (next < index && /\s/.test(text[next])) next += 1;
-      if (text[next] === "(") {
+      while (next < limit && /\s/.test(text[next])) next += 1;
+      if (next < limit && text[next] === "(") {
         stack.push(word[0]);
         cursor = next + 1;
       } else {
@@ -9623,7 +9663,7 @@ function lexicalEnclosingCallName(line, index) {
     }
     cursor += 1;
   }
-  return stack.at(-1) || "";
+  return stack;
 }
 
 function isWorkflowStatusLiteralContext(line, index) {
