@@ -153,15 +153,21 @@ review material. It is not a broad solver claim.
   source-line, span, kind, and status verification; static imports additionally
   require the complete recursive path-to-source-ID registry to reproduce
   exactly. Preserved imported semantic definitions are limited to schemas,
-  constants, functions, basic systems, domains, and classes with internally
-  consistent registered source ownership. Basic system headers, variables and
-  parallel expected/typed/hover/type/unit records, equations, residual IR, and
-  `ready` solver plans with sparsity metadata are verified together. Domain
+  constants, functions, basic and state-space systems, state-space type blocks,
+  vectors and linear operators, domains, and classes with internally consistent
+  registered source ownership. System headers, variables and parallel
+  expected/typed/hover/type/unit records, equations, residual IR, and `ready`
+  solver plans with sparsity metadata are verified together. State-space type
+  members, typed or legacy vector layouts, operator endpoints, shapes,
+  compatibility, and canonical matrices must also reproduce from semantic
+  declarations exactly. Domain
   headers, type parameters, across/through variables, and conservation
   expressions are verified together. Class headers, fields and defaults,
   validation expressions, and method return/expression metadata are verified
-  together; imported state-space structures, components, and class objects use
-  full analysis. The caller must preserve the resolved import environment, and
+  together; imported components and class objects use full analysis. The scalar
+  suffix environment contains only eligible root declarations and importable
+  constants, so duplicate or same-spelled system-local values cannot leak into
+  root expressions. The caller must preserve the resolved import environment, and
   LSP import changes invalidate dependent reports before reuse.
   Suffix forms may interleave and switch style,
   and expressions may use earlier scalar bindings or preserved registered,
@@ -216,7 +222,8 @@ review material. It is not a broad solver claim.
   references,
   dimensionally incompatible arithmetic, invalid or unsupported calls, workflow
   expressions, diagnostics,
-  static imports that contribute non-scalar functions or other definitions,
+  static imports that contribute unverified definitions such as components or
+  class objects,
   import-line edits, imports inside the affected suffix, caches, and richer
   language use full analysis.
   Source changes invalidate recursive open import dependents while preserving

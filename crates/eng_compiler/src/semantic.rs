@@ -43,6 +43,8 @@ pub struct SemanticType {
 pub struct TypedBinding {
     pub name: String,
     pub semantic_type: SemanticType,
+    /// True only when the declaration belongs to the file/module value scope.
+    pub is_top_level: bool,
     pub line: usize,
     pub span: SourceSpan,
 }
@@ -3163,6 +3165,7 @@ fn analyze_where_binding_scope(
             let typed = TypedBinding {
                 name: binding.name.clone(),
                 semantic_type: semantic_type.clone(),
+                is_top_level: false,
                 line: binding.line,
                 span: binding.span,
             };
@@ -3204,6 +3207,7 @@ fn analyze_where_binding_scope(
                         quantity_kind: "unknown".to_owned(),
                         display_unit: "unknown".to_owned(),
                     },
+                    is_top_level: false,
                     line: binding.line,
                     span: binding.span,
                 },
@@ -5162,6 +5166,7 @@ fn analyze_process_run_decl(
     typed_bindings.push(TypedBinding {
         name: binding.clone(),
         semantic_type: semantic_type.clone(),
+        is_top_level: true,
         line: process.line,
         span: process.binding_span.unwrap_or(process.span),
     });
@@ -9343,6 +9348,7 @@ fn analyze_class_object_decl(
             quantity_kind: quantity_kind.clone(),
             display_unit: "object".to_owned(),
         },
+        is_top_level: object.context == ParseContext::TopLevel,
         line: object.line,
         span: object.span,
     });
@@ -9421,6 +9427,7 @@ fn analyze_class_object_copy_decl(
             quantity_kind: quantity_kind.clone(),
             display_unit: "object".to_owned(),
         },
+        is_top_level: object.context == ParseContext::TopLevel,
         line: object.line,
         span: object.span,
     });
@@ -13564,6 +13571,7 @@ fn analyze_const_decl(
             quantity_kind: declaration.type_name.clone(),
             display_unit: display_unit.clone(),
         },
+        is_top_level: declaration.context == ParseContext::TopLevel,
         line: declaration.line,
         span: declaration.name_span,
     });
@@ -13683,6 +13691,7 @@ fn analyze_explicit_decl(declaration: &ExplicitDecl, outputs: ExplicitAnalysisOu
             quantity_kind: declaration.type_name.clone(),
             display_unit: display_unit.clone(),
         },
+        is_top_level: declaration.context == ParseContext::TopLevel,
         line: declaration.line,
         span: declaration.name_span,
     });
@@ -13779,6 +13788,7 @@ fn analyze_system_variable(
             quantity_kind: declaration.type_name.clone(),
             display_unit: display_unit.clone(),
         },
+        is_top_level: false,
         line: declaration.line,
         span: declaration.name_span,
     });
@@ -14047,6 +14057,7 @@ fn analyze_state_space_vector_decl(
             quantity_kind: vector_type.to_owned(),
             display_unit: "vector".to_owned(),
         },
+        is_top_level: false,
         line: declaration.line,
         span: declaration.name_span,
     });
@@ -14093,6 +14104,151 @@ fn state_space_vector_type(role: &str) -> &'static str {
         "outputs" => "OutputVector",
         _ => "StateVector",
     }
+}
+
+pub(crate) fn state_space_metadata_matches_derived(program: &SemanticProgram) -> bool {
+    let mut type_aliases = HashMap::new();
+    let mut vector_types = HashSet::new();
+    for vector in &program.state_space_vectors {
+        let expected_vector_type = state_space_vector_type(&vector.role);
+        if vector.vector_type != expected_vector_type
+            || !vector_types.insert((vector.system.as_str(), vector.vector_type.as_str()))
+        {
+            return false;
+        }
+        match (&vector.declared_type, vector.type_span) {
+            (Some(declared_type), Some(_)) => {
+                let Some((block_role, block_name)) =
+                    state_space_vector_type_parameter(declared_type)
+                else {
+                    return false;
+                };
+                let Some(block) = program
+                    .state_space_type_blocks
+                    .iter()
+                    .find(|block| block.role == block_role && block.name == block_name)
+                else {
+                    return false;
+                };
+                if block_role != vector.role
+                    || vector.members
+                        != block
+                            .members
+                            .iter()
+                            .map(|member| member.name.clone())
+                            .collect::<Vec<_>>()
+                {
+                    return false;
+                }
+                type_aliases.insert(
+                    (vector.system.clone(), block_name.to_owned()),
+                    expected_vector_type.to_owned(),
+                );
+            }
+            (None, None) => {}
+            _ => return false,
+        }
+    }
+
+    let mut derived_vectors = program.state_space_vectors.clone();
+    let mut diagnostics = Vec::new();
+    validate_state_space_vector_members(&program.systems, &mut derived_vectors, &mut diagnostics);
+    if !diagnostics.is_empty() || derived_vectors != program.state_space_vectors {
+        return false;
+    }
+
+    let mut derived_operators = Vec::with_capacity(program.linear_operators.len());
+    for operator in &program.linear_operators {
+        let Some((from, to)) = parse_linear_operator_type(&operator.declared_type) else {
+            return false;
+        };
+        let from = normalize_linear_operator_endpoint(&from, &operator.system, &type_aliases);
+        let to = normalize_linear_operator_endpoint(&to, &operator.system, &type_aliases);
+        if from != operator.from || to != operator.to {
+            return false;
+        }
+
+        let mut derived = operator.clone();
+        (derived.row_count, derived.column_count) = derived
+            .expression
+            .as_deref()
+            .map(matrix_shape)
+            .unwrap_or((0, 0));
+        derived.from = from;
+        derived.to = to;
+        derived.canonical_matrix = None;
+        derived.canonical_entries.clear();
+        derived.row_members.clear();
+        derived.column_members.clear();
+        derived.row_quantity_kinds.clear();
+        derived.column_quantity_kinds.clear();
+        derived.row_units.clear();
+        derived.column_units.clear();
+        derived.compatibility_status = "unresolved".to_owned();
+        derived.status = "metadata_only".to_owned();
+        derived_operators.push(derived);
+    }
+    diagnostics.clear();
+    validate_linear_operator_shapes(
+        &program.systems,
+        &program.state_space_vectors,
+        &mut derived_operators,
+        &mut diagnostics,
+    );
+    diagnostics.is_empty() && derived_operators == program.linear_operators
+}
+
+pub(crate) fn system_variable_matches_lowered_state_space_member(
+    program: &SemanticProgram,
+    system_name: &str,
+    variable: &SystemVariableInfo,
+) -> bool {
+    program.state_space_vectors.iter().any(|vector| {
+        if vector.system != system_name || !vector.members.contains(&variable.name) {
+            return false;
+        }
+        let Some(declared_type) = vector.declared_type.as_deref() else {
+            return false;
+        };
+        let Some((block_role, block_name)) = state_space_vector_type_parameter(declared_type)
+        else {
+            return false;
+        };
+        let Some(expected_role) = scalar_role_for_state_space_vector(block_role) else {
+            return false;
+        };
+        let Some(member) = program
+            .state_space_type_blocks
+            .iter()
+            .find(|block| block.role == block_role && block.name == block_name)
+            .and_then(|block| {
+                block
+                    .members
+                    .iter()
+                    .find(|member| member.name == variable.name)
+            })
+        else {
+            return false;
+        };
+        let display_unit = member
+            .unit
+            .clone()
+            .unwrap_or_else(|| default_unit_for_quantity(&member.type_name));
+
+        variable.role == expected_role
+            && variable.name == member.name
+            && variable.span == member.span
+            && variable.type_name == member.type_name
+            && variable.type_span == member.type_span
+            && variable.unit == member.unit
+            && variable.unit_span == member.unit_span
+            && variable.quantity_kind == member.type_name
+            && variable.display_unit == display_unit
+            && variable.canonical_unit == default_unit_for_quantity(&member.type_name)
+            && variable.dimension == dimension_for_quantity(&member.type_name)
+            && variable.expression_span.is_none()
+            && variable.line == member.line
+    })
 }
 
 fn analyze_linear_operator_decl(
@@ -15525,6 +15681,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         accum.typed_bindings.push(TypedBinding {
             name: binding.name.clone(),
             semantic_type: semantic_type.clone(),
+            is_top_level: binding.context == ParseContext::TopLevel,
             line: binding.line,
             span: binding.span,
         });

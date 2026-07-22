@@ -291,16 +291,24 @@ separate.
   kinds, and statuses. Static imports additionally require the complete
   recursive path-to-source-ID registry to reproduce exactly and restrict
   preserved imported semantic definitions to schemas, constants, functions,
-  basic systems, domains, and classes whose internal spans retain registered
-  source ownership. Basic system headers, variables and parallel
+  basic and state-space systems, state-space type blocks, vectors and linear
+  operators, domains, and classes whose internal spans retain registered
+  source ownership. Basic and state-space system headers, variables and parallel
   expected/typed/hover/type/unit records, equations, residual IR, and `ready`
-  solver plans with sparsity metadata are verified together. Domain headers,
+  solver plans with sparsity metadata are verified together. Imported
+  state-space type blocks and members, typed or legacy vectors, and both
+  `operator Name:` and legacy `Name: LinearOperator[...]` declarations additionally
+  require exact source ownership and reproducible vector membership, endpoints,
+  shapes, compatibility, and canonical matrices. Domain headers,
   type parameters, across/through variables, and conservation expressions are
   verified together. Class headers, fields and defaults, validation expressions,
   and method return/expression metadata are verified together. Imported
-  state-space structures, components, and class objects use full analysis.
+  components and class objects use full analysis.
   Callers must preserve the resolved import environment.
-  Preserved imported definitions retain source ownership; constants can seed
+  Preserved imported definitions retain source ownership. Only eligible
+  root-scope scalar declarations and importable constants enter suffix analysis,
+  so same-spelled or duplicate system-local values remain scoped. Constants can
+  seed
   backward root aliases and arithmetic, and eligible constants may themselves
   use scalar function calls as values or arithmetic operands. Any suffix
   declaration form may use one or more preserved registered, unit-consistent

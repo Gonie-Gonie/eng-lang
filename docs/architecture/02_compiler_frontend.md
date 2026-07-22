@@ -178,6 +178,10 @@ semantic_program.sample/case generations / render templates / uncertainty / mode
 semantic_program.reports / plots / writes / side-effect records / db records
 ```
 
+`TypedBinding.is_top_level` records whether a typed value belongs to the
+file/module value scope; scoped system, schema, operator, vector, and `where`
+bindings remain available for tooling without being exposed as root expressions.
+
 Table transforms and bound HTTP requests expose their declaration binding spans
 alongside normalized operation metadata. Args, test/assert/golden, and
 expectation records expose declaration/container spans. These fields are public
@@ -209,6 +213,13 @@ semantic model, `ImportInfo.span` identifies the import target and
 source annotation, while `display_unit` is the resolved display unit. Import
 and const diagnostics, semantic tokens, and outline selection ranges consume
 these fields directly.
+
+The strict scalar-suffix recheck may preserve an unchanged imported state-space
+prefix only after replaying its source registry and reproducing type-block members,
+vector layouts, operator endpoints, shapes, compatibility, canonical matrices, and
+parallel editor records from semantic declarations. Its suffix environment includes
+eligible root scalar declarations and importable constants, never system-local
+variables. Any ownership or derived-metadata mismatch returns to a full check.
 
 Function declarations retain exact parameter name/type/optional-unit spans and
 return type/optional-unit spans. `FunctionParamInfo.unit` and

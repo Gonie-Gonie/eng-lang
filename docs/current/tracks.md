@@ -54,9 +54,12 @@ and next cleanup action.
 - Public scope: packaged portable native IDE and smoke path.
 - Main internal: a dedicated advanced System panel for solver results,
   state-space operators, and equation dependencies; component/kernel inspector
-  rows; editor metadata smoke checks; and optional VS Code extension source.
+  rows; editor metadata smoke checks; optional VS Code extension source; and a
+  compiler-owned scalar suffix recheck that can preserve strictly verified
+  imported state-space metadata without exposing system-local names at root.
 - Next cleanup: keep primary TimeSeries/schema/unit/report/check flows ahead of
-  advanced system, component-graph, and kernel detail.
+  advanced system, component-graph, and kernel detail, then extend rich-prefix
+  verification to imported component and class-object metadata.
 
 ## T6 Uncertainty
 

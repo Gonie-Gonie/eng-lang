@@ -10879,7 +10879,26 @@ mod tests {
         std::fs::create_dir_all(&root).expect("rich-prefix scalar fixture should be created");
         std::fs::write(
             root.join("system.eng"),
-            r#"system ImportedRoomThermal {
+            r#"states ImportedEditorState {
+    T_air: AbsoluteTemperature [degC]
+}
+
+inputs ImportedEditorInput {
+    T_out: AbsoluteTemperature [degC]
+}
+
+system ImportedEditorStateSpace {
+    state x: StateVector[ImportedEditorState] = [20 degC]
+    input u: InputVector[ImportedEditorInput] = [8 degC]
+    outputs y = [T_air]
+    operator A: LinearOperator[ImportedEditorState -> Derivative[ImportedEditorState]] = [[-0.01 1/min]]
+    operator B: LinearOperator[ImportedEditorInput -> Derivative[ImportedEditorState]] = [[0.01 1/min]]
+    equation {
+        der(x) eq A * x + B * u
+    }
+}
+
+system ImportedRoomThermal {
     parameter C: HeatCapacity = 500 kJ/K
     parameter UA: Conductance = 150 W/K
     state T: AbsoluteTemperature = 24 degC
@@ -10960,6 +10979,20 @@ const imported_factor: Ratio [1] = 0.5
         );
 
         let _initial = snapshot_for_open_documents(&path, initial_source, &documents);
+        {
+            let cache = documents[&uri]
+                .analysis_cache
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            let report = &cache
+                .analysis
+                .as_ref()
+                .expect("initial state-space import analysis")
+                .report;
+            assert_eq!(report.semantic_program.state_space_type_blocks.len(), 2);
+            assert_eq!(report.semantic_program.state_space_vectors.len(), 3);
+            assert_eq!(report.semantic_program.linear_operators.len(), 2);
+        }
         assert_eq!(documents[&uri].scalar_binding_reuse_count(), 0);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
@@ -11005,7 +11038,7 @@ const imported_factor: Ratio [1] = 0.5
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
             (0, 2, 0, true, true),
-            "the unchanged recursive system/class/domain/schema import, module, file, axis, cache, helper, and print prefix should preserve the scalar suffix fast path"
+            "the unchanged recursive state-space/system/class/domain/schema import, module, file, axis, cache, helper, and print prefix should preserve the scalar suffix fast path"
         );
 
         let fallback_source = changed_source.replace(

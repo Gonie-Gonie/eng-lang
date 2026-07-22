@@ -672,12 +672,12 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// static file imports when every compiler import record exactly matches its root source line, span,
 /// kind, and status. Static imports additionally require the complete recursive path-to-source-ID
 /// registry to reproduce exactly and limit imported semantic definitions to schemas, constants,
-/// functions, basic systems, domains, and classes with internally consistent registered source
-/// ownership. Basic system headers, variables and parallel type/editor records, equations,
-/// residual IR, and static solver plans are verified together. Imported state-space structures,
-/// components, and class objects remain ineligible. Only root import declaration lines are reparsed
-/// for verification; imported definitions and other richer prefix constructs are not reparsed or
-/// reanalyzed.
+/// functions, basic or state-space systems, domains, and classes with internally consistent
+/// registered source ownership. System headers, variables and parallel type/editor records,
+/// equations, residual IR, static solver plans, state-space vector layouts, and linear-operator
+/// matrices are verified together. Imported components and class objects remain ineligible. Only
+/// root import declaration lines are reparsed for verification; imported definitions and other
+/// richer prefix constructs are not reparsed or reanalyzed.
 /// Changes inside it, a token-bearing non-declaration in the affected suffix, diagnostics,
 /// unsupported calls, unverifiable cache or axis metadata, unresolved or duplicate names, and edits
 /// without an affected declaration return `None` for a normal full check.
@@ -718,6 +718,47 @@ impl IncrementalScalarDeclarationMode {
             Self::ExplicitOnly => fast_binding_count == 0 && const_declaration_count == 0,
         }
     }
+}
+
+fn incremental_scalar_prefix_environment(
+    program: &semantic::SemanticProgram,
+    prefix_bindings: &[TypedBinding],
+) -> Option<Vec<TypedBinding>> {
+    let mut names = HashSet::new();
+    let mut environment = Vec::new();
+    for binding in prefix_bindings {
+        if !incremental_quantity_kind_is_registered(&binding.semantic_type.quantity_kind)
+            || !binding.is_top_level
+        {
+            continue;
+        }
+        let mut type_infos = program.type_infos.iter().filter(|info| {
+            info.name == binding.name && info.span == binding.span && info.line == binding.line
+        });
+        let type_info = type_infos.next()?;
+        if type_infos.next().is_some() {
+            return None;
+        }
+        let root_top_level = binding.span.is_root_source()
+            && matches!(
+                type_info.source,
+                TypeInfoSource::Inferred | TypeInfoSource::Explicit | TypeInfoSource::Const
+            );
+        let imported_const = !binding.span.is_root_source()
+            && type_info.source == TypeInfoSource::Const
+            && program.consts.iter().any(|constant| {
+                constant.name == binding.name
+                    && constant.span == binding.span
+                    && constant.line == binding.line
+                    && constant.importable
+            });
+        if (root_top_level || imported_const) && names.insert(binding.name.as_str()) {
+            environment.push(binding.clone());
+        } else if root_top_level || imported_const {
+            return None;
+        }
+    }
+    Some(environment)
 }
 
 fn recheck_scalar_declaration_suffix_incrementally_with_mode(
@@ -870,8 +911,14 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
         return None;
     }
 
+    let prefix_typed_bindings = report
+        .semantic_program
+        .typed_bindings
+        .get(..record_offsets.typed)?;
+    let scalar_prefix_environment =
+        incremental_scalar_prefix_environment(&report.semantic_program, prefix_typed_bindings)?;
     let mut source_names = HashSet::new();
-    if !report.semantic_program.typed_bindings[..record_offsets.typed]
+    if !scalar_prefix_environment
         .iter()
         .all(|binding| source_names.insert(binding.name.as_str()))
         || !source_suffix
@@ -882,18 +929,14 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
         return None;
     }
 
-    let prefix_typed_bindings = report
-        .semantic_program
-        .typed_bindings
-        .get(..record_offsets.typed)?;
     let previous_analysis = semantic::analyze_incremental_scalar_declarations(
         &previous_suffix.program,
-        prefix_typed_bindings,
+        &scalar_prefix_environment,
         &report.semantic_program.functions,
     )?;
     let source_analysis = semantic::analyze_incremental_scalar_declarations(
         &source_suffix.program,
-        prefix_typed_bindings,
+        &scalar_prefix_environment,
         &report.semantic_program.functions,
     )?;
     if previous_analysis.inferred_declarations.len() != previous_suffix.fast_binding_count
@@ -1604,21 +1647,9 @@ fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckRep
     let program = &report.semantic_program;
 
     let unsupported_imported_definition = program
-        .state_space_type_blocks
+        .component_templates
         .iter()
         .any(|info| !info.span.is_root_source())
-        || program
-            .state_space_vectors
-            .iter()
-            .any(|info| !info.span.is_root_source())
-        || program
-            .linear_operators
-            .iter()
-            .any(|info| !info.span.is_root_source())
-        || program
-            .component_templates
-            .iter()
-            .any(|info| !info.span.is_root_source())
         || program
             .component_instances
             .iter()
@@ -1732,10 +1763,10 @@ fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckRep
                 .all(|policy| policy.line > schema.line)
     }) && program.systems.iter().all(|system| {
         incremental_system_definition_ownership_matches_report(system, &source_ids, program)
-    }) && program
-        .domains
-        .iter()
-        .all(|domain| incremental_domain_definition_ownership_matches_report(domain, &source_ids))
+    }) && incremental_state_space_definition_ownership_matches_report(program, &source_ids)
+        && program.domains.iter().all(|domain| {
+            incremental_domain_definition_ownership_matches_report(domain, &source_ids)
+        })
         && program
             .classes
             .iter()
@@ -1751,7 +1782,13 @@ fn incremental_system_definition_ownership_matches_report(
     if !source_ids.contains(&source_id)
         || system.line != system.span.line
         || !system.variables.iter().all(|variable| {
-            incremental_system_variable_ownership_matches_report(variable, source_id, program)
+            incremental_system_variable_ownership_matches_report(
+                variable,
+                &system.name,
+                source_id,
+                source_ids,
+                program,
+            )
         })
     {
         return false;
@@ -1839,19 +1876,29 @@ fn incremental_system_definition_ownership_matches_report(
 
 fn incremental_system_variable_ownership_matches_report(
     variable: &semantic::SystemVariableInfo,
-    source_id: usize,
+    system_name: &str,
+    system_source_id: usize,
+    source_ids: &HashSet<usize>,
     program: &semantic::SemanticProgram,
 ) -> bool {
-    if variable.span.source_id != source_id
-        || variable.type_span.source_id != source_id
+    let variable_source_id = variable.span.source_id;
+    let source_owner_matches = variable_source_id == system_source_id
+        || (source_ids.contains(&variable_source_id)
+            && semantic::system_variable_matches_lowered_state_space_member(
+                program,
+                system_name,
+                variable,
+            ));
+    if !source_owner_matches
+        || variable.type_span.source_id != variable_source_id
         || variable.line != variable.span.line
         || variable.type_span.line != variable.line
         || variable
             .unit_span
-            .is_some_and(|span| span.source_id != source_id || span.line != variable.line)
+            .is_some_and(|span| span.source_id != variable_source_id || span.line != variable.line)
         || variable
             .expression_span
-            .is_some_and(|span| span.source_id != source_id || span.line != variable.line)
+            .is_some_and(|span| span.source_id != variable_source_id || span.line != variable.line)
         || !matches!(
             variable.role.as_str(),
             "parameter" | "state" | "input" | "output"
@@ -1875,6 +1922,7 @@ fn incremental_system_variable_ownership_matches_report(
             quantity_kind: variable.quantity_kind.clone(),
             display_unit: variable.display_unit.clone(),
         },
+        is_top_level: false,
         line: variable.line,
         span: variable.span,
     };
@@ -1951,6 +1999,213 @@ fn incremental_system_variable_ownership_matches_report(
             .unit_derivations
             .iter()
             .any(|info| info == &unit_derivation)
+}
+
+fn incremental_state_space_definition_ownership_matches_report(
+    program: &semantic::SemanticProgram,
+    source_ids: &HashSet<usize>,
+) -> bool {
+    let mut block_keys = HashSet::new();
+    let type_blocks_match = program.state_space_type_blocks.iter().all(|block| {
+        let source_id = block.span.source_id;
+        let mut member_names = HashSet::new();
+        source_ids.contains(&source_id)
+            && block.line == block.span.line
+            && matches!(block.role.as_str(), "states" | "inputs" | "outputs")
+            && block_keys.insert((block.role.as_str(), block.name.as_str()))
+            && block.members.iter().all(|member| {
+                member_names.insert(member.name.as_str())
+                    && member.span.source_id == source_id
+                    && member.type_span.source_id == source_id
+                    && member.line == member.span.line
+                    && member.type_span.line == member.line
+                    && member.unit.is_some() == member.unit_span.is_some()
+                    && member
+                        .unit_span
+                        .is_none_or(|span| span.source_id == source_id && span.line == member.line)
+            })
+    });
+    if !type_blocks_match {
+        return false;
+    }
+
+    let mut vector_keys = HashSet::new();
+    let vectors_match = program.state_space_vectors.iter().all(|vector| {
+        let source_id = vector.span.source_id;
+        let Some(system) = program
+            .systems
+            .iter()
+            .find(|system| system.name == vector.system)
+        else {
+            return false;
+        };
+        source_ids.contains(&source_id)
+            && system.span.source_id == source_id
+            && vector.line == vector.span.line
+            && matches!(vector.role.as_str(), "states" | "inputs" | "outputs")
+            && vector_keys.insert((vector.system.as_str(), vector.vector_type.as_str()))
+            && vector.declared_type.is_some() == vector.type_span.is_some()
+            && vector
+                .type_span
+                .is_none_or(|span| span.source_id == source_id && span.line == vector.line)
+            && vector
+                .expression_span
+                .is_none_or(|span| span.source_id == source_id && span.line == vector.line)
+            && incremental_state_space_vector_parallel_metadata_matches_report(vector, program)
+    });
+    if !vectors_match {
+        return false;
+    }
+
+    let mut operator_keys = HashSet::new();
+    let operators_match = program.linear_operators.iter().all(|operator| {
+        let source_id = operator.span.source_id;
+        let Some(system) = program
+            .systems
+            .iter()
+            .find(|system| system.name == operator.system)
+        else {
+            return false;
+        };
+        source_ids.contains(&source_id)
+            && system.span.source_id == source_id
+            && operator.line == operator.span.line
+            && operator.type_span.source_id == source_id
+            && operator.type_span.line == operator.line
+            && operator_keys.insert((operator.system.as_str(), operator.name.as_str()))
+            && operator.expression.is_some() == operator.expression_span.is_some()
+            && operator
+                .expression_span
+                .is_none_or(|span| span.source_id == source_id && span.line == operator.line)
+            && incremental_linear_operator_parallel_metadata_matches_report(operator, program)
+    });
+    operators_match && semantic::state_space_metadata_matches_derived(program)
+}
+
+fn incremental_state_space_vector_parallel_metadata_matches_report(
+    vector: &semantic::StateSpaceVectorInfo,
+    program: &semantic::SemanticProgram,
+) -> bool {
+    let typed_binding = TypedBinding {
+        name: vector.name.clone(),
+        semantic_type: semantic::SemanticType {
+            quantity_kind: vector.vector_type.clone(),
+            display_unit: "vector".to_owned(),
+        },
+        is_top_level: false,
+        line: vector.line,
+        span: vector.span,
+    };
+    let hover = HoverHint::explicit(
+        vector.name.clone(),
+        vector.vector_type.clone(),
+        "vector".to_owned(),
+        Some(format!("[{}]", vector.members.join(", "))),
+        vector.span,
+    );
+    let type_info = TypeInfo {
+        name: vector.name.clone(),
+        quantity_kind: vector.vector_type.clone(),
+        display_unit: "vector".to_owned(),
+        canonical_unit: "vector".to_owned(),
+        dimension: "StateSpace".to_owned(),
+        source: TypeInfoSource::SystemBoundary,
+        line: vector.line,
+        span: vector.span,
+    };
+    let owns_record = |name: &str, span: SourceSpan, line: usize| {
+        name == vector.name && span == vector.span && line == vector.line
+    };
+
+    program
+        .typed_bindings
+        .iter()
+        .filter(|info| owns_record(&info.name, info.span, info.line))
+        .count()
+        == 1
+        && program
+            .typed_bindings
+            .iter()
+            .any(|info| info == &typed_binding)
+        && program
+            .hover_hints
+            .iter()
+            .filter(|info| owns_record(&info.name, info.span, info.line))
+            .count()
+            == 1
+        && program.hover_hints.iter().any(|info| info == &hover)
+        && program
+            .type_infos
+            .iter()
+            .filter(|info| owns_record(&info.name, info.span, info.line))
+            .count()
+            == 1
+        && program.type_infos.iter().any(|info| info == &type_info)
+}
+
+fn incremental_linear_operator_parallel_metadata_matches_report(
+    operator: &semantic::LinearOperatorInfo,
+    program: &semantic::SemanticProgram,
+) -> bool {
+    let owns_record = |name: &str, span: SourceSpan, line: usize| {
+        name == operator.name && span == operator.span && line == operator.line
+    };
+    let expected = program
+        .expected_types
+        .iter()
+        .filter(|info| {
+            info.name == operator.name
+                && info.span.source_id == operator.span.source_id
+                && info.line == operator.line
+        })
+        .collect::<Vec<_>>();
+    let typed = program
+        .typed_bindings
+        .iter()
+        .filter(|info| owns_record(&info.name, info.span, info.line))
+        .collect::<Vec<_>>();
+    let hovers = program
+        .hover_hints
+        .iter()
+        .filter(|info| owns_record(&info.name, info.span, info.line))
+        .collect::<Vec<_>>();
+    let type_infos = program
+        .type_infos
+        .iter()
+        .filter(|info| owns_record(&info.name, info.span, info.line))
+        .collect::<Vec<_>>();
+    let derivations = program
+        .unit_derivations
+        .iter()
+        .filter(|info| info.name == operator.name && info.line == operator.line)
+        .collect::<Vec<_>>();
+    let ([expected], [typed], [hover], [type_info], [derivation]) = (
+        expected.as_slice(),
+        typed.as_slice(),
+        hovers.as_slice(),
+        type_infos.as_slice(),
+        derivations.as_slice(),
+    ) else {
+        return false;
+    };
+
+    expected.quantity_kind == operator.declared_type
+        && expected.display_unit.is_none()
+        && expected.source == ExpectedTypeSource::ExplicitAnnotation
+        && expected.span.line == operator.line
+        && expected.span.start < expected.span.end
+        && (expected.span == operator.span || expected.span.end <= operator.span.start)
+        && typed.semantic_type.quantity_kind == operator.declared_type
+        && hover.quantity_kind == operator.declared_type
+        && hover.display_unit == typed.semantic_type.display_unit
+        && hover.expression == operator.expression
+        && type_info.quantity_kind == operator.declared_type
+        && type_info.display_unit == typed.semantic_type.display_unit
+        && type_info.source == TypeInfoSource::Explicit
+        && derivation.quantity_kind == operator.declared_type
+        && derivation.display_unit == typed.semantic_type.display_unit
+        && derivation.canonical_unit == type_info.canonical_unit
+        && derivation.expression == operator.expression
 }
 
 fn incremental_domain_definition_ownership_matches_report(
@@ -2670,6 +2925,7 @@ fn importable_definition_item(item: &AstItem) -> bool {
         | AstItem::StateSpaceTypeBlock(_)
         | AstItem::StateSpaceTypeMember(_)
         | AstItem::SystemVariable(_)
+        | AstItem::StateSpaceVector(_)
         | AstItem::Equation(_)
         | AstItem::Domain(_)
         | AstItem::DomainVariable(_)
@@ -2680,7 +2936,11 @@ fn importable_definition_item(item: &AstItem) -> bool {
         | AstItem::ClassField(_)
         | AstItem::ClassValidation(_)
         | AstItem::ClassMethod(_) => true,
-        AstItem::ExplicitDecl(declaration) => declaration.context == ParseContext::Schema,
+        AstItem::ExplicitDecl(declaration) => {
+            declaration.context == ParseContext::Schema
+                || (declaration.context == ParseContext::System
+                    && declaration.type_name.trim().starts_with("LinearOperator["))
+        }
         _ => false,
     }
 }
@@ -12878,6 +13138,297 @@ adjusted = base * factor
     }
 
     #[test]
+    fn incrementally_rechecks_scalar_suffix_after_unchanged_state_space_import() {
+        fn assert_fresh_equivalent(reused: &CheckReport, fresh: &CheckReport, source: &str) {
+            assert_eq!(reused.source_path, fresh.source_path);
+            assert_eq!(reused.source_files, fresh.source_files);
+            assert_eq!(reused.source_hash, fresh.source_hash);
+            assert_eq!(reused.source_lines, fresh.source_lines);
+            assert_eq!(reused.diagnostics, fresh.diagnostics);
+            assert_eq!(reused.inferred_declarations, fresh.inferred_declarations);
+            assert_eq!(reused.syntax_summary, fresh.syntax_summary);
+            assert_eq!(reused.semantic_program, fresh.semantic_program);
+            assert_eq!(
+                reused.quantity_completion_count,
+                fresh.quantity_completion_count
+            );
+            assert_eq!(reused.unit_info_count, fresh.unit_info_count);
+            assert_eq!(review_json(reused), review_json(fresh));
+            assert_eq!(
+                encode_bytecode(&build_bytecode_program(reused, source)),
+                encode_bytecode(&build_bytecode_program(fresh, source))
+            );
+        }
+
+        let root = std::env::temp_dir().join(format!(
+            "eng_compiler_incremental_state_space_import_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("state-space import fixture should be created");
+        std::fs::write(
+            root.join("types.eng"),
+            r#"states ImportedState {
+    T_air: AbsoluteTemperature [degC]
+    T_wall: AbsoluteTemperature [degC]
+}
+
+inputs ImportedInput {
+    T_out: AbsoluteTemperature [degC]
+    Q_hvac: HeatRate [W]
+}
+"#,
+        )
+        .expect("imported state-space types should be written");
+        std::fs::write(
+            root.join("shared.eng"),
+            r#"use "types.eng"
+
+system ImportedStateSpace {
+    state x: StateVector[ImportedState] = [20 degC, 19 degC]
+    input u: InputVector[ImportedInput] = [8 degC, 1000 W]
+    outputs y = [T_air]
+    operator A: LinearOperator[ImportedState -> Derivative[ImportedState]] = [[-0.01 1/min, 0.01 1/min]; [0.02 1/min, -0.02 1/min]]
+    B: LinearOperator[ImportedInput -> Derivative[ImportedState]] = [[0.01 1/min, 0.000001]; [0.0 1/min, 0.0]]
+    equation {
+        der(x) eq A * x + B * u
+    }
+}
+
+system ImportedBoundary {
+    input T_out: AbsoluteTemperature = 10 degC
+}
+"#,
+        )
+        .expect("imported state-space system should be written");
+        let main_path = root.join("main.eng");
+        let previous_source = r#"use "shared.eng"
+system RootScoped {
+    local_length = 2 m
+}
+
+base = 2 m
+factor = 0.5
+"#;
+        let source = r#"use "shared.eng"
+system RootScoped {
+    local_length = 2 m
+}
+
+base = 180 cm
+factor = 0.75
+adjusted = base * factor
+"#;
+        std::fs::write(&main_path, previous_source)
+            .expect("state-space import root should be written");
+        let previous = check_source(&main_path, previous_source, &CheckOptions::default());
+        assert!(
+            previous.diagnostics.is_empty(),
+            "unexpected imported state-space diagnostics: {:#?}",
+            previous.diagnostics
+        );
+        assert_eq!(previous.source_files.len(), 3);
+        assert_eq!(previous.semantic_program.systems.len(), 3);
+        assert_eq!(previous.semantic_program.state_space_type_blocks.len(), 2);
+        assert_eq!(previous.semantic_program.state_space_vectors.len(), 3);
+        assert_eq!(previous.semantic_program.linear_operators.len(), 2);
+        let system = previous
+            .semantic_program
+            .systems
+            .iter()
+            .find(|system| system.name == "ImportedStateSpace")
+            .expect("imported state-space system");
+        assert_ne!(
+            previous.semantic_program.state_space_type_blocks[0]
+                .span
+                .source_id,
+            system.span.source_id,
+            "the regression must cover cross-file lowered state-space members"
+        );
+        let source_ids = previous
+            .source_files
+            .iter()
+            .map(|source| source.source_id)
+            .collect::<HashSet<_>>();
+        assert!(
+            previous.semantic_program.systems.iter().all(|system| {
+                incremental_system_definition_ownership_matches_report(
+                    system,
+                    &source_ids,
+                    &previous.semantic_program,
+                )
+            }),
+            "state-space systems should satisfy the preserved-system ownership contract"
+        );
+        assert!(
+            semantic::state_space_metadata_matches_derived(&previous.semantic_program),
+            "state-space derived metadata should reproduce exactly"
+        );
+        for vector in &previous.semantic_program.state_space_vectors {
+            assert!(
+                incremental_state_space_vector_parallel_metadata_matches_report(
+                    vector,
+                    &previous.semantic_program,
+                ),
+                "vector parallel metadata should match: {vector:#?}"
+            );
+        }
+        for operator in &previous.semantic_program.linear_operators {
+            assert!(
+                incremental_linear_operator_parallel_metadata_matches_report(
+                    operator,
+                    &previous.semantic_program,
+                ),
+                "operator parallel metadata should match: {operator:#?}"
+            );
+        }
+        assert!(
+            incremental_state_space_definition_ownership_matches_report(
+                &previous.semantic_program,
+                &source_ids,
+            ),
+            "state-space definitions should satisfy the rich-prefix ownership contract"
+        );
+        assert!(
+            incremental_rich_prefix_definition_ownership_matches_report(&previous),
+            "the full imported definition ownership contract should accept state-space metadata"
+        );
+
+        let reused =
+            recheck_scalar_declaration_suffix_incrementally(&previous, previous_source, source)
+                .expect(
+                    "an unchanged recursive state-space import should preserve the scalar suffix",
+                );
+        let fresh = check_source(&main_path, source, &CheckOptions::default());
+        assert_fresh_equivalent(&reused, &fresh, source);
+        assert_eq!(
+            reused.semantic_program.state_space_type_blocks,
+            previous.semantic_program.state_space_type_blocks
+        );
+        assert_eq!(
+            reused.semantic_program.state_space_vectors,
+            previous.semantic_program.state_space_vectors
+        );
+        assert_eq!(
+            reused.semantic_program.linear_operators,
+            previous.semantic_program.linear_operators
+        );
+        let local_length = previous
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "local_length")
+            .expect("root system-local fast binding should retain type metadata");
+        assert!(
+            !local_length.is_top_level,
+            "semantic binding provenance must retain the root system scope"
+        );
+        let scoped_alias_source = r#"use "shared.eng"
+system RootScoped {
+    local_length = 2 m
+}
+
+base = 180 cm
+leaked = local_length
+"#;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &previous,
+                previous_source,
+                scoped_alias_source,
+            )
+            .is_none(),
+            "root system-local scalar names must not leak into the incremental environment"
+        );
+
+        let mut stale_member_owner = previous.clone();
+        stale_member_owner.semantic_program.state_space_type_blocks[0].members[0]
+            .type_span
+            .source_id = SourceSpan::ROOT_SOURCE_ID;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_member_owner,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "inconsistent imported state member ownership must use full analysis"
+        );
+
+        let mut stale_vector_owner = previous.clone();
+        stale_vector_owner.semantic_program.state_space_vectors[0]
+            .type_span
+            .as_mut()
+            .expect("typed vector should retain its type span")
+            .source_id = SourceSpan::ROOT_SOURCE_ID;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_vector_owner,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "inconsistent imported vector ownership must use full analysis"
+        );
+
+        let mut stale_vector_type = previous.clone();
+        let vector = &stale_vector_type.semantic_program.state_space_vectors[0];
+        let vector_name = vector.name.clone();
+        let vector_span = vector.span;
+        stale_vector_type
+            .semantic_program
+            .typed_bindings
+            .iter_mut()
+            .find(|binding| binding.name == vector_name && binding.span == vector_span)
+            .expect("vector typed-binding metadata")
+            .semantic_type
+            .display_unit = "stale-vector".to_owned();
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_vector_type,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "inconsistent imported vector parallel metadata must use full analysis"
+        );
+
+        let mut stale_operator_matrix = previous.clone();
+        stale_operator_matrix.semantic_program.linear_operators[0]
+            .canonical_matrix
+            .as_mut()
+            .expect("checked operator should retain its canonical matrix")[0][0] = 999.0;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_operator_matrix,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "inconsistent imported operator matrix metadata must use full analysis"
+        );
+
+        let mut stale_operator_type = previous.clone();
+        stale_operator_type.semantic_program.linear_operators[0].from = "InputVector".to_owned();
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_operator_type,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "inconsistent imported operator type metadata must use full analysis"
+        );
+        assert!(
+            recheck_scalar_binding_suffix_incrementally(&previous, previous_source, source)
+                .is_none(),
+            "the fast-only API must retain its scalar-only static import contract"
+        );
+
+        std::fs::remove_dir_all(&root).expect("state-space import fixture should be removed");
+    }
+
+    #[test]
     fn incrementally_rechecks_scalar_suffix_after_unchanged_static_domain_import() {
         fn assert_fresh_equivalent(reused: &CheckReport, fresh: &CheckReport, source: &str) {
             assert_eq!(reused.source_path, fresh.source_path);
@@ -13830,6 +14381,12 @@ scaled = scale_power(base, imported_factor)
                 &source[binding.span.start..binding.span.end],
                 binding.name,
                 "typed binding `{}` should retain its exact declaration token",
+                binding.name
+            );
+            assert_eq!(
+                binding.is_top_level,
+                matches!(binding.name.as_str(), "BASE" | "result"),
+                "typed binding `{}` should retain its semantic value scope",
                 binding.name
             );
         }
