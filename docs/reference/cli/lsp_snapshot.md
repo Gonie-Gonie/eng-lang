@@ -717,8 +717,14 @@ open dependents against the remaining open buffers and saved files.
 
 The incremental protocol mirror reduces editor-to-server transfer size and
 applies multiple changes in order without splitting UTF-16 surrogate pairs or
-CRLF boundaries. It does not yet make compiler parsing or semantic analysis
-incremental: after the diagnostics debounce, the current compiler still builds
-a complete `CheckReport` for the affected root and open dependents.
+CRLF boundaries. Most semantic edits still build a complete `CheckReport` for
+the affected root and open dependents. A bounded compiler-owned path can instead
+preserve an unchanged, verified report prefix and reparse and semantically
+reanalyze only a final suffix of supported scalar declarations. The preserved
+prefix may include an unchanged scalar-only import environment or, under stricter
+clean-report and vector-ownership checks, richer top-level constructs such as a
+pure scalar helper and `print`. Changes inside that richer prefix and
+token-bearing non-declarations in the affected suffix use full analysis. This is
+not general incremental parsing or semantic recomputation.
 
 This JSON contract is not a replacement for full LSP editor validation.

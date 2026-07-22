@@ -19,17 +19,16 @@ embedding compiler logic in JavaScript.
 - exact-source plus conservative token-free-trivia compiler report reuse across
   completion, diagnostics, hover, semantic tokens, navigation, and review
   decorations, with lazy snapshot projection and recursive open-import invalidation
-- strict token-changing partial parse/semantic recheck for scalar documents with
-  fast, explicit, and pure scalar `const` declarations plus unchanged supported
-  `use/import eng.*` module prefixes or static imports whose recursively
-  imported definitions are pure registered scalar constants and functions; the
-  shared suffix supports literals, backward aliases, pure registered-unit arithmetic,
-  and one or more dimension-valid imported scalar function calls as direct values or
-  arithmetic operands on every declaration form, with explicit and `const`
-  result-dimension matching and recursive scalar-call arguments,
-  plus coordinated edits, additions/removals, resized/inserted/removed standalone
-  trivia, and line-ending shifts, with full-analysis fallback for invalid,
-  non-scalar, and other unsupported constructs
+- strict token-changing partial parse/semantic recheck for final scalar
+  declaration suffixes containing fast, explicit, and pure scalar `const`
+  declarations; clean scalar documents may retain supported module or static
+  imports, while an unchanged richer prefix such as a pure scalar helper and
+  `print` can be retained only when the prior report proves exact suffix
+  ownership; the suffix supports literals, backward aliases, pure
+  registered-unit arithmetic, and dimension-valid preserved scalar function
+  calls, plus coordinated edits, additions/removals, standalone trivia changes,
+  and line-ending shifts, with full-analysis fallback for edits in the richer
+  prefix and unsupported tails
 - quote/escape-aware call and workflow-option diagnostics, so commas, semicolons,
   parentheses, and arithmetic symbols inside strings do not become arguments,
   process `env` entries, or scalar operators
@@ -251,45 +250,53 @@ the shared editor snapshot only when a snapshot-backed feature first needs it.
 For a changed source, it can also retarget the prior report when the complete
 token stream and absolute spans are unchanged and every token-bearing line is
 byte-identical. This narrow path covers edits to comment-only and blank lines;
-the source-dependent snapshot is rebuilt lazily. In a document containing only
-top-level fast scalar bindings, registered explicit scalar declarations, pure
-top-level scalar `const` declarations, unchanged supported `use/import eng.*`
-module declarations, or unchanged static imports whose recursively imported
-definitions are only pure registered scalar constants and functions before the
-affected suffix, compiler-validated pure scalar expressions using numeric or
+the source-dependent snapshot is rebuilt lazily. A separate strict compiler
+path can recheck a final suffix of top-level fast scalar bindings, registered
+explicit scalar declarations, and pure top-level scalar `const` declarations.
+In scalar-only documents, unchanged supported `use/import eng.*` module
+declarations or static imports whose recursively imported definitions are only
+pure registered scalar constants and functions may remain before the affected
+suffix. A clean, cache-free, axis-free report may also retain an unchanged
+richer prefix when every preserved typed binding is a registered scalar and the
+prior report proves exact semantic-vector tail ownership. This covers, for
+example, an unchanged pure scalar `fn` helper and `print` before the final
+scalar declarations; an edit inside that richer prefix still uses full
+analysis. Compiler-validated suffix expressions may use numeric or
 registered-unit literals, backward aliases, parentheses, `+`, `-`, `*`, `/`,
-and earlier typed bindings, changed declaration lines or standalone token-free
-trivia preserve the report before the first
-declaration at or after the first change and reparse and semantically reanalyze
-that suffix once. All three declaration forms may be interleaved; fast and
-explicit declarations may also switch style inside the affected suffix. Any
-declaration form may use one or more preserved imported scalar calls as direct values
-or arithmetic operands when argument counts and dimensions match; explicit and
-`const` results must match the declared quantity. Registered scalar calls may nest
-recursively inside compatible scalar arguments. This
-repairs absolute source spans and line numbers when comments or blank lines are
-resized, inserted, or removed, or when suffix line endings change. Coordinated declaration and alias
-renames are accepted when names remain unique and references resolve backward in
-source order. The server verifies the old suffix against the corresponding report
+and earlier typed bindings. The server preserves the report before the first
+declaration at or after the first change and reparses and semantically
+reanalyzes that suffix once. All three declaration forms may be interleaved;
+fast and explicit declarations may also switch style inside the affected
+suffix. Any declaration form may use one or more preserved registered,
+unit-consistent scalar calls as direct values or arithmetic operands when
+argument counts and dimensions match; explicit and `const` results must match
+the declared quantity. Registered scalar calls may nest recursively inside
+compatible scalar arguments. The recheck repairs absolute source spans and line
+numbers when comments or blank lines are resized, inserted, or removed, or when
+suffix line endings change. Coordinated declaration and alias renames are
+accepted when names remain unique and references resolve backward in source
+order. The server verifies the old suffix against the corresponding report
 records before patching inferred declarations, constants, expected types, typed
-bindings, hovers, type information, unit derivations, syntax counts, and the first
-workflow line together. Declarations can be inserted or removed, including
+bindings, hovers, type information, unit derivations, syntax counts, and the
+first workflow line together. Declarations can be inserted or removed, including
 clearing all scalar declarations and restarting from a trivia-only report.
-Imported constants and function contracts retain their original source ownership.
-Constants remain available to backward root aliases and arithmetic, eligible imported
-constants may use scalar calls in arithmetic, and eligible functions remain available
-to all root declaration forms. Changing an open imported module invalidates the dependent
-report before any further reuse.
+Preserved imported constants and function contracts retain their original
+source ownership. Preserved scalar constants remain available to backward root
+aliases and arithmetic, eligible constants may use scalar calls in arithmetic,
+and eligible functions remain available to all suffix declaration forms.
+Changing an open imported module invalidates the dependent report before any
+further reuse.
 Pure scalar arithmetic over typed aliases also keeps inferred quantity, hover,
 type, and unit metadata when the expression has no unit literal. Result
 dimensions use registered declaration-name disambiguation (for example,
 temperature deltas and ratios), then retain a compatible operand type when the
 quantity family is otherwise ambiguous.
-Token-bearing non-declaration lines, incomplete or duplicate renames, forward or
-unresolved references, dimensionally incompatible arithmetic, invalid or unsupported
-calls, non-scalar constants or functions, workflow expressions, diagnostics, other
-imported definitions, import-line edits, imports inside the affected suffix,
-caches, and richer language run a full compiler analysis.
+Token-bearing non-declaration lines in the affected suffix, edits inside a
+richer prefix, incomplete or duplicate renames, forward or unresolved
+references, dimensionally incompatible arithmetic, invalid or unsupported
+calls, non-scalar suffix declarations, workflow expressions, diagnostics,
+import-line edits, imports inside the affected suffix, caches, and unverified
+report ownership run a full compiler analysis.
 Changing an open import hard-invalidates its recursive open dependents, while
 unrelated document analyses remain cached. This remains a narrow partial path,
 not general incremental parse or semantic recomputation.

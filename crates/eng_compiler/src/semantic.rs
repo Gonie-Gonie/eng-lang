@@ -1059,11 +1059,12 @@ pub(crate) struct IncrementalScalarDeclarationAnalysis {
 /// Fast bindings, explicit declarations, and top-level scalar constants may be interleaved.
 /// Accepted expressions are numeric literals, backward aliases, or pure scalar arithmetic over
 /// registered-unit literals and backward scalar references. Any declaration form may also use one
-/// or more trusted imported pure scalar calls as direct values or arithmetic operands when every
-/// argument resolves against that environment; explicit and `const` declarations additionally
-/// require a result dimension that matches their annotation. Scalar calls may nest recursively
-/// inside other scalar-call arguments. The arithmetic grammar is shared with component parameter
-/// validation; workflow expressions and non-scalar functions cannot enter this local semantic path.
+/// or more trusted registered, unit-consistent scalar calls as direct values or arithmetic operands
+/// when every argument resolves against that environment; explicit and `const` declarations
+/// additionally require a result dimension that matches their annotation. Scalar calls may nest
+/// recursively inside other scalar-call arguments. The arithmetic grammar is shared with component
+/// parameter validation; workflow expressions and non-scalar functions cannot enter this local
+/// semantic path.
 /// An empty suffix is accepted so the caller can remove the final affected declarations atomically.
 pub(crate) fn analyze_incremental_scalar_declarations(
     program: &ParsedProgram,

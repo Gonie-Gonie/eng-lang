@@ -10870,6 +10870,106 @@ mod tests {
     }
 
     #[test]
+    fn scalar_suffix_edits_after_rich_prefix_use_incremental_compiler_recheck() {
+        let root = std::env::temp_dir().join(format!(
+            "eng_lsp_rich_prefix_scalar_analysis_cache_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("rich-prefix scalar fixture should be created");
+        let path = root.join("current.eng");
+        let initial_source = concat!(
+            "fn identity_power(value: HeatRate [kW]) -> HeatRate [kW] {\n",
+            "    return value\n",
+            "}\n",
+            "\n",
+            "print \"ready\"\n",
+            "base: HeatRate [kW] = 2 kW\n",
+            "scaled = identity_power(base)\n",
+        );
+        std::fs::write(&path, initial_source).expect("rich-prefix scalar source should be written");
+        let path = path
+            .canonicalize()
+            .expect("rich-prefix scalar source should exist");
+        let uri = file_uri_from_path(&path);
+        let mut documents = Documents::new();
+        documents.insert(
+            uri.clone(),
+            DocumentState::new(initial_source.to_owned(), Some(1)),
+        );
+
+        let _initial = snapshot_for_open_documents(&path, initial_source, &documents);
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 0);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 1, 0, true, true)
+        );
+
+        let changed_source = concat!(
+            "fn identity_power(value: HeatRate [kW]) -> HeatRate [kW] {\n",
+            "    return value\n",
+            "}\n",
+            "\n",
+            "print \"ready\"\n",
+            "base: HeatRate [W] = 1800 W\n",
+            "scaled: HeatRate [W] = identity_power(base) + 0 W\n",
+        );
+        let changed_notification = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 2 },
+                "contentChanges": [{ "text": changed_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&changed_notification, &documents)
+                .expect("rich-prefix scalar edit should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, changed_source, &documents),
+            snapshot_for_source(&path, changed_source)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 1);
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 2, 0, true, true),
+            "the unchanged helper and print prefix should preserve the scalar suffix fast path"
+        );
+
+        let fallback_source = format!("{changed_source}print \"scaled={{scaled:W}}\"\n");
+        let fallback_notification = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 3 },
+                "contentChanges": [{ "text": fallback_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&fallback_notification, &documents)
+                .expect("trailing command edit should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, &fallback_source, &documents),
+            snapshot_for_source(&path, &fallback_source)
+        );
+        assert_eq!(
+            documents[&uri].scalar_binding_reuse_count(),
+            1,
+            "a token-bearing command must use a fresh compiler report"
+        );
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 3, 0, true, true)
+        );
+
+        std::fs::remove_dir_all(&root).expect("rich-prefix scalar fixture should be removed");
+    }
+
+    #[test]
     fn explicit_scalar_declaration_edits_use_incremental_compiler_recheck() {
         let root = std::env::temp_dir().join(format!(
             "eng_lsp_explicit_scalar_analysis_cache_{}",

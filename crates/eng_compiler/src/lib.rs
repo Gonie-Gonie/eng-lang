@@ -649,19 +649,25 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// be interleaved; fast and explicit declarations may also change style inside the affected suffix.
 /// Expressions are limited to numeric literals, backward aliases, and pure scalar `+`, `-`, `*`,
 /// and `/` arithmetic over registered-unit literals, parentheses, earlier scalar declarations, and
-/// dimension-valid calls to unchanged imported pure scalar functions, including recursively nested
-/// scalar calls in function arguments. Explicit and `const` result dimensions must match their
-/// annotations.
+/// dimension-valid calls to unchanged registered, unit-consistent scalar functions, including
+/// recursively nested scalar calls in function arguments. Explicit and `const` result dimensions
+/// must match their annotations.
 /// The compiler preserves all records before the first declaration at or after the first raw-line
 /// difference, verifies the old suffix against the prior report, then patches inferred, constant,
 /// expected, typed, hover, type-info, unit-derivation, syntax, and workflow records as one
 /// transaction. Unchanged supported `eng.*` module imports and static file imports whose
 /// recursively imported definitions are only pure registered scalar constants and pure registered
 /// scalar functions may precede the affected suffix. Their exact source ownership, import records,
-/// constant environment, and function contracts are preserved. Static imports with non-scalar
-/// functions or other definitions, import edits, diagnostics, unsupported calls, caches, richer
-/// workflow constructs, unresolved or duplicate names, and edits without an affected declaration
-/// return `None` for a normal full check.
+/// constant environment, and function contracts are preserved.
+///
+/// The unified entry point may also preserve an unchanged richer prefix before the final scalar
+/// suffix. This requires a clean, cache-free, axis-free prior report; registered scalar types for
+/// every preserved typed binding; exact semantic-vector tail ownership; and an isolated old-suffix
+/// analysis that matches the report. Unchanged root scalar helpers and command metadata such as
+/// `print` may therefore remain in the prefix. The richer prefix is not reparsed or reanalyzed.
+/// Changes inside it, a token-bearing non-declaration in the affected suffix, diagnostics,
+/// unsupported calls, caches, unresolved or duplicate names, and edits without an affected
+/// declaration return `None` for a normal full check.
 ///
 /// The caller must preserve the source path, check options, argument overrides, and import
 /// environment, just as for [`retarget_check_report_for_token_stable_trivia`].
@@ -736,37 +742,9 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
             .then_some(previous_lines.len().min(source_lines.len()))
     })?;
 
-    let previous_prefix = parse_scalar_declaration_prefix(&previous_lines[..changed_index])?;
+    let previous_prefix = parse_scalar_declaration_prefix(&previous_lines[..changed_index]);
     let previous_suffix = parse_scalar_declaration_suffix(&previous_lines[changed_index..])?;
     let source_suffix = parse_scalar_declaration_suffix(&source_lines[changed_index..])?;
-    let empty_semantic_program = semantic::analyze(&ParsedProgram {
-        lines: Vec::new(),
-        items: Vec::new(),
-    })
-    .semantic_program;
-    let report_shape = incremental_scalar_report_shape(
-        report,
-        previous_prefix.imports.len(),
-        &empty_semantic_program,
-    )?;
-    if !incremental_scalar_prefix_matches_report(
-        report,
-        &previous_prefix,
-        &previous_suffix,
-        report_shape,
-    ) || !mode.accepts(
-        report
-            .syntax_summary
-            .fast_bindings
-            .checked_sub(report_shape.imported_function_local_count)?,
-        report.syntax_summary.explicit_declarations,
-        report
-            .syntax_summary
-            .const_declarations
-            .checked_sub(report_shape.imported_const_count)?,
-    ) {
-        return None;
-    }
     if !mode.accepts(
         previous_suffix.fast_binding_count,
         previous_suffix.explicit_declaration_count,
@@ -802,6 +780,49 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
         .expected_types
         .len()
         .checked_sub(previous_annotated_declaration_count)?;
+    let scalar_only_contract = previous_prefix
+        .as_ref()
+        .and_then(|prefix| {
+            let empty_semantic_program = semantic::analyze(&ParsedProgram {
+                lines: Vec::new(),
+                items: Vec::new(),
+            })
+            .semantic_program;
+            let shape = incremental_scalar_report_shape(
+                report,
+                prefix.imports.len(),
+                &empty_semantic_program,
+            )?;
+            let root_fast_binding_count = report
+                .syntax_summary
+                .fast_bindings
+                .checked_sub(shape.imported_function_local_count)?;
+            let root_const_declaration_count = report
+                .syntax_summary
+                .const_declarations
+                .checked_sub(shape.imported_const_count)?;
+            (incremental_scalar_prefix_matches_report(report, prefix, &previous_suffix, shape)
+                && mode.accepts(
+                    root_fast_binding_count,
+                    report.syntax_summary.explicit_declarations,
+                    root_const_declaration_count,
+                ))
+            .then_some(())
+        })
+        .is_some();
+    let rich_prefix_contract = previous_prefix.is_none()
+        && mode == IncrementalScalarDeclarationMode::Any
+        && incremental_rich_prefix_supports_scalar_suffix(
+            report,
+            &previous_suffix,
+            first_typed_record,
+            first_inferred_record,
+            first_const_record,
+            first_expected_record,
+        );
+    if !scalar_only_contract && !rich_prefix_contract {
+        return None;
+    }
     if let Some(previous_changed) = previous_suffix.declarations.first() {
         let previous_binding = report
             .semantic_program
@@ -866,6 +887,11 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
         return None;
     }
 
+    let update_workflow_line = if scalar_only_contract {
+        first_typed_record == 0
+    } else {
+        !incremental_rich_prefix_owns_workflow_line(report, first_typed_record)
+    };
     let mut reused = report.clone();
     reused.inferred_declarations.truncate(first_inferred_record);
     reused
@@ -916,7 +942,7 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
         .checked_sub(previous_suffix.const_declaration_count)?
         .checked_add(source_suffix.const_declaration_count)?;
     reused.syntax_summary.lines = source_lines.len();
-    if first_typed_record == 0 {
+    if update_workflow_line {
         semantic.workflow.line = source_suffix
             .declarations
             .first()
@@ -1341,6 +1367,120 @@ fn incremental_scalar_report_shape(
             imported_const_count,
             imported_function_count,
             imported_function_local_count,
+        })
+}
+
+fn incremental_rich_prefix_supports_scalar_suffix(
+    report: &CheckReport,
+    suffix: &ParsedScalarDeclarationSuffix,
+    first_typed_record: usize,
+    first_inferred_record: usize,
+    first_const_record: usize,
+    first_expected_record: usize,
+) -> bool {
+    let Some(annotated_declaration_count) = suffix
+        .explicit_declaration_count
+        .checked_add(suffix.const_declaration_count)
+    else {
+        return false;
+    };
+    let Some(root_source) = report.source_files.first() else {
+        return false;
+    };
+    let source_ids = report
+        .source_files
+        .iter()
+        .map(|source| source.source_id)
+        .collect::<HashSet<_>>();
+    let Some(prefix_typed_bindings) = report
+        .semantic_program
+        .typed_bindings
+        .get(..first_typed_record)
+    else {
+        return false;
+    };
+    let registered_quantities = crate::quantities::all_quantity_completions();
+
+    root_source.source_id == SourceSpan::ROOT_SOURCE_ID
+        && source_ids.len() == report.source_files.len()
+        && report.diagnostics.is_empty()
+        && report.semantic_program.cache_records.is_empty()
+        && report.semantic_program.axis_infos.is_empty()
+        && report.syntax_summary.ast_items > suffix.declarations.len()
+        && report.syntax_summary.tokens >= suffix.token_count
+        && report.syntax_summary.fast_bindings >= suffix.fast_binding_count
+        && report.syntax_summary.explicit_declarations >= suffix.explicit_declaration_count
+        && report.syntax_summary.const_declarations >= suffix.const_declaration_count
+        && report
+            .inferred_declarations
+            .len()
+            .checked_sub(first_inferred_record)
+            == Some(suffix.fast_binding_count)
+        && report
+            .semantic_program
+            .consts
+            .len()
+            .checked_sub(first_const_record)
+            == Some(suffix.const_declaration_count)
+        && report
+            .semantic_program
+            .expected_types
+            .len()
+            .checked_sub(first_expected_record)
+            == Some(annotated_declaration_count)
+        && report
+            .semantic_program
+            .typed_bindings
+            .len()
+            .checked_sub(first_typed_record)
+            == Some(suffix.declarations.len())
+        && report
+            .semantic_program
+            .hover_hints
+            .len()
+            .checked_sub(first_typed_record)
+            == Some(suffix.declarations.len())
+        && report
+            .semantic_program
+            .type_infos
+            .len()
+            .checked_sub(first_typed_record)
+            == Some(suffix.declarations.len())
+        && report
+            .semantic_program
+            .unit_derivations
+            .len()
+            .checked_sub(first_typed_record)
+            == Some(suffix.declarations.len())
+        && prefix_typed_bindings.iter().all(|binding| {
+            registered_quantities
+                .iter()
+                .any(|quantity| quantity.quantity_kind == binding.semantic_type.quantity_kind)
+        })
+}
+
+fn incremental_rich_prefix_owns_workflow_line(
+    report: &CheckReport,
+    first_typed_record: usize,
+) -> bool {
+    let workflow_line = report.semantic_program.workflow.line;
+    report
+        .semantic_program
+        .typed_bindings
+        .get(..first_typed_record)
+        .is_some_and(|bindings| {
+            bindings.iter().any(|binding| {
+                binding.span.source_id == SourceSpan::ROOT_SOURCE_ID
+                    && binding.line == workflow_line
+            })
+        })
+        || report.semantic_program.prints.iter().any(|print| {
+            print.keyword_span.source_id == SourceSpan::ROOT_SOURCE_ID
+                && print.line == workflow_line
+        })
+        || report.semantic_program.csv_exports.iter().any(|export| {
+            export.export_span.source_id == SourceSpan::ROOT_SOURCE_ID
+                && export.line == workflow_line
         })
 }
 
@@ -11600,6 +11740,182 @@ factor = 0.5
             "length = 20 m\ncopy = length\ncombined: Length [m] = copy + length\n",
         )
         .is_none());
+    }
+
+    #[test]
+    fn incrementally_rechecks_scalar_suffix_after_unchanged_rich_prefix() {
+        fn assert_fresh_equivalent(reused: &CheckReport, fresh: &CheckReport, source: &str) {
+            assert_eq!(reused.source_path, fresh.source_path);
+            assert_eq!(reused.source_files, fresh.source_files);
+            assert_eq!(reused.source_hash, fresh.source_hash);
+            assert_eq!(reused.source_lines, fresh.source_lines);
+            assert_eq!(reused.diagnostics, fresh.diagnostics);
+            assert_eq!(reused.inferred_declarations, fresh.inferred_declarations);
+            assert_eq!(reused.syntax_summary, fresh.syntax_summary);
+            assert_eq!(reused.semantic_program, fresh.semantic_program);
+            assert_eq!(
+                reused.quantity_completion_count,
+                fresh.quantity_completion_count
+            );
+            assert_eq!(reused.unit_info_count, fresh.unit_info_count);
+            assert_eq!(review_json(reused), review_json(fresh));
+            assert_eq!(
+                encode_bytecode(&build_bytecode_program(reused, source)),
+                encode_bytecode(&build_bytecode_program(fresh, source))
+            );
+        }
+
+        let previous_source = concat!(
+            "fn identity_power(value: HeatRate [kW]) -> HeatRate [kW] {\n",
+            "    return value\n",
+            "}\n",
+            "\n",
+            "print \"ready\"\n",
+            "base: HeatRate [kW] = 2 kW\n",
+            "scaled = identity_power(base)\n",
+        );
+        let source = concat!(
+            "fn identity_power(value: HeatRate [kW]) -> HeatRate [kW] {\n",
+            "    return value\n",
+            "}\n",
+            "\n",
+            "print \"ready\"\n",
+            "base: HeatRate [W] = 1800 W\n",
+            "scaled: HeatRate [W] = identity_power(base) + 0 W\n",
+        );
+        let previous = check_source(
+            "incremental-rich-prefix.eng",
+            previous_source,
+            &CheckOptions::default(),
+        );
+        assert!(
+            previous.diagnostics.is_empty(),
+            "unexpected rich-prefix fixture diagnostics: {:#?}",
+            previous.diagnostics
+        );
+        let empty_semantic_program = semantic::analyze(&ParsedProgram {
+            lines: Vec::new(),
+            items: Vec::new(),
+        })
+        .semantic_program;
+        assert!(
+            incremental_scalar_report_shape(&previous, 0, &empty_semantic_program).is_none(),
+            "a helper function and print must remain outside the scalar-only report contract"
+        );
+
+        let reused =
+            recheck_scalar_declaration_suffix_incrementally(&previous, previous_source, source)
+                .expect("a final scalar suffix should reuse a clean unchanged rich prefix");
+        let fresh = check_source(
+            "incremental-rich-prefix.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(&reused, &fresh, source);
+        assert_eq!(
+            reused.semantic_program.functions,
+            previous.semantic_program.functions
+        );
+        assert_eq!(
+            reused.semantic_program.prints,
+            previous.semantic_program.prints
+        );
+        assert_eq!(reused.semantic_program.workflow.line, 5);
+        assert!(
+            recheck_scalar_binding_suffix_incrementally(&previous, previous_source, source)
+                .is_none(),
+            "the fast-only compatibility API must retain its scalar-only root contract"
+        );
+        assert!(
+            recheck_explicit_scalar_declaration_suffix_incrementally(
+                &previous,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "the explicit-only compatibility API must retain its scalar-only root contract"
+        );
+
+        let cleared_source = concat!(
+            "fn identity_power(value: HeatRate [kW]) -> HeatRate [kW] {\n",
+            "    return value\n",
+            "}\n",
+            "\n",
+            "print \"ready\"\n",
+        );
+        let cleared =
+            recheck_scalar_declaration_suffix_incrementally(&reused, source, cleared_source)
+                .expect("the rich prefix should survive complete scalar suffix removal");
+        let cleared_fresh = check_source(
+            "incremental-rich-prefix.eng",
+            cleared_source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(&cleared, &cleared_fresh, cleared_source);
+        assert_eq!(cleared.semantic_program.workflow.line, 5);
+
+        let restarted_source = concat!(
+            "fn identity_power(value: HeatRate [kW]) -> HeatRate [kW] {\n",
+            "    return value\n",
+            "}\n",
+            "\n",
+            "print \"ready\"\n",
+            "base: HeatRate [kW] = 3 kW\n",
+            "scaled: HeatRate [W] = identity_power(base)\n",
+        );
+        let restarted = recheck_scalar_declaration_suffix_incrementally(
+            &cleared,
+            cleared_source,
+            restarted_source,
+        )
+        .expect("a supported scalar suffix should restart after the unchanged rich prefix");
+        let restarted_fresh = check_source(
+            "incremental-rich-prefix.eng",
+            restarted_source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(&restarted, &restarted_fresh, restarted_source);
+
+        let trailing_command_source = format!("{restarted_source}print \"scaled={{scaled:W}}\"\n");
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &restarted,
+                restarted_source,
+                &trailing_command_source,
+            )
+            .is_none(),
+            "a token-bearing command in the changed tail must use full analysis"
+        );
+
+        let helper_only_previous_source = concat!(
+            "fn identity_power(value: HeatRate [kW]) -> HeatRate [kW] {\n",
+            "    return value\n",
+            "}\n",
+            "base: HeatRate [kW] = 2 kW\n",
+        );
+        let helper_only_source = concat!(
+            "fn identity_power(value: HeatRate [kW]) -> HeatRate [kW] {\n",
+            "    return value\n",
+            "}\n",
+        );
+        let helper_only_previous = check_source(
+            "incremental-helper-prefix.eng",
+            helper_only_previous_source,
+            &CheckOptions::default(),
+        );
+        let helper_only_reused = recheck_scalar_declaration_suffix_incrementally(
+            &helper_only_previous,
+            helper_only_previous_source,
+            helper_only_source,
+        )
+        .expect("removing the only workflow declaration should preserve the helper");
+        let helper_only_fresh = check_source(
+            "incremental-helper-prefix.eng",
+            helper_only_source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(&helper_only_reused, &helper_only_fresh, helper_only_source);
+        assert_eq!(helper_only_reused.semantic_program.workflow.line, 1);
     }
 
     #[test]

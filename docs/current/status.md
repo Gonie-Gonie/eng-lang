@@ -132,21 +132,19 @@ review material. It is not a broad solver claim.
   client for document sync, diagnostics, semantic tokens, and editor requests.
   Exact-source editor requests share one compiler report and lazy snapshot;
   token-free comment/blank-line edits can retarget that report when every token
-  and token-bearing line stays at the same absolute source location. In a clean
-  document containing only top-level fast scalar bindings, registered explicit
-  scalar declarations, pure top-level scalar `const` declarations, and unchanged
-  supported `use/import eng.*` module declarations or static imports whose
-  recursively imported definitions are only pure registered scalar constants
-  and functions before the affected suffix, compiler-validated pure scalar
-  expressions over numeric or registered-unit literals and earlier typed bindings,
-  changed declaration lines or standalone
-  token-free trivia preserve the report before the first declaration at or after
-  the first change and reparse/semantically reanalyze that suffix. All three
-  declaration forms may be interleaved; fast and explicit declarations may also
-  switch style inside the suffix. Any declaration form may use one or more
-  preserved imported scalar calls directly or as arithmetic operands when argument
-  counts and dimensions match. Those calls may nest recursively inside scalar
-  arguments; explicit and `const` result dimensions must match their annotations.
+  and token-bearing line stays at the same absolute source location. A separate
+  strict path can preserve a verified report prefix and reparse/semantically
+  reanalyze only a final suffix of top-level fast, explicit, and pure scalar
+  `const` declarations. Scalar-only documents may retain unchanged supported
+  module or static imports. A clean cache-free/axis-free report may also retain
+  an unchanged richer prefix, including root scalar helpers and `print`, when
+  every preserved typed binding is registered and exact semantic-vector tail
+  ownership matches isolated old-suffix analysis. The richer prefix itself is
+  not reparsed or reanalyzed; edits inside it use full analysis. Suffix forms may
+  interleave and switch style, and expressions may use earlier typed bindings or
+  preserved registered, unit-consistent scalar calls directly, in arithmetic,
+  or recursively inside scalar arguments. Explicit and `const` result
+  dimensions must match their annotations.
   Full checks recursively validate those nested calls, including calls inside
   parenthesized scalar arithmetic and built-in arguments, underline the innermost
   invalid argument or unknown function name, ignore call-like string contents,
