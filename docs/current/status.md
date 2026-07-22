@@ -187,7 +187,11 @@ review material. It is not a broad solver claim.
   and expressions may use earlier scalar bindings or preserved registered,
   unit-consistent scalar calls directly, in arithmetic, or recursively inside
   scalar arguments. Explicit and `const` result dimensions must match their
-  annotations.
+  annotations. A fast binding may also change between a verified direct scalar
+  class-object field and a zero-argument method call; its typed result may feed
+  later scalar declarations in that suffix. Composite member expressions,
+  argument-bearing methods, unknown members, and non-scalar fields retain full
+  analysis.
   Full checks recursively validate those nested calls, including calls inside
   parenthesized scalar arithmetic and built-in arguments, underline the innermost
   invalid argument or unknown function name, ignore call-like string contents,
@@ -234,7 +238,8 @@ review material. It is not a broad solver claim.
   Token-bearing
   non-declaration lines, incomplete or duplicate renames, forward or unresolved
   references,
-  dimensionally incompatible arithmetic, invalid or unsupported calls, workflow
+  dimensionally incompatible arithmetic, invalid or unsupported calls, composite
+  class-object member expressions, workflow
   expressions, diagnostics,
   duplicate or internally inconsistent class objects,
   import-line edits, imports inside the affected suffix, caches, and richer

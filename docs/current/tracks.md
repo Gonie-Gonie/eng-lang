@@ -56,12 +56,15 @@ and next cleanup action.
   state-space operators, and equation dependencies; component/kernel inspector
   rows; editor metadata smoke checks; optional VS Code extension source; and a
   compiler-owned scalar suffix recheck that can preserve strictly verified
-  imported state-space and complete system-owned component-graph metadata
-  without exposing ordinary system-local names at root.
+  imported state-space, immutable class-object, and complete system-owned
+  component-graph metadata without exposing ordinary system-local names at
+  root. A changed direct scalar class-object field or zero-argument method
+  binding can reuse that metadata and feed later scalar declarations.
 - Next cleanup: keep primary TimeSeries/schema/unit/report/check flows ahead of
   advanced system, component-graph, and kernel detail, then replace the current
   compilation-wide component-instance namespace with explicit per-system
-  assembly ownership and extend verification to class-object metadata.
+  assembly ownership, then broaden changed-block parsing beyond the bounded
+  scalar suffix.
 
 ## T6 Uncertainty
 

@@ -139,6 +139,19 @@ parallel type/hover metadata. Object names share one compilation-wide binding
 namespace; a duplicate imported or root name is an error. Arbitrary top-level
 `name = expression` executable bindings are still not imported.
 
+The bounded editor recheck may change a final fast-binding suffix between a
+direct registered-scalar field and a zero-argument method:
+
+```text
+wall_u = standard_wall.conductance()
+scaled_u = wall_u * 0.5
+```
+
+This path first reconstructs and verifies the preserved object metadata, then
+reanalyzes the changed member binding and later scalar dependencies. A member
+inside a larger expression, an argument-bearing method, an unknown member, or a
+non-scalar field uses full analysis.
+
 ## Diagnostics
 
 | Diagnostic | Trigger |

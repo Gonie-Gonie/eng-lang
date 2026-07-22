@@ -233,6 +233,12 @@ results, and parallel typed/hover/type records before reuse. Duplicate class
 object binding names are diagnosed instead of selecting one implicitly. Its
 suffix environment includes eligible root scalar
 declarations and importable constants, never system- or component-local variables.
+After that exact object verification, a changed scalar suffix may begin with a
+fast binding whose complete RHS is one registered-scalar object field or one
+zero-argument object method. The derived binding can feed later scalar aliases
+and arithmetic in the same suffix. Member accesses embedded in larger
+expressions, calls with arguments, unknown members, and non-scalar members return
+to a full check.
 Any ownership or derived-metadata mismatch returns to a full check.
 
 Component instances still share the compilation-wide `component_graph` namespace.

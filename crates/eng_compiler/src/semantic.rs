@@ -1449,11 +1449,17 @@ pub(crate) struct IncrementalScalarDeclarationAnalysis {
 /// semantic path. Preserved non-scalar or axis-bearing prefix bindings may remain in the trusted
 /// report, but suffix expressions cannot use them as aliases or operands, and every new suffix
 /// binding must resolve to a registered scalar quantity.
+/// When the caller supplies verified class and object metadata, a fast binding may also use one
+/// direct scalar object-field access or zero-argument method call. That member-derived binding may
+/// feed later aliases and arithmetic in the same suffix; member access embedded inside a larger
+/// expression remains outside this path.
 /// An empty suffix is accepted so the caller can remove the final affected declarations atomically.
 pub(crate) fn analyze_incremental_scalar_declarations(
     program: &ParsedProgram,
     prefix_typed_bindings: &[TypedBinding],
     functions: &[FunctionInfo],
+    classes: &[ClassInfo],
+    class_objects: &[ClassObjectInfo],
 ) -> Option<IncrementalScalarDeclarationAnalysis> {
     if program.items.len()
         != program
@@ -1486,10 +1492,13 @@ pub(crate) fn analyze_incremental_scalar_declarations(
     for item in &program.items {
         match item {
             AstItem::FastBinding(binding) if binding.context == ParseContext::TopLevel => {
-                if !supports_incremental_fast_binding_expression(
+                if !supports_incremental_fast_binding_expression_with_class_metadata(
                     &binding.expression,
+                    binding.expression_span,
                     &typed_bindings,
                     functions,
+                    classes,
+                    class_objects,
                 ) {
                     return None;
                 }
@@ -1505,8 +1514,8 @@ pub(crate) fn analyze_incremental_scalar_declarations(
                     uncertainty_infos: &mut uncertainty_infos,
                     ml_infos: &mut ml_infos,
                     functions,
-                    classes: &[],
-                    class_objects: &[],
+                    classes,
+                    class_objects,
                     db_reads: &mut db_reads,
                     timeseries_kernels: &mut timeseries_kernels,
                 };
@@ -1655,6 +1664,45 @@ pub(crate) fn supports_incremental_fast_binding_expression(
             ScalarFunctionTrust::UnitConsistent,
         )
         .is_some_and(|(_, _, function_call_count)| function_call_count > 0)
+}
+
+fn supports_incremental_fast_binding_expression_with_class_metadata(
+    expression: &str,
+    expression_span: SourceSpan,
+    available_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    classes: &[ClassInfo],
+    class_objects: &[ClassObjectInfo],
+) -> bool {
+    supports_incremental_fast_binding_expression(expression, available_bindings, functions)
+        || incremental_class_member_semantic_type(
+            expression,
+            expression_span,
+            classes,
+            class_objects,
+        )
+        .is_some()
+}
+
+fn incremental_class_member_semantic_type(
+    expression: &str,
+    expression_span: SourceSpan,
+    classes: &[ClassInfo],
+    class_objects: &[ClassObjectInfo],
+) -> Option<SemanticType> {
+    let semantic_type = object_field_access_semantic_type(expression, classes, class_objects)
+        .or_else(|| {
+            let mut diagnostics = Vec::new();
+            let semantic_type = validate_object_method_call_expression(
+                expression,
+                expression_span,
+                classes,
+                class_objects,
+                &mut diagnostics,
+            );
+            diagnostics.is_empty().then_some(semantic_type).flatten()
+        })?;
+    registered_scalar_quantity_kind(&semantic_type.quantity_kind).then_some(semantic_type)
 }
 
 pub(crate) fn supports_incremental_annotated_scalar_expression(

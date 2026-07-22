@@ -308,7 +308,11 @@ separate.
   and method return/expression metadata are verified together. Class object
   construction, explicit/inherited fields, copy-source provenance, validation
   results, and parallel typed/hover/type records must also rederive exactly;
-  duplicate object binding names are rejected. Component
+  duplicate object binding names are rejected. A changed fast-binding suffix may
+  use one verified registered-scalar object field or zero-argument method as its
+  complete RHS; that binding can then feed later scalar aliases and arithmetic.
+  Composite member expressions, argument-bearing calls, unknown members, and
+  non-scalar members retain full fallback. Component
   parameters, inputs, ports, local expressions and equations retain imported
   source ownership; port resolution, sequential local signal contracts,
   constructor instance cloning and connections from root or imported systems,

@@ -10974,7 +10974,6 @@ const imported_factor: Ratio [1] = 0.5
         let initial_source = concat!(
             "use \"shared.eng\"\n",
             "use eng.stats\n",
-            "envelope_value = imported_envelope_copy.conductance\n",
             "input_file = file(\"input.csv\")\n",
             "series: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
             "process_result = run command \"cmd\"\n",
@@ -10987,6 +10986,7 @@ const imported_factor: Ratio [1] = 0.5
             "}\n",
             "\n",
             "print \"ready\"\n",
+            "envelope_value = imported_envelope_copy.conductance\n",
             "base: HeatRate [kW] = 2 kW\n",
             "scaled = identity_power(base) * imported_factor\n",
         );
@@ -11059,7 +11059,6 @@ const imported_factor: Ratio [1] = 0.5
         let changed_source = concat!(
             "use \"shared.eng\"\n",
             "use eng.stats\n",
-            "envelope_value = imported_envelope_copy.conductance\n",
             "input_file = file(\"input.csv\")\n",
             "series: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
             "process_result = run command \"cmd\"\n",
@@ -11072,6 +11071,7 @@ const imported_factor: Ratio [1] = 0.5
             "}\n",
             "\n",
             "print \"ready\"\n",
+            "envelope_value = imported_envelope_copy.value()\n",
             "base: HeatRate [W] = 1800 W\n",
             "scaled: HeatRate [W] = identity_power(base) * imported_factor + 0 W\n",
         );
@@ -11118,6 +11118,12 @@ const imported_factor: Ratio [1] = 0.5
                 report.semantic_program.class_objects[1].fields[1].expression,
                 "10 W/K"
             );
+            let envelope_value = report
+                .inferred_declarations
+                .iter()
+                .find(|declaration| declaration.name == "envelope_value")
+                .expect("reused member call should retain inferred metadata");
+            assert_eq!(envelope_value.expression, "imported_envelope_copy.value()");
             assert!(!report.semantic_program.connections[0]
                 .right_span
                 .is_root_source());
@@ -11125,7 +11131,7 @@ const imported_factor: Ratio [1] = 0.5
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
             (0, 2, 0, true, true),
-            "the unchanged recursive state-space/system/class/domain/component/schema import, module, file, axis, cache, helper, and print prefix should preserve the scalar suffix fast path"
+            "the unchanged recursive state-space/system/class/domain/component/schema import, module, file, axis, cache, helper, and print prefix should preserve a member-derived scalar suffix"
         );
 
         let fallback_source = changed_source.replace(

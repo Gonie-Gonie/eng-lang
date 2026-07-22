@@ -684,7 +684,10 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// declarations; arbitrary system-local executable bindings remain outside the module boundary.
 /// Imported class objects must reproduce their literal/copy construction, explicit and inherited
 /// fields, source provenance, validation results, and parallel typed/hover/type records exactly;
-/// duplicate object binding names are rejected. Only root
+/// duplicate object binding names are rejected. Once verified, a changed fast-binding suffix may
+/// read one scalar field or call one zero-argument method as its complete RHS, and later suffix
+/// declarations may reuse that derived scalar. Composite member expressions still use a full
+/// check. Only root
 /// import declaration lines are reparsed for verification; imported definitions and other richer
 /// prefix constructs are not reparsed or reanalyzed.
 /// Changes inside it, a token-bearing non-declaration in the affected suffix, diagnostics,
@@ -942,11 +945,15 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
         &previous_suffix.program,
         &scalar_prefix_environment,
         &report.semantic_program.functions,
+        &report.semantic_program.classes,
+        &report.semantic_program.class_objects,
     )?;
     let source_analysis = semantic::analyze_incremental_scalar_declarations(
         &source_suffix.program,
         &scalar_prefix_environment,
         &report.semantic_program.functions,
+        &report.semantic_program.classes,
+        &report.semantic_program.class_objects,
     )?;
     if previous_analysis.inferred_declarations.len() != previous_suffix.fast_binding_count
         || previous_analysis.consts.len() != previous_suffix.const_declaration_count
@@ -12450,12 +12457,16 @@ total = add_lengths(add_lengths(adjusted, imported_length), imported_length) + a
             &previous_suffix.program,
             &previous.semantic_program.typed_bindings[..4],
             &previous.semantic_program.functions,
+            &previous.semantic_program.classes,
+            &previous.semantic_program.class_objects,
         )
         .expect("previous call arithmetic suffix should analyze incrementally");
         semantic::analyze_incremental_scalar_declarations(
             &source_suffix.program,
             &previous.semantic_program.typed_bindings[..4],
             &previous.semantic_program.functions,
+            &previous.semantic_program.classes,
+            &previous.semantic_program.class_objects,
         )
         .expect("changed call arithmetic suffix should analyze incrementally");
 
@@ -14108,14 +14119,13 @@ imported_better_wall = imported_wall with {
         let main_path = root.join("main.eng");
         let previous_source = r#"use "shared.eng"
 imported_wall_value = imported_better_wall.u_value
-base = 2 m
 factor = 0.5
+adjusted_conductance = imported_wall_value * factor
 "#;
         let source = r#"use "shared.eng"
-imported_wall_value = imported_better_wall.u_value
-base = 180 cm
+imported_wall_value = imported_better_wall.conductance()
 factor = 0.75
-adjusted = base * factor
+adjusted_conductance = imported_wall_value * factor
 "#;
         std::fs::write(&main_path, previous_source).expect("class-object root should be written");
         let previous = check_source(&main_path, previous_source, &CheckOptions::default());
@@ -14186,6 +14196,43 @@ adjusted = base * factor
             reused.semantic_program.class_objects,
             previous.semantic_program.class_objects
         );
+        let reused_member = reused
+            .inferred_declarations
+            .iter()
+            .find(|declaration| declaration.name == "imported_wall_value")
+            .expect("changed method access should retain inferred metadata");
+        assert_eq!(
+            reused_member.expression,
+            "imported_better_wall.conductance()"
+        );
+        let adjusted = reused
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "adjusted_conductance")
+            .expect("downstream arithmetic should reuse the member-derived scalar");
+        assert_eq!(adjusted.semantic_type.quantity_kind, "Conductance");
+        assert_eq!(adjusted.semantic_type.display_unit, "W/K");
+
+        let missing_method_source = source.replace(
+            "imported_better_wall.conductance()",
+            "imported_better_wall.missing()",
+        );
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &previous,
+                previous_source,
+                &missing_method_source,
+            )
+            .is_none(),
+            "an unknown object method must use full analysis"
+        );
+        let missing_method =
+            check_source(&main_path, &missing_method_source, &CheckOptions::default());
+        assert!(missing_method
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-CLASS-METHOD-CALL-002"));
 
         let mut stale_field_owner = previous.clone();
         stale_field_owner.semantic_program.classes[0].fields[2]
