@@ -10878,8 +10878,25 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).expect("rich-prefix scalar fixture should be created");
         std::fs::write(
+            root.join("system.eng"),
+            r#"system ImportedRoomThermal {
+    parameter C: HeatCapacity = 500 kJ/K
+    parameter UA: Conductance = 150 W/K
+    state T: AbsoluteTemperature = 24 degC
+    input T_out: AbsoluteTemperature
+    input Q_internal: HeatRate
+    output T_report: AbsoluteTemperature = 24 degC
+    equation {
+        C * der(T) eq UA * (T_out - T) + Q_internal
+    }
+}
+"#,
+        )
+        .expect("static system module should be written");
+        std::fs::write(
             root.join("class.eng"),
-            r#"class ImportedEnvelope {
+            r#"use "system.eng"
+class ImportedEnvelope {
     name: String
     conductance: Conductance [W/K] = 10 W/K
     validate {
@@ -10988,7 +11005,7 @@ const imported_factor: Ratio [1] = 0.5
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
             (0, 2, 0, true, true),
-            "the unchanged recursive class/domain/schema import, module, file, axis, cache, helper, and print prefix should preserve the scalar suffix fast path"
+            "the unchanged recursive system/class/domain/schema import, module, file, axis, cache, helper, and print prefix should preserve the scalar suffix fast path"
         );
 
         let fallback_source = changed_source.replace(

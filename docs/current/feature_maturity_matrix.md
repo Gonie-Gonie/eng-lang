@@ -284,11 +284,14 @@ separate.
   kinds, and statuses. Static imports additionally require the complete
   recursive path-to-source-ID registry to reproduce exactly and restrict
   preserved imported semantic definitions to schemas, constants, functions,
-  domains, and classes whose internal spans retain registered source ownership.
-  Domain headers, type parameters, across/through variables, and conservation
-  expressions are verified together. Class headers, fields and defaults,
-  validation expressions, and method return/expression metadata are verified
-  together. Imported systems, components, and class objects use full analysis.
+  basic systems, domains, and classes whose internal spans retain registered
+  source ownership. Basic system headers, variables and parallel
+  expected/typed/hover/type/unit records, equations, residual IR, and `ready`
+  solver plans with sparsity metadata are verified together. Domain headers,
+  type parameters, across/through variables, and conservation expressions are
+  verified together. Class headers, fields and defaults, validation expressions,
+  and method return/expression metadata are verified together. Imported
+  state-space structures, components, and class objects use full analysis.
   Callers must preserve the resolved import environment.
   Preserved imported definitions retain source ownership; constants can seed
   backward root aliases and arithmetic, and eligible constants may themselves

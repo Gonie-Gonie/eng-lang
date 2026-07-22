@@ -270,12 +270,15 @@ unchanged supported `eng.*` module and static file imports whose compiler
 records exactly match their root source lines, spans, kinds, and statuses.
 Static imports additionally require the complete recursive path-to-source-ID
 registry to reproduce exactly. Preserved imported semantic definitions are
-limited to schemas, constants, functions, domains, and classes whose internal
-spans retain registered source ownership. Domain headers, type parameters,
-across/through variables, and conservation expressions are verified together.
-Class headers, fields and defaults, validation expressions, and method
-return/expression metadata are verified together. Imported systems, components,
-and class objects use full analysis. Only root import declaration lines are
+limited to schemas, constants, functions, basic systems, domains, and classes
+whose internal spans retain registered source ownership. Basic system headers,
+variables and parallel expected/typed/hover/type/unit records, equations,
+residual IR, and `ready` solver plans with sparsity metadata are verified
+together. Domain headers, type parameters, across/through variables, and
+conservation expressions are verified together. Class headers, fields and
+defaults, validation expressions, and method return/expression metadata are
+verified together. Imported state-space structures, components, and class
+objects use full analysis. Only root import declaration lines are
 reparsed for verification; supported imported definitions and other
 richer-prefix constructs are preserved without reparsing or semantic reanalysis.
 Compiler-validated suffix expressions may use

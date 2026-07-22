@@ -672,9 +672,12 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// static file imports when every compiler import record exactly matches its root source line, span,
 /// kind, and status. Static imports additionally require the complete recursive path-to-source-ID
 /// registry to reproduce exactly and limit imported semantic definitions to schemas, constants,
-/// functions, domains, and classes with internally consistent registered source ownership. Only
-/// root import declaration lines are reparsed for verification; imported definitions and other
-/// richer prefix constructs are not reparsed or reanalyzed.
+/// functions, basic systems, domains, and classes with internally consistent registered source
+/// ownership. Basic system headers, variables and parallel type/editor records, equations,
+/// residual IR, and static solver plans are verified together. Imported state-space structures,
+/// components, and class objects remain ineligible. Only root import declaration lines are reparsed
+/// for verification; imported definitions and other richer prefix constructs are not reparsed or
+/// reanalyzed.
 /// Changes inside it, a token-bearing non-declaration in the affected suffix, diagnostics,
 /// unsupported calls, unverifiable cache or axis metadata, unresolved or duplicate names, and edits
 /// without an affected declaration return `None` for a normal full check.
@@ -1574,6 +1577,7 @@ fn incremental_report_requires_rich_prefix_contract(
     offsets: IncrementalScalarRecordOffsets,
 ) -> bool {
     !report.semantic_program.schemas.is_empty()
+        || !report.semantic_program.systems.is_empty()
         || !report.semantic_program.domains.is_empty()
         || !report.semantic_program.classes.is_empty()
         || report
@@ -1600,13 +1604,9 @@ fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckRep
     let program = &report.semantic_program;
 
     let unsupported_imported_definition = program
-        .systems
+        .state_space_type_blocks
         .iter()
         .any(|info| !info.span.is_root_source())
-        || program
-            .state_space_type_blocks
-            .iter()
-            .any(|info| !info.span.is_root_source())
         || program
             .state_space_vectors
             .iter()
@@ -1636,6 +1636,9 @@ fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckRep
             .iter()
             .any(|info| !info.span.is_root_source());
     if unsupported_imported_definition {
+        return false;
+    }
+    if report.syntax_summary.systems != program.systems.len() {
         return false;
     }
 
@@ -1727,6 +1730,8 @@ fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckRep
                 .missing_policies
                 .iter()
                 .all(|policy| policy.line > schema.line)
+    }) && program.systems.iter().all(|system| {
+        incremental_system_definition_ownership_matches_report(system, &source_ids, program)
     }) && program
         .domains
         .iter()
@@ -1735,6 +1740,217 @@ fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckRep
             .classes
             .iter()
             .all(|class| incremental_class_definition_ownership_matches_report(class, &source_ids))
+}
+
+fn incremental_system_definition_ownership_matches_report(
+    system: &semantic::SystemInfo,
+    source_ids: &HashSet<usize>,
+    program: &semantic::SemanticProgram,
+) -> bool {
+    let source_id = system.span.source_id;
+    if !source_ids.contains(&source_id)
+        || system.line != system.span.line
+        || !system.variables.iter().all(|variable| {
+            incremental_system_variable_ownership_matches_report(variable, source_id, program)
+        })
+    {
+        return false;
+    }
+
+    let equation_count = system.equations.len();
+    let plan = &system.solver_plan;
+    if system.residuals.len() != equation_count
+        || system.equation_ir.len() != equation_count
+        || plan.solve_order.len() != equation_count
+        || plan.jacobian_sparsity.len() != equation_count
+        || plan.jacobian_seed.len() != equation_count
+        || plan.status != "ready"
+        || plan.method != "source_order_residual_plan"
+        || plan.ode_runner.status != "not_executed"
+        || plan.ode_runner.reason
+            != "native runtime selects an eligible solver when execution is requested"
+    {
+        return false;
+    }
+
+    system
+        .equations
+        .iter()
+        .enumerate()
+        .all(|(index, equation)| {
+            let residual = &system.residuals[index];
+            let equation_ir = &system.equation_ir[index];
+            let sparsity = &plan.jacobian_sparsity[index];
+            let compatibility_seed = &plan.jacobian_seed[index];
+            let residual_name = format!("{}.residual_{}", system.name, index + 1);
+            let normalized_residual = format!("{} - ({})", equation.left, equation.right);
+            let dependencies =
+                semantic::equation_dependencies(&equation.left, &equation.right, &system.variables);
+            let derivative_states =
+                semantic::derivative_states(&equation.left, &equation.right, &system.variables);
+            let jacobian_variables = dependencies
+                .iter()
+                .filter(|dependency| dependency.role == "state")
+                .map(|dependency| dependency.name.clone())
+                .collect::<Vec<_>>();
+            let dimensions_match = match equation.status.as_str() {
+                "unit_consistent" => {
+                    equation.left_dimension != "unknown"
+                        && equation.left_dimension == equation.right_dimension
+                        && residual.dimension == equation.left_dimension
+                }
+                "unit_unresolved" => residual.dimension == "unknown",
+                _ => false,
+            };
+
+            equation.system == system.name
+                && equation.span.source_id == source_id
+                && equation.left_span.source_id == source_id
+                && equation.right_span.source_id == source_id
+                && equation.line == equation.span.line
+                && equation.left_span.line == equation.line
+                && equation.right_span.line == equation.line
+                && equation.relation == "eq"
+                && equation.residual == residual_name
+                && dimensions_match
+                && residual.system == system.name
+                && residual.name == residual_name
+                && residual.expression == normalized_residual
+                && residual.line == equation.line
+                && equation_ir.system == system.name
+                && equation_ir.residual == residual_name
+                && equation_ir.relation == "eq"
+                && equation_ir.normalized_residual == normalized_residual
+                && equation_ir.dependencies == dependencies
+                && equation_ir.derivative_states == derivative_states
+                && equation_ir.status == equation.status
+                && equation_ir.line == equation.line
+                && plan.solve_order[index] == residual_name
+                && sparsity.residual == residual_name
+                && sparsity.with_respect_to == jacobian_variables
+                && sparsity.derivative_states == derivative_states
+                && sparsity.status == "sparsity_metadata"
+                && compatibility_seed.residual == residual_name
+                && compatibility_seed.with_respect_to == jacobian_variables
+                && compatibility_seed.derivative_states == derivative_states
+                && compatibility_seed.status == "symbolic_seed"
+        })
+}
+
+fn incremental_system_variable_ownership_matches_report(
+    variable: &semantic::SystemVariableInfo,
+    source_id: usize,
+    program: &semantic::SemanticProgram,
+) -> bool {
+    if variable.span.source_id != source_id
+        || variable.type_span.source_id != source_id
+        || variable.line != variable.span.line
+        || variable.type_span.line != variable.line
+        || variable
+            .unit_span
+            .is_some_and(|span| span.source_id != source_id || span.line != variable.line)
+        || variable
+            .expression_span
+            .is_some_and(|span| span.source_id != source_id || span.line != variable.line)
+        || !matches!(
+            variable.role.as_str(),
+            "parameter" | "state" | "input" | "output"
+        )
+        || variable.type_name != variable.quantity_kind
+    {
+        return false;
+    }
+
+    let expected_type = ExpectedType {
+        name: variable.name.clone(),
+        quantity_kind: variable.quantity_kind.clone(),
+        display_unit: Some(variable.display_unit.clone()),
+        source: ExpectedTypeSource::SystemBoundary,
+        line: variable.line,
+        span: variable.span,
+    };
+    let typed_binding = TypedBinding {
+        name: variable.name.clone(),
+        semantic_type: semantic::SemanticType {
+            quantity_kind: variable.quantity_kind.clone(),
+            display_unit: variable.display_unit.clone(),
+        },
+        line: variable.line,
+        span: variable.span,
+    };
+    let hover = HoverHint::explicit(
+        variable.name.clone(),
+        variable.quantity_kind.clone(),
+        variable.display_unit.clone(),
+        variable.initial_value.clone(),
+        variable.span,
+    );
+    let type_info = TypeInfo {
+        name: variable.name.clone(),
+        quantity_kind: variable.quantity_kind.clone(),
+        display_unit: variable.display_unit.clone(),
+        canonical_unit: variable.canonical_unit.clone(),
+        dimension: variable.dimension.clone(),
+        source: TypeInfoSource::SystemBoundary,
+        line: variable.line,
+        span: variable.span,
+    };
+    let unit_derivation = crate::units::unit_derivation(
+        &variable.name,
+        variable.initial_value.as_deref(),
+        &variable.quantity_kind,
+        &variable.display_unit,
+        &variable.canonical_unit,
+        variable.line,
+    );
+    let owns_source_record = |name: &str, span: SourceSpan, line: usize| {
+        name == variable.name && span == variable.span && line == variable.line
+    };
+
+    program
+        .expected_types
+        .iter()
+        .filter(|info| owns_source_record(&info.name, info.span, info.line))
+        .count()
+        == 1
+        && program
+            .expected_types
+            .iter()
+            .any(|info| info == &expected_type)
+        && program
+            .typed_bindings
+            .iter()
+            .filter(|info| owns_source_record(&info.name, info.span, info.line))
+            .count()
+            == 1
+        && program
+            .typed_bindings
+            .iter()
+            .any(|info| info == &typed_binding)
+        && program
+            .hover_hints
+            .iter()
+            .filter(|info| owns_source_record(&info.name, info.span, info.line))
+            .count()
+            == 1
+        && program.hover_hints.iter().any(|info| info == &hover)
+        && program
+            .type_infos
+            .iter()
+            .filter(|info| owns_source_record(&info.name, info.span, info.line))
+            .count()
+            == 1
+        && program.type_infos.iter().any(|info| info == &type_info)
+        && program
+            .unit_derivations
+            .iter()
+            .filter(|info| info.name == variable.name && info.line == variable.line)
+            .count()
+            == 1
+        && program
+            .unit_derivations
+            .iter()
+            .any(|info| info == &unit_derivation)
 }
 
 fn incremental_domain_definition_ownership_matches_report(
@@ -12502,6 +12718,163 @@ factor = 0.5
             .is_none(),
             "the fast-only API must not adopt the rich declaration-prefix contract"
         );
+    }
+
+    #[test]
+    fn incrementally_rechecks_scalar_suffix_after_unchanged_static_system_import() {
+        fn assert_fresh_equivalent(reused: &CheckReport, fresh: &CheckReport, source: &str) {
+            assert_eq!(reused.source_path, fresh.source_path);
+            assert_eq!(reused.source_files, fresh.source_files);
+            assert_eq!(reused.source_hash, fresh.source_hash);
+            assert_eq!(reused.source_lines, fresh.source_lines);
+            assert_eq!(reused.diagnostics, fresh.diagnostics);
+            assert_eq!(reused.inferred_declarations, fresh.inferred_declarations);
+            assert_eq!(reused.syntax_summary, fresh.syntax_summary);
+            assert_eq!(reused.semantic_program, fresh.semantic_program);
+            assert_eq!(
+                reused.quantity_completion_count,
+                fresh.quantity_completion_count
+            );
+            assert_eq!(reused.unit_info_count, fresh.unit_info_count);
+            assert_eq!(review_json(reused), review_json(fresh));
+            assert_eq!(
+                encode_bytecode(&build_bytecode_program(reused, source)),
+                encode_bytecode(&build_bytecode_program(fresh, source))
+            );
+        }
+
+        let root = std::env::temp_dir().join(format!(
+            "eng_compiler_incremental_static_system_import_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("static system import fixture should be created");
+        std::fs::write(
+            root.join("system.eng"),
+            r#"system ImportedRoomThermal {
+    parameter C: HeatCapacity = 500 kJ/K
+    parameter UA: Conductance = 150 W/K
+    state T: AbsoluteTemperature = 24 degC
+    input T_out: AbsoluteTemperature
+    input Q_internal: HeatRate
+    output T_report: AbsoluteTemperature = 24 degC
+    equation {
+        C * der(T) eq UA * (T_out - T) + Q_internal
+    }
+}
+"#,
+        )
+        .expect("imported system module should be written");
+        std::fs::write(root.join("shared.eng"), "use \"system.eng\"\n")
+            .expect("recursive system module should be written");
+        let main_path = root.join("main.eng");
+        let previous_source = r#"use "shared.eng"
+base = 2 m
+factor = 0.5
+"#;
+        let source = r#"use "shared.eng"
+base = 180 cm
+factor = 0.75
+adjusted = base * factor
+"#;
+        std::fs::write(&main_path, previous_source).expect("system root should be written");
+        let previous = check_source(&main_path, previous_source, &CheckOptions::default());
+        assert!(
+            previous.diagnostics.is_empty(),
+            "unexpected imported system diagnostics: {:#?}",
+            previous.diagnostics
+        );
+        assert_eq!(previous.source_files.len(), 3);
+        assert_eq!(previous.semantic_program.imports.len(), 1);
+        assert_eq!(previous.semantic_program.systems.len(), 1);
+        let system = &previous.semantic_program.systems[0];
+        assert_eq!(system.variables.len(), 6);
+        assert_eq!(system.equations.len(), 1);
+        assert_eq!(system.residuals.len(), 1);
+        assert_eq!(system.equation_ir.len(), 1);
+        assert_eq!(system.solver_plan.status, "ready");
+        assert_eq!(system.solver_plan.ode_runner.status, "not_executed");
+        assert_eq!(system.span.source_id, previous.source_files[2].source_id);
+
+        let reused =
+            recheck_scalar_declaration_suffix_incrementally(&previous, previous_source, source)
+                .expect("an unchanged recursive system import should preserve the scalar suffix");
+        let fresh = check_source(&main_path, source, &CheckOptions::default());
+        assert_fresh_equivalent(&reused, &fresh, source);
+        assert_eq!(
+            reused.semantic_program.systems,
+            previous.semantic_program.systems
+        );
+
+        let mut stale_system_owner = previous.clone();
+        stale_system_owner.semantic_program.systems[0]
+            .span
+            .source_id = SourceSpan::ROOT_SOURCE_ID;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_system_owner,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "inconsistent imported system ownership must use full analysis"
+        );
+
+        let imported_source_id = previous.semantic_program.systems[0].span.source_id;
+        let mut stale_parallel_type = previous.clone();
+        stale_parallel_type
+            .semantic_program
+            .expected_types
+            .iter_mut()
+            .find(|info| info.name == "C" && info.span.source_id == imported_source_id)
+            .expect("imported system variable expected-type record")
+            .source = ExpectedTypeSource::Unknown;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_parallel_type,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "inconsistent imported system parallel metadata must use full analysis"
+        );
+
+        let mut stale_equation_owner = previous.clone();
+        stale_equation_owner.semantic_program.systems[0].equations[0]
+            .right_span
+            .source_id = SourceSpan::ROOT_SOURCE_ID;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_equation_owner,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "inconsistent imported equation ownership must use full analysis"
+        );
+
+        let mut stale_solver_plan = previous.clone();
+        stale_solver_plan.semantic_program.systems[0]
+            .solver_plan
+            .jacobian_sparsity[0]
+            .with_respect_to
+            .clear();
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_solver_plan,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "inconsistent imported solver-plan metadata must use full analysis"
+        );
+        assert!(
+            recheck_scalar_binding_suffix_incrementally(&previous, previous_source, source)
+                .is_none(),
+            "the fast-only API must retain its scalar-only static import contract"
+        );
+
+        std::fs::remove_dir_all(&root).expect("static system import fixture should be removed");
     }
 
     #[test]

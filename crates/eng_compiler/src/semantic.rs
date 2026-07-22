@@ -14927,7 +14927,7 @@ fn analyze_equation(
     });
 }
 
-fn equation_dependencies(
+pub(super) fn equation_dependencies(
     left: &str,
     right: &str,
     variables: &[SystemVariableInfo],
@@ -15326,7 +15326,11 @@ fn leading_statement_word(
     })
 }
 
-fn derivative_states(left: &str, right: &str, variables: &[SystemVariableInfo]) -> Vec<String> {
+pub(super) fn derivative_states(
+    left: &str,
+    right: &str,
+    variables: &[SystemVariableInfo],
+) -> Vec<String> {
     let expression = format!("{left} {right}");
     variables
         .iter()
