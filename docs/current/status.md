@@ -134,8 +134,11 @@ review material. It is not a broad solver claim.
   resolver as the LSP for local/imported user functions, zero-argument
   class-object methods, and compiler-owned built-in overloads. It validates
   UTF-16 caret positions and all modified open EngLang imports, rejects stale
-  responses, and briefly reuses only an exact path/source/open-document
-  analysis so the following live check does not duplicate compilation.
+  responses, and shares its report with live checks. Exact inputs reuse the
+  same report during a hard two-second window; eligible token-stable trivia and
+  final scalar-declaration suffix edits use the compiler's bounded incremental
+  recheck without extending that window. Changed paths, open-document
+  snapshots, broader edits, and expired entries use full analysis.
 - Packaged editor-tooling binary plus an internal persistent VS Code stdio
   client for document sync, diagnostics, semantic tokens, typed signature help
   for user functions, zero-argument class-object methods, and compiler-owned

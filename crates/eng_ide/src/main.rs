@@ -11,9 +11,11 @@ use std::time::{Duration, Instant};
 
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, bundled_module_registry, check_source,
-    check_source_with_import_overrides, format_source, review_semantic_diff, CheckOptions,
-    CheckReport, ImportSourceOverrides, Severity, BEHAVIOR_CONTRACT_RESOLVED,
-    BEHAVIOR_IDENTITY_CONTRACT, BEHAVIOR_RELATIONSHIP_RESOLVED, BEHAVIOR_STATUS_DECLARED,
+    check_source_with_import_overrides, format_source,
+    recheck_scalar_declaration_suffix_incrementally, retarget_check_report_for_token_stable_trivia,
+    review_semantic_diff, CheckOptions, CheckReport, ImportSourceOverrides, Severity,
+    BEHAVIOR_CONTRACT_RESOLVED, BEHAVIOR_IDENTITY_CONTRACT, BEHAVIOR_RELATIONSHIP_RESOLVED,
+    BEHAVIOR_STATUS_DECLARED,
 };
 use eng_runtime::{run_file, run_source, ExecutionProfile, RunOptions, RuntimeError};
 use serde::{Deserialize, Serialize};
@@ -48,7 +50,7 @@ struct CachedIdeAnalysis {
     source: String,
     documents: Vec<(PathBuf, String)>,
     report: Arc<CheckReport>,
-    checked_at: Instant,
+    validated_at: Instant,
 }
 
 #[derive(Clone, Serialize)]
@@ -589,7 +591,8 @@ fn validated_ide_analysis_input(
         .canonicalize()
         .map_err(|error| format!("Could not resolve the EngLang workspace: {error}"))?;
     let path = canonical_workspace_document_path(&root, path)?;
-    let documents = validated_workspace_documents(&root, documents)?;
+    let mut documents = validated_workspace_documents(&root, documents)?;
+    documents.sort_by(|left, right| left.0.cmp(&right.0));
     Ok((path, documents))
 }
 
@@ -599,19 +602,29 @@ fn ide_analysis_report(
     source: &str,
     documents: &[(PathBuf, String)],
 ) -> Result<Arc<CheckReport>, String> {
-    {
-        let cached = state
-            .analysis
-            .lock()
-            .map_err(|_| "Native IDE analysis cache is unavailable.".to_owned())?;
-        if let Some(cached) = cached.as_ref() {
-            if cached.checked_at.elapsed() <= NATIVE_IDE_ANALYSIS_CACHE_TTL
-                && cached.path == path
-                && cached.source == source
-                && cached.documents == documents
-            {
-                return Ok(Arc::clone(&cached.report));
-            }
+    let mut cache = state
+        .analysis
+        .lock()
+        .map_err(|_| "Native IDE analysis cache is unavailable.".to_owned())?;
+    if let Some(cached) = cache.as_ref() {
+        if cached.validated_at.elapsed() <= NATIVE_IDE_ANALYSIS_CACHE_TTL
+            && cached.path == path
+            && cached.source == source
+            && cached.documents == documents
+        {
+            return Ok(Arc::clone(&cached.report));
+        }
+        if let Some(report) = incrementally_recheck_ide_analysis(cached, path, source, documents) {
+            let validated_at = cached.validated_at;
+            let report = Arc::new(report);
+            *cache = Some(CachedIdeAnalysis {
+                path: path.to_path_buf(),
+                source: source.to_owned(),
+                documents: documents.to_vec(),
+                report: Arc::clone(&report),
+                validated_at,
+            });
+            return Ok(report);
         }
     }
 
@@ -627,18 +640,32 @@ fn ide_analysis_report(
         &import_overrides,
         &CheckOptions::default(),
     ));
-    let mut cached = state
-        .analysis
-        .lock()
-        .map_err(|_| "Native IDE analysis cache is unavailable.".to_owned())?;
-    *cached = Some(CachedIdeAnalysis {
+    *cache = Some(CachedIdeAnalysis {
         path: path.to_path_buf(),
         source: source.to_owned(),
         documents: documents.to_vec(),
         report: Arc::clone(&report),
-        checked_at: Instant::now(),
+        validated_at: Instant::now(),
     });
     Ok(report)
+}
+
+fn incrementally_recheck_ide_analysis(
+    cached: &CachedIdeAnalysis,
+    path: &Path,
+    source: &str,
+    documents: &[(PathBuf, String)],
+) -> Option<CheckReport> {
+    if cached.validated_at.elapsed() > NATIVE_IDE_ANALYSIS_CACHE_TTL
+        || cached.path != path
+        || cached.source == source
+        || cached.documents != documents
+    {
+        return None;
+    }
+    retarget_check_report_for_token_stable_trivia(&cached.report, &cached.source, source).or_else(
+        || recheck_scalar_declaration_suffix_incrementally(&cached.report, &cached.source, source),
+    )
 }
 
 fn signature_help_view(report: &CheckReport, source: &str, line: usize, character: usize) -> Value {
@@ -5296,10 +5323,14 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "NATIVE_IDE_ANALYSIS_CACHE_TTL",
         "fn ide_signature_help",
         "fn ide_analysis_report",
+        "fn incrementally_recheck_ide_analysis",
+        "retarget_check_report_for_token_stable_trivia",
+        "recheck_scalar_declaration_suffix_incrementally",
         "eng_lsp::signature_help_at",
         "eng_lsp::signature_help_lsp_json",
         "Arc::clone(&cached.report)",
-        "native_ide_analysis_cache_reuses_only_fresh_exact_inputs",
+        "native_ide_analysis_cache_reuses_exact_and_safe_incremental_inputs",
+        "native_ide_incremental_analysis_rejects_stale_or_different_context",
         "native_ide_signature_help_uses_compiler_analysis_and_utf16_positions",
     ] {
         if !main_rs.contains(required) {
@@ -5501,28 +5532,156 @@ mod tests {
     }
 
     #[test]
-    fn native_ide_analysis_cache_reuses_only_fresh_exact_inputs() {
+    fn native_ide_analysis_cache_reuses_exact_and_safe_incremental_inputs() {
+        fn assert_fresh_equivalent(reused: &CheckReport, fresh: &CheckReport) {
+            assert_eq!(reused.source_path, fresh.source_path);
+            assert_eq!(reused.source_files, fresh.source_files);
+            assert_eq!(reused.source_hash, fresh.source_hash);
+            assert_eq!(reused.source_lines, fresh.source_lines);
+            assert_eq!(reused.diagnostics, fresh.diagnostics);
+            assert_eq!(reused.inferred_declarations, fresh.inferred_declarations);
+            assert_eq!(reused.syntax_summary, fresh.syntax_summary);
+            assert_eq!(reused.semantic_program, fresh.semantic_program);
+        }
+
         let state = IdeState::default();
         let path = Path::new("native_ide_analysis_cache.eng");
         let documents = Vec::new();
-        let first = ide_analysis_report(&state, path, "value = 1 m\n", &documents)
+        let initial_source = "value = 1 m\n# alpha\n";
+        let trivia_source = "value = 1 m\n# bravo\n";
+        let scalar_source = "value = 2 m\n# bravo\n";
+        let first = ide_analysis_report(&state, path, initial_source, &documents)
             .expect("initial analysis");
-        let reused = ide_analysis_report(&state, path, "value = 1 m\n", &documents)
-            .expect("reused analysis");
+        let validated_at = state
+            .analysis
+            .lock()
+            .expect("analysis cache")
+            .as_ref()
+            .expect("cached analysis")
+            .validated_at;
+        let reused =
+            ide_analysis_report(&state, path, initial_source, &documents).expect("reused analysis");
         assert!(Arc::ptr_eq(&first, &reused));
 
-        let changed = ide_analysis_report(&state, path, "value = 2 m\n", &documents)
-            .expect("changed analysis");
-        assert!(!Arc::ptr_eq(&reused, &changed));
+        let trivia = ide_analysis_report(&state, path, trivia_source, &documents)
+            .expect("token-stable trivia analysis");
+        assert!(!Arc::ptr_eq(&reused, &trivia));
+        assert_eq!(
+            state
+                .analysis
+                .lock()
+                .expect("analysis cache")
+                .as_ref()
+                .expect("cached analysis")
+                .validated_at,
+            validated_at,
+            "incremental reuse must not extend the hard validation window"
+        );
+        let trivia_fresh = check_source(path, trivia_source, &CheckOptions::default());
+        assert_fresh_equivalent(&trivia, &trivia_fresh);
+
+        let scalar = ide_analysis_report(&state, path, scalar_source, &documents)
+            .expect("scalar suffix analysis");
+        assert!(!Arc::ptr_eq(&trivia, &scalar));
+        assert_eq!(
+            state
+                .analysis
+                .lock()
+                .expect("analysis cache")
+                .as_ref()
+                .expect("cached analysis")
+                .validated_at,
+            validated_at
+        );
+        let scalar_fresh = check_source(path, scalar_source, &CheckOptions::default());
+        assert_fresh_equivalent(&scalar, &scalar_fresh);
+
+        let unsupported_source = concat!(
+            "fn identity(value: Length [m]) -> Length [m] {\n",
+            "    return value\n",
+            "}\n",
+            "result = identity(2 m)\n",
+        );
+        let full = ide_analysis_report(&state, path, unsupported_source, &documents)
+            .expect("unsupported edit should receive a full analysis");
+        assert!(!Arc::ptr_eq(&scalar, &full));
+        let full_validated_at = state
+            .analysis
+            .lock()
+            .expect("analysis cache")
+            .as_ref()
+            .expect("cached analysis")
+            .validated_at;
+        assert!(full_validated_at > validated_at);
+        let full_fresh = check_source(path, unsupported_source, &CheckOptions::default());
+        assert_fresh_equivalent(&full, &full_fresh);
 
         {
             let mut cached = state.analysis.lock().expect("analysis cache");
-            cached.as_mut().expect("cached analysis").checked_at =
+            cached.as_mut().expect("cached analysis").validated_at =
                 Instant::now() - NATIVE_IDE_ANALYSIS_CACHE_TTL - Duration::from_millis(1);
         }
-        let refreshed = ide_analysis_report(&state, path, "value = 2 m\n", &documents)
+        let refreshed = ide_analysis_report(&state, path, unsupported_source, &documents)
             .expect("expired analysis");
-        assert!(!Arc::ptr_eq(&changed, &refreshed));
+        assert!(!Arc::ptr_eq(&full, &refreshed));
+    }
+
+    #[test]
+    fn native_ide_incremental_analysis_rejects_stale_or_different_context() {
+        let path = Path::new("native_ide_incremental_context.eng");
+        let source = "value = 1 m\n";
+        let report = Arc::new(check_source(path, source, &CheckOptions::default()));
+        let documents = vec![(
+            PathBuf::from("dependency.eng"),
+            "const imported: Length [m] = 1 m\n".to_owned(),
+        )];
+        let mut cached = CachedIdeAnalysis {
+            path: path.to_path_buf(),
+            source: source.to_owned(),
+            documents: documents.clone(),
+            report,
+            validated_at: Instant::now(),
+        };
+
+        assert!(
+            incrementally_recheck_ide_analysis(&cached, path, "value = 2 m\n", &documents,)
+                .is_some()
+        );
+        assert!(incrementally_recheck_ide_analysis(
+            &cached,
+            Path::new("different.eng"),
+            "value = 2 m\n",
+            &documents,
+        )
+        .is_none());
+        assert!(incrementally_recheck_ide_analysis(
+            &cached,
+            path,
+            "value = 2 m\n",
+            &[(
+                PathBuf::from("dependency.eng"),
+                "const imported: Length [m] = 2 m\n".to_owned(),
+            )],
+        )
+        .is_none());
+        assert!(incrementally_recheck_ide_analysis(
+            &cached,
+            path,
+            "fn changed() -> Length [m] {\n    return 2 m\n}\n",
+            &documents,
+        )
+        .is_none());
+        assert!(
+            incrementally_recheck_ide_analysis(&cached, path, source, &documents).is_none(),
+            "exact-source reuse belongs to the direct cache hit"
+        );
+
+        cached.validated_at =
+            Instant::now() - NATIVE_IDE_ANALYSIS_CACHE_TTL - Duration::from_millis(1);
+        assert!(
+            incrementally_recheck_ide_analysis(&cached, path, "value = 2 m\n", &documents,)
+                .is_none()
+        );
     }
 
     #[test]

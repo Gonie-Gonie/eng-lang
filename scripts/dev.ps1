@@ -9028,11 +9028,15 @@ function Invoke-IdeCheck {
         "NATIVE_IDE_ANALYSIS_CACHE_TTL",
         "fn ide_signature_help",
         "fn ide_analysis_report",
+        "fn incrementally_recheck_ide_analysis",
+        "retarget_check_report_for_token_stable_trivia",
+        "recheck_scalar_declaration_suffix_incrementally",
         "eng_lsp::signature_help_at",
         "eng_lsp::signature_help_lsp_json",
         "cached.documents == documents",
         "Arc::clone(&cached.report)",
-        "native_ide_analysis_cache_reuses_only_fresh_exact_inputs",
+        "native_ide_analysis_cache_reuses_exact_and_safe_incremental_inputs",
+        "native_ide_incremental_analysis_rejects_stale_or_different_context",
         "native_ide_signature_help_uses_compiler_analysis_and_utf16_positions"
     )) {
         if (-not $IdeMainSource.Contains($RequiredNativeIdeSignatureHelpBackendToken)) {

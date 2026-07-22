@@ -101,7 +101,12 @@ Editor
   precise colors and Problems diagnostics from the unsaved buffer after a
   short typing pause. Live analysis resolves recursive static imports from
   every other modified open EngLang tab before disk, and discards a result if
-  any participating tab changes during the check. Check and Run still force an
+  any participating tab changes during the check. Within a hard two-second
+  validity window, call help and live checks share an exact analysis; edits to
+  standalone comments or blank lines with unchanged token anchors and supported
+  final scalar declarations use the compiler's bounded incremental recheck.
+  A different selected file, modified import snapshot, broader syntax edit, or
+  expired window receives a normal full analysis. Check and Run still force an
   immediate refresh. A fixed line-number gutter stays aligned with the editable
   and highlighted source while scrolling, updates as lines are added or
   removed, and widens automatically for long files. Ctrl+G or the clickable

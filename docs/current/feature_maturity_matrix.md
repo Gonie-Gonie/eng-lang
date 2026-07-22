@@ -141,7 +141,8 @@ separate.
   local/imported user functions, zero-argument class-object methods, and
   callable built-in overloads.
 - Evidence: release-check, package-smoke, IDE smoke, native editor-safety
-  tests for UTF-16 positions, dirty imports, and stale call-help results.
+  tests for UTF-16 positions, dirty imports, stale call-help results, exact
+  report reuse, bounded incremental rechecks, and strict full-analysis fallback.
 - Not included: a public cross-release compatibility commitment for the
   persistent editor protocol or a production editor platform claim.
 - Next cleanup action: lead IDE docs with TimeSeries/schema/unit/report review.
@@ -372,8 +373,11 @@ separate.
   callable built-in.
   The native IDE routes call help through the same signature resolver, sends
   every modified open EngLang import with the current buffer, rejects results
-  after caret or document changes, and uses a two-second exact-input analysis
-  cache so its live check can reuse the immediately preceding report.
+  after caret or document changes, and shares a compiler report with live
+  checks. During a hard two-second validity window, exact inputs reuse the same
+  report and eligible token-stable trivia or final scalar-declaration suffix
+  edits use the compiler's bounded incremental recheck. Path, dirty-import,
+  unsupported-edit, and TTL changes use full analysis.
   The older fast-binding-only and explicit-declaration-only APIs are mode-limited
   compatibility wrappers over this engine; lazy shared editor snapshots,
   recursive import-dependent invalidation, a VS Code persistent stdio client
