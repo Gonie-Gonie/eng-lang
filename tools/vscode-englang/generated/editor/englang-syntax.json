@@ -754,19 +754,9 @@
                                                                    "ann"
                                                                ],
                            "legacy_workflow_option_aliases":  [
-                                                                  "bias",
-                                                                  "distribution",
-                                                                  "error",
                                                                   "fixture",
-                                                                  "gain",
                                                                   "layers",
-                                                                  "max",
-                                                                  "min",
-                                                                  "mu",
-                                                                  "n",
-                                                                  "sigma",
                                                                   "test_fraction",
-                                                                  "uncertainty",
                                                                   "x",
                                                                   "y"
                                                               ],
@@ -1360,6 +1350,91 @@
                                                                 {
                                                                     "detail":  "exact or nearest matching tolerance in seconds",
                                                                     "label":  "tolerance"
+                                                                }
+                                                            ],
+                           "uncertainty_argument_aliases":  [
+                                                                {
+                                                                    "alias":  "bias",
+                                                                    "calls":  [
+                                                                                  "propagate"
+                                                                              ],
+                                                                    "canonical":  "offset"
+                                                                },
+                                                                {
+                                                                    "alias":  "distribution",
+                                                                    "calls":  [
+                                                                                  "distribution"
+                                                                              ],
+                                                                    "canonical":  "kind"
+                                                                },
+                                                                {
+                                                                    "alias":  "error",
+                                                                    "calls":  [
+                                                                                  "measured"
+                                                                              ],
+                                                                    "canonical":  "relative_error"
+                                                                },
+                                                                {
+                                                                    "alias":  "gain",
+                                                                    "calls":  [
+                                                                                  "propagate"
+                                                                              ],
+                                                                    "canonical":  "scale"
+                                                                },
+                                                                {
+                                                                    "alias":  "max",
+                                                                    "calls":  [
+                                                                                  "interval",
+                                                                                  "uniform",
+                                                                                  "distribution"
+                                                                              ],
+                                                                    "canonical":  "upper"
+                                                                },
+                                                                {
+                                                                    "alias":  "min",
+                                                                    "calls":  [
+                                                                                  "interval",
+                                                                                  "uniform",
+                                                                                  "distribution"
+                                                                              ],
+                                                                    "canonical":  "lower"
+                                                                },
+                                                                {
+                                                                    "alias":  "mu",
+                                                                    "calls":  [
+                                                                                  "normal",
+                                                                                  "distribution"
+                                                                              ],
+                                                                    "canonical":  "mean"
+                                                                },
+                                                                {
+                                                                    "alias":  "n",
+                                                                    "calls":  [
+                                                                                  "measured",
+                                                                                  "interval",
+                                                                                  "normal",
+                                                                                  "uniform",
+                                                                                  "distribution",
+                                                                                  "ensemble",
+                                                                                  "propagate"
+                                                                              ],
+                                                                    "canonical":  "samples"
+                                                                },
+                                                                {
+                                                                    "alias":  "sigma",
+                                                                    "calls":  [
+                                                                                  "measured",
+                                                                                  "normal",
+                                                                                  "distribution"
+                                                                              ],
+                                                                    "canonical":  "std"
+                                                                },
+                                                                {
+                                                                    "alias":  "uncertainty",
+                                                                    "calls":  [
+                                                                                  "measured"
+                                                                              ],
+                                                                    "canonical":  "std"
                                                                 }
                                                             ],
                            "units":  [

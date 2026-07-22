@@ -5977,6 +5977,15 @@ with {
                         .any(|item| item["label"].as_str() == Some(*label))
                 })
         }));
+        assert!(catalog["uncertainty_argument_aliases"]
+            .as_array()
+            .is_some_and(|items| items.iter().any(|item| {
+                item["alias"].as_str() == Some("sigma")
+                    && item["canonical"].as_str() == Some("std")
+                    && item["calls"].as_array().is_some_and(|calls| {
+                        calls.iter().any(|call| call.as_str() == Some("normal"))
+                    })
+            })));
         assert!(catalog["case_run_result_table_fields"]
             .as_array()
             .is_some_and(|items| items

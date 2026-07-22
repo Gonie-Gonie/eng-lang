@@ -15,6 +15,7 @@ function loadEditorMetadata(extensionRoot) {
   const completionItems = metadata.completion_items;
   const syntaxCatalog = metadata.syntax_catalog ?? {};
   const keywordGroups = syntaxCatalog.keyword_groups ?? {};
+  const uncertaintyArgumentAliases = syntaxCatalog.uncertainty_argument_aliases;
   const requiredKeywordGroups = [
     "import",
     "deprecated",
@@ -47,6 +48,17 @@ function loadEditorMetadata(extensionRoot) {
     !Array.isArray(syntaxCatalog.hyphenated_workflow_builtins) ||
     !Array.isArray(syntaxCatalog.legacy_workflow_builtin_aliases) ||
     !Array.isArray(syntaxCatalog.legacy_workflow_option_aliases) ||
+    !Array.isArray(uncertaintyArgumentAliases) ||
+    uncertaintyArgumentAliases.some((item) => (
+      !item ||
+      typeof item.alias !== "string" ||
+      !item.alias.trim() ||
+      typeof item.canonical !== "string" ||
+      !item.canonical.trim() ||
+      !Array.isArray(item.calls) ||
+      item.calls.length === 0 ||
+      item.calls.some((call) => typeof call !== "string" || !call.trim())
+    )) ||
     !Array.isArray(syntaxCatalog.workflow_options) ||
     !Array.isArray(syntaxCatalog.public_types) ||
     !Array.isArray(syntaxCatalog.quantities) ||

@@ -195,7 +195,14 @@ Canonical uncertainty named arguments use
 semantic modifier after analysis. Compatibility-only `sigma`, `uncertainty`,
 `error`, `n`, `min`, `max`, `mu`, `distribution`, `gain`, and
 `bias` keys use `keyword.control.deprecated.englang` first paint and
-`property + uncertain + deprecated` semantic tokens.
+`property + uncertain + deprecated` semantic tokens only in the constructors
+listed for that alias by the compiler-owned
+`syntax_catalog.uncertainty_argument_aliases` registry. The TextMate generator
+emits one constructor-specific region per uncertainty call, and the native IDE
+lexical fallback consults the same call lists; equal spellings in unrelated
+named arguments are not colored as deprecated uncertainty aliases. TextMate
+uncertainty regions recursively consume nested parentheses and nested
+uncertainty calls so an inner call cannot terminate the outer argument context.
 
 External boundary constructors/checks such as `file(...)`, `dir(...)`,
 `url(...)`, `env(...)`, `secret env(...)`, and `exists(...)` use

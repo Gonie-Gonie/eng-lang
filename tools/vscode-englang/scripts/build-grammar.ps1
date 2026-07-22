@@ -134,6 +134,7 @@ $HyphenatedWorkflowBuiltinItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCata
 $LegacyWorkflowBuiltinAliasItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "legacy_workflow_builtin_aliases"
 $WorkflowOptionItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "workflow_options"
 $LegacyWorkflowOptionAliasItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "legacy_workflow_option_aliases"
+$UncertaintyArgumentAliasItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "uncertainty_argument_aliases"
 $LanguageConstantItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "constants"
 $WorkflowStatusLiteralItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "workflow_status_literals"
 $OperatorWordItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "operator_words"
@@ -154,6 +155,69 @@ $CaseResultCollectionTableFieldItems = Assert-SyntaxCatalogArray -Catalog $Synta
 $ModelFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "model_fields"
 $PredictionTableFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "prediction_table_fields"
 Assert-CatalogItemsHaveProperty -Items $WorkflowOptionItems -CatalogName "workflow_options" -PropertyName "label"
+Assert-CatalogItemsHaveProperty -Items $UncertaintyArgumentAliasItems -CatalogName "uncertainty_argument_aliases" -PropertyName "alias"
+Assert-CatalogItemsHaveProperty -Items $UncertaintyArgumentAliasItems -CatalogName "uncertainty_argument_aliases" -PropertyName "canonical"
+foreach ($UncertaintyArgumentAliasItem in $UncertaintyArgumentAliasItems) {
+    if (@($UncertaintyArgumentAliasItem.calls).Count -eq 0) {
+        throw "generated editor metadata syntax_catalog.uncertainty_argument_aliases item is missing calls"
+    }
+}
+
+function Expand-UncertaintyCallPatterns {
+    param(
+        [Parameter(Mandatory = $true)][object] $Grammar,
+        [Parameter(Mandatory = $true)][object[]] $AliasItems,
+        [Parameter(Mandatory = $true)][string[]] $Calls
+    )
+
+    $CallPatterns = @($Grammar.repository.uncertaintyCalls.patterns)
+    $TemplatePatterns = @($CallPatterns | Where-Object {
+        [string]$_.englangGenerated -eq "uncertainty-call-contexts"
+    })
+    if ($TemplatePatterns.Count -ne 1) {
+        throw "TextMate grammar source must define exactly one generated uncertainty call template"
+    }
+
+    $ExpandedPatterns = New-Object System.Collections.Generic.List[object]
+    foreach ($Pattern in $CallPatterns) {
+        if ([string]$Pattern.englangGenerated -ne "uncertainty-call-contexts") {
+            $ExpandedPatterns.Add($Pattern) | Out-Null
+            continue
+        }
+
+        foreach ($Call in $Calls) {
+            $Clone = ($Pattern | ConvertTo-Json -Depth 64) | ConvertFrom-Json
+            $Clone.PSObject.Properties.Remove("englangGenerated")
+            $Clone.begin = "\b($([regex]::Escape($Call)))\s*(\()"
+
+            $AliasPatterns = @($Clone.patterns | Where-Object {
+                [string]$_.englangGenerated -eq "uncertainty-argument-aliases"
+            })
+            if ($AliasPatterns.Count -ne 1) {
+                throw "generated uncertainty call template must contain exactly one alias pattern"
+            }
+
+            $AliasesForCall = @($AliasItems | Where-Object {
+                @($_.calls) -contains $Call
+            } | ForEach-Object {
+                [string]$_.alias
+            })
+            if ($AliasesForCall.Count -eq 0) {
+                $Clone.patterns = @($Clone.patterns | Where-Object {
+                    [string]$_.englangGenerated -ne "uncertainty-argument-aliases"
+                })
+            } else {
+                $AliasPattern = $AliasPatterns[0]
+                $AliasPattern.PSObject.Properties.Remove("englangGenerated")
+                $AliasAlternation = ConvertTo-RegexAlternation -Labels $AliasesForCall
+                $AliasPattern.match = "\b($AliasAlternation)\b\s*(=)"
+            }
+            $ExpandedPatterns.Add($Clone) | Out-Null
+        }
+    }
+
+    $Grammar.repository.uncertaintyCalls.patterns = $ExpandedPatterns.ToArray()
+}
 Assert-CatalogItemsHaveProperty -Items $PublicTypeItems -CatalogName "public_types" -PropertyName "base"
 Assert-CatalogItemsHaveProperty -Items $QuantityItems -CatalogName "quantities" -PropertyName "label"
 Assert-CatalogItemsHaveProperty -Items $UnitItems -CatalogName "units" -PropertyName "label"
@@ -174,6 +238,15 @@ $HyphenatedWorkflowBuiltins = @($HyphenatedWorkflowBuiltinItems | ForEach-Object
 $LegacyWorkflowBuiltinAliases = @($LegacyWorkflowBuiltinAliasItems | ForEach-Object { [string]$_ })
 $WorkflowOptions = @($WorkflowOptionItems | ForEach-Object { [string]$_.label })
 $LegacyWorkflowOptionAliases = @($LegacyWorkflowOptionAliasItems | ForEach-Object { [string]$_ })
+$UncertaintyArgumentAliases = @($UncertaintyArgumentAliasItems | ForEach-Object { [string]$_.alias })
+$UncertaintyBuiltinCalls = @($WorkflowBuiltinGroupItems["uncertain"] | ForEach-Object { [string]$_ })
+foreach ($UncertaintyArgumentAliasItem in $UncertaintyArgumentAliasItems) {
+    foreach ($Call in @($UncertaintyArgumentAliasItem.calls)) {
+        if ($UncertaintyBuiltinCalls -notcontains [string]$Call) {
+            throw "uncertainty argument alias $($UncertaintyArgumentAliasItem.alias) references unknown call $Call"
+        }
+    }
+}
 $LanguageConstants = @($LanguageConstantItems | ForEach-Object { [string]$_ })
 $WorkflowStatusLiterals = @($WorkflowStatusLiteralItems | ForEach-Object { [string]$_ })
 $OperatorWords = @($OperatorWordItems | ForEach-Object { [string]$_ })
@@ -291,6 +364,7 @@ $TemplateValues = @{
     "{{WORKFLOW_BUILTINS}}" = ConvertTo-RegexAlternation ($WorkflowBuiltins + $HyphenatedWorkflowBuiltins + $LegacyWorkflowBuiltinAliases)
     "{{WORKFLOW_OPTIONS}}" = ConvertTo-RegexAlternation ($WorkflowOptions + $LegacyWorkflowOptionAliases)
     "{{WORKFLOW_NAMED_ARGS}}" = ConvertTo-RegexAlternation ($WorkflowOptions + $LegacyWorkflowOptionAliases + $GrammarOnlyFunctionArgumentAliases)
+    "{{UNCERTAINTY_ARGUMENT_ALIASES}}" = ConvertTo-RegexAlternation $UncertaintyArgumentAliases
     "{{PUBLIC_MEMBER_FIELDS}}" = ConvertTo-RegexAlternation $PublicMemberFields
 }
 
@@ -302,6 +376,7 @@ if ($null -eq $Source.grammar) {
 if ([string]::IsNullOrWhiteSpace($Source.generatedPath)) {
     throw "TextMate grammar source must contain generatedPath"
 }
+Expand-UncertaintyCallPatterns -Grammar $Source.grammar -AliasItems $UncertaintyArgumentAliasItems -Calls $UncertaintyBuiltinCalls
 
 $GeneratedPath = Join-Path (Split-Path -Parent $SourcePath) $Source.generatedPath
 $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)

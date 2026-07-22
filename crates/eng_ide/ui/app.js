@@ -245,6 +245,7 @@ function emptySyntaxCatalog() {
     legacyWorkflowBuiltinAliases: [],
     workflowOptions: [],
     legacyWorkflowOptionAliases: [],
+    uncertaintyArgumentAliases: [],
     publicTypes: [],
     quantities: [],
     units: [],
@@ -288,6 +289,9 @@ function normalizeSyntaxCatalog(catalog) {
     workflowOptions: catalogItemLabels(source.workflowOptions ?? source.workflow_options),
     legacyWorkflowOptionAliases: stringArray(
       source.legacyWorkflowOptionAliases ?? source.legacy_workflow_option_aliases
+    ),
+    uncertaintyArgumentAliases: catalogArgumentAliases(
+      source.uncertaintyArgumentAliases ?? source.uncertainty_argument_aliases
     ),
     publicTypes: catalogPublicTypeLabels(source.publicTypes ?? source.public_types),
     quantities: catalogItemLabels(source.quantities),
@@ -342,6 +346,13 @@ function buildLexicalCatalog(catalog) {
       ...normalized.workflowOptions,
       ...normalized.legacyWorkflowOptionAliases
     ]),
+    uncertaintyArgumentAliases: new Map(normalized.uncertaintyArgumentAliases.map((item) => [
+      item.alias,
+      {
+        canonical: item.canonical,
+        calls: new Set(item.calls)
+      }
+    ])),
     publicTypes: new Set(normalized.publicTypes),
     quantities: new Set(normalized.quantities),
     units: new Set(unitLabels),
@@ -437,6 +448,20 @@ function escapeRegExp(value) {
 async function call(cmd, args = {}) {
   if (!invoke) throw new Error("Tauri invoke API is not available");
   return await invoke(cmd, args);
+}
+
+function catalogArgumentAliases(value) {
+  const aliases = [];
+  const seen = new Set();
+  for (const item of arrayOrEmpty(value)) {
+    const alias = String(item?.alias || "").trim();
+    const canonical = String(item?.canonical || "").trim();
+    const calls = uniqueStrings(arrayOrEmpty(item?.calls));
+    if (!alias || !canonical || calls.length === 0 || seen.has(alias)) continue;
+    seen.add(alias);
+    aliases.push({ alias, canonical, calls });
+  }
+  return aliases;
 }
 
 function currentReviewDocument() {
@@ -3563,7 +3588,11 @@ function highlightCoverageCatalog() {
       key: "option",
       label: "Options",
       filter: "option",
-      words: [...catalog.workflowOptions, ...catalog.legacyWorkflowOptionAliases]
+      words: [
+        ...catalog.workflowOptions,
+        ...catalog.legacyWorkflowOptionAliases,
+        ...catalog.uncertaintyArgumentAliases.map((item) => item.alias)
+      ]
     },
     {
       key: "unit",
@@ -9536,6 +9565,8 @@ function renderLexicalInterpolation(text) {
 function lexicalClassForWord(word, line, index) {
   if (line[index - 1] === ".") return "hl-property";
   const lexical = state.lexicalCatalog || buildLexicalCatalog(emptySyntaxCatalog());
+  const uncertaintyAliasClass = lexicalUncertaintyArgumentAliasClass(word, line, index, lexical);
+  if (uncertaintyAliasClass) return uncertaintyAliasClass;
   if (lexical.workflowStatusLiterals?.has(word) && isWorkflowStatusLiteralContext(line, index)) {
     return "hl-keyword hl-mod-workflowStep";
   }
@@ -9551,6 +9582,48 @@ function lexicalClassForWord(word, line, index) {
   if (lexical.publicTypes.has(word)) return "hl-type";
   if (lexical.quantities.has(word)) return "hl-mod-quantity";
   return lexicalCompletionClass(word);
+}
+
+function lexicalUncertaintyArgumentAliasClass(word, line, index, lexical) {
+  const item = lexical?.uncertaintyArgumentAliases?.get(word);
+  if (!item || !/^\s*=/.test(String(line || "").slice(index + word.length))) {
+    return "";
+  }
+  const call = lexicalEnclosingCallName(line, index);
+  return item.calls.has(call) ? "hl-property hl-mod-deprecated" : "";
+}
+
+function lexicalEnclosingCallName(line, index) {
+  const text = String(line || "");
+  const stack = [];
+  let cursor = 0;
+  while (cursor < Math.min(index, text.length)) {
+    const rest = text.slice(cursor);
+    if (rest.startsWith("//") || rest.startsWith("#")) break;
+    if (text[cursor] === "\"") {
+      cursor = scanStringEnd(text, cursor);
+      continue;
+    }
+    const word = /^[A-Za-z_][A-Za-z0-9_]*/.exec(rest);
+    if (word) {
+      let next = cursor + word[0].length;
+      while (next < index && /\s/.test(text[next])) next += 1;
+      if (text[next] === "(") {
+        stack.push(word[0]);
+        cursor = next + 1;
+      } else {
+        cursor += word[0].length;
+      }
+      continue;
+    }
+    if (text[cursor] === "(") {
+      stack.push("");
+    } else if (text[cursor] === ")") {
+      stack.pop();
+    }
+    cursor += 1;
+  }
+  return stack.at(-1) || "";
 }
 
 function isWorkflowStatusLiteralContext(line, index) {

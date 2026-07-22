@@ -20,6 +20,76 @@ pub struct UncertaintyNamedArgumentInfo {
     pub value_span: SourceSpan,
 }
 
+/// Compatibility spelling for a named uncertainty argument and the calls that accept it.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct UncertaintyArgumentAlias {
+    pub alias: &'static str,
+    pub canonical: &'static str,
+    pub calls: &'static [&'static str],
+}
+
+/// Compiler-owned compatibility registry consumed by diagnostics and editor metadata.
+pub const UNCERTAINTY_ARGUMENT_ALIASES: &[UncertaintyArgumentAlias] = &[
+    UncertaintyArgumentAlias {
+        alias: "bias",
+        canonical: "offset",
+        calls: &["propagate"],
+    },
+    UncertaintyArgumentAlias {
+        alias: "distribution",
+        canonical: "kind",
+        calls: &["distribution"],
+    },
+    UncertaintyArgumentAlias {
+        alias: "error",
+        canonical: "relative_error",
+        calls: &["measured"],
+    },
+    UncertaintyArgumentAlias {
+        alias: "gain",
+        canonical: "scale",
+        calls: &["propagate"],
+    },
+    UncertaintyArgumentAlias {
+        alias: "max",
+        canonical: "upper",
+        calls: &["interval", "uniform", "distribution"],
+    },
+    UncertaintyArgumentAlias {
+        alias: "min",
+        canonical: "lower",
+        calls: &["interval", "uniform", "distribution"],
+    },
+    UncertaintyArgumentAlias {
+        alias: "mu",
+        canonical: "mean",
+        calls: &["normal", "distribution"],
+    },
+    UncertaintyArgumentAlias {
+        alias: "n",
+        canonical: "samples",
+        calls: &[
+            "measured",
+            "interval",
+            "normal",
+            "uniform",
+            "distribution",
+            "ensemble",
+            "propagate",
+        ],
+    },
+    UncertaintyArgumentAlias {
+        alias: "sigma",
+        canonical: "std",
+        calls: &["measured", "normal", "distribution"],
+    },
+    UncertaintyArgumentAlias {
+        alias: "uncertainty",
+        canonical: "std",
+        calls: &["measured"],
+    },
+];
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UncertaintyInfo {
     pub binding: String,
@@ -193,19 +263,10 @@ pub fn argument_diagnostics(binding: &FastBinding) -> Vec<Diagnostic> {
 pub fn uncertainty_argument_alias(expression: &str, name: &str) -> Option<&'static str> {
     let call = uncertainty_call_name(expression)?;
     let alias = name.to_ascii_lowercase();
-    match (call, alias.as_str()) {
-        (_, "n") => Some("samples"),
-        ("measured", "sigma" | "uncertainty") => Some("std"),
-        ("measured", "error") => Some("relative_error"),
-        ("interval" | "uniform" | "distribution", "min") => Some("lower"),
-        ("interval" | "uniform" | "distribution", "max") => Some("upper"),
-        ("normal" | "distribution", "mu") => Some("mean"),
-        ("normal" | "distribution", "sigma") => Some("std"),
-        ("distribution", "distribution") => Some("kind"),
-        ("propagate", "gain") => Some("scale"),
-        ("propagate", "bias") => Some("offset"),
-        _ => None,
-    }
+    UNCERTAINTY_ARGUMENT_ALIASES
+        .iter()
+        .find(|item| item.alias == alias.as_str() && item.calls.contains(&call))
+        .map(|item| item.canonical)
 }
 
 pub fn uncertainty_semantic_type(name: &str, expression: &str) -> Option<(String, String)> {

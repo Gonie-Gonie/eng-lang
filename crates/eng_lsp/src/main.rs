@@ -12,6 +12,7 @@ use eng_compiler::{
     bundled_module_registry, check_source_with_import_overrides, format_source, parse_source,
     recheck_scalar_declaration_suffix_incrementally, retarget_check_report_for_token_stable_trivia,
     AstItem, CheckOptions, CheckReport, ImportSourceOverrides, ParseContext,
+    UNCERTAINTY_ARGUMENT_ALIASES,
 };
 use eng_lsp::{
     completion_items_at, completion_items_for_path_position, completion_items_for_source_position,
@@ -2546,32 +2547,15 @@ fn lsp_uncertainty_argument_alias_code_action(
     text: &str,
     diagnostic: &Value,
 ) -> Option<Value> {
-    for (alias, canonical, title) in [
-        ("bias", "offset", "Replace uncertainty argument with offset"),
-        (
-            "distribution",
-            "kind",
-            "Replace uncertainty argument with kind",
-        ),
-        (
-            "error",
-            "relative_error",
-            "Replace uncertainty argument with relative_error",
-        ),
-        ("gain", "scale", "Replace uncertainty argument with scale"),
-        ("max", "upper", "Replace uncertainty argument with upper"),
-        ("min", "lower", "Replace uncertainty argument with lower"),
-        ("mu", "mean", "Replace uncertainty argument with mean"),
-        ("n", "samples", "Replace uncertainty argument with samples"),
-        ("sigma", "std", "Replace uncertainty argument with std"),
-        (
-            "uncertainty",
-            "std",
-            "Replace uncertainty argument with std",
-        ),
-    ] {
-        if diagnostic_range_for_exact_text(text, diagnostic, alias).is_some() {
-            return lsp_diagnostic_range_replacement_code_action(uri, diagnostic, canonical, title);
+    for item in UNCERTAINTY_ARGUMENT_ALIASES {
+        if diagnostic_range_for_exact_text(text, diagnostic, item.alias).is_some() {
+            let title = format!("Replace uncertainty argument with {}", item.canonical);
+            return lsp_diagnostic_range_replacement_code_action(
+                uri,
+                diagnostic,
+                item.canonical,
+                &title,
+            );
         }
     }
     None

@@ -2357,6 +2357,48 @@ function liveCheckTracksAllDirtyImportedBuffers() {
   assert.strictEqual(run("checkRequestIsCurrent(globalThis.liveCheckRequest)"), false);
 }
 
+function uncertaintyAliasLexicalFallbackUsesGeneratedCallContexts() {
+  run(`
+    globalThis.previousLexicalCatalog = state.lexicalCatalog;
+    state.lexicalCatalog = buildLexicalCatalog({
+      workflow_options: [
+        { label: "error" },
+        { label: "std" },
+        { label: "uncertainty" }
+      ],
+      uncertainty_argument_aliases: [
+        { alias: "bias", canonical: "offset", calls: ["propagate"] },
+        { alias: "error", canonical: "relative_error", calls: ["measured"] },
+        { alias: "sigma", canonical: "std", calls: ["measured", "normal", "distribution"] },
+        { alias: "uncertainty", canonical: "std", calls: ["measured"] }
+      ]
+    });
+  `);
+
+  assert.strictEqual(
+    run(`lexicalClassForWord("sigma", "Q = distribution(kind=normal, sigma=1)", "Q = distribution(kind=normal, sigma=1)".indexOf("sigma"))`),
+    "hl-property hl-mod-deprecated"
+  );
+  assert.strictEqual(
+    run(`lexicalClassForWord("bias", "Q = propagate(source, scale=max(1, 2), bias=0)", "Q = propagate(source, scale=max(1, 2), bias=0)".indexOf("bias"))`),
+    "hl-property hl-mod-deprecated"
+  );
+  assert.strictEqual(
+    run(`lexicalClassForWord("error", "Q = normal(error=1)", 11)`),
+    "hl-property"
+  );
+  assert.strictEqual(
+    run(`lexicalClassForWord("uncertainty", "    uncertainty = linear", 4)`),
+    "hl-property"
+  );
+  assert.strictEqual(
+    run(`lexicalClassForWord("std", "Q = normal(std=1)", 11)`),
+    "hl-property"
+  );
+
+  run("state.lexicalCatalog = globalThis.previousLexicalCatalog");
+}
+
 async function main() {
   await dirtyTabRequiresDecision();
   await reopeningDirtyTabPreservesTheOpenBuffer();
@@ -2407,6 +2449,7 @@ async function main() {
   await discardAllDecisionDestroysWithoutSaving();
   await saveAllFailureKeepsRemainingDirtyFilesOpen();
   liveCheckTracksAllDirtyImportedBuffers();
+  uncertaintyAliasLexicalFallbackUsesGeneratedCallContexts();
   process.stdout.write("Native IDE editor safety smoke passed.\n");
 }
 

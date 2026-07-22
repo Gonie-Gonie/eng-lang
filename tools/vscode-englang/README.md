@@ -697,7 +697,11 @@ TimeSeries, solver, validation, boundary, path, temporal, deprecated, and
 workflow-step first-paint lists used by the generated grammar and native IDE.
 `syntax_catalog.legacy_workflow_builtin_aliases` and
 `syntax_catalog.legacy_workflow_option_aliases` contain highlight-only compatibility
-spellings that are not added back to completions. `syntax_catalog.units` contains
+spellings that are not added back to completions.
+`syntax_catalog.uncertainty_argument_aliases` separately records each
+context-sensitive uncertainty alias, its canonical key, and the constructors
+where it applies; VS Code diagnostics/grammar and the native IDE lexical
+fallback consume that registry. `syntax_catalog.units` contains
 compiler unit labels; `syntax_catalog.legacy_unit_aliases` contains
 highlight-only compatibility aliases such as byte-size units and `%`.
 `syntax_catalog.model_fields`, `syntax_catalog.prediction_table_fields`,

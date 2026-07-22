@@ -1,5 +1,6 @@
 const cp = require("child_process");
 const vscode = require("vscode");
+const { loadEditorMetadata } = require("./editorMetadata");
 
 const CHECK_DEBOUNCE_MS = 350;
 const DIAGNOSTIC_DOC_ROOT = "https://github.com/Gonie-Gonie/eng-lang/blob/main/docs";
@@ -32,18 +33,11 @@ const DIAGNOSTIC_DOC_TARGETS = new Map([
     `${DIAGNOSTIC_DOC_ROOT}/reference/artifacts/report_review.md#uncertainty-metadata`
   ]
 ]);
-const UNCERTAINTY_ARGUMENT_ALIASES = new Set([
-  "bias",
-  "distribution",
-  "error",
-  "gain",
-  "max",
-  "min",
-  "mu",
-  "n",
-  "sigma",
-  "uncertainty"
-]);
+const UNCERTAINTY_ARGUMENT_ALIASES = new Set(
+  loadEditorMetadata(__dirname).syntaxCatalog.uncertainty_argument_aliases
+    .map((item) => String(item?.alias || "").trim())
+    .filter(Boolean)
+);
 
 class EngDiagnosticsController {
   constructor(context, diagnostics, options = {}) {

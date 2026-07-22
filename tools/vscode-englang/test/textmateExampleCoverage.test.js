@@ -268,6 +268,65 @@ function overlappingScopes(tokens, startIndex, endIndex) {
   return scopes;
 }
 
+function assertUncertaintyAliasCallScopes(grammar, initialRuleStack) {
+  const cases = [
+    { source: "Q = measured(error=1)", label: "error", deprecated: true },
+    { source: "Q = normal(error=1)", label: "error", deprecated: false },
+    { source: "Q = normal(sigma=1)", label: "sigma", deprecated: true },
+    { source: "Q = measured(mu=1)", label: "mu", deprecated: false },
+    { source: "Q = propagate(source, bias=0)", label: "bias", deprecated: true },
+    {
+      source: "Q = propagate(source, scale=max(1, 2), bias=0)",
+      label: "bias",
+      deprecated: true
+    },
+    {
+      source: "Q = propagate(normal(sigma=1), bias=0)",
+      label: "sigma",
+      deprecated: true
+    },
+    {
+      source: "Q = distribution(kind=normal, bias=0)",
+      label: "bias",
+      deprecated: false
+    },
+    { source: "Q = probability(error=1)", label: "error", deprecated: false },
+    { source: "error = 1", label: "error", deprecated: false },
+    {
+      source: "Q = normal(std=1)",
+      label: "std",
+      deprecated: false,
+      requiredScope: "variable.parameter.property.englang"
+    }
+  ];
+
+  for (const item of cases) {
+    const startIndex = item.source.lastIndexOf(item.label);
+    if (startIndex < 0) {
+      throw new Error(`uncertainty context fixture is missing ${item.label}: ${item.source}`);
+    }
+    const tokenized = grammar.tokenizeLine(item.source, initialRuleStack);
+    const scopes = overlappingScopes(
+      tokenized.tokens,
+      startIndex,
+      startIndex + item.label.length
+    );
+    const deprecated = scopes.includes("keyword.control.deprecated.englang");
+    if (deprecated !== item.deprecated) {
+      throw new Error(
+        `uncertainty alias ${item.label} has incorrect TextMate context in ${item.source}; ` +
+          `scopes=${scopes.join(",") || "<none>"}`
+      );
+    }
+    if (item.requiredScope && !scopes.includes(item.requiredScope)) {
+      throw new Error(
+        `uncertainty argument ${item.label} is missing ${item.requiredScope} in ${item.source}`
+      );
+    }
+  }
+  return cases.length;
+}
+
 function isCommentOrString(scopes) {
   return scopes.some((scope) => scope.startsWith("comment.") || scope.startsWith("string."));
 }
@@ -315,6 +374,10 @@ async function main() {
   if (!grammar) {
     throw new Error("VS Code TextMate runtime could not load source.englang");
   }
+  const uncertaintyContextChecks = assertUncertaintyAliasCallScopes(
+    grammar,
+    runtime.textmate.INITIAL
+  );
 
   const metadata = readJson(
     path.join("generated", "editor", "englang-editor-metadata.json")
@@ -569,7 +632,7 @@ async function main() {
       `and ${requiredScopes.reduce((total, requirement) => total + requirement.count, 0)} ` +
       `role-sensitive occurrence(s), ${checkedSemanticOccurrences} semantic/TextMate parity ` +
       `occurrence(s) across ${files.length} example file(s) and ${semanticSnapshotCount} semantic ` +
-      `snapshot(s); skipped ` +
+      `snapshot(s), plus ${uncertaintyContextChecks} uncertainty alias context check(s); skipped ` +
       `${skippedLexicalOccurrences} string/comment occurrence(s).`
   );
 }

@@ -673,6 +673,84 @@ function Assert-WorkflowBeginCaptureScope {
     }
 }
 
+function Assert-UncertaintyArgumentAliasesUseCallContexts {
+    $Aliases = @($SyntaxCatalog.uncertainty_argument_aliases)
+    $Calls = @($SyntaxCatalog.workflow_builtin_groups.uncertain | ForEach-Object {
+        [string]$_
+    })
+    if ($Aliases.Count -eq 0 -or $Calls.Count -eq 0) {
+        throw "generated editor metadata must expose uncertainty aliases and builtin calls"
+    }
+
+    $Patterns = @($Grammar.repository.uncertaintyCalls.patterns | Where-Object {
+        [string]$_.name -eq "meta.workflow.distribution-call.englang"
+    })
+    if ($Patterns.Count -ne $Calls.Count) {
+        throw "TextMate grammar must generate one uncertainty-call pattern per compiler-owned call"
+    }
+
+    $SharedContent = $Grammar.repository.uncertaintyCallContent
+    if ($null -eq $SharedContent -or @($SharedContent.patterns).Count -eq 0) {
+        throw "TextMate grammar must define shared uncertainty-call content"
+    }
+    foreach ($RequiredInclude in @("#members", "#uncertaintyCalls", "#uncertaintyCallNestedExpression")) {
+        if (@($SharedContent.patterns | Where-Object { [string]$_.include -eq $RequiredInclude }).Count -ne 1) {
+            throw "TextMate shared uncertainty-call content must include $RequiredInclude"
+        }
+    }
+    $NestedContent = $Grammar.repository.uncertaintyCallNestedExpression
+    if ($null -eq $NestedContent -or @($NestedContent.patterns | Where-Object {
+        [string]$_.include -eq "#uncertaintyCallContent"
+    }).Count -ne 1) {
+        throw "TextMate grammar must recursively tokenize nested uncertainty-call parentheses"
+    }
+    if (@($Grammar.repository.workflowPhrases.patterns | Where-Object {
+        [string]$_.include -eq "#uncertaintyCalls"
+    }).Count -ne 1) {
+        throw "TextMate workflow phrases must include generated uncertainty calls exactly once"
+    }
+
+    foreach ($Call in $Calls) {
+        $Begin = "\b($([regex]::Escape($Call)))\s*(\()"
+        $CallPatterns = @($Patterns | Where-Object { [string]$_.begin -eq $Begin })
+        if ($CallPatterns.Count -ne 1) {
+            throw "TextMate grammar must define exactly one uncertainty-call pattern for $Call"
+        }
+        $CallPattern = $CallPatterns[0]
+        if (@($CallPattern.patterns | Where-Object { [string]$_.include -eq "#uncertaintyCallContent" }).Count -ne 1) {
+            throw "TextMate uncertainty-call pattern for $Call must include shared content"
+        }
+
+        $AliasPatterns = @($CallPattern.patterns | Where-Object {
+            $null -ne $_.captures -and
+            $null -ne $_.captures.PSObject.Properties["1"] -and
+            [string]$_.captures.PSObject.Properties["1"].Value.name -eq "keyword.control.deprecated.englang"
+        })
+        $ExpectedAliases = @($Aliases | Where-Object {
+            @($_.calls) -contains $Call
+        })
+        $ExpectedPatternCount = if ($ExpectedAliases.Count -eq 0) { 0 } else { 1 }
+        if ($AliasPatterns.Count -ne $ExpectedPatternCount) {
+            throw "TextMate uncertainty-call pattern for $Call has the wrong deprecated alias matcher count"
+        }
+
+        foreach ($Alias in $Aliases) {
+            $ShouldMatch = @($Alias.calls) -contains $Call
+            $DoesMatch = $AliasPatterns.Count -eq 1 -and [regex]::IsMatch(
+                "$($Alias.alias)=",
+                [string]$AliasPatterns[0].match
+            )
+            if ($DoesMatch -ne $ShouldMatch) {
+                throw "TextMate uncertainty alias $($Alias.alias) has the wrong call context for $Call"
+            }
+        }
+    }
+
+    if (($Grammar | ConvertTo-Json -Depth 64 -Compress).Contains("englangGenerated")) {
+        throw "generated TextMate grammar must not retain source-only generation markers"
+    }
+}
+
 function Assert-BeginEndWorkflowPhrasesAreMemberAware {
     $offenders = New-Object System.Collections.Generic.List[string]
     foreach ($pattern in @($GrammarSource.grammar.repository.workflowPhrases.patterns)) {
@@ -1070,8 +1148,7 @@ $GrammarOnlyFunctionArgumentAliases = @(
     "axis",
     "over",
     "mean",
-    "std",
-    "error"
+    "std"
 )
 $GrammarWorkflowOptions = Read-GrammarWorkflowOptionLabels
 $PublicTypeLabels = @($SyntaxCatalog.public_types | ForEach-Object { [string]$_.label })
@@ -1463,7 +1540,7 @@ Assert-WorkflowPatternIncludes -Name "meta.workflow.model-train-call.englang" -I
 Assert-WorkflowPatternIncludes -Name "meta.workflow.legacy-model-train.englang" -Include "#members" -Description "legacy model train call"
 Assert-WorkflowBeginCaptureScope -Name "meta.workflow.legacy-model-train.englang" -Begin "\b(regression_table|train_regression|ann)\s*(\()" -CaptureIndex "1" -Scope "support.function.deprecated.englang" -Description "legacy model train call"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.model-summary-call.englang" -Include "#members" -Description "model summary call"
-Assert-WorkflowPatternIncludes -Name "meta.workflow.distribution-call.englang" -Include "#members" -Description "distribution call"
+Assert-UncertaintyArgumentAliasesUseCallContexts
 Assert-WorkflowPatternIncludes -Name "meta.workflow.filter-table.englang" -Include "#members" -Description "filter table"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.derive-column.englang" -Include "#members" -Description "derive column"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.sort-table.englang" -Include "#members" -Description "sort table"

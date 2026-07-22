@@ -9,6 +9,7 @@ use eng_compiler::{
     Diagnostic, DomainTypeParameterInfo, FileOperationInfo, FunctionInfo, ImportSourceOverrides,
     ReviewValidationRecord, SemanticProgram, Severity, SourceSpan, WithBlockInfo, WithOptionInfo,
     WriteInfo, DIMENSIONLESS_MATH_FUNCTIONS, PERCENTILE_STATISTIC_PATTERN,
+    UNCERTAINTY_ARGUMENT_ALIASES,
 };
 use serde_json::{json, Value};
 
@@ -738,23 +739,8 @@ const PUBLIC_TYPE_COMPLETIONS: &[(&str, &str)] = &[
 
 const EDITOR_LEGACY_WORKFLOW_BUILTIN_ALIASES: &[&str] =
     &["regression_table", "train_regression", "ann"];
-const EDITOR_LEGACY_WORKFLOW_OPTION_ALIASES: &[&str] = &[
-    "bias",
-    "distribution",
-    "error",
-    "fixture",
-    "gain",
-    "layers",
-    "max",
-    "min",
-    "mu",
-    "n",
-    "sigma",
-    "test_fraction",
-    "uncertainty",
-    "x",
-    "y",
-];
+const EDITOR_LEGACY_WORKFLOW_OPTION_ALIASES: &[&str] =
+    &["fixture", "layers", "test_fraction", "x", "y"];
 
 const SAMPLE_METHOD_COMPLETIONS: &[(&str, &str)] = &[
     ("grid", "deterministic Cartesian grid sampling method"),
@@ -2114,6 +2100,14 @@ pub fn editor_syntax_catalog_json() -> Value {
         "hyphenated_workflow_builtins": HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS,
         "legacy_workflow_builtin_aliases": EDITOR_LEGACY_WORKFLOW_BUILTIN_ALIASES,
         "legacy_workflow_option_aliases": EDITOR_LEGACY_WORKFLOW_OPTION_ALIASES,
+        "uncertainty_argument_aliases": UNCERTAINTY_ARGUMENT_ALIASES
+            .iter()
+            .map(|item| json!({
+                "alias": item.alias,
+                "canonical": item.canonical,
+                "calls": item.calls,
+            }))
+            .collect::<Vec<_>>(),
         "workflow_options": WORKFLOW_OPTION_COMPLETIONS
             .iter()
             .map(|(label, detail)| json!({
@@ -14430,27 +14424,35 @@ print "done"
         assert!(
             syntax_catalog["legacy_workflow_option_aliases"]
                 .as_array()
-                .is_some_and(|labels| [
-                    "bias",
-                    "distribution",
-                    "error",
-                    "fixture",
-                    "gain",
-                    "layers",
-                    "max",
-                    "min",
-                    "mu",
-                    "n",
-                    "sigma",
-                    "test_fraction",
-                    "uncertainty",
-                    "x",
-                    "y",
-                ]
-                .iter()
-                .all(|alias| labels.iter().any(|label| label == alias))),
+                .is_some_and(|labels| ["fixture", "layers", "test_fraction", "x", "y"]
+                    .iter()
+                    .all(|alias| labels.iter().any(|label| label == alias))),
             "syntax catalog should expose legacy workflow option aliases"
         );
+        let uncertainty_argument_aliases = syntax_catalog["uncertainty_argument_aliases"]
+            .as_array()
+            .expect("syntax catalog should expose uncertainty argument aliases");
+        assert_eq!(
+            uncertainty_argument_aliases.len(),
+            UNCERTAINTY_ARGUMENT_ALIASES.len()
+        );
+        for expected in UNCERTAINTY_ARGUMENT_ALIASES {
+            assert!(
+                uncertainty_argument_aliases.iter().any(|item| {
+                    item["alias"].as_str() == Some(expected.alias)
+                        && item["canonical"].as_str() == Some(expected.canonical)
+                        && item["calls"].as_array().is_some_and(|calls| {
+                            expected
+                                .calls
+                                .iter()
+                                .all(|call| calls.iter().any(|item| item.as_str() == Some(call)))
+                        })
+                }),
+                "syntax catalog should expose uncertainty alias {} -> {}",
+                expected.alias,
+                expected.canonical
+            );
+        }
         assert!(
             syntax_catalog["workflow_options"]
                 .as_array()

@@ -107,8 +107,9 @@ pub use table::{
 };
 pub use type_info::{TypeInfo, TypeInfoSource};
 pub use uncertainty::{
-    uncertainty_argument_alias, UncertaintyInfo, UncertaintyNamedArgumentInfo,
-    UncertaintyPropagationTerm, UncertaintyValueInfo,
+    uncertainty_argument_alias, UncertaintyArgumentAlias, UncertaintyInfo,
+    UncertaintyNamedArgumentInfo, UncertaintyPropagationTerm, UncertaintyValueInfo,
+    UNCERTAINTY_ARGUMENT_ALIASES,
 };
 pub use units::{all_unit_infos, UnitDerivation, UnitInfo};
 pub use workflow::Workflow;
@@ -18341,6 +18342,24 @@ with {
 
     #[test]
     fn uncertainty_argument_aliases_warn_on_exact_keys_and_preserve_behavior() {
+        assert_eq!(
+            UNCERTAINTY_ARGUMENT_ALIASES
+                .iter()
+                .map(|item| item.alias)
+                .collect::<Vec<_>>(),
+            [
+                "bias",
+                "distribution",
+                "error",
+                "gain",
+                "max",
+                "min",
+                "mu",
+                "n",
+                "sigma",
+                "uncertainty",
+            ]
+        );
         let source = concat!(
             "# sigma error n uncertainty mu min max distribution gain bias\r\n",
             "measured_alias = measured(12 degC, sigma=0.2 K, error=1 %, n=16)\r\n",

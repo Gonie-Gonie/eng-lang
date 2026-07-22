@@ -128,7 +128,7 @@
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "variable.parameter.function.englang",
-                                                                                                      "match":  "\\b(algebraic_initialization|finite_difference_step|consistency_tolerance|response_body_limit|initial_derivative|initial_algebraic|line_search_steps|expected_outputs|offline_response|body_size_limit|confidence_band|expected_sha256|residual_scales|variable_scales|relative_error|residual_scale|variable_scale|allow_failure|artifact_kind|expected_step|return_column|test_fraction|display_unit|distribution|tool_version|mass_matrix|output_root|status_code|transaction|uncertainty|relaxation|sensor_std|algorithm|cache_dir|cache_key|cache_ttl|overwrite|recursive|scheduler|tolerance|duration|features|jacobian|manifest|max_iter|on_error|template|timestep|backend|case_id|confirm|damping|fixture|headers|initial|max_gap|missing|on_many|on_none|results|samples|timeout|workers|epochs|hidden|inputs|layers|method|offset|output|result|resume|solver|status|target|unit\\ x|unit\\ y|values|cache|count|error|lower|query|retry|scale|sigma|split|start|title|upper|args|axis|bias|body|gain|kind|mean|mode|over|seed|step|test|type|year|cwd|end|env|key|max|min|std|mu|n|x|y)\\b(?=\\s*=)"
+                                                                                                      "match":  "\\b(algebraic_initialization|finite_difference_step|consistency_tolerance|response_body_limit|initial_derivative|initial_algebraic|line_search_steps|expected_outputs|offline_response|body_size_limit|confidence_band|expected_sha256|residual_scales|variable_scales|relative_error|residual_scale|variable_scale|allow_failure|artifact_kind|expected_step|return_column|test_fraction|display_unit|tool_version|mass_matrix|output_root|status_code|transaction|uncertainty|relaxation|sensor_std|algorithm|cache_dir|cache_key|cache_ttl|overwrite|recursive|scheduler|tolerance|duration|features|jacobian|manifest|max_iter|on_error|template|timestep|backend|case_id|confirm|damping|fixture|headers|initial|max_gap|missing|on_many|on_none|results|samples|timeout|workers|epochs|hidden|inputs|layers|method|offset|output|result|resume|solver|status|target|unit\\ x|unit\\ y|values|cache|count|lower|query|retry|scale|split|start|title|upper|args|axis|body|kind|mean|mode|over|seed|step|test|type|year|cwd|end|env|key|std|x|y)\\b(?=\\s*=)"
                                                                                                   },
                                                                                                   {
                                                                                                       "include":  "#members"
@@ -627,7 +627,7 @@
                                                                                   },
                                                                                   {
                                                                                       "name":  "variable.parameter.property.englang",
-                                                                                      "match":  "\\b(algebraic_initialization|finite_difference_step|consistency_tolerance|response_body_limit|initial_derivative|initial_algebraic|line_search_steps|expected_outputs|offline_response|body_size_limit|confidence_band|expected_sha256|residual_scales|variable_scales|relative_error|residual_scale|variable_scale|allow_failure|artifact_kind|expected_step|return_column|test_fraction|display_unit|distribution|tool_version|mass_matrix|output_root|status_code|transaction|uncertainty|relaxation|sensor_std|algorithm|cache_dir|cache_key|cache_ttl|overwrite|recursive|scheduler|tolerance|duration|features|jacobian|manifest|max_iter|on_error|template|timestep|backend|case_id|confirm|damping|fixture|headers|initial|max_gap|missing|on_many|on_none|results|samples|timeout|workers|epochs|hidden|inputs|layers|method|offset|output|result|resume|solver|status|target|unit\\ x|unit\\ y|values|cache|count|error|lower|query|retry|scale|sigma|split|start|title|upper|args|bias|body|gain|kind|mode|seed|step|test|type|year|cwd|end|env|key|max|min|mu|n|x|y)\\b(?=\\s*=)"
+                                                                                      "match":  "\\b(algebraic_initialization|finite_difference_step|consistency_tolerance|response_body_limit|initial_derivative|initial_algebraic|line_search_steps|expected_outputs|offline_response|body_size_limit|confidence_band|expected_sha256|residual_scales|variable_scales|relative_error|residual_scale|variable_scale|allow_failure|artifact_kind|expected_step|return_column|test_fraction|display_unit|tool_version|mass_matrix|output_root|status_code|transaction|uncertainty|relaxation|sensor_std|algorithm|cache_dir|cache_key|cache_ttl|overwrite|recursive|scheduler|tolerance|duration|features|jacobian|manifest|max_iter|on_error|template|timestep|backend|case_id|confirm|damping|fixture|headers|initial|max_gap|missing|on_many|on_none|results|samples|timeout|workers|epochs|hidden|inputs|layers|method|offset|output|result|resume|solver|status|target|unit\\ x|unit\\ y|values|cache|count|lower|query|retry|scale|split|start|title|upper|args|body|kind|mode|seed|step|test|type|year|cwd|end|env|key|x|y)\\b(?=\\s*=)"
                                                                                   },
                                                                                   {
                                                                                       "include":  "#keywords"
@@ -1246,83 +1246,7 @@
                                                                                  ]
                                                                 },
                                                                 {
-                                                                    "name":  "meta.workflow.distribution-call.englang",
-                                                                    "begin":  "\\b(measured|interval|normal|uniform|distribution|propagate|ensemble|probability)\\s*(\\()",
-                                                                    "beginCaptures":  {
-                                                                                          "1":  {
-                                                                                                    "name":  "support.function.uncertain.englang"
-                                                                                                },
-                                                                                          "2":  {
-                                                                                                    "name":  "punctuation.section.parens.begin.englang"
-                                                                                                }
-                                                                                      },
-                                                                    "end":  "\\)",
-                                                                    "endCaptures":  {
-                                                                                        "0":  {
-                                                                                                  "name":  "punctuation.section.parens.end.englang"
-                                                                                              }
-                                                                                    },
-                                                                    "patterns":  [
-                                                                                     {
-                                                                                         "name":  "constant.language.englang",
-                                                                                         "match":  "\\b(quadratic|triangular)\\b"
-                                                                                     },
-                                                                                     {
-                                                                                         "match":  "\\b(distribution|mu|sigma|uncertainty|error|n|min|max|gain|bias)\\b\\s*(=)",
-                                                                                         "captures":  {
-                                                                                                          "1":  {
-                                                                                                                    "name":  "keyword.control.deprecated.englang"
-                                                                                                                },
-                                                                                                          "2":  {
-                                                                                                                    "name":  "keyword.operator.englang"
-                                                                                                                }
-                                                                                                      }
-                                                                                     },
-                                                                                     {
-                                                                                         "match":  "\\b(kind|mean|std|relative_error|samples|lower|upper|method|scale|offset)\\b\\s*(=)",
-                                                                                         "captures":  {
-                                                                                                          "1":  {
-                                                                                                                    "name":  "variable.parameter.property.englang"
-                                                                                                                },
-                                                                                                          "2":  {
-                                                                                                                    "name":  "keyword.operator.englang"
-                                                                                                                }
-                                                                                                      }
-                                                                                     },
-                                                                                     {
-                                                                                         "include":  "#strings"
-                                                                                     },
-                                                                                     {
-                                                                                         "include":  "#constants"
-                                                                                     },
-                                                                                     {
-                                                                                         "include":  "#numbers"
-                                                                                     },
-                                                                                     {
-                                                                                         "include":  "#units"
-                                                                                     },
-                                                                                     {
-                                                                                         "include":  "#operators"
-                                                                                     },
-                                                                                     {
-                                                                                         "include":  "#punctuation"
-                                                                                     },
-                                                                                     {
-                                                                                         "include":  "#members"
-                                                                                     },
-                                                                                     {
-                                                                                         "name":  "variable.parameter.property.englang",
-                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
-                                                                                     },
-                                                                                     {
-                                                                                         "name":  "variable.other.property.englang",
-                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
-                                                                                     },
-                                                                                     {
-                                                                                         "name":  "variable.other.local.englang",
-                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
-                                                                                     }
-                                                                                 ]
+                                                                    "include":  "#uncertaintyCalls"
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.render-template.englang",
@@ -3282,6 +3206,349 @@
                                                                 }
                                                             ]
                                            },
+                       "uncertaintyCalls":  {
+                                                "patterns":  [
+                                                                 {
+                                                                     "name":  "meta.workflow.distribution-call.englang",
+                                                                     "begin":  "\\b(measured)\\s*(\\()",
+                                                                     "beginCaptures":  {
+                                                                                           "1":  {
+                                                                                                     "name":  "support.function.uncertain.englang"
+                                                                                                 },
+                                                                                           "2":  {
+                                                                                                     "name":  "punctuation.section.parens.begin.englang"
+                                                                                                 }
+                                                                                       },
+                                                                     "end":  "\\)",
+                                                                     "endCaptures":  {
+                                                                                         "0":  {
+                                                                                                   "name":  "punctuation.section.parens.end.englang"
+                                                                                               }
+                                                                                     },
+                                                                     "patterns":  [
+                                                                                      {
+                                                                                          "match":  "\\b(uncertainty|error|sigma|n)\\b\\s*(=)",
+                                                                                          "captures":  {
+                                                                                                           "1":  {
+                                                                                                                     "name":  "keyword.control.deprecated.englang"
+                                                                                                                 },
+                                                                                                           "2":  {
+                                                                                                                     "name":  "keyword.operator.englang"
+                                                                                                                 }
+                                                                                                       }
+                                                                                      },
+                                                                                      {
+                                                                                          "include":  "#uncertaintyCallContent"
+                                                                                      }
+                                                                                  ]
+                                                                 },
+                                                                 {
+                                                                     "name":  "meta.workflow.distribution-call.englang",
+                                                                     "begin":  "\\b(interval)\\s*(\\()",
+                                                                     "beginCaptures":  {
+                                                                                           "1":  {
+                                                                                                     "name":  "support.function.uncertain.englang"
+                                                                                                 },
+                                                                                           "2":  {
+                                                                                                     "name":  "punctuation.section.parens.begin.englang"
+                                                                                                 }
+                                                                                       },
+                                                                     "end":  "\\)",
+                                                                     "endCaptures":  {
+                                                                                         "0":  {
+                                                                                                   "name":  "punctuation.section.parens.end.englang"
+                                                                                               }
+                                                                                     },
+                                                                     "patterns":  [
+                                                                                      {
+                                                                                          "match":  "\\b(max|min|n)\\b\\s*(=)",
+                                                                                          "captures":  {
+                                                                                                           "1":  {
+                                                                                                                     "name":  "keyword.control.deprecated.englang"
+                                                                                                                 },
+                                                                                                           "2":  {
+                                                                                                                     "name":  "keyword.operator.englang"
+                                                                                                                 }
+                                                                                                       }
+                                                                                      },
+                                                                                      {
+                                                                                          "include":  "#uncertaintyCallContent"
+                                                                                      }
+                                                                                  ]
+                                                                 },
+                                                                 {
+                                                                     "name":  "meta.workflow.distribution-call.englang",
+                                                                     "begin":  "\\b(normal)\\s*(\\()",
+                                                                     "beginCaptures":  {
+                                                                                           "1":  {
+                                                                                                     "name":  "support.function.uncertain.englang"
+                                                                                                 },
+                                                                                           "2":  {
+                                                                                                     "name":  "punctuation.section.parens.begin.englang"
+                                                                                                 }
+                                                                                       },
+                                                                     "end":  "\\)",
+                                                                     "endCaptures":  {
+                                                                                         "0":  {
+                                                                                                   "name":  "punctuation.section.parens.end.englang"
+                                                                                               }
+                                                                                     },
+                                                                     "patterns":  [
+                                                                                      {
+                                                                                          "match":  "\\b(sigma|mu|n)\\b\\s*(=)",
+                                                                                          "captures":  {
+                                                                                                           "1":  {
+                                                                                                                     "name":  "keyword.control.deprecated.englang"
+                                                                                                                 },
+                                                                                                           "2":  {
+                                                                                                                     "name":  "keyword.operator.englang"
+                                                                                                                 }
+                                                                                                       }
+                                                                                      },
+                                                                                      {
+                                                                                          "include":  "#uncertaintyCallContent"
+                                                                                      }
+                                                                                  ]
+                                                                 },
+                                                                 {
+                                                                     "name":  "meta.workflow.distribution-call.englang",
+                                                                     "begin":  "\\b(uniform)\\s*(\\()",
+                                                                     "beginCaptures":  {
+                                                                                           "1":  {
+                                                                                                     "name":  "support.function.uncertain.englang"
+                                                                                                 },
+                                                                                           "2":  {
+                                                                                                     "name":  "punctuation.section.parens.begin.englang"
+                                                                                                 }
+                                                                                       },
+                                                                     "end":  "\\)",
+                                                                     "endCaptures":  {
+                                                                                         "0":  {
+                                                                                                   "name":  "punctuation.section.parens.end.englang"
+                                                                                               }
+                                                                                     },
+                                                                     "patterns":  [
+                                                                                      {
+                                                                                          "match":  "\\b(max|min|n)\\b\\s*(=)",
+                                                                                          "captures":  {
+                                                                                                           "1":  {
+                                                                                                                     "name":  "keyword.control.deprecated.englang"
+                                                                                                                 },
+                                                                                                           "2":  {
+                                                                                                                     "name":  "keyword.operator.englang"
+                                                                                                                 }
+                                                                                                       }
+                                                                                      },
+                                                                                      {
+                                                                                          "include":  "#uncertaintyCallContent"
+                                                                                      }
+                                                                                  ]
+                                                                 },
+                                                                 {
+                                                                     "name":  "meta.workflow.distribution-call.englang",
+                                                                     "begin":  "\\b(distribution)\\s*(\\()",
+                                                                     "beginCaptures":  {
+                                                                                           "1":  {
+                                                                                                     "name":  "support.function.uncertain.englang"
+                                                                                                 },
+                                                                                           "2":  {
+                                                                                                     "name":  "punctuation.section.parens.begin.englang"
+                                                                                                 }
+                                                                                       },
+                                                                     "end":  "\\)",
+                                                                     "endCaptures":  {
+                                                                                         "0":  {
+                                                                                                   "name":  "punctuation.section.parens.end.englang"
+                                                                                               }
+                                                                                     },
+                                                                     "patterns":  [
+                                                                                      {
+                                                                                          "match":  "\\b(distribution|sigma|max|min|mu|n)\\b\\s*(=)",
+                                                                                          "captures":  {
+                                                                                                           "1":  {
+                                                                                                                     "name":  "keyword.control.deprecated.englang"
+                                                                                                                 },
+                                                                                                           "2":  {
+                                                                                                                     "name":  "keyword.operator.englang"
+                                                                                                                 }
+                                                                                                       }
+                                                                                      },
+                                                                                      {
+                                                                                          "include":  "#uncertaintyCallContent"
+                                                                                      }
+                                                                                  ]
+                                                                 },
+                                                                 {
+                                                                     "name":  "meta.workflow.distribution-call.englang",
+                                                                     "begin":  "\\b(propagate)\\s*(\\()",
+                                                                     "beginCaptures":  {
+                                                                                           "1":  {
+                                                                                                     "name":  "support.function.uncertain.englang"
+                                                                                                 },
+                                                                                           "2":  {
+                                                                                                     "name":  "punctuation.section.parens.begin.englang"
+                                                                                                 }
+                                                                                       },
+                                                                     "end":  "\\)",
+                                                                     "endCaptures":  {
+                                                                                         "0":  {
+                                                                                                   "name":  "punctuation.section.parens.end.englang"
+                                                                                               }
+                                                                                     },
+                                                                     "patterns":  [
+                                                                                      {
+                                                                                          "match":  "\\b(bias|gain|n)\\b\\s*(=)",
+                                                                                          "captures":  {
+                                                                                                           "1":  {
+                                                                                                                     "name":  "keyword.control.deprecated.englang"
+                                                                                                                 },
+                                                                                                           "2":  {
+                                                                                                                     "name":  "keyword.operator.englang"
+                                                                                                                 }
+                                                                                                       }
+                                                                                      },
+                                                                                      {
+                                                                                          "include":  "#uncertaintyCallContent"
+                                                                                      }
+                                                                                  ]
+                                                                 },
+                                                                 {
+                                                                     "name":  "meta.workflow.distribution-call.englang",
+                                                                     "begin":  "\\b(ensemble)\\s*(\\()",
+                                                                     "beginCaptures":  {
+                                                                                           "1":  {
+                                                                                                     "name":  "support.function.uncertain.englang"
+                                                                                                 },
+                                                                                           "2":  {
+                                                                                                     "name":  "punctuation.section.parens.begin.englang"
+                                                                                                 }
+                                                                                       },
+                                                                     "end":  "\\)",
+                                                                     "endCaptures":  {
+                                                                                         "0":  {
+                                                                                                   "name":  "punctuation.section.parens.end.englang"
+                                                                                               }
+                                                                                     },
+                                                                     "patterns":  [
+                                                                                      {
+                                                                                          "match":  "\\b(n)\\b\\s*(=)",
+                                                                                          "captures":  {
+                                                                                                           "1":  {
+                                                                                                                     "name":  "keyword.control.deprecated.englang"
+                                                                                                                 },
+                                                                                                           "2":  {
+                                                                                                                     "name":  "keyword.operator.englang"
+                                                                                                                 }
+                                                                                                       }
+                                                                                      },
+                                                                                      {
+                                                                                          "include":  "#uncertaintyCallContent"
+                                                                                      }
+                                                                                  ]
+                                                                 },
+                                                                 {
+                                                                     "name":  "meta.workflow.distribution-call.englang",
+                                                                     "begin":  "\\b(probability)\\s*(\\()",
+                                                                     "beginCaptures":  {
+                                                                                           "1":  {
+                                                                                                     "name":  "support.function.uncertain.englang"
+                                                                                                 },
+                                                                                           "2":  {
+                                                                                                     "name":  "punctuation.section.parens.begin.englang"
+                                                                                                 }
+                                                                                       },
+                                                                     "end":  "\\)",
+                                                                     "endCaptures":  {
+                                                                                         "0":  {
+                                                                                                   "name":  "punctuation.section.parens.end.englang"
+                                                                                               }
+                                                                                     },
+                                                                     "patterns":  [
+                                                                                      {
+                                                                                          "include":  "#uncertaintyCallContent"
+                                                                                      }
+                                                                                  ]
+                                                                 }
+                                                             ]
+                                            },
+                       "uncertaintyCallContent":  {
+                                                      "patterns":  [
+                                                                       {
+                                                                           "name":  "constant.language.englang",
+                                                                           "match":  "\\b(quadratic|triangular)\\b"
+                                                                       },
+                                                                       {
+                                                                           "match":  "\\b(kind|mean|std|relative_error|samples|lower|upper|method|scale|offset)\\b\\s*(=)",
+                                                                           "captures":  {
+                                                                                            "1":  {
+                                                                                                      "name":  "variable.parameter.property.englang"
+                                                                                                  },
+                                                                                            "2":  {
+                                                                                                      "name":  "keyword.operator.englang"
+                                                                                                  }
+                                                                                        }
+                                                                       },
+                                                                       {
+                                                                           "include":  "#strings"
+                                                                       },
+                                                                       {
+                                                                           "include":  "#uncertaintyCalls"
+                                                                       },
+                                                                       {
+                                                                           "include":  "#constants"
+                                                                       },
+                                                                       {
+                                                                           "include":  "#numbers"
+                                                                       },
+                                                                       {
+                                                                           "include":  "#units"
+                                                                       },
+                                                                       {
+                                                                           "include":  "#uncertaintyCallNestedExpression"
+                                                                       },
+                                                                       {
+                                                                           "include":  "#operators"
+                                                                       },
+                                                                       {
+                                                                           "include":  "#punctuation"
+                                                                       },
+                                                                       {
+                                                                           "include":  "#members"
+                                                                       },
+                                                                       {
+                                                                           "name":  "variable.parameter.property.englang",
+                                                                           "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                       },
+                                                                       {
+                                                                           "name":  "variable.other.property.englang",
+                                                                           "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                       },
+                                                                       {
+                                                                           "name":  "variable.other.local.englang",
+                                                                           "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                       }
+                                                                   ]
+                                                  },
+                       "uncertaintyCallNestedExpression":  {
+                                                               "name":  "meta.group.uncertainty-expression.englang",
+                                                               "begin":  "\\(",
+                                                               "beginCaptures":  {
+                                                                                     "0":  {
+                                                                                               "name":  "punctuation.section.parens.begin.englang"
+                                                                                           }
+                                                                                 },
+                                                               "end":  "\\)",
+                                                               "endCaptures":  {
+                                                                                   "0":  {
+                                                                                             "name":  "punctuation.section.parens.end.englang"
+                                                                                         }
+                                                                               },
+                                                               "patterns":  [
+                                                                                {
+                                                                                    "include":  "#uncertaintyCallContent"
+                                                                                }
+                                                                            ]
+                                                           },
                        "members":  {
                                        "patterns":  [
                                                         {
@@ -3529,7 +3796,7 @@
                                                                   "patterns":  [
                                                                                    {
                                                                                        "name":  "variable.parameter.function.englang",
-                                                                                       "match":  "\\b(algebraic_initialization|finite_difference_step|consistency_tolerance|response_body_limit|initial_derivative|initial_algebraic|line_search_steps|expected_outputs|offline_response|body_size_limit|confidence_band|expected_sha256|residual_scales|variable_scales|relative_error|residual_scale|variable_scale|allow_failure|artifact_kind|expected_step|return_column|test_fraction|display_unit|distribution|tool_version|mass_matrix|output_root|status_code|transaction|uncertainty|relaxation|sensor_std|algorithm|cache_dir|cache_key|cache_ttl|overwrite|recursive|scheduler|tolerance|duration|features|jacobian|manifest|max_iter|on_error|template|timestep|backend|case_id|confirm|damping|fixture|headers|initial|max_gap|missing|on_many|on_none|results|samples|timeout|workers|epochs|hidden|inputs|layers|method|offset|output|result|resume|solver|status|target|unit\\ x|unit\\ y|values|cache|count|error|lower|query|retry|scale|sigma|split|start|title|upper|args|axis|bias|body|gain|kind|mean|mode|over|seed|step|test|type|year|cwd|end|env|key|max|min|std|mu|n|x|y)\\b(?=\\s*=)"
+                                                                                       "match":  "\\b(algebraic_initialization|finite_difference_step|consistency_tolerance|response_body_limit|initial_derivative|initial_algebraic|line_search_steps|expected_outputs|offline_response|body_size_limit|confidence_band|expected_sha256|residual_scales|variable_scales|relative_error|residual_scale|variable_scale|allow_failure|artifact_kind|expected_step|return_column|test_fraction|display_unit|tool_version|mass_matrix|output_root|status_code|transaction|uncertainty|relaxation|sensor_std|algorithm|cache_dir|cache_key|cache_ttl|overwrite|recursive|scheduler|tolerance|duration|features|jacobian|manifest|max_iter|on_error|template|timestep|backend|case_id|confirm|damping|fixture|headers|initial|max_gap|missing|on_many|on_none|results|samples|timeout|workers|epochs|hidden|inputs|layers|method|offset|output|result|resume|solver|status|target|unit\\ x|unit\\ y|values|cache|count|lower|query|retry|scale|split|start|title|upper|args|axis|body|kind|mean|mode|over|seed|step|test|type|year|cwd|end|env|key|std|x|y)\\b(?=\\s*=)"
                                                                                    },
                                                                                    {
                                                                                        "include":  "#functionCalls"
@@ -3689,7 +3956,7 @@
                                                                                  },
                                                                                  {
                                                                                      "name":  "variable.parameter.property.englang",
-                                                                                     "match":  "\\b(algebraic_initialization|finite_difference_step|consistency_tolerance|response_body_limit|initial_derivative|initial_algebraic|line_search_steps|expected_outputs|offline_response|body_size_limit|confidence_band|expected_sha256|residual_scales|variable_scales|relative_error|residual_scale|variable_scale|allow_failure|artifact_kind|expected_step|return_column|test_fraction|display_unit|distribution|tool_version|mass_matrix|output_root|status_code|transaction|uncertainty|relaxation|sensor_std|algorithm|cache_dir|cache_key|cache_ttl|overwrite|recursive|scheduler|tolerance|duration|features|jacobian|manifest|max_iter|on_error|template|timestep|backend|case_id|confirm|damping|fixture|headers|initial|max_gap|missing|on_many|on_none|results|samples|timeout|workers|epochs|hidden|inputs|layers|method|offset|output|result|resume|solver|status|target|unit\\ x|unit\\ y|values|cache|count|error|lower|query|retry|scale|sigma|split|start|title|upper|args|bias|body|gain|kind|mode|seed|step|test|type|year|cwd|end|env|key|max|min|mu|n|x|y)\\b(?=\\s*=)"
+                                                                                     "match":  "\\b(algebraic_initialization|finite_difference_step|consistency_tolerance|response_body_limit|initial_derivative|initial_algebraic|line_search_steps|expected_outputs|offline_response|body_size_limit|confidence_band|expected_sha256|residual_scales|variable_scales|relative_error|residual_scale|variable_scale|allow_failure|artifact_kind|expected_step|return_column|test_fraction|display_unit|tool_version|mass_matrix|output_root|status_code|transaction|uncertainty|relaxation|sensor_std|algorithm|cache_dir|cache_key|cache_ttl|overwrite|recursive|scheduler|tolerance|duration|features|jacobian|manifest|max_iter|on_error|template|timestep|backend|case_id|confirm|damping|fixture|headers|initial|max_gap|missing|on_many|on_none|results|samples|timeout|workers|epochs|hidden|inputs|layers|method|offset|output|result|resume|solver|status|target|unit\\ x|unit\\ y|values|cache|count|lower|query|retry|scale|split|start|title|upper|args|body|kind|mode|seed|step|test|type|year|cwd|end|env|key|x|y)\\b(?=\\s*=)"
                                                                                  },
                                                                                  {
                                                                                      "name":  "variable.other.property.englang",

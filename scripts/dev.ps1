@@ -4351,7 +4351,7 @@ function Assert-VscodeExtensionContract {
             throw "dev-current packaging missing current Markdown documentation contract: $RequiredDevCurrentDocsToken"
         }
     }
-    if (-not $VscodeReadmeSource.Contains("completion_items") -or $VscodeReadmeSource.Contains("completion_seed") -or -not $VscodeReadmeSource.Contains("static completion fallback") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_unit_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_builtin_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_option_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.model_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.prediction_table_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.coverage_result_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.time_alignment_result_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.table_fields") -or -not $VscodeReadmeSource.Contains("public member API") -or -not $VscodeReadmeSource.Contains("runtime-backed public fields") -or -not $VscodeReadmeSource.Contains("editor-only placeholders") -or -not $VscodeReadmeSource.Contains("highlight-only compatibility aliases")) {
+    if (-not $VscodeReadmeSource.Contains("completion_items") -or $VscodeReadmeSource.Contains("completion_seed") -or -not $VscodeReadmeSource.Contains("static completion fallback") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_unit_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_builtin_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_option_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.uncertainty_argument_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.model_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.prediction_table_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.coverage_result_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.time_alignment_result_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.table_fields") -or -not $VscodeReadmeSource.Contains("public member API") -or -not $VscodeReadmeSource.Contains("runtime-backed public fields") -or -not $VscodeReadmeSource.Contains("editor-only placeholders") -or -not $VscodeReadmeSource.Contains("highlight-only compatibility aliases")) {
         throw "VS Code README must document completion_items as the editor metadata completion catalog, public member field catalogs, and legacy aliases as highlight-only metadata without completion_seed"
     }
     if (-not $VscodeReadmeSource.Contains("static-import-aware") -or -not $VscodeReadmeSource.Contains("incomplete semantic coverage") -or -not $VscodeReadmeSource.Contains("all modified open") -or -not $VscodeReadmeSource.Contains("discards the") -or -not $VscodeReadmeSource.Contains("whole result instead")) {
@@ -4605,8 +4605,11 @@ function Assert-VscodeExtensionContract {
             throw "editor token scope contract missing workflow phrase scope $WorkflowPhraseScope"
         }
     }
-    if (-not $BuildGrammarSource.Contains("legacy_workflow_builtin_aliases") -or -not $BuildGrammarSource.Contains("LegacyWorkflowBuiltinAliases") -or -not $BuildGrammarSource.Contains("legacy_workflow_option_aliases") -or -not $BuildGrammarSource.Contains("LegacyWorkflowOptionAliases")) {
-        throw "VS Code grammar build must read compatibility-only workflow builtin and option highlight aliases from generated metadata"
+    if (-not $BuildGrammarSource.Contains("legacy_workflow_builtin_aliases") -or -not $BuildGrammarSource.Contains("LegacyWorkflowBuiltinAliases") -or -not $BuildGrammarSource.Contains("legacy_workflow_option_aliases") -or -not $BuildGrammarSource.Contains("LegacyWorkflowOptionAliases") -or -not $BuildGrammarSource.Contains("uncertainty_argument_aliases") -or -not $BuildGrammarSource.Contains("UncertaintyArgumentAliases") -or -not $BuildGrammarSource.Contains("{{UNCERTAINTY_ARGUMENT_ALIASES}}") -or -not $BuildGrammarSource.Contains("Expand-UncertaintyCallPatterns") -or -not $BuildGrammarSource.Contains("uncertainty-call-contexts") -or -not $BuildGrammarSource.Contains("uncertainty-argument-aliases")) {
+        throw "VS Code grammar build must read compatibility-only workflow and call-scoped uncertainty aliases from generated metadata"
+    }
+    if (-not $GrammarTemplateSource.Contains('"uncertaintyCalls"') -or -not $GrammarTemplateSource.Contains('"#uncertaintyCalls"') -or -not $GrammarTemplateSource.Contains('"uncertaintyCallContent"') -or -not $GrammarTemplateSource.Contains('"#uncertaintyCallContent"') -or -not $GrammarTemplateSource.Contains('"uncertaintyCallNestedExpression"') -or -not $GrammarTemplateSource.Contains('"#uncertaintyCallNestedExpression"')) {
+        throw "VS Code grammar source must share and recursively nest uncertainty-call content"
     }
     if (-not $BuildGrammarSource.Contains("operator_words") -or -not $BuildGrammarSource.Contains("GrammarOnlyOperatorWordAliases") -or -not $BuildGrammarSource.Contains("{{OPERATOR_WORDS}}")) {
         throw "VS Code grammar build must generate operator words from editor metadata while preserving compatibility aliases"
@@ -6103,7 +6106,7 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./editorMetadata")') -or -not $ExtensionSource.Contains("loadEditorMetadata(__dirname)")) {
         throw "VS Code extension must load editor metadata through editorMetadata.js"
     }
-    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("constants") -or -not $EditorMetadataLoaderSource.Contains("workflow_status_literals") -or -not $EditorMetadataLoaderSource.Contains("operator_words") -or -not $EditorMetadataLoaderSource.Contains("legacy_unit_aliases") -or -not $EditorMetadataLoaderSource.Contains("keyword_groups") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_builtin_aliases") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_option_aliases") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("coverage_result_fields") -or -not $EditorMetadataLoaderSource.Contains("time_alignment_result_fields") -or -not $EditorMetadataLoaderSource.Contains("table_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("db_connection_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_run_result_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields") -or -not $EditorMetadataLoaderSource.Contains("model_fields") -or -not $EditorMetadataLoaderSource.Contains("prediction_table_fields")) {
+    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("constants") -or -not $EditorMetadataLoaderSource.Contains("workflow_status_literals") -or -not $EditorMetadataLoaderSource.Contains("operator_words") -or -not $EditorMetadataLoaderSource.Contains("legacy_unit_aliases") -or -not $EditorMetadataLoaderSource.Contains("keyword_groups") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_builtin_aliases") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_option_aliases") -or -not $EditorMetadataLoaderSource.Contains("uncertainty_argument_aliases") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("coverage_result_fields") -or -not $EditorMetadataLoaderSource.Contains("time_alignment_result_fields") -or -not $EditorMetadataLoaderSource.Contains("table_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("db_connection_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_run_result_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields") -or -not $EditorMetadataLoaderSource.Contains("model_fields") -or -not $EditorMetadataLoaderSource.Contains("prediction_table_fields")) {
         throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, workflow status literal, workflow builtin, legacy workflow aliases, public type, quantity, unit, HTTP response field, coverage result field, table field, sample table field, case table field, case run result field, case result collection field, model field, prediction table field, and completion item metadata"
     }
     if ($EditorMetadataLoaderSource.Contains("metadata.completion_items ??") -or $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("const completionItems = metadata.completion_items") -or -not $EditorMetadataLoaderSource.Contains("metadata.completion_items_count !== completionItems.length")) {
@@ -7453,9 +7456,9 @@ function Assert-VscodeExtensionContract {
         }
     }
     foreach ($UncertaintyOptionAlias in @("bias", "distribution", "error", "gain", "max", "min", "mu", "n", "sigma", "uncertainty")) {
-        $LegacyWorkflowOptionAlias = @($EditorMetadata.syntax_catalog.legacy_workflow_option_aliases | Where-Object { $_ -eq $UncertaintyOptionAlias }) | Select-Object -First 1
-        if ($null -eq $LegacyWorkflowOptionAlias) {
-            throw "generated VS Code editor metadata must keep uncertainty compatibility alias $UncertaintyOptionAlias as a highlight-only legacy workflow option alias"
+        $UncertaintyArgumentAlias = @($EditorMetadata.syntax_catalog.uncertainty_argument_aliases | Where-Object { $_.alias -eq $UncertaintyOptionAlias }) | Select-Object -First 1
+        if ($null -eq $UncertaintyArgumentAlias -or [string]::IsNullOrWhiteSpace([string]$UncertaintyArgumentAlias.canonical) -or @($UncertaintyArgumentAlias.calls).Count -eq 0) {
+            throw "generated VS Code editor metadata must expose uncertainty compatibility alias $UncertaintyOptionAlias with canonical and call context"
         }
     }
     foreach ($RequiredTimeAlignmentResultField in @("materialized", "materialization_status", "alignment_status", "target_count", "output_count", "resample_step")) {
@@ -8150,6 +8153,11 @@ function Invoke-IdeCheck {
         "legacyWorkflowOptionAliases",
         "legacy_workflow_option_aliases",
         "...normalized.legacyWorkflowOptionAliases",
+        "uncertaintyArgumentAliases",
+        "uncertainty_argument_aliases",
+        "normalized.uncertaintyArgumentAliases",
+        "lexicalUncertaintyArgumentAliasClass",
+        "lexicalEnclosingCallName",
         "lexicalUnitPattern",
         "hl-doc-comment",
         'rest.startsWith("///")',
@@ -9036,8 +9044,9 @@ function Invoke-LspCheck {
         }
     }
     foreach ($UncertaintyOptionAlias in @("bias", "distribution", "error", "gain", "max", "min", "mu", "n", "sigma", "uncertainty")) {
-        if (@($EditorMetadata.syntax_catalog.legacy_workflow_option_aliases) -notcontains $UncertaintyOptionAlias) {
-            throw "eng-lsp --editor-metadata must retain uncertainty compatibility alias $UncertaintyOptionAlias for highlighting"
+        $UncertaintyArgumentAlias = @($EditorMetadata.syntax_catalog.uncertainty_argument_aliases | Where-Object { $_.alias -eq $UncertaintyOptionAlias }) | Select-Object -First 1
+        if ($null -eq $UncertaintyArgumentAlias -or [string]::IsNullOrWhiteSpace([string]$UncertaintyArgumentAlias.canonical) -or @($UncertaintyArgumentAlias.calls).Count -eq 0) {
+            throw "eng-lsp --editor-metadata must expose uncertainty compatibility alias $UncertaintyOptionAlias with canonical and call context"
         }
     }
     foreach ($RequiredModifier in @("workflowStep", "unit", "quantity", "solver", "path", "temporal")) {

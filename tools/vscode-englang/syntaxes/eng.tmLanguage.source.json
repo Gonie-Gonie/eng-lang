@@ -809,57 +809,7 @@
               }
             ]
           },
-          {
-            "name": "meta.workflow.distribution-call.englang",
-            "begin": "\\b(measured|interval|normal|uniform|distribution|propagate|ensemble|probability)\\s*(\\()",
-            "beginCaptures": {
-              "1": { "name": "support.function.uncertain.englang" },
-              "2": { "name": "punctuation.section.parens.begin.englang" }
-            },
-            "end": "\\)",
-            "endCaptures": {
-              "0": { "name": "punctuation.section.parens.end.englang" }
-            },
-            "patterns": [
-              {
-                "name": "constant.language.englang",
-                "match": "\\b(quadratic|triangular)\\b"
-              },
-              {
-                "match": "\\b(distribution|mu|sigma|uncertainty|error|n|min|max|gain|bias)\\b\\s*(=)",
-                "captures": {
-                  "1": { "name": "keyword.control.deprecated.englang" },
-                  "2": { "name": "keyword.operator.englang" }
-                }
-              },
-              {
-                "match": "\\b(kind|mean|std|relative_error|samples|lower|upper|method|scale|offset)\\b\\s*(=)",
-                "captures": {
-                  "1": { "name": "variable.parameter.property.englang" },
-                  "2": { "name": "keyword.operator.englang" }
-                }
-              },
-              { "include": "#strings" },
-              { "include": "#constants" },
-              { "include": "#numbers" },
-              { "include": "#units" },
-              { "include": "#operators" },
-              { "include": "#punctuation" },
-              { "include": "#members" },
-              {
-                "name": "variable.parameter.property.englang",
-                "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
-              },
-              {
-                "name": "variable.other.property.englang",
-                "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
-              },
-              {
-                "name": "variable.other.local.englang",
-                "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
-              }
-            ]
-          },
+          { "include": "#uncertaintyCalls" },
           {
             "name": "meta.workflow.render-template.englang",
             "begin": "\\b(render)\\s+(template)\\b",
@@ -2240,6 +2190,84 @@
               "3": { "name": "keyword.operator.englang" }
             }
           }
+        ]
+      },
+      "uncertaintyCalls": {
+        "patterns": [
+          {
+            "englangGenerated": "uncertainty-call-contexts",
+            "name": "meta.workflow.distribution-call.englang",
+            "begin": "\\b({{WORKFLOW_BUILTIN_GROUP_UNCERTAIN}})\\s*(\\()",
+            "beginCaptures": {
+              "1": { "name": "support.function.uncertain.englang" },
+              "2": { "name": "punctuation.section.parens.begin.englang" }
+            },
+            "end": "\\)",
+            "endCaptures": {
+              "0": { "name": "punctuation.section.parens.end.englang" }
+            },
+            "patterns": [
+              {
+                "englangGenerated": "uncertainty-argument-aliases",
+                "match": "\\b({{UNCERTAINTY_ARGUMENT_ALIASES}})\\b\\s*(=)",
+                "captures": {
+                  "1": { "name": "keyword.control.deprecated.englang" },
+                  "2": { "name": "keyword.operator.englang" }
+                }
+              },
+              { "include": "#uncertaintyCallContent" }
+            ]
+          }
+        ]
+      },
+      "uncertaintyCallContent": {
+        "patterns": [
+          {
+            "name": "constant.language.englang",
+            "match": "\\b(quadratic|triangular)\\b"
+          },
+          {
+            "match": "\\b(kind|mean|std|relative_error|samples|lower|upper|method|scale|offset)\\b\\s*(=)",
+            "captures": {
+              "1": { "name": "variable.parameter.property.englang" },
+              "2": { "name": "keyword.operator.englang" }
+            }
+          },
+          { "include": "#strings" },
+          { "include": "#uncertaintyCalls" },
+          { "include": "#constants" },
+          { "include": "#numbers" },
+          { "include": "#units" },
+          { "include": "#uncertaintyCallNestedExpression" },
+          { "include": "#operators" },
+          { "include": "#punctuation" },
+          { "include": "#members" },
+          {
+            "name": "variable.parameter.property.englang",
+            "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+          },
+          {
+            "name": "variable.other.property.englang",
+            "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+          },
+          {
+            "name": "variable.other.local.englang",
+            "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+          }
+        ]
+      },
+      "uncertaintyCallNestedExpression": {
+        "name": "meta.group.uncertainty-expression.englang",
+        "begin": "\\(",
+        "beginCaptures": {
+          "0": { "name": "punctuation.section.parens.begin.englang" }
+        },
+        "end": "\\)",
+        "endCaptures": {
+          "0": { "name": "punctuation.section.parens.end.englang" }
+        },
+        "patterns": [
+          { "include": "#uncertaintyCallContent" }
         ]
       },
       "members": {
