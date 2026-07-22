@@ -661,15 +661,19 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// constant environment, and function contracts are preserved.
 ///
 /// The unified entry point may also preserve an unchanged richer prefix before the final scalar
-/// suffix. This requires a clean, cache-free, axis-free prior report; registered scalar types for
-/// every old and new suffix result; exact semantic-vector tail ownership; and an isolated old-suffix
-/// analysis that matches the report. Unchanged root scalar helpers, non-scalar bindings, and command
-/// metadata such as `print` may therefore remain in the prefix. A scalar suffix cannot use a
-/// preserved non-scalar binding as an alias or operand. The richer prefix is not reparsed or
+/// suffix. This requires a clean prior report; registered scalar types for every old and new suffix
+/// result; exact independent tail ownership for each patched semantic vector; cache and axis
+/// metadata that can be regenerated from the prior semantic program; and an isolated old-suffix
+/// analysis that matches the report. Unchanged root scalar helpers, non-scalar or axis-bearing
+/// bindings, cached boundaries, and command metadata such as `print` may therefore remain
+/// in the prefix. After the suffix patch, axis metadata is regenerated and cache records are rekeyed
+/// with the new source hash. A scalar suffix cannot use a preserved non-scalar binding as an alias
+/// or operand. This richer contract is root-source-only and import-free; module and static imports
+/// continue through the stricter scalar-only import contract. The richer prefix is not reparsed or
 /// reanalyzed.
 /// Changes inside it, a token-bearing non-declaration in the affected suffix, diagnostics,
-/// unsupported calls, caches, unresolved or duplicate names, and edits without an affected
-/// declaration return `None` for a normal full check.
+/// unsupported calls, unverifiable cache or axis metadata, unresolved or duplicate names, and edits
+/// without an affected declaration return `None` for a normal full check.
 ///
 /// The caller must preserve the source path, check options, argument overrides, and import
 /// environment, just as for [`retarget_check_report_for_token_stable_trivia`].
@@ -723,6 +727,7 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
     {
         return None;
     }
+    let source_hash = hash_text(source);
 
     let previous_lines = source::source_lines(previous_source);
     let source_lines = source::source_lines(source);
@@ -760,28 +765,46 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
         return None;
     }
 
-    let first_typed_record = report
-        .semantic_program
-        .typed_bindings
-        .len()
-        .checked_sub(previous_suffix.declarations.len())?;
-    let first_inferred_record = report
-        .inferred_declarations
-        .len()
-        .checked_sub(previous_suffix.fast_binding_count)?;
-    let first_const_record = report
-        .semantic_program
-        .consts
-        .len()
-        .checked_sub(previous_suffix.const_declaration_count)?;
     let previous_annotated_declaration_count = previous_suffix
         .explicit_declaration_count
         .checked_add(previous_suffix.const_declaration_count)?;
-    let first_expected_record = report
-        .semantic_program
-        .expected_types
-        .len()
-        .checked_sub(previous_annotated_declaration_count)?;
+    let previous_declaration_count = previous_suffix.declarations.len();
+    let record_offsets = IncrementalScalarRecordOffsets {
+        inferred: report
+            .inferred_declarations
+            .len()
+            .checked_sub(previous_suffix.fast_binding_count)?,
+        const_info: report
+            .semantic_program
+            .consts
+            .len()
+            .checked_sub(previous_suffix.const_declaration_count)?,
+        expected: report
+            .semantic_program
+            .expected_types
+            .len()
+            .checked_sub(previous_annotated_declaration_count)?,
+        typed: report
+            .semantic_program
+            .typed_bindings
+            .len()
+            .checked_sub(previous_declaration_count)?,
+        hover: report
+            .semantic_program
+            .hover_hints
+            .len()
+            .checked_sub(previous_declaration_count)?,
+        type_info: report
+            .semantic_program
+            .type_infos
+            .len()
+            .checked_sub(previous_declaration_count)?,
+        unit_derivation: report
+            .semantic_program
+            .unit_derivations
+            .len()
+            .checked_sub(previous_declaration_count)?,
+    };
     let scalar_only_contract = previous_prefix
         .as_ref()
         .and_then(|prefix| {
@@ -812,16 +835,9 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
             .then_some(())
         })
         .is_some();
-    let rich_prefix_contract = previous_prefix.is_none()
+    let rich_prefix_contract = !scalar_only_contract
         && mode == IncrementalScalarDeclarationMode::Any
-        && incremental_rich_prefix_supports_scalar_suffix(
-            report,
-            &previous_suffix,
-            first_typed_record,
-            first_inferred_record,
-            first_const_record,
-            first_expected_record,
-        );
+        && incremental_rich_prefix_supports_scalar_suffix(report, &previous_suffix, record_offsets);
     if !scalar_only_contract && !rich_prefix_contract {
         return None;
     }
@@ -829,18 +845,18 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
         let previous_binding = report
             .semantic_program
             .typed_bindings
-            .get(first_typed_record)?;
+            .get(record_offsets.typed)?;
         if previous_changed.name != previous_binding.name
             || previous_changed.line != previous_binding.line
         {
             return None;
         }
-    } else if first_typed_record != report.semantic_program.typed_bindings.len() {
+    } else if record_offsets.typed != report.semantic_program.typed_bindings.len() {
         return None;
     }
 
     let mut source_names = HashSet::new();
-    if !report.semantic_program.typed_bindings[..first_typed_record]
+    if !report.semantic_program.typed_bindings[..record_offsets.typed]
         .iter()
         .all(|binding| source_names.insert(binding.name.as_str()))
         || !source_suffix
@@ -854,7 +870,7 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
     let prefix_typed_bindings = report
         .semantic_program
         .typed_bindings
-        .get(..first_typed_record)?;
+        .get(..record_offsets.typed)?;
     let previous_analysis = semantic::analyze_incremental_scalar_declarations(
         &previous_suffix.program,
         prefix_typed_bindings,
@@ -879,10 +895,7 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
                 .checked_add(source_suffix.const_declaration_count)?
         || !incremental_scalar_declaration_analysis_matches_report(
             report,
-            first_typed_record,
-            first_inferred_record,
-            first_const_record,
-            first_expected_record,
+            record_offsets,
             &previous_analysis,
         )
     {
@@ -890,34 +903,44 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
     }
 
     let update_workflow_line = if scalar_only_contract {
-        first_typed_record == 0
+        record_offsets.typed == 0
     } else {
-        !incremental_rich_prefix_owns_workflow_line(report, first_typed_record)
+        !incremental_rich_prefix_owns_workflow_line(report, record_offsets.typed)
     };
     let mut reused = report.clone();
-    reused.inferred_declarations.truncate(first_inferred_record);
+    reused
+        .inferred_declarations
+        .truncate(record_offsets.inferred);
     reused
         .inferred_declarations
         .extend(source_analysis.inferred_declarations);
     let semantic = &mut reused.semantic_program;
-    semantic.consts.truncate(first_const_record);
+    semantic.consts.truncate(record_offsets.const_info);
     semantic.consts.extend(source_analysis.consts);
-    semantic.expected_types.truncate(first_expected_record);
+    semantic.expected_types.truncate(record_offsets.expected);
     semantic
         .expected_types
         .extend(source_analysis.expected_types);
-    semantic.typed_bindings.truncate(first_typed_record);
+    semantic.typed_bindings.truncate(record_offsets.typed);
     semantic
         .typed_bindings
         .extend(source_analysis.typed_bindings);
-    semantic.hover_hints.truncate(first_typed_record);
+    semantic.hover_hints.truncate(record_offsets.hover);
     semantic.hover_hints.extend(source_analysis.hover_hints);
-    semantic.type_infos.truncate(first_typed_record);
+    semantic.type_infos.truncate(record_offsets.type_info);
     semantic.type_infos.extend(source_analysis.type_infos);
-    semantic.unit_derivations.truncate(first_typed_record);
+    semantic
+        .unit_derivations
+        .truncate(record_offsets.unit_derivation);
     semantic
         .unit_derivations
         .extend(source_analysis.unit_derivations);
+    semantic.axis_infos = crate::stats::axis_infos(&semantic.typed_bindings);
+    let cache_analysis = cache::analyze_cache_records(semantic, &source_hash);
+    if !cache_analysis.diagnostics.is_empty() {
+        return None;
+    }
+    semantic.cache_records = cache_analysis.records;
     reused.syntax_summary.tokens = reused
         .syntax_summary
         .tokens
@@ -951,7 +974,7 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
             .map(|declaration| declaration.line)
             .unwrap_or(1);
     }
-    reused.source_hash = hash_text(source);
+    reused.source_hash = source_hash;
     reused.source_lines = source.lines().map(str::to_owned).collect();
     Some(reused)
 }
@@ -968,6 +991,17 @@ struct ScalarDeclarationRecord {
     name: String,
     line: usize,
     kind: ScalarDeclarationKind,
+}
+
+#[derive(Clone, Copy)]
+struct IncrementalScalarRecordOffsets {
+    inferred: usize,
+    const_info: usize,
+    expected: usize,
+    typed: usize,
+    hover: usize,
+    type_info: usize,
+    unit_derivation: usize,
 }
 
 struct ParsedScalarDeclarationPrefix {
@@ -1375,10 +1409,7 @@ fn incremental_scalar_report_shape(
 fn incremental_rich_prefix_supports_scalar_suffix(
     report: &CheckReport,
     suffix: &ParsedScalarDeclarationSuffix,
-    first_typed_record: usize,
-    first_inferred_record: usize,
-    first_const_record: usize,
-    first_expected_record: usize,
+    offsets: IncrementalScalarRecordOffsets,
 ) -> bool {
     let Some(annotated_declaration_count) = suffix
         .explicit_declaration_count
@@ -1395,10 +1426,11 @@ fn incremental_rich_prefix_supports_scalar_suffix(
         .map(|source| source.source_id)
         .collect::<HashSet<_>>();
     root_source.source_id == SourceSpan::ROOT_SOURCE_ID
+        && report.source_files.len() == 1
         && source_ids.len() == report.source_files.len()
         && report.diagnostics.is_empty()
-        && report.semantic_program.cache_records.is_empty()
-        && report.semantic_program.axis_infos.is_empty()
+        && report.semantic_program.imports.is_empty()
+        && incremental_rich_prefix_derived_metadata_matches(report)
         && report.syntax_summary.ast_items > suffix.declarations.len()
         && report.syntax_summary.tokens >= suffix.token_count
         && report.syntax_summary.fast_bindings >= suffix.fast_binding_count
@@ -1407,44 +1439,53 @@ fn incremental_rich_prefix_supports_scalar_suffix(
         && report
             .inferred_declarations
             .len()
-            .checked_sub(first_inferred_record)
+            .checked_sub(offsets.inferred)
             == Some(suffix.fast_binding_count)
         && report
             .semantic_program
             .consts
             .len()
-            .checked_sub(first_const_record)
+            .checked_sub(offsets.const_info)
             == Some(suffix.const_declaration_count)
         && report
             .semantic_program
             .expected_types
             .len()
-            .checked_sub(first_expected_record)
+            .checked_sub(offsets.expected)
             == Some(annotated_declaration_count)
         && report
             .semantic_program
             .typed_bindings
             .len()
-            .checked_sub(first_typed_record)
+            .checked_sub(offsets.typed)
             == Some(suffix.declarations.len())
         && report
             .semantic_program
             .hover_hints
             .len()
-            .checked_sub(first_typed_record)
+            .checked_sub(offsets.hover)
             == Some(suffix.declarations.len())
         && report
             .semantic_program
             .type_infos
             .len()
-            .checked_sub(first_typed_record)
+            .checked_sub(offsets.type_info)
             == Some(suffix.declarations.len())
         && report
             .semantic_program
             .unit_derivations
             .len()
-            .checked_sub(first_typed_record)
+            .checked_sub(offsets.unit_derivation)
             == Some(suffix.declarations.len())
+}
+
+fn incremental_rich_prefix_derived_metadata_matches(report: &CheckReport) -> bool {
+    let cache_analysis =
+        cache::analyze_cache_records(&report.semantic_program, &report.source_hash);
+    cache_analysis.diagnostics.is_empty()
+        && cache_analysis.records == report.semantic_program.cache_records
+        && crate::stats::axis_infos(&report.semantic_program.typed_bindings)
+            == report.semantic_program.axis_infos
 }
 
 fn incremental_rich_prefix_owns_workflow_line(
@@ -1592,37 +1633,28 @@ fn semantic_program_has_only_scalar_declaration_records(
 
 fn incremental_scalar_declaration_analysis_matches_report(
     report: &CheckReport,
-    first_typed_record: usize,
-    first_inferred_record: usize,
-    first_const_record: usize,
-    first_expected_record: usize,
+    offsets: IncrementalScalarRecordOffsets,
     analysis: &semantic::IncrementalScalarDeclarationAnalysis,
 ) -> bool {
-    report.inferred_declarations.get(first_inferred_record..)
+    report.inferred_declarations.get(offsets.inferred..)
         == Some(analysis.inferred_declarations.as_slice())
-        && report.semantic_program.consts.get(first_const_record..)
+        && report.semantic_program.consts.get(offsets.const_info..)
             == Some(analysis.consts.as_slice())
         && report
             .semantic_program
             .expected_types
-            .get(first_expected_record..)
+            .get(offsets.expected..)
             == Some(analysis.expected_types.as_slice())
-        && report
-            .semantic_program
-            .typed_bindings
-            .get(first_typed_record..)
+        && report.semantic_program.typed_bindings.get(offsets.typed..)
             == Some(analysis.typed_bindings.as_slice())
-        && report
-            .semantic_program
-            .hover_hints
-            .get(first_typed_record..)
+        && report.semantic_program.hover_hints.get(offsets.hover..)
             == Some(analysis.hover_hints.as_slice())
-        && report.semantic_program.type_infos.get(first_typed_record..)
+        && report.semantic_program.type_infos.get(offsets.type_info..)
             == Some(analysis.type_infos.as_slice())
         && report
             .semantic_program
             .unit_derivations
-            .get(first_typed_record..)
+            .get(offsets.unit_derivation..)
             == Some(analysis.unit_derivations.as_slice())
 }
 
@@ -11755,6 +11787,12 @@ factor = 0.5
 
         let previous_source = concat!(
             "input_file = file(\"input.csv\")\n",
+            "series: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
+            "process_result = run command \"cmd\"\n",
+            "with {\n",
+            "    cache = true\n",
+            "    cache_key = [\"editor-prefix\"]\n",
+            "}\n",
             "fn identity_power(value: HeatRate [kW]) -> HeatRate [kW] {\n",
             "    return value\n",
             "}\n",
@@ -11765,6 +11803,12 @@ factor = 0.5
         );
         let source = concat!(
             "input_file = file(\"input.csv\")\n",
+            "series: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
+            "process_result = run command \"cmd\"\n",
+            "with {\n",
+            "    cache = true\n",
+            "    cache_key = [\"editor-prefix\"]\n",
+            "}\n",
             "fn identity_power(value: HeatRate [kW]) -> HeatRate [kW] {\n",
             "    return value\n",
             "}\n",
@@ -11790,8 +11834,10 @@ factor = 0.5
         .semantic_program;
         assert!(
             incremental_scalar_report_shape(&previous, 0, &empty_semantic_program).is_none(),
-            "a helper function and print must remain outside the scalar-only report contract"
+            "a metadata-rich prefix must remain outside the scalar-only report contract"
         );
+        assert_eq!(previous.semantic_program.axis_infos.len(), 1);
+        assert_eq!(previous.semantic_program.cache_records.len(), 1);
 
         let reused =
             recheck_scalar_declaration_suffix_incrementally(&previous, previous_source, source)
@@ -11809,6 +11855,23 @@ factor = 0.5
         assert_eq!(
             reused.semantic_program.prints,
             previous.semantic_program.prints
+        );
+        assert_eq!(
+            reused.semantic_program.process_runs,
+            previous.semantic_program.process_runs
+        );
+        assert_eq!(
+            reused.semantic_program.axis_infos,
+            previous.semantic_program.axis_infos
+        );
+        assert_eq!(
+            reused.semantic_program.cache_records[0].source_hash,
+            reused.source_hash
+        );
+        assert_ne!(
+            reused.semantic_program.cache_records[0].cache_key_hash,
+            previous.semantic_program.cache_records[0].cache_key_hash,
+            "the cached prefix should be rekeyed for the changed source"
         );
         assert_eq!(
             reused.semantic_program.typed_bindings.first(),
@@ -11841,6 +11904,12 @@ factor = 0.5
 
         let cleared_source = concat!(
             "input_file = file(\"input.csv\")\n",
+            "series: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
+            "process_result = run command \"cmd\"\n",
+            "with {\n",
+            "    cache = true\n",
+            "    cache_key = [\"editor-prefix\"]\n",
+            "}\n",
             "fn identity_power(value: HeatRate [kW]) -> HeatRate [kW] {\n",
             "    return value\n",
             "}\n",
@@ -11860,6 +11929,12 @@ factor = 0.5
 
         let restarted_source = concat!(
             "input_file = file(\"input.csv\")\n",
+            "series: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
+            "process_result = run command \"cmd\"\n",
+            "with {\n",
+            "    cache = true\n",
+            "    cache_key = [\"editor-prefix\"]\n",
+            "}\n",
             "fn identity_power(value: HeatRate [kW]) -> HeatRate [kW] {\n",
             "    return value\n",
             "}\n",
@@ -11893,6 +11968,34 @@ factor = 0.5
             )
             .is_none(),
             "a non-scalar prefix alias in the changed suffix must use full analysis"
+        );
+
+        let mut stale_axis = previous.clone();
+        stale_axis.semantic_program.axis_infos[0].axis = "Case".to_owned();
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(&stale_axis, previous_source, source,)
+                .is_none(),
+            "unverified axis metadata must use full analysis"
+        );
+
+        let mut stale_cache = previous.clone();
+        stale_cache.semantic_program.cache_records[0].source_hash = "stale".to_owned();
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(&stale_cache, previous_source, source,)
+                .is_none(),
+            "unverified cache metadata must use full analysis"
+        );
+
+        let edited_cache_prefix_source =
+            previous_source.replace("editor-prefix", "editor-prefix-v2");
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &previous,
+                previous_source,
+                &edited_cache_prefix_source,
+            )
+            .is_none(),
+            "an edit inside cached prefix metadata must use full analysis"
         );
 
         let trailing_command_source = format!("{restarted_source}print \"scaled={{scaled:W}}\"\n");
@@ -11935,6 +12038,47 @@ factor = 0.5
         );
         assert_fresh_equivalent(&helper_only_reused, &helper_only_fresh, helper_only_source);
         assert_eq!(helper_only_reused.semantic_program.workflow.line, 1);
+
+        let declaration_prefix_previous_source = concat!(
+            "input_file = file(\"input.csv\")\n",
+            "base: HeatRate [kW] = 2 kW\n",
+            "scaled = base\n",
+        );
+        let declaration_prefix_source = concat!(
+            "input_file = file(\"input.csv\")\n",
+            "base: HeatRate [W] = 1800 W\n",
+            "scaled: HeatRate [W] = base + 0 W\n",
+        );
+        let declaration_prefix_previous = check_source(
+            "incremental-declaration-prefix.eng",
+            declaration_prefix_previous_source,
+            &CheckOptions::default(),
+        );
+        let declaration_prefix_reused = recheck_scalar_declaration_suffix_incrementally(
+            &declaration_prefix_previous,
+            declaration_prefix_previous_source,
+            declaration_prefix_source,
+        )
+        .expect("a declaration-only non-scalar prefix should use the rich-prefix contract");
+        let declaration_prefix_fresh = check_source(
+            "incremental-declaration-prefix.eng",
+            declaration_prefix_source,
+            &CheckOptions::default(),
+        );
+        assert_fresh_equivalent(
+            &declaration_prefix_reused,
+            &declaration_prefix_fresh,
+            declaration_prefix_source,
+        );
+        assert!(
+            recheck_scalar_binding_suffix_incrementally(
+                &declaration_prefix_previous,
+                declaration_prefix_previous_source,
+                declaration_prefix_source,
+            )
+            .is_none(),
+            "the fast-only API must not adopt the rich declaration-prefix contract"
+        );
     }
 
     #[test]

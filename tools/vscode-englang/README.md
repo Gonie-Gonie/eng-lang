@@ -256,16 +256,20 @@ explicit scalar declarations, and pure top-level scalar `const` declarations.
 In scalar-only documents, unchanged supported `use/import eng.*` module
 declarations or static imports whose recursively imported definitions are only
 pure registered scalar constants and functions may remain before the affected
-suffix. A clean, cache-free, axis-free report may also retain an unchanged
-richer prefix when every old and new suffix result is a registered scalar and
-the prior report proves exact semantic-vector tail ownership. The preserved
-prefix may include non-scalar bindings such as file or directory paths, but
-suffix expressions cannot use them as scalar aliases or operands. This covers,
-for example, an unchanged file input, pure scalar `fn` helper, and `print`
-before the final scalar declarations; an edit inside that richer prefix still
-uses full analysis. Compiler-validated suffix expressions may use numeric or
-registered-unit literals, backward aliases, parentheses, `+`, `-`, `*`, `/`,
-and earlier typed bindings. The server preserves the report before the first
+suffix. A clean report may also retain an unchanged richer prefix when every
+old and new suffix result is a registered scalar and the prior report proves
+independent semantic-vector tails plus reproducible cache and axis metadata.
+The preserved prefix may include file or directory paths, TimeSeries values,
+cached process or data boundaries, a pure scalar `fn` helper, and `print`.
+Axis metadata is rebuilt after the suffix patch, and cache records are rekeyed
+with the changed source hash. Suffix expressions cannot use preserved
+non-scalar values as scalar aliases or operands. An edit inside that richer
+prefix still uses full analysis. The richer contract is root-source-only and
+import-free; unchanged module and static imports continue through the stricter
+scalar-only import contract. Compiler-validated suffix expressions may use
+numeric or registered-unit literals, backward aliases, parentheses, and
+`+`, `-`, `*`, `/` arithmetic over earlier typed bindings. The server
+preserves the report before the first
 declaration at or after the first change and reparses and semantically
 reanalyzes that suffix once. All three declaration forms may be interleaved;
 fast and explicit declarations may also switch style inside the affected

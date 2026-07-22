@@ -723,10 +723,15 @@ preserve an unchanged, verified report prefix and reparse and semantically
 reanalyze only a final suffix of supported scalar declarations. The preserved
 prefix may include an unchanged scalar-only import environment or, under stricter
 clean-report and vector-ownership checks, richer top-level constructs such as a
-file/path binding, pure scalar helper, and `print`. Old and new suffix
-results must remain registered scalars, and suffix expressions cannot use a
-preserved non-scalar binding as an alias or operand. Changes inside that richer
-prefix and token-bearing non-declarations in the affected suffix use full
-analysis. This is not general incremental parsing or semantic recomputation.
+file/path or TimeSeries binding, cached boundary, pure scalar helper, and
+`print`. Old and new suffix results must remain registered scalars; each
+patched semantic vector must expose an exact independent tail; and prior cache
+and axis metadata must regenerate exactly. A successful patch rebuilds axis
+metadata and rekeys cache records with the new source hash. Suffix expressions
+cannot use a preserved non-scalar binding as an alias or operand. Changes inside
+that richer prefix and token-bearing non-declarations in the affected suffix use
+full analysis. This richer contract is root-source-only and import-free; module
+and static imports retain the stricter scalar-only import contract. This is not
+general incremental parsing or semantic recomputation.
 
 This JSON contract is not a replacement for full LSP editor validation.

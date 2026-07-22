@@ -136,17 +136,22 @@ review material. It is not a broad solver claim.
   strict path can preserve a verified report prefix and reparse/semantically
   reanalyze only a final suffix of top-level fast, explicit, and pure scalar
   `const` declarations. Scalar-only documents may retain unchanged supported
-  module or static imports. A clean cache-free/axis-free report may also retain
-  an unchanged richer prefix, including root scalar helpers, non-scalar
-  file/path bindings, and `print`, when every old and new suffix result is a
-  registered scalar and exact semantic-vector tail ownership matches isolated
-  old-suffix analysis. The richer prefix itself is not reparsed or reanalyzed;
-  suffix expressions cannot use preserved non-scalar bindings as aliases or
-  operands, and edits inside the prefix use full analysis. Suffix forms may
-  interleave and switch style, and expressions may use earlier scalar bindings
-  or preserved registered, unit-consistent scalar calls directly, in
-  arithmetic, or recursively inside scalar arguments. Explicit and `const`
-  result dimensions must match their annotations.
+  module or static imports. A clean report may also retain an unchanged richer
+  prefix, including root scalar helpers, non-scalar file/path bindings,
+  TimeSeries values, cached boundaries, and `print`, when every old and new
+  suffix result is a registered scalar. Each patched semantic vector must own
+  an exact independent tail, prior cache and axis metadata must regenerate
+  exactly, and isolated old-suffix analysis must match the report. Axis metadata
+  is rebuilt and cache records are rekeyed with the new source hash after the
+  patch. The richer prefix itself is not reparsed or reanalyzed; suffix
+  expressions cannot use preserved non-scalar bindings as aliases or operands,
+  and edits inside the prefix use full analysis. This richer contract is
+  root-source-only and import-free; module and static imports retain their
+  stricter scalar-only validation. Suffix forms may interleave and switch style,
+  and expressions may use earlier scalar bindings or preserved registered,
+  unit-consistent scalar calls directly, in arithmetic, or recursively inside
+  scalar arguments. Explicit and `const` result dimensions must match their
+  annotations.
   Full checks recursively validate those nested calls, including calls inside
   parenthesized scalar arithmetic and built-in arguments, underline the innermost
   invalid argument or unknown function name, ignore call-like string contents,

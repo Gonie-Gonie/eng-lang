@@ -1064,9 +1064,9 @@ pub(crate) struct IncrementalScalarDeclarationAnalysis {
 /// additionally require a result dimension that matches their annotation. Scalar calls may nest
 /// recursively inside other scalar-call arguments. The arithmetic grammar is shared with component
 /// parameter validation; workflow expressions and non-scalar functions cannot enter this local
-/// semantic path. Preserved non-scalar prefix bindings may remain in the trusted report, but suffix
-/// expressions cannot use them as aliases or operands, and every new suffix binding must resolve to
-/// a registered scalar quantity.
+/// semantic path. Preserved non-scalar or axis-bearing prefix bindings may remain in the trusted
+/// report, but suffix expressions cannot use them as aliases or operands, and every new suffix
+/// binding must resolve to a registered scalar quantity.
 /// An empty suffix is accepted so the caller can remove the final affected declarations atomically.
 pub(crate) fn analyze_incremental_scalar_declarations(
     program: &ParsedProgram,
@@ -1204,7 +1204,7 @@ pub(crate) fn analyze_incremental_scalar_declarations(
         || !ml_infos.is_empty()
         || !db_reads.is_empty()
         || !timeseries_kernels.is_empty()
-        || !crate::stats::axis_infos(&typed_bindings).is_empty()
+        || !crate::stats::axis_infos(&typed_bindings[prefix_count..]).is_empty()
     {
         return None;
     }

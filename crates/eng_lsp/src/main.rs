@@ -10880,6 +10880,12 @@ mod tests {
         let path = root.join("current.eng");
         let initial_source = concat!(
             "input_file = file(\"input.csv\")\n",
+            "series: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
+            "process_result = run command \"cmd\"\n",
+            "with {\n",
+            "    cache = true\n",
+            "    cache_key = [\"editor-prefix\"]\n",
+            "}\n",
             "fn identity_power(value: HeatRate [kW]) -> HeatRate [kW] {\n",
             "    return value\n",
             "}\n",
@@ -10908,6 +10914,12 @@ mod tests {
 
         let changed_source = concat!(
             "input_file = file(\"input.csv\")\n",
+            "series: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
+            "process_result = run command \"cmd\"\n",
+            "with {\n",
+            "    cache = true\n",
+            "    cache_key = [\"editor-prefix\"]\n",
+            "}\n",
             "fn identity_power(value: HeatRate [kW]) -> HeatRate [kW] {\n",
             "    return value\n",
             "}\n",
@@ -10937,7 +10949,7 @@ mod tests {
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
             (0, 2, 0, true, true),
-            "the unchanged file input, helper, and print prefix should preserve the scalar suffix fast path"
+            "the unchanged file, axis, cache, helper, and print prefix should preserve the scalar suffix fast path"
         );
 
         let fallback_source = changed_source.replace(
