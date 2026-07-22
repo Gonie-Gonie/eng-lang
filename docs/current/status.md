@@ -197,8 +197,10 @@ review material. It is not a broad solver claim.
   Suffix forms may interleave and switch style,
   and expressions may use earlier scalar bindings or preserved registered,
   unit-consistent scalar calls directly, in arithmetic, or recursively inside
-  scalar arguments. Explicit and `const` result dimensions must match their
-  annotations. A fast binding may also change between a verified direct scalar
+  scalar arguments. Compiler-owned dimensionless math calls are accepted in
+  the same direct, nested, and arithmetic shapes when each argument is
+  dimensionless; explicit and `const` results must match their annotations.
+  A fast binding may also change between a verified direct scalar
   class-object field and a zero-argument method call; its typed result may feed
   later scalar declarations in that suffix. Composite member expressions,
   argument-bearing methods, unknown members, and non-scalar fields retain full
@@ -213,13 +215,21 @@ review material. It is not a broad solver claim.
   symbols inside quoted or escaped string content, including process `env` values.
   The compiler-owned dimensionless math-function catalog now also drives LSP
   built-in tokens, completion, generated editor metadata, and TextMate first-paint
-  scopes. Component `predictor(...)` and call-style `predict(...)` share the solver
-  role without changing command-style model prediction.
+  scopes. Full scalar analysis now types valid direct, nested, and arithmetic
+  calls as `DimensionlessNumber [1]`, and reports exact wrong-arity,
+  unresolved-argument, unitful-argument, and incompatible annotated-result
+  ranges without emitting a misleading inferred binding. The bounded suffix
+  recheck accepts the same valid calls, while the native runtime materializes
+  their actual scalar values in `typed_payload.numeric_values[]`. User
+  functions with the same name retain precedence. Component `predictor(...)`
+  and call-style `predict(...)` share the solver role without changing
+  command-style model prediction.
   Module `symbols` contracts are parsed into a typed compiler catalog with
   required/optional parameters, overloads, return types, and display units.
   LSP signature help and completion detail consume that catalog directly;
-  generated metadata exposes the same 52 signatures and completion no longer
-  inserts literal `(...)` labels.
+  generated metadata exposes the same 52 signatures, identifies scalar math
+  parameters and returns as `DimensionlessNumber [1]` instead of generic
+  `Number`, and completion no longer inserts literal `(...)` labels.
   VS Code extension checks now load the installed TextMate engine, including
   ASAR-based installs, and compare role-bearing first-paint scopes against
   compiler semantic snapshots for every example. Report/test/solver block words,

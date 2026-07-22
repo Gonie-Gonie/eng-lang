@@ -42,6 +42,31 @@ parameters, supports overloads such as `measured(...)`, and preserves declared
 return units such as `Duration [s]`. Command-style workflow statements do not
 pretend to be ordinary functions.
 
+## Dimensionless Scalar Math
+
+The core math calls `sqrt`, `exp`, `ln`, `sin`, `cos`, `tan`, `asin`, `acos`,
+and `atan` each accept one `DimensionlessNumber [1]` expression and return
+`DimensionlessNumber [1]`. They work in direct, nested, and scalar-arithmetic
+bindings and are evaluated by the native runtime:
+
+```eng
+ratio_input = 0.25
+root = sqrt(ratio_input)
+response = exp(ln(root))
+combined = sin(response) + cos(0)
+```
+
+Passing a physical quantity is not an implicit conversion:
+
+```eng error
+length = 2 m
+invalid = sqrt(length)
+```
+
+The compiler reports exact call/argument ranges with `E-MATH-CALL-001`,
+`E-MATH-ARG-001`, `E-MATH-DIM-001`, or `E-MATH-RESULT-001`. A user-defined
+function with the same name still wins at its call sites.
+
 ## File Imports
 
 ```text

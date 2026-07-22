@@ -590,6 +590,9 @@ pub fn retarget_check_report_for_token_stable_trivia(
 /// backward aliases, or pure scalar `+`, `-`, `*`, and `/` arithmetic over registered-unit literals,
 /// parentheses, earlier scalar bindings, and dimension-valid calls to those imported scalar
 /// functions as direct values, arithmetic operands, or recursively nested call arguments.
+/// Compiler-owned `sqrt`, `exp`, `ln`, `sin`, `cos`, `tan`, `asin`, `acos`, and
+/// `atan` calls are also accepted with exactly one dimensionless scalar argument and produce
+/// `DimensionlessNumber [1]`.
 /// Changed logical lines may remain bindings or token-free trivia, including inserted or removed
 /// trivia and line-ending changes. Coordinated binding renames are accepted when the resulting names
 /// stay unique and aliases resolve in source order. The compiler preserves report records before the
@@ -630,7 +633,9 @@ pub fn recheck_scalar_binding_suffix_incrementally(
 /// quantity types, pure scalar expressions, and token-free trivia. A declaration may use one or more
 /// of those imported scalar functions directly, as arithmetic operands, or recursively in scalar
 /// call arguments when argument counts and dimensions are valid and the result dimension matches the
-/// declared quantity. This path preserves the records before
+/// declared quantity. Compiler-owned `sqrt`, `exp`, `ln`, `sin`, `cos`, `tan`,
+/// `asin`, `acos`, and `atan` calls accept exactly one dimensionless scalar argument and
+/// produce `DimensionlessNumber [1]`. This path preserves the records before
 /// the first changed declaration and patches expected-type, typed-binding, hover, type-info,
 /// unit-derivation, syntax-count, and workflow-line records together. Root fast bindings, root
 /// `const` declarations, invalid or unsupported calls, diagnostics, ineligible or edited imports,
@@ -655,7 +660,9 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// Expressions are limited to numeric literals, backward aliases, and pure scalar `+`, `-`, `*`,
 /// and `/` arithmetic over registered-unit literals, parentheses, earlier scalar declarations, and
 /// dimension-valid calls to unchanged registered, unit-consistent scalar functions, including
-/// recursively nested scalar calls in function arguments. Explicit and `const` result dimensions
+/// recursively nested scalar calls in function arguments. Compiler-owned `sqrt`, `exp`, `ln`,
+/// `sin`, `cos`, `tan`, `asin`, `acos`, and `atan` calls accept exactly one dimensionless
+/// scalar argument and produce `DimensionlessNumber [1]`. Explicit and `const` result dimensions
 /// must match their annotations.
 /// The compiler preserves all records before the first declaration at or after the first raw-line
 /// difference, verifies the old suffix against the prior report, then patches inferred, constant,
@@ -12717,7 +12724,6 @@ const const_result: Length [cm] = add_lengths(add_lengths(imported_length, impor
         );
 
         for unsupported in [
-            "base = 2 m\nconst factor: Ratio = sqrt(4)\nadjusted: Length [m] = base * factor\n",
             "use eng.stats\nconst factor: Ratio = 0.5\nadjusted = 2 m\n",
             "base = 2 m\nconst factor: Ratio = missing\nadjusted: Length [m] = base * factor\n",
             "base = 2 m\nconst factor: Ratio = later\nlater = 0.5\n",
@@ -14877,6 +14883,58 @@ scaled = scale_power(base, imported_factor)
     }
 
     #[test]
+    fn incrementally_rechecks_dimensionless_math_scalar_suffixes() {
+        let previous_source = concat!(
+            "seed = 0.25\n",
+            "direct = sqrt(seed)\n",
+            "const gain: Ratio [1] = exp(direct)\n",
+            "combined: Ratio [1] = sin(gain) + cos(0)\n",
+        );
+        let source = concat!(
+            "seed = 0.5\n",
+            "direct = atan(seed)\n",
+            "const gain: Ratio [1] = acos(direct)\n",
+            "combined: Ratio [1] = tan(gain) + asin(0) + sqrt(4)\n",
+        );
+        let previous = check_source(
+            "incremental-math.eng",
+            previous_source,
+            &CheckOptions::default(),
+        );
+        assert!(
+            previous.diagnostics.is_empty(),
+            "unexpected previous math diagnostics: {:#?}",
+            previous.diagnostics
+        );
+
+        let reused =
+            recheck_scalar_declaration_suffix_incrementally(&previous, previous_source, source)
+                .expect("dimensionless math declarations should recheck as one scalar suffix");
+        let fresh = check_source("incremental-math.eng", source, &CheckOptions::default());
+        assert_eq!(reused.source_path, fresh.source_path);
+        assert_eq!(reused.source_files, fresh.source_files);
+        assert_eq!(reused.source_hash, fresh.source_hash);
+        assert_eq!(reused.source_lines, fresh.source_lines);
+        assert_eq!(reused.diagnostics, fresh.diagnostics);
+        assert_eq!(reused.inferred_declarations, fresh.inferred_declarations);
+        assert_eq!(reused.syntax_summary, fresh.syntax_summary);
+        assert_eq!(reused.semantic_program, fresh.semantic_program);
+        assert_eq!(review_json(&reused), review_json(&fresh));
+        for name in ["seed", "direct", "gain", "combined"] {
+            let binding = reused
+                .semantic_program
+                .typed_bindings
+                .iter()
+                .find(|binding| binding.name == name)
+                .unwrap_or_else(|| panic!("missing incremental math binding `{name}`"));
+            assert!(matches!(
+                binding.semantic_type.quantity_kind.as_str(),
+                "DimensionlessNumber" | "Ratio" | "ReynoldsNumber"
+            ));
+        }
+    }
+
+    #[test]
     fn scalar_binding_incremental_recheck_uses_strict_fallbacks() {
         let previous_source = "length = 2 m\nheat_rate = 2 kW\n";
         let previous = check_source(
@@ -14888,7 +14946,6 @@ scaled = scale_power(base, imported_factor)
         for unsupported in [
             "length = 2 m\nheat_rate = missing\n",
             "length = 2 m\nheat_rate = 2 kW + 1 m\n",
-            "length = 2 m\nheat_rate = sqrt(4)\n",
             "length = 2 m\nheat_rate = 2 kW\n# trailing trivia\n",
             "length = 3 m\nadded = heat_rate\nheat_rate = 2 kW\n",
             "simulate = 1\nratio = simulate + 1\n",
@@ -23597,6 +23654,119 @@ with {
             assert_eq!(declaration.quantity_kind, "Length");
             assert_eq!(declaration.display_unit, "m");
         }
+    }
+
+    #[test]
+    fn types_and_validates_dimensionless_math_calls() {
+        let source = concat!(
+            "ratio_input = 0.25\n",
+            "sqrt_value = sqrt(ratio_input)\n",
+            "nested_value = exp(ln(sqrt_value))\n",
+            "combined = sin(nested_value) + cos(0) + tan(0) + asin(0) + acos(1) + atan(1)\n",
+        );
+        let report = check_source("dimensionless-math.eng", source, &CheckOptions::default());
+
+        assert!(
+            report.diagnostics.is_empty(),
+            "valid dimensionless math should compile cleanly: {:#?}",
+            report.diagnostics
+        );
+        for name in ["sqrt_value", "nested_value", "combined"] {
+            let binding = report
+                .semantic_program
+                .typed_bindings
+                .iter()
+                .find(|binding| binding.name == name)
+                .unwrap_or_else(|| panic!("missing typed math binding `{name}`"));
+            assert_eq!(binding.semantic_type.quantity_kind, "DimensionlessNumber");
+            assert_eq!(binding.semantic_type.display_unit, "1");
+            assert!(report
+                .semantic_program
+                .hover_hints
+                .iter()
+                .any(|hover| hover.name == name
+                    && hover.quantity_kind == "DimensionlessNumber"
+                    && hover.display_unit == "1"));
+        }
+
+        let invalid_source = concat!(
+            "length = 2 m\n",
+            "bad_dimension = exp(length)\n",
+            "bad_arity = sin(0, 1)\n",
+            "bad_argument = cos(missing)\n",
+            "nested_bad = atan(sqrt(length))\n",
+            "physical: HeatRate [W] = sqrt(4)\n",
+        );
+        let invalid = check_source(
+            "invalid-dimensionless-math.eng",
+            invalid_source,
+            &CheckOptions::default(),
+        );
+        let span_text = |code: &str, line: usize| {
+            let span = invalid
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code && diagnostic.line == line)
+                .unwrap_or_else(|| {
+                    panic!("missing {code} on line {line}: {:#?}", invalid.diagnostics)
+                })
+                .source_span
+                .expect("math diagnostics should own exact source spans");
+            &invalid_source[span.start..span.end]
+        };
+        for (code, line, expected) in [
+            ("E-MATH-DIM-001", 2, "length"),
+            ("E-MATH-CALL-001", 3, "sin"),
+            ("E-MATH-ARG-001", 4, "missing"),
+            ("E-MATH-DIM-001", 5, "length"),
+            ("E-MATH-RESULT-001", 6, "sqrt(4)"),
+        ] {
+            assert_eq!(span_text(code, line), expected);
+        }
+        assert_eq!(
+            invalid
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code.starts_with("E-MATH-"))
+                .count(),
+            5
+        );
+        for name in ["bad_dimension", "bad_arity", "bad_argument", "nested_bad"] {
+            assert!(
+                invalid
+                    .semantic_program
+                    .typed_bindings
+                    .iter()
+                    .all(|binding| binding.name != name),
+                "invalid math binding `{name}` must not expose a misleading inferred type"
+            );
+        }
+    }
+
+    #[test]
+    fn user_function_shadows_dimensionless_math_builtin_semantics() {
+        let source = concat!(
+            "fn sqrt(value: Length [m]) -> Length [m] {\n",
+            "    return value\n",
+            "}\n",
+            "base = 2 m\n",
+            "shadowed = sqrt(base)\n",
+        );
+        let report = check_source("shadowed-math.eng", source, &CheckOptions::default());
+
+        assert!(
+            report.diagnostics.is_empty(),
+            "a user function should win over the builtin math name: {:#?}",
+            report.diagnostics
+        );
+        let binding = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "shadowed")
+            .expect("shadowed function result should remain typed");
+        assert_eq!(binding.semantic_type.quantity_kind, "Length");
+        assert_eq!(binding.semantic_type.display_unit, "m");
     }
 
     #[test]

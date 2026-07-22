@@ -57,7 +57,10 @@ and next cleanup action.
   rows; editor metadata smoke checks; optional VS Code extension source; and a
   compiler-owned typed call signature resolver shared by the native IDE and
   VS Code for local/imported user functions, zero-argument class-object
-  methods, and structured built-in API contracts. Native requests include
+  methods, and structured built-in API contracts. Dimensionless scalar math
+  now shares one compiler contract for `DimensionlessNumber [1]` signatures,
+  full and incremental type analysis, exact diagnostics, editor metadata, and
+  native runtime values instead of stopping at built-in coloring. Native requests include
   modified open imports, reject stale caret/document results, and share exact
   or bounded incremental live-analysis results during a hard two-second
   validity window with full fallback outside its strict context. The track also

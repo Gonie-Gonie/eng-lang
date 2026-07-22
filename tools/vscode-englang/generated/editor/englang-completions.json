@@ -235,25 +235,25 @@
                                  "lsp_kind":  7
                              },
                              {
-                                 "detail":  "acos(value: Number) -\u003e Number (EngLang core)",
+                                 "detail":  "acos(value: DimensionlessNumber [1]) -\u003e DimensionlessNumber [1] (EngLang core)",
                                  "kind":  "function",
                                  "label":  "acos",
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "asin(value: Number) -\u003e Number (EngLang core)",
+                                 "detail":  "asin(value: DimensionlessNumber [1]) -\u003e DimensionlessNumber [1] (EngLang core)",
                                  "kind":  "function",
                                  "label":  "asin",
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "atan(value: Number) -\u003e Number (EngLang core)",
+                                 "detail":  "atan(value: DimensionlessNumber [1]) -\u003e DimensionlessNumber [1] (EngLang core)",
                                  "kind":  "function",
                                  "label":  "atan",
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "cos(value: Number) -\u003e Number (EngLang core)",
+                                 "detail":  "cos(value: DimensionlessNumber [1]) -\u003e DimensionlessNumber [1] (EngLang core)",
                                  "kind":  "function",
                                  "label":  "cos",
                                  "lsp_kind":  3
@@ -311,7 +311,7 @@
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "exp(value: Number) -\u003e Number (EngLang core)",
+                                 "detail":  "exp(value: DimensionlessNumber [1]) -\u003e DimensionlessNumber [1] (EngLang core)",
                                  "kind":  "function",
                                  "label":  "exp",
                                  "lsp_kind":  3
@@ -359,7 +359,7 @@
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "ln(value: Number) -\u003e Number (EngLang core)",
+                                 "detail":  "ln(value: DimensionlessNumber [1]) -\u003e DimensionlessNumber [1] (EngLang core)",
                                  "kind":  "function",
                                  "label":  "ln",
                                  "lsp_kind":  3
@@ -445,13 +445,13 @@
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "sin(value: Number) -\u003e Number (EngLang core)",
+                                 "detail":  "sin(value: DimensionlessNumber [1]) -\u003e DimensionlessNumber [1] (EngLang core)",
                                  "kind":  "function",
                                  "label":  "sin",
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "sqrt(value: Number) -\u003e Number (EngLang core)",
+                                 "detail":  "sqrt(value: DimensionlessNumber [1]) -\u003e DimensionlessNumber [1] (EngLang core)",
                                  "kind":  "function",
                                  "label":  "sqrt",
                                  "lsp_kind":  3
@@ -477,7 +477,7 @@
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "tan(value: Number) -\u003e Number (EngLang core)",
+                                 "detail":  "tan(value: DimensionlessNumber [1]) -\u003e DimensionlessNumber [1] (EngLang core)",
                                  "kind":  "function",
                                  "label":  "tan",
                                  "lsp_kind":  3

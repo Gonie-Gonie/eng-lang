@@ -14691,7 +14691,7 @@ print "done"
             "uniform(lower: Quantity, upper: Quantity) -> SampleDistribution",
             "normal(mean: Quantity, std: Quantity, samples?: Int) -> Uncertain[Quantity]",
             "duration_above(series: TimeSeries[Time], threshold: Quantity) -> Duration [s]",
-            "sqrt(value: Number) -> Number",
+            "sqrt(value: DimensionlessNumber [1]) -> DimensionlessNumber [1]",
             "pNN(series: TimeSeries | Uncertain, axis?: TimeAxis) -> Quantity",
         ] {
             assert!(
@@ -20591,6 +20591,33 @@ predict_alias_value = predict(signal)
                 .unwrap_or_else(|| panic!("missing math completion `{label}`"));
             assert_eq!(completion.kind, "function");
         }
+        for name in [
+            "sqrt_value",
+            "exp_value",
+            "ln_value",
+            "sin_value",
+            "cos_value",
+            "tan_value",
+            "asin_value",
+            "acos_value",
+            "atan_value",
+        ] {
+            let hover = snapshot
+                .hovers
+                .iter()
+                .find(|hover| hover.name == name)
+                .unwrap_or_else(|| panic!("missing typed math hover `{name}`"));
+            assert_eq!(hover.quantity_kind, "DimensionlessNumber");
+            assert_eq!(hover.display_unit, "1");
+        }
+        let sqrt_completion = snapshot
+            .completions
+            .iter()
+            .find(|completion| completion.label == "sqrt")
+            .expect("sqrt completion");
+        assert!(sqrt_completion
+            .detail
+            .contains("sqrt(value: DimensionlessNumber [1]) -> DimensionlessNumber [1]"));
         for (line, label) in [
             ("predictor_value", "predictor"),
             ("predict_alias_value", "predict"),
@@ -20604,6 +20631,52 @@ predict_alias_value = predict(signal)
             .completions
             .iter()
             .any(|completion| completion.label == "predictor" && completion.kind == "function"));
+    }
+
+    #[test]
+    fn dimensionless_math_diagnostics_use_exact_utf16_ranges() {
+        let source = concat!(
+            "length = 1 m\r\n",
+            "bad_dimension = sqrt(length)\r\n",
+            "bad_arity = exp(0, 1)\r\n",
+            "bad_argument = cos(\"\u{1f527}\" + missing)\r\n",
+            "bad_result: HeatRate [W] = sin(0)\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("dimensionless_math_diagnostics.eng"), source);
+        let lines = source.lines().collect::<Vec<_>>();
+
+        for (line_index, code, expected) in [
+            (1, "E-MATH-DIM-001", "length"),
+            (2, "E-MATH-CALL-001", "exp"),
+            (3, "E-MATH-ARG-001", "\"\u{1f527}\" + missing"),
+            (4, "E-MATH-RESULT-001", "sin(0)"),
+        ] {
+            let diagnostic = snapshot
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.line == line_index + 1 && diagnostic.code == code)
+                .unwrap_or_else(|| panic!("missing {code}: {:#?}", snapshot.diagnostics));
+            let line = lines[line_index];
+            let byte_start = line
+                .find(expected)
+                .unwrap_or_else(|| panic!("missing `{expected}` in `{line}`"));
+            assert_eq!(
+                diagnostic.start_character,
+                utf16_len(&line[..byte_start]),
+                "{code} start"
+            );
+            assert_eq!(
+                diagnostic.end_character,
+                utf16_len(&line[..byte_start + expected.len()]),
+                "{code} end"
+            );
+        }
+        for name in ["bad_dimension", "bad_arity", "bad_argument"] {
+            assert!(
+                snapshot.hovers.iter().all(|hover| hover.name != name),
+                "invalid math binding `{name}` must not expose a typed hover"
+            );
+        }
     }
 
     #[test]

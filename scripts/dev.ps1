@@ -7349,7 +7349,7 @@ function Assert-VscodeExtensionContract {
         "uniform(lower: Quantity, upper: Quantity) -> SampleDistribution",
         "normal(mean: Quantity, std: Quantity, samples?: Int) -> Uncertain[Quantity]",
         "duration_above(series: TimeSeries[Time], threshold: Quantity) -> Duration [s]",
-        "sqrt(value: Number) -> Number",
+        "sqrt(value: DimensionlessNumber [1]) -> DimensionlessNumber [1]",
         "pNN(series: TimeSeries | Uncertain, axis?: TimeAxis) -> Quantity"
     )) {
         if (-not ($BuiltinFunctionSignatures | Where-Object { [string]$_.label -eq $RequiredBuiltinSignature } | Select-Object -First 1)) {

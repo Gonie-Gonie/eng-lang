@@ -68,6 +68,24 @@ target: Ratio [%] = 75%
 requested display unit. A bare `1` remains an ordinary dimensionless number;
 `[1]` and the suffix in `0.25 1` are unit contexts.
 
+## Scalar Math
+
+`sqrt`, `exp`, `ln`, `sin`, `cos`, `tan`, `asin`, `acos`, and `atan` require
+one dimensionless argument and return `DimensionlessNumber [1]`. The compiler
+types direct, nested, and arithmetic results, and the native runtime evaluates
+the same expressions for scalar result artifacts.
+
+```eng
+ratio = 0.25
+root = sqrt(ratio)
+result = exp(ln(root)) + sin(0)
+```
+
+Unitful and unresolved arguments, wrong arity, and a dimensionless result used
+for an incompatible annotated declaration are compiler errors. The editor
+underlines the failing function name or argument rather than only coloring the
+call as a built-in.
+
 ## Ambiguous Quantity
 
 Some units map to multiple quantity kinds.

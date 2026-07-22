@@ -10874,29 +10874,29 @@ mod tests {
             "pure scalar arithmetic should rebuild the cached semantic suffix"
         );
 
-        let fallback_source = concat!("# scalar bindings cleared\r\n", "ratio = sqrt(4)\r\n",);
-        let fallback_change = json!({
+        let math_source = concat!("# scalar bindings cleared\r\n", "ratio = sqrt(4)\r\n",);
+        let math_change = json!({
             "method": "textDocument/didChange",
             "params": {
                 "textDocument": { "uri": uri, "version": 12 },
-                "contentChanges": [{ "text": fallback_source }]
+                "contentChanges": [{ "text": math_source }]
             }
         });
         let (changed_uri, changed_state) =
-            document_state_from_notification(&fallback_change, &documents)
+            document_state_from_notification(&math_change, &documents)
                 .expect("function expression change should be accepted");
         documents.insert(changed_uri.clone(), changed_state);
         let affected = diagnostic_documents_after_change(&changed_uri, &documents);
         invalidate_dependent_document_analyses(&changed_uri, &affected);
         assert_eq!(
-            snapshot_for_open_documents(&path, fallback_source, &documents),
-            snapshot_for_source(&path, fallback_source)
+            snapshot_for_open_documents(&path, math_source, &documents),
+            snapshot_for_source(&path, math_source)
         );
-        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 10);
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 11);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
             (0, 12, 0, true, true),
-            "function calls must fall back to a fresh compiler report"
+            "dimensionless math calls should rebuild the cached scalar suffix"
         );
 
         std::fs::remove_dir_all(&root).expect("incremental binding fixture should be removed");
@@ -11289,33 +11289,33 @@ const imported_factor: Ratio [1] = 0.5
             (0, 3, 0, true, true)
         );
 
-        let fallback_source = concat!(
+        let math_source = concat!(
             "length: Length [m] = 2 m\n",
             "scale: Ratio [1] = sqrt(4)\n",
             "heat_rate: HeatRate [W] = 2 kW\n",
         );
-        let fallback_notification = json!({
+        let math_notification = json!({
             "method": "textDocument/didChange",
             "params": {
                 "textDocument": { "uri": uri, "version": 4 },
-                "contentChanges": [{ "text": fallback_source }]
+                "contentChanges": [{ "text": math_source }]
             }
         });
         let (changed_uri, changed_state) =
-            document_state_from_notification(&fallback_notification, &documents)
+            document_state_from_notification(&math_notification, &documents)
                 .expect("explicit function expression should be accepted");
         documents.insert(changed_uri.clone(), changed_state);
         let affected = diagnostic_documents_after_change(&changed_uri, &documents);
         invalidate_dependent_document_analyses(&changed_uri, &affected);
         assert_eq!(
-            snapshot_for_open_documents(&path, fallback_source, &documents),
-            snapshot_for_source(&path, fallback_source)
+            snapshot_for_open_documents(&path, math_source, &documents),
+            snapshot_for_source(&path, math_source)
         );
-        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 2);
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 3);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
             (0, 4, 0, true, true),
-            "function calls should use a fresh compiler report"
+            "dimensionless math should recheck an explicit scalar suffix"
         );
 
         std::fs::remove_dir_all(&root).expect("explicit scalar fixture should be removed");
@@ -11402,33 +11402,33 @@ const imported_factor: Ratio [1] = 0.5
         );
         assert_eq!(documents[&uri].scalar_binding_reuse_count(), 2);
 
-        let fallback_source = concat!(
+        let math_source = concat!(
             "distance: Length [cm] = 200 cm\n",
             "offset = sqrt(4)\n",
             "combined: Length [m] = distance + 1 m\n",
         );
-        let fallback_notification = json!({
+        let math_notification = json!({
             "method": "textDocument/didChange",
             "params": {
                 "textDocument": { "uri": uri, "version": 4 },
-                "contentChanges": [{ "text": fallback_source }]
+                "contentChanges": [{ "text": math_source }]
             }
         });
         let (changed_uri, changed_state) =
-            document_state_from_notification(&fallback_notification, &documents)
+            document_state_from_notification(&math_notification, &documents)
                 .expect("mixed scalar function expression should be accepted");
         documents.insert(changed_uri.clone(), changed_state);
         let affected = diagnostic_documents_after_change(&changed_uri, &documents);
         invalidate_dependent_document_analyses(&changed_uri, &affected);
         assert_eq!(
-            snapshot_for_open_documents(&path, fallback_source, &documents),
-            snapshot_for_source(&path, fallback_source)
+            snapshot_for_open_documents(&path, math_source, &documents),
+            snapshot_for_source(&path, math_source)
         );
-        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 2);
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 3);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
             (0, 4, 0, true, true),
-            "function calls must use a fresh compiler report"
+            "dimensionless math should recheck a mixed scalar suffix"
         );
 
         std::fs::remove_dir_all(&root).expect("mixed scalar fixture should be removed");
@@ -11522,35 +11522,35 @@ const imported_factor: Ratio [1] = 0.5
         );
         assert_eq!(documents[&uri].scalar_binding_reuse_count(), 2);
 
-        let fallback_source = concat!(
+        let math_source = concat!(
             "use eng.stats\n",
             "base = 2 m\n",
             "const gain: Ratio = sqrt(4)\n",
             "adjusted: Length [m] = base\n",
             "total = adjusted + 0 m\n",
         );
-        let fallback_notification = json!({
+        let math_notification = json!({
             "method": "textDocument/didChange",
             "params": {
                 "textDocument": { "uri": uri, "version": 4 },
-                "contentChanges": [{ "text": fallback_source }]
+                "contentChanges": [{ "text": math_source }]
             }
         });
         let (changed_uri, changed_state) =
-            document_state_from_notification(&fallback_notification, &documents)
+            document_state_from_notification(&math_notification, &documents)
                 .expect("scalar const function expression should be accepted");
         documents.insert(changed_uri.clone(), changed_state);
         let affected = diagnostic_documents_after_change(&changed_uri, &documents);
         invalidate_dependent_document_analyses(&changed_uri, &affected);
         assert_eq!(
-            snapshot_for_open_documents(&path, fallback_source, &documents),
-            snapshot_for_source(&path, fallback_source)
+            snapshot_for_open_documents(&path, math_source, &documents),
+            snapshot_for_source(&path, math_source)
         );
-        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 2);
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 3);
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
             (0, 4, 0, true, true),
-            "function calls in scalar constants must use a fresh compiler report"
+            "dimensionless math should recheck a scalar const suffix"
         );
 
         std::fs::remove_dir_all(&root).expect("scalar const fixture should be removed");

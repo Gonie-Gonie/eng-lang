@@ -3,20 +3,20 @@
     "syntax_catalog":  {
                            "builtin_function_signatures":  [
                                                                {
-                                                                   "documentation":  "Dimensionless scalar math for solver, component, and scalar arithmetic expressions.",
-                                                                   "label":  "acos(value: Number) -\u003e Number",
+                                                                   "documentation":  "Requires one DimensionlessNumber [1] argument and returns DimensionlessNumber [1] in native scalar, solver, and component expressions.",
+                                                                   "label":  "acos(value: DimensionlessNumber [1]) -\u003e DimensionlessNumber [1]",
                                                                    "name":  "acos",
                                                                    "owner":  "EngLang core",
                                                                    "parameters":  [
                                                                                       {
-                                                                                          "label":  "value: Number",
+                                                                                          "label":  "value: DimensionlessNumber [1]",
                                                                                           "name":  "value",
                                                                                           "optional":  false,
-                                                                                          "type":  "Number"
+                                                                                          "type":  "DimensionlessNumber"
                                                                                       }
                                                                                   ],
-                                                                   "return_display_unit":  null,
-                                                                   "return_type":  "Number",
+                                                                   "return_display_unit":  "1",
+                                                                   "return_type":  "DimensionlessNumber",
                                                                    "status":  "supported_narrow",
                                                                    "status_label":  "Supported narrow"
                                                                },
@@ -39,56 +39,56 @@
                                                                    "status_label":  "Internal target"
                                                                },
                                                                {
-                                                                   "documentation":  "Dimensionless scalar math for solver, component, and scalar arithmetic expressions.",
-                                                                   "label":  "asin(value: Number) -\u003e Number",
+                                                                   "documentation":  "Requires one DimensionlessNumber [1] argument and returns DimensionlessNumber [1] in native scalar, solver, and component expressions.",
+                                                                   "label":  "asin(value: DimensionlessNumber [1]) -\u003e DimensionlessNumber [1]",
                                                                    "name":  "asin",
                                                                    "owner":  "EngLang core",
                                                                    "parameters":  [
                                                                                       {
-                                                                                          "label":  "value: Number",
+                                                                                          "label":  "value: DimensionlessNumber [1]",
                                                                                           "name":  "value",
                                                                                           "optional":  false,
-                                                                                          "type":  "Number"
+                                                                                          "type":  "DimensionlessNumber"
                                                                                       }
                                                                                   ],
-                                                                   "return_display_unit":  null,
-                                                                   "return_type":  "Number",
+                                                                   "return_display_unit":  "1",
+                                                                   "return_type":  "DimensionlessNumber",
                                                                    "status":  "supported_narrow",
                                                                    "status_label":  "Supported narrow"
                                                                },
                                                                {
-                                                                   "documentation":  "Dimensionless scalar math for solver, component, and scalar arithmetic expressions.",
-                                                                   "label":  "atan(value: Number) -\u003e Number",
+                                                                   "documentation":  "Requires one DimensionlessNumber [1] argument and returns DimensionlessNumber [1] in native scalar, solver, and component expressions.",
+                                                                   "label":  "atan(value: DimensionlessNumber [1]) -\u003e DimensionlessNumber [1]",
                                                                    "name":  "atan",
                                                                    "owner":  "EngLang core",
                                                                    "parameters":  [
                                                                                       {
-                                                                                          "label":  "value: Number",
+                                                                                          "label":  "value: DimensionlessNumber [1]",
                                                                                           "name":  "value",
                                                                                           "optional":  false,
-                                                                                          "type":  "Number"
+                                                                                          "type":  "DimensionlessNumber"
                                                                                       }
                                                                                   ],
-                                                                   "return_display_unit":  null,
-                                                                   "return_type":  "Number",
+                                                                   "return_display_unit":  "1",
+                                                                   "return_type":  "DimensionlessNumber",
                                                                    "status":  "supported_narrow",
                                                                    "status_label":  "Supported narrow"
                                                                },
                                                                {
-                                                                   "documentation":  "Dimensionless scalar math for solver, component, and scalar arithmetic expressions.",
-                                                                   "label":  "cos(value: Number) -\u003e Number",
+                                                                   "documentation":  "Requires one DimensionlessNumber [1] argument and returns DimensionlessNumber [1] in native scalar, solver, and component expressions.",
+                                                                   "label":  "cos(value: DimensionlessNumber [1]) -\u003e DimensionlessNumber [1]",
                                                                    "name":  "cos",
                                                                    "owner":  "EngLang core",
                                                                    "parameters":  [
                                                                                       {
-                                                                                          "label":  "value: Number",
+                                                                                          "label":  "value: DimensionlessNumber [1]",
                                                                                           "name":  "value",
                                                                                           "optional":  false,
-                                                                                          "type":  "Number"
+                                                                                          "type":  "DimensionlessNumber"
                                                                                       }
                                                                                   ],
-                                                                   "return_display_unit":  null,
-                                                                   "return_type":  "Number",
+                                                                   "return_display_unit":  "1",
+                                                                   "return_type":  "DimensionlessNumber",
                                                                    "status":  "supported_narrow",
                                                                    "status_label":  "Supported narrow"
                                                                },
@@ -345,20 +345,20 @@
                                                                    "status_label":  "Supported"
                                                                },
                                                                {
-                                                                   "documentation":  "Dimensionless scalar math for solver, component, and scalar arithmetic expressions.",
-                                                                   "label":  "exp(value: Number) -\u003e Number",
+                                                                   "documentation":  "Requires one DimensionlessNumber [1] argument and returns DimensionlessNumber [1] in native scalar, solver, and component expressions.",
+                                                                   "label":  "exp(value: DimensionlessNumber [1]) -\u003e DimensionlessNumber [1]",
                                                                    "name":  "exp",
                                                                    "owner":  "EngLang core",
                                                                    "parameters":  [
                                                                                       {
-                                                                                          "label":  "value: Number",
+                                                                                          "label":  "value: DimensionlessNumber [1]",
                                                                                           "name":  "value",
                                                                                           "optional":  false,
-                                                                                          "type":  "Number"
+                                                                                          "type":  "DimensionlessNumber"
                                                                                       }
                                                                                   ],
-                                                                   "return_display_unit":  null,
-                                                                   "return_type":  "Number",
+                                                                   "return_display_unit":  "1",
+                                                                   "return_type":  "DimensionlessNumber",
                                                                    "status":  "supported_narrow",
                                                                    "status_label":  "Supported narrow"
                                                                },
@@ -507,20 +507,20 @@
                                                                    "status_label":  "Native workflow support"
                                                                },
                                                                {
-                                                                   "documentation":  "Dimensionless scalar math for solver, component, and scalar arithmetic expressions.",
-                                                                   "label":  "ln(value: Number) -\u003e Number",
+                                                                   "documentation":  "Requires one DimensionlessNumber [1] argument and returns DimensionlessNumber [1] in native scalar, solver, and component expressions.",
+                                                                   "label":  "ln(value: DimensionlessNumber [1]) -\u003e DimensionlessNumber [1]",
                                                                    "name":  "ln",
                                                                    "owner":  "EngLang core",
                                                                    "parameters":  [
                                                                                       {
-                                                                                          "label":  "value: Number",
+                                                                                          "label":  "value: DimensionlessNumber [1]",
                                                                                           "name":  "value",
                                                                                           "optional":  false,
-                                                                                          "type":  "Number"
+                                                                                          "type":  "DimensionlessNumber"
                                                                                       }
                                                                                   ],
-                                                                   "return_display_unit":  null,
-                                                                   "return_type":  "Number",
+                                                                   "return_display_unit":  "1",
+                                                                   "return_type":  "DimensionlessNumber",
                                                                    "status":  "supported_narrow",
                                                                    "status_label":  "Supported narrow"
                                                                },
@@ -939,38 +939,38 @@
                                                                    "status_label":  "Native workflow support"
                                                                },
                                                                {
-                                                                   "documentation":  "Dimensionless scalar math for solver, component, and scalar arithmetic expressions.",
-                                                                   "label":  "sin(value: Number) -\u003e Number",
+                                                                   "documentation":  "Requires one DimensionlessNumber [1] argument and returns DimensionlessNumber [1] in native scalar, solver, and component expressions.",
+                                                                   "label":  "sin(value: DimensionlessNumber [1]) -\u003e DimensionlessNumber [1]",
                                                                    "name":  "sin",
                                                                    "owner":  "EngLang core",
                                                                    "parameters":  [
                                                                                       {
-                                                                                          "label":  "value: Number",
+                                                                                          "label":  "value: DimensionlessNumber [1]",
                                                                                           "name":  "value",
                                                                                           "optional":  false,
-                                                                                          "type":  "Number"
+                                                                                          "type":  "DimensionlessNumber"
                                                                                       }
                                                                                   ],
-                                                                   "return_display_unit":  null,
-                                                                   "return_type":  "Number",
+                                                                   "return_display_unit":  "1",
+                                                                   "return_type":  "DimensionlessNumber",
                                                                    "status":  "supported_narrow",
                                                                    "status_label":  "Supported narrow"
                                                                },
                                                                {
-                                                                   "documentation":  "Dimensionless scalar math for solver, component, and scalar arithmetic expressions.",
-                                                                   "label":  "sqrt(value: Number) -\u003e Number",
+                                                                   "documentation":  "Requires one DimensionlessNumber [1] argument and returns DimensionlessNumber [1] in native scalar, solver, and component expressions.",
+                                                                   "label":  "sqrt(value: DimensionlessNumber [1]) -\u003e DimensionlessNumber [1]",
                                                                    "name":  "sqrt",
                                                                    "owner":  "EngLang core",
                                                                    "parameters":  [
                                                                                       {
-                                                                                          "label":  "value: Number",
+                                                                                          "label":  "value: DimensionlessNumber [1]",
                                                                                           "name":  "value",
                                                                                           "optional":  false,
-                                                                                          "type":  "Number"
+                                                                                          "type":  "DimensionlessNumber"
                                                                                       }
                                                                                   ],
-                                                                   "return_display_unit":  null,
-                                                                   "return_type":  "Number",
+                                                                   "return_display_unit":  "1",
+                                                                   "return_type":  "DimensionlessNumber",
                                                                    "status":  "supported_narrow",
                                                                    "status_label":  "Supported narrow"
                                                                },
@@ -1041,20 +1041,20 @@
                                                                    "status_label":  "Native workflow support"
                                                                },
                                                                {
-                                                                   "documentation":  "Dimensionless scalar math for solver, component, and scalar arithmetic expressions.",
-                                                                   "label":  "tan(value: Number) -\u003e Number",
+                                                                   "documentation":  "Requires one DimensionlessNumber [1] argument and returns DimensionlessNumber [1] in native scalar, solver, and component expressions.",
+                                                                   "label":  "tan(value: DimensionlessNumber [1]) -\u003e DimensionlessNumber [1]",
                                                                    "name":  "tan",
                                                                    "owner":  "EngLang core",
                                                                    "parameters":  [
                                                                                       {
-                                                                                          "label":  "value: Number",
+                                                                                          "label":  "value: DimensionlessNumber [1]",
                                                                                           "name":  "value",
                                                                                           "optional":  false,
-                                                                                          "type":  "Number"
+                                                                                          "type":  "DimensionlessNumber"
                                                                                       }
                                                                                   ],
-                                                                   "return_display_unit":  null,
-                                                                   "return_type":  "Number",
+                                                                   "return_display_unit":  "1",
+                                                                   "return_type":  "DimensionlessNumber",
                                                                    "status":  "supported_narrow",
                                                                    "status_label":  "Supported narrow"
                                                                },

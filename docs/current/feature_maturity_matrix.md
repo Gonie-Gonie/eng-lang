@@ -336,8 +336,10 @@ separate.
   use scalar function calls as values or arithmetic operands. Any suffix
   declaration form may use one or more preserved registered, unit-consistent
   function calls with exact arity and dimension-compatible scalar arguments,
-  including recursively nested scalar calls. Explicit and `const` result
-  dimensions must match the declaration annotation. Fast and explicit forms may
+  including recursively nested scalar calls. Compiler-owned dimensionless math
+  calls use the same direct, nested, and arithmetic suffix path after exact
+  arity and dimension checks. Explicit and `const` result dimensions must
+  match the declaration annotation. Fast and explicit forms may
   switch style in the affected suffix. Other expressions may use numeric literals,
   backward aliases, or pure scalar arithmetic over registered-unit literals,
   parentheses, and earlier typed bindings. The path covers coordinated
@@ -360,9 +362,14 @@ separate.
   behavior, process-option, sampling, and scalar-expression splitting keeps quoted
   or escaped delimiters inert instead of producing false argument or `env` errors.
   The compiler's dimensionless math-function catalog feeds LSP semantic tokens,
-  completion, generated metadata, and TextMate built-in scopes; component
-  `predictor(...)` and call-style `predict(...)` use the solver role while the
-  command-style prediction workflow retains its model role.
+  completion, generated metadata, and TextMate built-in scopes. It now also
+  drives full scalar type inference, exact call/argument/result diagnostics,
+  bounded scalar-suffix reanalysis, and native runtime scalar materialization.
+  Valid results are `DimensionlessNumber [1]`; invalid calls do not retain a
+  misleading inferred hover or symbol type, and user-defined same-name
+  functions keep precedence. Component `predictor(...)` and call-style
+  `predict(...)` use the solver role while the command-style prediction
+  workflow retains its model role.
   Percentile statistics now use one compiler-owned parser across semantic checks,
   runtime materialization, uncertainty propagation, and JIT planning: `p1` through
   `p100` are valid, leading zeroes such as `p05` are accepted, and out-of-range

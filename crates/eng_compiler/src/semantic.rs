@@ -1442,13 +1442,15 @@ pub(crate) struct IncrementalScalarDeclarationAnalysis {
 /// Accepted expressions are numeric literals, backward aliases, or pure scalar arithmetic over
 /// registered-unit literals and backward scalar references. Any declaration form may also use one
 /// or more trusted registered, unit-consistent scalar calls as direct values or arithmetic operands
-/// when every argument resolves against that environment; explicit and `const` declarations
-/// additionally require a result dimension that matches their annotation. Scalar calls may nest
-/// recursively inside other scalar-call arguments. The arithmetic grammar is shared with component
-/// parameter validation; workflow expressions and non-scalar functions cannot enter this local
-/// semantic path. Preserved non-scalar or axis-bearing prefix bindings may remain in the trusted
-/// report, but suffix expressions cannot use them as aliases or operands, and every new suffix
-/// binding must resolve to a registered scalar quantity.
+/// when every argument resolves against that environment. Compiler-owned `sqrt`, `exp`, `ln`,
+/// `sin`, `cos`, `tan`, `asin`, `acos`, and `atan` calls are accepted with exactly one
+/// dimensionless scalar argument and produce `DimensionlessNumber [1]`. Explicit and `const`
+/// declarations additionally require a result dimension that matches their annotation. Scalar
+/// calls may nest recursively inside other scalar-call arguments. The arithmetic grammar is shared
+/// with component parameter validation; workflow expressions and non-scalar functions cannot enter
+/// this local semantic path. Preserved non-scalar or axis-bearing prefix bindings may remain in the
+/// trusted report, but suffix expressions cannot use them as aliases or operands, and every new
+/// suffix binding must resolve to a registered scalar quantity.
 /// When the caller supplies verified class and object metadata, a fast binding may also use one
 /// direct scalar object-field access or zero-argument method call. That member-derived binding may
 /// feed later aliases and arithmetic in the same suffix; member access embedded inside a larger
@@ -1545,6 +1547,7 @@ pub(crate) fn analyze_incremental_scalar_declarations(
                         unit_derivations: &mut unit_derivations,
                         inferred_declarations: &mut inferred_declarations,
                         integrations: &mut integrations,
+                        functions,
                     },
                 );
                 explicit_declaration_count = explicit_declaration_count.checked_add(1)?;
@@ -1569,6 +1572,7 @@ pub(crate) fn analyze_incremental_scalar_declarations(
                     &mut typed_bindings,
                     &mut type_infos,
                     &mut unit_derivations,
+                    functions,
                 );
                 const_declaration_count = const_declaration_count.checked_add(1)?;
             }
@@ -1656,14 +1660,13 @@ pub(crate) fn supports_incremental_fast_binding_expression(
     functions: &[FunctionInfo],
 ) -> bool {
     supports_incremental_scalar_expression(expression, available_bindings)
-        || incremental_scalar_function_call(expression, available_bindings, functions).is_some()
-        || evaluate_scalar_arithmetic_expression(
+        || evaluate_scalar_expression(
             expression,
             available_bindings,
             functions,
             ScalarFunctionTrust::UnitConsistent,
         )
-        .is_some_and(|(_, _, function_call_count)| function_call_count > 0)
+        .is_some_and(|(_, _, function_call_count, _)| function_call_count > 0)
 }
 
 fn supports_incremental_fast_binding_expression_with_class_metadata(
@@ -1716,36 +1719,15 @@ pub(crate) fn supports_incremental_annotated_scalar_expression(
     }
 
     let expected_dimension = dimension_for_quantity(expected_quantity_kind);
-    incremental_scalar_function_call(expression, available_bindings, functions).is_some_and(
-        |function| dimensions_compatible(&expected_dimension, &function.return_dimension),
-    ) || evaluate_scalar_arithmetic_expression(
+    evaluate_scalar_expression(
         expression,
         available_bindings,
         functions,
         ScalarFunctionTrust::UnitConsistent,
     )
-    .is_some_and(|(value, _, function_call_count)| {
+    .is_some_and(|(value, _, function_call_count, _)| {
         function_call_count > 0 && dimensions_compatible(&expected_dimension, &value.dimension)
     })
-}
-
-fn incremental_scalar_function_call<'a>(
-    expression: &str,
-    available_bindings: &[TypedBinding],
-    functions: &'a [FunctionInfo],
-) -> Option<&'a FunctionInfo> {
-    let call = parse_function_call(expression)?;
-    let function =
-        registered_scalar_function(&call.name, functions, ScalarFunctionTrust::UnitConsistent)?;
-    (call.args.len() == function.parameters.len()
-        && function_call_args_dimensionally_valid(
-            &call,
-            function,
-            available_bindings,
-            functions,
-            ScalarFunctionTrust::UnitConsistent,
-        ))
-    .then_some(function)
 }
 
 #[derive(Clone, Copy)]
@@ -1844,38 +1826,67 @@ fn resolve_scalar_expression_tokens(
                 ) =>
             {
                 let close_index = matching_scalar_token_paren(tokens, index + 1)?;
-                let function = registered_scalar_function(name, functions, function_trust)?;
                 let argument_tokens =
                     scalar_function_argument_token_slices(&tokens[index + 2..close_index])?;
-                if argument_tokens.len() != function.parameters.len() {
-                    return None;
-                }
-                for (argument, parameter) in argument_tokens.iter().zip(&function.parameters) {
+                if let Some(function) = registered_scalar_function(name, functions, function_trust)
+                {
+                    if argument_tokens.len() != function.parameters.len() {
+                        return None;
+                    }
+                    for (argument, parameter) in argument_tokens.iter().zip(&function.parameters) {
+                        let (argument, mut argument_types, nested_call_count) =
+                            resolve_scalar_expression_tokens(
+                                argument,
+                                available_bindings,
+                                functions,
+                                function_trust,
+                            )?;
+                        let argument = parse_scalar_expression_tokens(argument)?;
+                        if !dimensions_compatible(&parameter.dimension, &argument.dimension) {
+                            return None;
+                        }
+                        referenced_types.append(&mut argument_types);
+                        function_call_count = function_call_count.checked_add(nested_call_count)?;
+                    }
+                    let return_type = semantic_type(
+                        &function.return_quantity_kind,
+                        &function.return_display_unit,
+                    )?;
+                    referenced_types.push(return_type);
+                    resolved.push(ComponentParameterExpressionToken::Number(
+                        ComponentParameterExpressionValue {
+                            value: 1.0,
+                            dimension: function.return_dimension.clone(),
+                        },
+                    ));
+                } else {
+                    if functions.iter().any(|function| function.name == *name)
+                        || !DIMENSIONLESS_MATH_FUNCTIONS.contains(&name.as_str())
+                        || argument_tokens.len() != 1
+                    {
+                        return None;
+                    }
                     let (argument, mut argument_types, nested_call_count) =
                         resolve_scalar_expression_tokens(
-                            argument,
+                            argument_tokens[0],
                             available_bindings,
                             functions,
                             function_trust,
                         )?;
                     let argument = parse_scalar_expression_tokens(argument)?;
-                    if !dimensions_compatible(&parameter.dimension, &argument.dimension) {
+                    if !dimensions_compatible("Dimensionless", &argument.dimension) {
                         return None;
                     }
+                    referenced_types.push(semantic_type("DimensionlessNumber", "1")?);
                     referenced_types.append(&mut argument_types);
                     function_call_count = function_call_count.checked_add(nested_call_count)?;
+                    resolved.push(ComponentParameterExpressionToken::Number(
+                        ComponentParameterExpressionValue {
+                            value: 1.0,
+                            dimension: "Dimensionless".to_owned(),
+                        },
+                    ));
                 }
-                let return_type = semantic_type(
-                    &function.return_quantity_kind,
-                    &function.return_display_unit,
-                )?;
-                referenced_types.push(return_type);
-                resolved.push(ComponentParameterExpressionToken::Number(
-                    ComponentParameterExpressionValue {
-                        value: 1.0,
-                        dimension: function.return_dimension.clone(),
-                    },
-                ));
                 function_call_count = function_call_count.checked_add(1)?;
                 index = close_index.checked_add(1)?;
             }
@@ -2020,6 +2031,28 @@ fn scalar_arithmetic_semantic_type(
     }
 
     None
+}
+
+fn dimensionless_math_expression_semantic_type(
+    expression: &str,
+    available_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+) -> Option<SemanticType> {
+    let call = parse_function_call(expression)?;
+    if functions.iter().any(|function| function.name == call.name)
+        || !DIMENSIONLESS_MATH_FUNCTIONS.contains(&call.name.as_str())
+    {
+        return None;
+    }
+    let (value, _, function_call_count, _) = evaluate_scalar_expression(
+        expression,
+        available_bindings,
+        functions,
+        ScalarFunctionTrust::DeclaredSignature,
+    )?;
+    (function_call_count > 0 && dimensions_compatible("Dimensionless", &value.dimension))
+        .then(|| semantic_type("DimensionlessNumber", "1"))
+        .flatten()
 }
 
 pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
@@ -2403,6 +2436,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                             unit_derivations: &mut unit_derivations,
                             inferred_declarations: &mut inferred_declarations,
                             integrations: &mut integrations,
+                            functions: &functions,
                         },
                     );
                 }
@@ -2417,6 +2451,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     &mut typed_bindings,
                     &mut type_infos,
                     &mut unit_derivations,
+                    &functions,
                 );
             }
             AstItem::FastBinding(binding) => {
@@ -3656,6 +3691,9 @@ fn infer_scoped_binding_semantic_type(
         .or_else(|| time_alignment_result_field_semantic_type(expression, typed_bindings))
         .or_else(|| statistic_expression_semantic_type(expression, typed_bindings))
         .or_else(|| function_call_semantic_type(expression, typed_bindings, functions))
+        .or_else(|| {
+            dimensionless_math_expression_semantic_type(expression, typed_bindings, functions)
+        })
         .or_else(|| sample_table_field_semantic_type(expression, typed_bindings))
         .or_else(|| db_connection_field_semantic_type(expression, typed_bindings))
         .or_else(|| model_artifact_field_semantic_type(expression, typed_bindings))
@@ -9032,6 +9070,269 @@ fn validate_builtin_call(
     }
 }
 
+fn validate_dimensionless_math_calls(
+    expression: &str,
+    expression_span: SourceSpan,
+    line: usize,
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    validate_dimensionless_math_calls_inner(
+        expression,
+        expression_span,
+        line,
+        typed_bindings,
+        functions,
+        diagnostics,
+    );
+}
+
+fn validate_dimensionless_math_calls_inner(
+    source_expression: &str,
+    expression_span: SourceSpan,
+    line: usize,
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let expression = source_expression.trim();
+    let Some(expression_span) =
+        source_span_for_subslice(expression_span, source_expression, expression)
+    else {
+        return;
+    };
+    if expression.is_empty() {
+        return;
+    }
+
+    if let Some(call) = parse_function_call(expression) {
+        let is_shadowed = functions.iter().any(|function| function.name == call.name);
+        if !is_shadowed && DIMENSIONLESS_MATH_FUNCTIONS.contains(&call.name.as_str()) {
+            let name_span = source_span_for_child_range(
+                expression_span,
+                call.name_range.start,
+                call.name_range.end,
+            );
+            if call.args.len() != 1 {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-MATH-CALL-001",
+                        line,
+                        &format!(
+                            "`{}` expects exactly one DimensionlessNumber [1] argument, but got {}.",
+                            call.name,
+                            call.args.len()
+                        ),
+                        Some(&format!("Use {}(value) with one dimensionless scalar.", call.name)),
+                    )
+                    .with_source_span(name_span),
+                );
+                for (argument, argument_range) in call.args.iter().zip(&call.arg_ranges) {
+                    validate_dimensionless_math_calls_inner(
+                        argument,
+                        source_span_for_child_range(
+                            expression_span,
+                            argument_range.start,
+                            argument_range.end,
+                        ),
+                        line,
+                        typed_bindings,
+                        functions,
+                        diagnostics,
+                    );
+                }
+                return;
+            }
+
+            let argument = &call.args[0];
+            let argument_range = &call.arg_ranges[0];
+            let argument_span = source_span_for_child_range(
+                expression_span,
+                argument_range.start,
+                argument_range.end,
+            );
+            let diagnostic_count = diagnostics.len();
+            validate_dimensionless_math_calls_inner(
+                argument,
+                argument_span,
+                line,
+                typed_bindings,
+                functions,
+                diagnostics,
+            );
+            let Some(argument_dimension) = scalar_function_argument_dimension(
+                argument,
+                typed_bindings,
+                functions,
+                ScalarFunctionTrust::DeclaredSignature,
+            ) else {
+                validate_function_calls_in_scalar_expression(
+                    argument,
+                    argument_span,
+                    line,
+                    typed_bindings,
+                    functions,
+                    diagnostics,
+                );
+                if diagnostics.len() == diagnostic_count {
+                    diagnostics.push(
+                        Diagnostic::error(
+                            "E-MATH-ARG-001",
+                            line,
+                            &format!(
+                                "`{}` argument `{}` could not be type-checked as DimensionlessNumber [1].",
+                                call.name,
+                                argument.trim()
+                            ),
+                            Some(
+                                "Use a dimensionless literal, typed dimensionless binding, or valid dimensionless scalar expression.",
+                            ),
+                        )
+                        .with_source_span(argument_span),
+                    );
+                }
+                return;
+            };
+            if !dimensions_compatible("Dimensionless", &argument_dimension)
+                && diagnostics.len() == diagnostic_count
+            {
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E-MATH-DIM-001",
+                        line,
+                        &format!(
+                            "`{}` requires DimensionlessNumber [1], but `{}` has dimension {}.",
+                            call.name,
+                            argument.trim(),
+                            argument_dimension
+                        ),
+                        Some(
+                            "Nondimensionalize the argument explicitly before calling this math function.",
+                        ),
+                    )
+                    .with_source_span(argument_span),
+                );
+            }
+            return;
+        }
+
+        for (argument, argument_range) in call.args.iter().zip(&call.arg_ranges) {
+            validate_dimensionless_math_calls_inner(
+                argument,
+                source_span_for_child_range(
+                    expression_span,
+                    argument_range.start,
+                    argument_range.end,
+                ),
+                line,
+                typed_bindings,
+                functions,
+                diagnostics,
+            );
+        }
+        return;
+    }
+
+    let unwrapped = strip_outer_parens(expression);
+    if unwrapped.len() != expression.len() {
+        if let Some(unwrapped_span) =
+            source_span_for_subslice(expression_span, expression, unwrapped)
+        {
+            validate_dimensionless_math_calls_inner(
+                unwrapped,
+                unwrapped_span,
+                line,
+                typed_bindings,
+                functions,
+                diagnostics,
+            );
+        }
+        return;
+    }
+
+    if let Some(parts) = split_top_level_scalar_arithmetic_slices(expression) {
+        for part in parts {
+            if let Some(part_span) = source_span_for_subslice(expression_span, expression, part) {
+                validate_dimensionless_math_calls_inner(
+                    part,
+                    part_span,
+                    line,
+                    typed_bindings,
+                    functions,
+                    diagnostics,
+                );
+            }
+        }
+        return;
+    }
+
+    if let Some(operand) = expression
+        .strip_prefix('+')
+        .or_else(|| expression.strip_prefix('-'))
+        .map(str::trim_start)
+        .filter(|operand| !operand.is_empty())
+    {
+        if let Some(operand_span) = source_span_for_subslice(expression_span, expression, operand) {
+            validate_dimensionless_math_calls_inner(
+                operand,
+                operand_span,
+                line,
+                typed_bindings,
+                functions,
+                diagnostics,
+            );
+        }
+    }
+}
+
+fn validate_dimensionless_math_result_dimension(
+    expression: &str,
+    expression_span: SourceSpan,
+    expected_quantity_kind: &str,
+    line: usize,
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let contains_unshadowed_math_call = DIMENSIONLESS_MATH_FUNCTIONS.iter().any(|name| {
+        !functions.iter().any(|function| function.name == *name)
+            && crate::expression_contains_call(expression, name)
+    });
+    if !contains_unshadowed_math_call {
+        return;
+    }
+    let Some((value, _, function_call_count, _)) = evaluate_scalar_expression(
+        expression,
+        typed_bindings,
+        functions,
+        ScalarFunctionTrust::DeclaredSignature,
+    ) else {
+        return;
+    };
+    let expected_dimension = dimension_for_quantity(expected_quantity_kind);
+    if function_call_count == 0 || dimensions_compatible(&expected_dimension, &value.dimension) {
+        return;
+    }
+    diagnostics.push(
+        Diagnostic::error(
+            "E-MATH-RESULT-001",
+            line,
+            &format!(
+                "Dimensionless math expression `{}` has dimension {}, but `{}` expects {}.",
+                expression.trim(),
+                value.dimension,
+                expected_quantity_kind,
+                expected_dimension
+            ),
+            Some(
+                "Assign the result to DimensionlessNumber [1], or combine it with compatible units before this declaration.",
+            ),
+        )
+        .with_source_span(expression_span),
+    );
+}
+
 fn validate_duration_above_call(
     expression: &str,
     expression_span: SourceSpan,
@@ -9560,6 +9861,14 @@ fn analyze_args_field(
     if let (Some(default_value), Some(default_value_span)) =
         (&field.default_value, field.default_value_span)
     {
+        validate_dimensionless_math_calls(
+            default_value,
+            default_value_span,
+            field.line,
+            &[],
+            &[],
+            diagnostics,
+        );
         validate_builtin_call(
             default_value,
             default_value_span,
@@ -10420,6 +10729,9 @@ fn class_field_expression_semantic_type(
         .or_else(|| path_helper_semantic_type(expression))
         .or_else(|| statistic_expression_semantic_type(expression, typed_bindings))
         .or_else(|| function_call_semantic_type(expression, typed_bindings, functions))
+        .or_else(|| {
+            dimensionless_math_expression_semantic_type(expression, typed_bindings, functions)
+        })
         .or_else(|| sample_table_field_semantic_type(expression, typed_bindings))
         .or_else(|| db_connection_field_semantic_type(expression, typed_bindings))
         .or_else(|| model_artifact_field_semantic_type(expression, typed_bindings))
@@ -13259,7 +13571,7 @@ fn component_local_equations(
                                 function_error.argument,
                                 function_error.argument_dimension
                             ),
-                            Some("Use sqrt, exp, ln, sin, and cos only with DimensionlessNumber expressions, or nondimensionalize the argument explicitly."),
+                            Some("Use dimensionless scalar math only with DimensionlessNumber [1] expressions, or nondimensionalize the argument explicitly."),
                         )
                         .with_source_span(component_equation_target_span(
                             local,
@@ -13963,6 +14275,7 @@ fn analyze_const_decl(
     typed_bindings: &mut Vec<TypedBinding>,
     type_infos: &mut Vec<TypeInfo>,
     unit_derivations: &mut Vec<UnitDerivation>,
+    functions: &[FunctionInfo],
 ) {
     if expression_mentions_args(&declaration.expression) {
         diagnostics.push(
@@ -14000,6 +14313,24 @@ fn analyze_const_decl(
             .with_source_span(declaration.expression_span),
         );
     }
+    let available_bindings = typed_bindings.clone();
+    validate_dimensionless_math_calls(
+        &declaration.expression,
+        declaration.expression_span,
+        declaration.line,
+        &available_bindings,
+        functions,
+        diagnostics,
+    );
+    validate_dimensionless_math_result_dimension(
+        &declaration.expression,
+        declaration.expression_span,
+        &declaration.type_name,
+        declaration.line,
+        &available_bindings,
+        functions,
+        diagnostics,
+    );
 
     let display_unit = declaration
         .unit
@@ -14081,6 +14412,7 @@ struct ExplicitAnalysisOutputs<'a> {
     unit_derivations: &'a mut Vec<UnitDerivation>,
     inferred_declarations: &'a mut Vec<InferredDeclaration>,
     integrations: &'a mut Vec<IntegrationInfo>,
+    functions: &'a [FunctionInfo],
 }
 
 fn analyze_explicit_decl(declaration: &ExplicitDecl, outputs: ExplicitAnalysisOutputs<'_>) {
@@ -14093,6 +14425,7 @@ fn analyze_explicit_decl(declaration: &ExplicitDecl, outputs: ExplicitAnalysisOu
         unit_derivations,
         inferred_declarations,
         integrations,
+        functions,
     } = outputs;
     expected_types.push(expected_type_from_explicit_decl(declaration));
     let available_bindings = typed_bindings.clone();
@@ -14105,6 +14438,25 @@ fn analyze_explicit_decl(declaration: &ExplicitDecl, outputs: ExplicitAnalysisOu
             declaration.line,
             diagnostics,
         );
+        if let Some(expression_span) = declaration.expression_span {
+            validate_dimensionless_math_calls(
+                expression,
+                expression_span,
+                declaration.line,
+                &available_bindings,
+                functions,
+                diagnostics,
+            );
+            validate_dimensionless_math_result_dimension(
+                expression,
+                expression_span,
+                &declaration.type_name,
+                declaration.line,
+                &available_bindings,
+                functions,
+                diagnostics,
+            );
+        }
         if declaration.context == ParseContext::TopLevel {
             if let Some(expression_span) = declaration.expression_span {
                 let is_computed_scalar_call = parse_function_call(expression)
@@ -16011,6 +16363,23 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         accum.diagnostics,
     );
     let available_bindings = accum.available_bindings();
+    if !binding.is_command_style {
+        let diagnostic_start = accum.diagnostics.len();
+        validate_dimensionless_math_calls(
+            &binding.expression,
+            binding.expression_span,
+            binding.line,
+            &available_bindings,
+            accum.functions,
+            accum.diagnostics,
+        );
+        if accum.diagnostics[diagnostic_start..]
+            .iter()
+            .any(|diagnostic| diagnostic.code.starts_with("E-MATH-"))
+        {
+            return;
+        }
+    }
     if let Some(diagnostic) = crate::stats::heat_rate_sum_diagnostic(binding, &available_bindings) {
         accum.diagnostics.push(diagnostic);
     }
@@ -16098,6 +16467,13 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         .or_else(|| rmse_expression_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| statistic_expression_semantic_type(&binding.expression, &available_bindings))
         .or(function_call_type)
+        .or_else(|| {
+            dimensionless_math_expression_semantic_type(
+                &binding.expression,
+                &available_bindings,
+                accum.functions,
+            )
+        })
         .or_else(|| net_response_field_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| coverage_result_field_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| {

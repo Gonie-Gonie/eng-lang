@@ -23147,6 +23147,44 @@ Q_total = Q_alias + 0.5 kW
     }
 
     #[test]
+    fn materializes_native_dimensionless_math_scalars() {
+        let source = concat!(
+            "sqrt_value = sqrt(4)\n",
+            "identity = exp(ln(sqrt_value))\n",
+            "trig = sin(0) + cos(0) + tan(0)\n",
+            "inverse = asin(0) + acos(1) + atan(0)\n",
+        );
+        let report = eng_compiler::check_source("math.eng", source, &CheckOptions::default());
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert!(
+            !report.has_errors(),
+            "native math fixture should compile: {:#?}",
+            report.diagnostics
+        );
+        for (binding, expected) in [
+            ("sqrt_value", 2.0),
+            ("identity", 2.0),
+            ("trig", 1.0),
+            ("inverse", 0.0),
+        ] {
+            let numeric = runtime
+                .numeric_values
+                .iter()
+                .find(|numeric| numeric.binding == binding)
+                .unwrap_or_else(|| panic!("missing runtime math value for `{binding}`"));
+            assert_eq!(numeric.quantity_kind, "DimensionlessNumber");
+            assert_eq!(numeric.display_unit, "1");
+            assert!(
+                numeric
+                    .value
+                    .is_some_and(|value| (value - expected).abs() < 1.0e-12),
+                "unexpected runtime value for `{binding}`: {numeric:#?}"
+            );
+        }
+    }
+
+    #[test]
     fn propagates_uncertainty_through_deterministic_scalar_dependencies() {
         let source = r#"
 Q_meas = measured(10 kW, std=100 W)

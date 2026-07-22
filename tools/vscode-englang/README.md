@@ -47,9 +47,11 @@ embedding compiler logic in JavaScript.
   variables, parameters, properties, built-in workflow helpers, module
   namespaces, quantities, units, reports, validations, and side-effect/external
   workflow boundaries
-- compiler-owned built-in coloring and completion for dimensionless scalar math
-  functions, plus solver-role coloring for component `predictor(...)` and
-  call-style `predict(...)` without repainting command-style model prediction
+- compiler-owned built-in coloring, `DimensionlessNumber [1]` signatures,
+  typed result hover/completion, and exact argument/result diagnostics for
+  dimensionless scalar math functions, plus solver-role coloring for component
+  `predictor(...)` and call-style `predict(...)` without repainting
+  command-style model prediction
 - compiler-aligned external-value helpers: `url(...)` and non-secret
   `env(...)` are typed executable built-ins, malformed calls use exact
   constructor diagnostics in bindings and Args defaults, and completion
@@ -71,9 +73,10 @@ embedding compiler logic in JavaScript.
 - compiler-derived signature help while typing local or statically imported
   user-function calls, zero-argument class-object method calls, and structured
   built-in calls; module-owned overloads, optional parameters, return types,
-  return units, dimensionless math, and valid `p1` through `p100` calls use
-  the same catalog as generated completion metadata, while nested and multiline
-  calls select the active parameter using UTF-16 editor positions
+  return units, exact dimensionless-math parameter/return types, and valid
+  `p1` through `p100` calls use the same catalog as generated completion
+  metadata, while nested and multiline calls select the active parameter using
+  UTF-16 editor positions
 - owner-aware `run_case` completion and highlighting for `scheduler`, `workers`,
   sequential/parallel policy values, and CaseRunResult runner/worker/lifecycle
   fields

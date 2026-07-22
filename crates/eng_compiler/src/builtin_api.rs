@@ -120,19 +120,20 @@ fn dimensionless_math_signature(name: &str) -> BuiltinFunctionSignature {
         owner: "EngLang core".to_owned(),
         status: "supported_narrow".to_owned(),
         status_label: "Supported narrow".to_owned(),
-        documentation:
-            "Dimensionless scalar math for solver, component, and scalar arithmetic expressions."
-                .to_owned(),
+        documentation: "Requires one DimensionlessNumber [1] argument and returns DimensionlessNumber [1] in native scalar, solver, and component expressions."
+            .to_owned(),
         name: name.to_owned(),
-        label: format!("{name}(value: Number) -> Number"),
+        label: format!(
+            "{name}(value: DimensionlessNumber [1]) -> DimensionlessNumber [1]"
+        ),
         parameters: vec![ModuleFunctionParameter {
             name: "value".to_owned(),
-            label: "value: Number".to_owned(),
-            type_name: "Number".to_owned(),
+            label: "value: DimensionlessNumber [1]".to_owned(),
+            type_name: "DimensionlessNumber".to_owned(),
             optional: false,
         }],
-        return_type: "Number".to_owned(),
-        return_display_unit: None,
+        return_type: "DimensionlessNumber".to_owned(),
+        return_display_unit: Some("1".to_owned()),
     }
 }
 
@@ -218,6 +219,15 @@ mod tests {
 
         let duration = builtin_function_signatures_for_name("duration_above");
         assert_eq!(duration[0].return_display_unit.as_deref(), Some("s"));
+
+        let sqrt = builtin_function_signatures_for_name("sqrt");
+        assert_eq!(
+            sqrt[0].label,
+            "sqrt(value: DimensionlessNumber [1]) -> DimensionlessNumber [1]"
+        );
+        assert_eq!(sqrt[0].parameters[0].type_name, "DimensionlessNumber");
+        assert_eq!(sqrt[0].return_type, "DimensionlessNumber");
+        assert_eq!(sqrt[0].return_display_unit.as_deref(), Some("1"));
     }
 
     #[test]
