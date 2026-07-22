@@ -668,17 +668,20 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// bindings, cached boundaries, and command metadata such as `print` may therefore remain
 /// in the prefix. After the suffix patch, axis metadata is regenerated and cache records are rekeyed
 /// with the new source hash. A scalar suffix cannot use a preserved non-scalar binding as an alias
-/// or operand. This richer contract remains root-source-only but may retain unchanged supported
-/// `eng.*` module imports when every compiler import record exactly matches its root source line,
-/// span, kind, and status. Static file imports continue through the stricter scalar-only import
-/// contract. Only those module declaration lines are reparsed for verification; richer prefix
-/// constructs are not reparsed or reanalyzed.
+/// or operand. This richer root-edit contract may retain unchanged supported `eng.*` module and
+/// static file imports when every compiler import record exactly matches its root source line, span,
+/// kind, and status. Static imports additionally require the complete recursive path-to-source-ID
+/// registry to reproduce exactly and limit imported semantic definitions to schemas, constants, and
+/// functions with internally consistent registered source ownership. Only root import declaration
+/// lines are reparsed for verification; imported definitions and other richer prefix constructs are
+/// not reparsed or reanalyzed.
 /// Changes inside it, a token-bearing non-declaration in the affected suffix, diagnostics,
 /// unsupported calls, unverifiable cache or axis metadata, unresolved or duplicate names, and edits
 /// without an affected declaration return `None` for a normal full check.
 ///
-/// The caller must preserve the source path, check options, argument overrides, and import
-/// environment, just as for [`retarget_check_report_for_token_stable_trivia`].
+/// The caller must preserve the source path, check options, argument overrides, and resolved import
+/// environment, including every recursive static import, just as for
+/// [`retarget_check_report_for_token_stable_trivia`].
 pub fn recheck_scalar_declaration_suffix_incrementally(
     report: &CheckReport,
     previous_source: &str,
@@ -839,6 +842,8 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
         .is_some();
     let rich_prefix_contract = !scalar_only_contract
         && mode == IncrementalScalarDeclarationMode::Any
+        && (previous_prefix.is_none()
+            || incremental_report_requires_rich_prefix_contract(report, record_offsets))
         && incremental_rich_prefix_supports_scalar_suffix(
             report,
             &previous_suffix,
@@ -912,7 +917,7 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
     let update_workflow_line = if scalar_only_contract {
         record_offsets.typed == 0
     } else {
-        !incremental_rich_prefix_owns_workflow_line(report, record_offsets.typed)
+        !incremental_rich_prefix_owns_workflow_line(report, record_offsets)
     };
     let mut reused = report.clone();
     reused
@@ -1434,10 +1439,10 @@ fn incremental_rich_prefix_supports_scalar_suffix(
         .map(|source| source.source_id)
         .collect::<HashSet<_>>();
     root_source.source_id == SourceSpan::ROOT_SOURCE_ID
-        && report.source_files.len() == 1
         && source_ids.len() == report.source_files.len()
         && report.diagnostics.is_empty()
-        && incremental_rich_prefix_module_imports_match_report(report, prefix_lines)
+        && incremental_rich_prefix_imports_match_report(report, prefix_lines)
+        && incremental_rich_prefix_definition_ownership_matches_report(report)
         && incremental_rich_prefix_derived_metadata_matches(report)
         && report.syntax_summary.ast_items > suffix.declarations.len()
         && report.syntax_summary.tokens >= suffix.token_count
@@ -1487,7 +1492,7 @@ fn incremental_rich_prefix_supports_scalar_suffix(
             == Some(suffix.declarations.len())
 }
 
-fn incremental_rich_prefix_module_imports_match_report(
+fn incremental_rich_prefix_imports_match_report(
     report: &CheckReport,
     prefix_lines: &[source::SourceLine],
 ) -> bool {
@@ -1496,7 +1501,8 @@ fn incremental_rich_prefix_module_imports_match_report(
     }
 
     let mut import_lines = HashSet::new();
-    report.semantic_program.imports.iter().all(|info| {
+    let mut file_import_count = 0usize;
+    let imports_match = report.semantic_program.imports.iter().all(|info| {
         let Some(index) = info.line.checked_sub(1) else {
             return false;
         };
@@ -1506,8 +1512,7 @@ fn incremental_rich_prefix_module_imports_match_report(
         if !import_lines.insert(info.line)
             || info.span.source_id != SourceSpan::ROOT_SOURCE_ID
             || info.span.line != info.line
-            || !matches!(info.kind.as_str(), "use" | "import")
-            || info.status != "declared"
+            || !matches!(info.kind.as_str(), "use" | "import" | "file")
         {
             return false;
         }
@@ -1516,13 +1521,218 @@ fn incremental_rich_prefix_module_imports_match_report(
         let [AstItem::Import(declaration)] = parsed.items.as_slice() else {
             return false;
         };
+        let expected_status = if declaration.kind == "file" {
+            file_import_count += 1;
+            "resolved_by_compiler"
+        } else {
+            "declared"
+        };
         parsed.lines.len() == 1
             && incremental_import_is_supported(declaration)
-            && declaration.kind != "file"
             && declaration.target == info.target
             && declaration.target_span == info.span
             && declaration.kind == info.kind
             && declaration.line == info.line
+            && info.status == expected_status
+    });
+
+    imports_match
+        && incremental_rich_prefix_source_registry_matches_report(report, file_import_count > 0)
+}
+
+fn incremental_rich_prefix_source_registry_matches_report(
+    report: &CheckReport,
+    has_file_import: bool,
+) -> bool {
+    let Some(root_source) = report.source_files.first() else {
+        return false;
+    };
+    let expected_root_path = report
+        .source_path
+        .canonicalize()
+        .unwrap_or_else(|_| report.source_path.clone());
+    if root_source.source_id != SourceSpan::ROOT_SOURCE_ID
+        || root_source.path != expected_root_path
+        || has_file_import != (report.source_files.len() > 1)
+    {
+        return false;
+    }
+
+    let mut replayed = vec![root_source.clone()];
+    for source in report.source_files.iter().skip(1) {
+        if source.source_id == SourceSpan::ROOT_SOURCE_ID
+            || register_import_source(&source.path, &mut replayed) != source.source_id
+        {
+            return false;
+        }
+    }
+    replayed == report.source_files
+}
+
+fn incremental_report_requires_rich_prefix_contract(
+    report: &CheckReport,
+    offsets: IncrementalScalarRecordOffsets,
+) -> bool {
+    !report.semantic_program.schemas.is_empty()
+        || report
+            .semantic_program
+            .typed_bindings
+            .get(..offsets.typed)
+            .is_some_and(|bindings| {
+                bindings.iter().any(|binding| {
+                    !incremental_quantity_kind_is_registered(&binding.semantic_type.quantity_kind)
+                })
+            })
+        || report.semantic_program.functions.iter().any(|function| {
+            function.span.is_root_source()
+                || !incremental_scalar_function_contract_matches_registry(function)
+        })
+}
+
+fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckReport) -> bool {
+    let source_ids = report
+        .source_files
+        .iter()
+        .map(|source| source.source_id)
+        .collect::<HashSet<_>>();
+    let program = &report.semantic_program;
+
+    let unsupported_imported_definition = program
+        .systems
+        .iter()
+        .any(|info| !info.span.is_root_source())
+        || program
+            .state_space_type_blocks
+            .iter()
+            .any(|info| !info.span.is_root_source())
+        || program
+            .state_space_vectors
+            .iter()
+            .any(|info| !info.span.is_root_source())
+        || program
+            .linear_operators
+            .iter()
+            .any(|info| !info.span.is_root_source())
+        || program
+            .domains
+            .iter()
+            .any(|info| !info.span.is_root_source())
+        || program
+            .component_templates
+            .iter()
+            .any(|info| !info.span.is_root_source())
+        || program
+            .component_instances
+            .iter()
+            .any(|info| !info.span.is_root_source())
+        || program
+            .connections
+            .iter()
+            .any(|info| !info.left_span.is_root_source() || !info.right_span.is_root_source())
+        || program
+            .component_assemblies
+            .iter()
+            .any(|info| !info.span.is_root_source())
+        || program
+            .classes
+            .iter()
+            .any(|info| !info.span.is_root_source())
+        || program
+            .class_objects
+            .iter()
+            .any(|info| !info.span.is_root_source());
+    if unsupported_imported_definition {
+        return false;
+    }
+
+    let scalar_metadata_matches = |name: &str, source_id: usize, line: usize| -> bool {
+        program
+            .expected_types
+            .iter()
+            .filter(|info| {
+                info.name == name && info.span.source_id == source_id && info.line == line
+            })
+            .count()
+            == 1
+            && program
+                .typed_bindings
+                .iter()
+                .filter(|info| {
+                    info.name == name && info.span.source_id == source_id && info.line == line
+                })
+                .count()
+                == 1
+            && program
+                .hover_hints
+                .iter()
+                .filter(|info| {
+                    info.name == name && info.span.source_id == source_id && info.line == line
+                })
+                .count()
+                == 1
+            && program
+                .type_infos
+                .iter()
+                .filter(|info| {
+                    info.name == name && info.span.source_id == source_id && info.line == line
+                })
+                .count()
+                == 1
+    };
+
+    program.consts.iter().all(|constant| {
+        let source_id = constant.span.source_id;
+        source_ids.contains(&source_id)
+            && constant.line == constant.span.line
+            && constant.type_span.source_id == source_id
+            && constant.expression_span.source_id == source_id
+            && constant
+                .unit_span
+                .is_none_or(|span| span.source_id == source_id)
+            && (constant.span.is_root_source() || constant.importable)
+            && scalar_metadata_matches(&constant.name, source_id, constant.line)
+    }) && program.functions.iter().all(|function| {
+        let source_id = function.span.source_id;
+        source_ids.contains(&source_id)
+            && function.line == function.span.line
+            && function.return_type_span.source_id == source_id
+            && function
+                .return_unit_span
+                .is_none_or(|span| span.source_id == source_id)
+            && function
+                .return_expression_span
+                .is_none_or(|span| span.source_id == source_id)
+            && function.parameters.iter().all(|parameter| {
+                parameter.span.source_id == source_id
+                    && parameter.type_span.source_id == source_id
+                    && parameter
+                        .unit_span
+                        .is_none_or(|span| span.source_id == source_id)
+            })
+            && function
+                .locals
+                .iter()
+                .all(|local| local.span.source_id == source_id && local.line == local.span.line)
+    }) && program.schemas.iter().all(|schema| {
+        let source_id = schema.span.source_id;
+        source_ids.contains(&source_id)
+            && schema.line == schema.span.line
+            && schema.columns.iter().all(|column| {
+                column.span.source_id == source_id
+                    && column.line == column.span.line
+                    && column.type_span.source_id == source_id
+                    && column
+                        .unit_span
+                        .is_none_or(|span| span.source_id == source_id)
+            })
+            && schema
+                .constraints
+                .iter()
+                .all(|constraint| constraint.line > schema.line)
+            && schema
+                .missing_policies
+                .iter()
+                .all(|policy| policy.line > schema.line)
     })
 }
 
@@ -1537,19 +1747,24 @@ fn incremental_rich_prefix_derived_metadata_matches(report: &CheckReport) -> boo
 
 fn incremental_rich_prefix_owns_workflow_line(
     report: &CheckReport,
-    first_typed_record: usize,
+    offsets: IncrementalScalarRecordOffsets,
 ) -> bool {
     let workflow_line = report.semantic_program.workflow.line;
     report
         .semantic_program
-        .typed_bindings
-        .get(..first_typed_record)
-        .is_some_and(|bindings| {
-            bindings.iter().any(|binding| {
-                binding.span.source_id == SourceSpan::ROOT_SOURCE_ID
-                    && binding.line == workflow_line
+        .consts
+        .get(..offsets.const_info)
+        .is_some_and(|consts| consts.iter().any(|constant| constant.line == workflow_line))
+        || report
+            .semantic_program
+            .typed_bindings
+            .get(..offsets.typed)
+            .is_some_and(|bindings| {
+                bindings.iter().any(|binding| {
+                    binding.span.source_id == SourceSpan::ROOT_SOURCE_ID
+                        && binding.line == workflow_line
+                })
             })
-        })
         || report.semantic_program.prints.iter().any(|print| {
             print.keyword_span.source_id == SourceSpan::ROOT_SOURCE_ID
                 && print.line == workflow_line
@@ -1565,11 +1780,7 @@ fn imported_scalar_function_supports_incremental_recheck(
     imported_source_ids: &HashSet<usize>,
 ) -> bool {
     let source_id = function.span.source_id;
-    let return_quantity = crate::quantities::all_quantity_completions()
-        .iter()
-        .find(|quantity| quantity.quantity_kind == function.return_quantity_kind);
     imported_source_ids.contains(&source_id)
-        && function.status == "unit_consistent"
         && function.line == function.span.line
         && function.return_type_span.source_id == source_id
         && function
@@ -1578,29 +1789,47 @@ fn imported_scalar_function_supports_incremental_recheck(
         && function
             .return_expression_span
             .is_some_and(|span| span.source_id == source_id)
-        && function.return_expression.is_some()
-        && return_quantity.is_some_and(|quantity| {
-            function.return_dimension == quantity.dimension
-                && function.return_canonical_unit == quantity.canonical_unit
-        })
         && function.parameters.iter().all(|parameter| {
             parameter.span.source_id == source_id
                 && parameter.type_span.source_id == source_id
                 && parameter
                     .unit_span
                     .is_none_or(|span| span.source_id == source_id)
-                && crate::quantities::all_quantity_completions()
-                    .iter()
-                    .find(|quantity| quantity.quantity_kind == parameter.quantity_kind)
-                    .is_some_and(|quantity| {
-                        parameter.dimension == quantity.dimension
-                            && parameter.canonical_unit == quantity.canonical_unit
-                    })
         })
         && function
             .locals
             .iter()
             .all(|local| local.span.source_id == source_id && local.line == local.span.line)
+        && incremental_scalar_function_contract_matches_registry(function)
+}
+
+fn incremental_scalar_function_contract_matches_registry(
+    function: &semantic::FunctionInfo,
+) -> bool {
+    let return_quantity = crate::quantities::all_quantity_completions()
+        .iter()
+        .find(|quantity| quantity.quantity_kind == function.return_quantity_kind);
+    function.status == "unit_consistent"
+        && function.return_expression.is_some()
+        && return_quantity.is_some_and(|quantity| {
+            function.return_dimension == quantity.dimension
+                && function.return_canonical_unit == quantity.canonical_unit
+        })
+        && function.parameters.iter().all(|parameter| {
+            crate::quantities::all_quantity_completions()
+                .iter()
+                .find(|quantity| quantity.quantity_kind == parameter.quantity_kind)
+                .is_some_and(|quantity| {
+                    parameter.dimension == quantity.dimension
+                        && parameter.canonical_unit == quantity.canonical_unit
+                })
+        })
+}
+
+fn incremental_quantity_kind_is_registered(quantity_kind: &str) -> bool {
+    crate::quantities::all_quantity_completions()
+        .iter()
+        .any(|quantity| quantity.quantity_kind == quantity_kind)
 }
 
 fn incremental_scalar_prefix_matches_report(
@@ -11461,6 +11690,13 @@ total = add_lengths(add_lengths(adjusted, imported_length), imported_length) + a
             source,
         )
         .is_none());
+        let mut stale_shape = previous.clone();
+        stale_shape.syntax_summary.ast_items += 1;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(&stale_shape, previous_source, source,)
+                .is_none(),
+            "a scalar-only report must not bypass its strict shape through the rich path"
+        );
 
         let reused =
             recheck_scalar_declaration_suffix_incrementally(&previous, previous_source, source)
@@ -11756,12 +11992,43 @@ factor = 0.5
             file_import_report.diagnostics
         );
         assert_eq!(file_import_report.source_files.len(), 2);
-        assert!(recheck_scalar_declaration_suffix_incrementally(
+        let changed_file_import_source =
+            file_import_source.replace("factor = 0.5", "factor = 0.75");
+        let reused_file_import = recheck_scalar_declaration_suffix_incrementally(
             &file_import_report,
             file_import_source,
-            &file_import_source.replace("factor = 0.5", "factor = 0.75"),
+            &changed_file_import_source,
         )
-        .is_none());
+        .expect("an unchanged static rich import should preserve the scalar suffix fast path");
+        let fresh_file_import = check_source(
+            &main_path,
+            &changed_file_import_source,
+            &CheckOptions::default(),
+        );
+        assert_eq!(
+            reused_file_import.source_files,
+            fresh_file_import.source_files
+        );
+        assert_eq!(
+            reused_file_import.source_hash,
+            fresh_file_import.source_hash
+        );
+        assert_eq!(
+            reused_file_import.diagnostics,
+            fresh_file_import.diagnostics
+        );
+        assert_eq!(
+            reused_file_import.inferred_declarations,
+            fresh_file_import.inferred_declarations
+        );
+        assert_eq!(
+            reused_file_import.syntax_summary,
+            fresh_file_import.syntax_summary
+        );
+        assert_eq!(
+            reused_file_import.semantic_program,
+            fresh_file_import.semantic_program
+        );
         std::fs::remove_dir_all(&root).expect("file import fixture should be removed");
     }
 
@@ -12169,6 +12436,200 @@ factor = 0.5
             .is_none(),
             "the fast-only API must not adopt the rich declaration-prefix contract"
         );
+    }
+
+    #[test]
+    fn incrementally_rechecks_scalar_suffix_after_unchanged_static_rich_imports() {
+        fn assert_fresh_equivalent(reused: &CheckReport, fresh: &CheckReport, source: &str) {
+            assert_eq!(reused.source_path, fresh.source_path);
+            assert_eq!(reused.source_files, fresh.source_files);
+            assert_eq!(reused.source_hash, fresh.source_hash);
+            assert_eq!(reused.source_lines, fresh.source_lines);
+            assert_eq!(reused.diagnostics, fresh.diagnostics);
+            assert_eq!(reused.inferred_declarations, fresh.inferred_declarations);
+            assert_eq!(reused.syntax_summary, fresh.syntax_summary);
+            assert_eq!(reused.semantic_program, fresh.semantic_program);
+            assert_eq!(
+                reused.quantity_completion_count,
+                fresh.quantity_completion_count
+            );
+            assert_eq!(reused.unit_info_count, fresh.unit_info_count);
+            assert_eq!(review_json(reused), review_json(fresh));
+            assert_eq!(
+                encode_bytecode(&build_bytecode_program(reused, source)),
+                encode_bytecode(&build_bytecode_program(fresh, source))
+            );
+        }
+
+        let root = std::env::temp_dir().join(format!(
+            "eng_compiler_incremental_static_rich_import_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("static rich import fixture should be created");
+        std::fs::write(
+            root.join("base.eng"),
+            r#"schema ImportedPowerRow {
+    time: DateTime index
+    power: HeatRate [kW]
+}
+const imported_factor: Ratio [1] = 0.5
+"#,
+        )
+        .expect("base rich module should be written");
+        std::fs::write(
+            root.join("shared.eng"),
+            r#"use "base.eng"
+fn scale_power(value: HeatRate [kW], factor: Ratio [1]) -> HeatRate [kW] {
+    scaled = value * factor
+    return scaled
+}
+"#,
+        )
+        .expect("shared rich module should be written");
+        let main_path = root.join("main.eng");
+        let previous_source = r#"use "shared.eng"
+use eng.stats
+input_file = file("input.csv")
+base: HeatRate [kW] = 2 kW
+scaled = scale_power(base, imported_factor)
+"#;
+        let source = r#"use "shared.eng"
+use eng.stats
+input_file = file("input.csv")
+base: HeatRate [W] = 1800 W
+scaled: HeatRate [W] = scale_power(base, imported_factor) + 0 W
+"#;
+        std::fs::write(&main_path, previous_source).expect("static rich root should be written");
+        let previous = check_source(&main_path, previous_source, &CheckOptions::default());
+        assert!(
+            previous.diagnostics.is_empty(),
+            "unexpected static rich import diagnostics: {:#?}",
+            previous.diagnostics
+        );
+        assert_eq!(previous.source_files.len(), 3);
+        assert_eq!(previous.semantic_program.imports.len(), 2);
+        assert_eq!(previous.semantic_program.schemas.len(), 1);
+        assert_eq!(previous.semantic_program.consts.len(), 1);
+        assert_eq!(previous.semantic_program.functions.len(), 1);
+
+        let reused =
+            recheck_scalar_declaration_suffix_incrementally(&previous, previous_source, source)
+                .expect("unchanged recursive static rich imports should preserve the suffix path");
+        let fresh = check_source(&main_path, source, &CheckOptions::default());
+        assert_fresh_equivalent(&reused, &fresh, source);
+        assert_eq!(reused.source_files, previous.source_files);
+        assert_eq!(
+            reused.semantic_program.schemas,
+            previous.semantic_program.schemas
+        );
+        assert_eq!(
+            reused.semantic_program.functions,
+            previous.semantic_program.functions
+        );
+        assert_eq!(
+            reused.semantic_program.consts,
+            previous.semantic_program.consts
+        );
+
+        let cleared_source = r#"use "shared.eng"
+use eng.stats
+input_file = file("input.csv")
+"#;
+        let cleared =
+            recheck_scalar_declaration_suffix_incrementally(&reused, source, cleared_source)
+                .expect("the recursive static rich prefix should survive suffix removal");
+        let cleared_fresh = check_source(&main_path, cleared_source, &CheckOptions::default());
+        assert_fresh_equivalent(&cleared, &cleared_fresh, cleared_source);
+
+        let restarted_source = r#"use "shared.eng"
+use eng.stats
+input_file = file("input.csv")
+base: HeatRate [kW] = 3 kW
+scaled = scale_power(base, imported_factor)
+"#;
+        let restarted = recheck_scalar_declaration_suffix_incrementally(
+            &cleared,
+            cleared_source,
+            restarted_source,
+        )
+        .expect("the scalar suffix should restart after recursive static rich imports");
+        let restarted_fresh = check_source(&main_path, restarted_source, &CheckOptions::default());
+        assert_fresh_equivalent(&restarted, &restarted_fresh, restarted_source);
+
+        let mut stale_import = previous.clone();
+        stale_import.semantic_program.imports[0].status = "stale".to_owned();
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_import,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "stale static import metadata must use full analysis"
+        );
+
+        let mut stale_const_owner = previous.clone();
+        stale_const_owner.semantic_program.consts[0]
+            .type_span
+            .source_id = SourceSpan::ROOT_SOURCE_ID;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_const_owner,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "inconsistent imported const ownership must use full analysis"
+        );
+
+        let mut stale_function_owner = previous.clone();
+        stale_function_owner.semantic_program.functions[0]
+            .return_type_span
+            .source_id = SourceSpan::ROOT_SOURCE_ID;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_function_owner,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "inconsistent imported function ownership must use full analysis"
+        );
+
+        let mut stale_schema_owner = previous.clone();
+        stale_schema_owner.semantic_program.schemas[0].columns[0]
+            .type_span
+            .source_id = SourceSpan::ROOT_SOURCE_ID;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_schema_owner,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "inconsistent imported schema ownership must use full analysis"
+        );
+
+        let mut stale_registry = previous.clone();
+        stale_registry.source_files[1].source_id =
+            stale_registry.source_files[1].source_id.wrapping_add(1);
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_registry,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "a non-reproducible recursive source registry must use full analysis"
+        );
+        assert!(
+            recheck_scalar_binding_suffix_incrementally(&previous, previous_source, source)
+                .is_none(),
+            "the fast-only API must retain its scalar-only static import contract"
+        );
+
+        std::fs::remove_dir_all(&root).expect("static rich import fixture should be removed");
     }
 
     #[test]

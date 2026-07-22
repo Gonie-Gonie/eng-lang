@@ -270,15 +270,19 @@ separate.
   has an exact independent tail, derived cache and axis metadata regenerate
   exactly, and isolated old-suffix analysis matches. This admits unchanged root
   scalar helpers, non-scalar file/path and TimeSeries bindings, cached boundaries,
-  and command metadata such as `print`. Except for individually verified module
-  declaration lines, richer prefix constructs are not reparsed or reanalyzed,
+  and command metadata such as `print`. Except for individually verified root
+  import declaration lines, richer prefix constructs are not reparsed or reanalyzed,
   and their non-scalar bindings cannot be used as suffix aliases or operands.
   Axis metadata is rebuilt and cache records are rekeyed
-  with the new source hash after a successful patch. The richer contract remains
-  root-source-only but may retain unchanged supported `eng.*` module imports
-  whose compiler records exactly match their root source lines, spans, kinds,
-  and statuses. Static file imports retain the stricter scalar-only import
-  contract.
+  with the new source hash after a successful patch. The richer root-edit
+  contract may retain unchanged supported `eng.*` module and static file
+  imports whose compiler records exactly match their root source lines, spans,
+  kinds, and statuses. Static imports additionally require the complete
+  recursive path-to-source-ID registry to reproduce exactly and restrict
+  preserved imported semantic definitions to schemas, constants, and functions
+  whose internal spans retain registered source ownership. Imported systems,
+  domains, components, and classes use full analysis. Callers must preserve the
+  resolved import environment.
   Preserved imported definitions retain source ownership; constants can seed
   backward root aliases and arithmetic, and eligible constants may themselves
   use scalar function calls as values or arithmetic operands. Any suffix

@@ -730,11 +730,17 @@ and axis metadata must regenerate exactly. A successful patch rebuilds axis
 metadata and rekeys cache records with the new source hash. Suffix expressions
 cannot use a preserved non-scalar binding as an alias or operand. Changes inside
 that richer prefix and token-bearing non-declarations in the affected suffix use
-full analysis. This richer contract remains root-source-only but may retain
-unchanged supported `eng.*` module imports after exact root line, span, kind,
-and status verification. Static file imports retain the stricter scalar-only
-import contract. Only those module declaration lines are reparsed for
-verification; other richer-prefix constructs are preserved without reparsing or
-semantic reanalysis. This is not general incremental parsing or semantic recomputation.
+full analysis. This richer root-edit contract may retain unchanged supported
+`eng.*` module and static file imports after exact root line, span, kind, and
+status verification. Static imports additionally require the complete recursive
+path-to-source-ID registry to reproduce exactly. Preserved imported semantic
+definitions are limited to schemas, constants, and functions whose internal
+spans retain registered source ownership; imported systems, domains, components,
+and classes use full analysis. Only root import declaration lines are reparsed
+for verification; supported imported definitions and other richer-prefix
+constructs are preserved without reparsing or semantic reanalysis.
+Open or watched import changes invalidate cached dependent reports before this
+path is considered. This is not general incremental parsing or semantic
+recomputation.
 
 This JSON contract is not a replacement for full LSP editor validation.

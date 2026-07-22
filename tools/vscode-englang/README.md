@@ -24,7 +24,8 @@ embedding compiler logic in JavaScript.
   declarations; clean scalar documents may retain supported module or static
   imports, while an unchanged richer prefix such as a pure scalar helper and
   `print` can be retained only when the prior report proves exact suffix
-  ownership; the suffix supports literals, backward aliases, pure
+  ownership; rich static imports are limited to source-owned schemas, constants,
+  and functions; the suffix supports literals, backward aliases, pure
   registered-unit arithmetic, and dimension-valid preserved scalar function
   calls, plus coordinated edits, additions/removals, standalone trivia changes,
   and line-ending shifts, with full-analysis fallback for edits in the richer
@@ -264,12 +265,16 @@ cached process or data boundaries, a pure scalar `fn` helper, and `print`.
 Axis metadata is rebuilt after the suffix patch, and cache records are rekeyed
 with the changed source hash. Suffix expressions cannot use preserved
 non-scalar values as scalar aliases or operands. An edit inside that richer
-prefix still uses full analysis. The richer contract remains root-source-only
-but may retain unchanged supported `eng.*` module imports whose compiler
+prefix still uses full analysis. The richer root-edit contract may retain
+unchanged supported `eng.*` module and static file imports whose compiler
 records exactly match their root source lines, spans, kinds, and statuses.
-Static file imports continue through the stricter scalar-only import contract.
-Only those module declaration lines are reparsed for verification; other
-richer-prefix constructs are preserved without reparsing or semantic reanalysis.
+Static imports additionally require the complete recursive path-to-source-ID
+registry to reproduce exactly. Preserved imported semantic definitions are
+limited to schemas, constants, and functions whose internal spans retain
+registered source ownership. Imported systems, domains, components, and classes
+use full analysis. Only root import declaration lines are reparsed for
+verification; supported imported definitions and other richer-prefix constructs
+are preserved without reparsing or semantic reanalysis.
 Compiler-validated suffix expressions may use
 numeric or registered-unit literals, backward aliases, parentheses, and
 `+`, `-`, `*`, `/` arithmetic over earlier typed bindings. The server
@@ -308,8 +313,9 @@ calls, non-scalar suffix declarations, workflow expressions, diagnostics,
 import-line edits, imports inside the affected suffix, edited or unverifiable
 cache metadata, and unverified report ownership run a full compiler analysis.
 Changing an open import hard-invalidates its recursive open dependents, while
-unrelated document analyses remain cached. This remains a narrow partial path,
-not general incremental parse or semantic recomputation.
+watched disk import changes invalidate all open analyses and unrelated document
+analyses otherwise remain cached. This remains a narrow partial path, not
+general incremental parse or semantic recomputation.
 The client keeps all modified open EngLang documents synchronized in that session. Static
 imports resolve open text before disk, so a changed declaration or import does
 not require a save. Saved workspace files are included only when their static

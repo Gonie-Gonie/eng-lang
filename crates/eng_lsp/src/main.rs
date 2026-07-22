@@ -10877,8 +10877,19 @@ mod tests {
         ));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).expect("rich-prefix scalar fixture should be created");
+        std::fs::write(
+            root.join("shared.eng"),
+            r#"schema ImportedPowerRow {
+    time: DateTime index
+    power: HeatRate [kW]
+}
+const imported_factor: Ratio [1] = 0.5
+"#,
+        )
+        .expect("static rich module should be written");
         let path = root.join("current.eng");
         let initial_source = concat!(
+            "use \"shared.eng\"\n",
             "use eng.stats\n",
             "input_file = file(\"input.csv\")\n",
             "series: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
@@ -10893,7 +10904,7 @@ mod tests {
             "\n",
             "print \"ready\"\n",
             "base: HeatRate [kW] = 2 kW\n",
-            "scaled = identity_power(base)\n",
+            "scaled = identity_power(base) * imported_factor\n",
         );
         std::fs::write(&path, initial_source).expect("rich-prefix scalar source should be written");
         let path = path
@@ -10914,6 +10925,7 @@ mod tests {
         );
 
         let changed_source = concat!(
+            "use \"shared.eng\"\n",
             "use eng.stats\n",
             "input_file = file(\"input.csv\")\n",
             "series: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
@@ -10928,7 +10940,7 @@ mod tests {
             "\n",
             "print \"ready\"\n",
             "base: HeatRate [W] = 1800 W\n",
-            "scaled: HeatRate [W] = identity_power(base) + 0 W\n",
+            "scaled: HeatRate [W] = identity_power(base) * imported_factor + 0 W\n",
         );
         let changed_notification = json!({
             "method": "textDocument/didChange",
@@ -10951,11 +10963,11 @@ mod tests {
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
             (0, 2, 0, true, true),
-            "the unchanged module, file, axis, cache, helper, and print prefix should preserve the scalar suffix fast path"
+            "the unchanged static import, module, file, axis, cache, helper, and print prefix should preserve the scalar suffix fast path"
         );
 
         let fallback_source = changed_source.replace(
-            "scaled: HeatRate [W] = identity_power(base) + 0 W\n",
+            "scaled: HeatRate [W] = identity_power(base) * imported_factor + 0 W\n",
             "scaled_input = input_file\n",
         );
         let fallback_notification = json!({
