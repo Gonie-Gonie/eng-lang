@@ -154,8 +154,9 @@ review material. It is not a broad solver claim.
   require the complete recursive path-to-source-ID registry to reproduce
   exactly. Preserved imported semantic definitions are limited to schemas,
   constants, functions, basic and state-space systems, state-space type blocks,
-  vectors and linear operators, domains, classes, and component templates with
-  internally consistent registered source ownership. System headers, variables
+  vectors and linear operators, domains, classes, component templates, and
+  system-owned component constructor/connection graphs with internally
+  consistent registered source ownership. System headers, variables
   and parallel
   expected/typed/hover/type/unit records, equations, residual IR, and `ready`
   solver plans with sparsity metadata are verified together. State-space type
@@ -167,10 +168,12 @@ review material. It is not a broad solver claim.
   validation expressions, and method return/expression metadata are verified
   together. Component headers, parameters, inputs, ports, local expressions and
   equations retain imported source ownership; port resolution, sequential local
-  signal contracts, root-owned instance cloning and connections, and the derived
-  assembly graph must reproduce exactly. System-scoped component instances and
-  connections declared in imported modules remain non-importable, and imported
-  class objects use full analysis. The scalar
+  signal contracts, constructor instance cloning and connections from root or
+  imported systems, and the derived assembly graph must reproduce exactly.
+  Static imports admit only constructor-shaped system bindings and
+  top-level/system `connect` declarations; arbitrary system-local executable
+  bindings remain outside the module boundary. Imported class objects use full
+  analysis. The scalar
   suffix environment contains only eligible root declarations and importable
   constants, so duplicate or same-spelled system-local values cannot leak into
   root expressions. The caller must preserve the resolved import environment, and
@@ -228,13 +231,17 @@ review material. It is not a broad solver claim.
   references,
   dimensionally incompatible arithmetic, invalid or unsupported calls, workflow
   expressions, diagnostics,
-  static imports that contribute non-importable system-scoped component
-  instances/connections or unverified class objects,
+  static imports that contribute unverified class objects,
   import-line edits, imports inside the affected suffix, caches, and richer
   language use full analysis.
   Source changes invalidate recursive open import dependents while preserving
   the changed document as a candidate for these narrow reuse paths. This is not
   general partial parsing or a public cross-release protocol commitment.
+
+  Imported and root-owned component instances currently participate in one
+  compilation-wide `component_graph` namespace. Duplicate instance names across
+  systems are diagnosed; per-system namespaced assembly selection remains an
+  internal module-semantics gap.
 
 ## Supported But Narrow Main Behavior
 

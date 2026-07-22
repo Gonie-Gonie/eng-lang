@@ -672,13 +672,16 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// static file imports when every compiler import record exactly matches its root source line, span,
 /// kind, and status. Static imports additionally require the complete recursive path-to-source-ID
 /// registry to reproduce exactly and limit imported semantic definitions to schemas, constants,
-/// functions, basic or state-space systems, domains, classes, and component templates with
+/// functions, basic or state-space systems, domains, classes, component templates, and
+/// system-owned component graphs with
 /// internally consistent registered source ownership. System headers, variables and parallel
 /// type/editor records, equations, residual IR, static solver plans, state-space vector layouts,
 /// and linear-operator matrices are verified together. Component headers, parameters, inputs,
-/// ports, local expressions, root-owned instances and connections, and their derived assembly
-/// graphs must also reproduce exactly. System-scoped component instances and connections from
-/// imported modules remain non-importable, and imported class objects remain ineligible. Only root
+/// ports, local expressions, constructor instances and connections, and their derived assembly
+/// graphs must also reproduce exactly, including graph items contributed by imported systems.
+/// Static imports admit only constructor-shaped system bindings and top-level/system `connect`
+/// declarations; arbitrary system-local executable bindings remain outside the module boundary.
+/// Imported class objects remain ineligible. Only root
 /// import declaration lines are reparsed for verification; imported definitions and other richer
 /// prefix constructs are not reparsed or reanalyzed.
 /// Changes inside it, a token-bearing non-declaration in the affected suffix, diagnostics,
@@ -1653,17 +1656,9 @@ fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckRep
     let program = &report.semantic_program;
 
     let unsupported_imported_definition = program
-        .component_instances
+        .class_objects
         .iter()
-        .any(|info| !info.span.is_root_source())
-        || program
-            .connections
-            .iter()
-            .any(|info| !info.left_span.is_root_source() || !info.right_span.is_root_source())
-        || program
-            .class_objects
-            .iter()
-            .any(|info| !info.span.is_root_source());
+        .any(|info| !info.span.is_root_source());
     if unsupported_imported_definition {
         return false;
     }
@@ -1723,7 +1718,20 @@ fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckRep
                     program,
                 )
         });
-        templates_match && instances_match
+        let mut connection_keys = HashSet::new();
+        let connections_match = program.connections.iter().all(|connection| {
+            connection_keys.insert((
+                connection.left.as_str(),
+                connection.right.as_str(),
+                connection.line,
+                connection.left_span.source_id,
+            )) && incremental_component_connection_ownership_matches_report(
+                connection,
+                &source_ids,
+                program,
+            )
+        });
+        templates_match && instances_match && connections_match
     };
 
     program.consts.iter().all(|constant| {
@@ -2368,6 +2376,11 @@ fn incremental_component_instance_ownership_matches_report(
     let mut argument_names = HashSet::new();
     source_ids.contains(&source_id)
         && instance.line == instance.span.line
+        && program.systems.iter().any(|system| {
+            system.span.source_id == source_id
+                && system.line == system.span.line
+                && system.line < instance.line
+        })
         && program
             .component_templates
             .iter()
@@ -2378,6 +2391,46 @@ fn incremental_component_instance_ownership_matches_report(
             argument_names.insert(argument.name.as_str())
                 && argument.value_span.source_id == source_id
                 && argument.value_span.line == instance.line
+        })
+}
+
+fn incremental_component_connection_ownership_matches_report(
+    connection: &semantic::ConnectionInfo,
+    source_ids: &HashSet<usize>,
+    program: &semantic::SemanticProgram,
+) -> bool {
+    let source_id = connection.left_span.source_id;
+    if !source_ids.contains(&source_id)
+        || connection.right_span.source_id != source_id
+        || connection.left_span.line != connection.line
+        || connection.right_span.line != connection.line
+        || connection.left != format!("{}.{}", connection.left_component, connection.left_port)
+        || connection.right != format!("{}.{}", connection.right_component, connection.right_port)
+        || connection.domain.trim().is_empty()
+        || connection.status != "domain_compatible"
+    {
+        return false;
+    }
+
+    if program.component_instances.is_empty() {
+        return [&connection.left_component, &connection.right_component]
+            .iter()
+            .all(|name| {
+                program
+                    .component_templates
+                    .iter()
+                    .any(|component| component.name == name.as_str())
+            });
+    }
+
+    [&connection.left_component, &connection.right_component]
+        .iter()
+        .all(|name| {
+            program.component_instances.iter().any(|instance| {
+                instance.name == name.as_str()
+                    && instance.span.source_id == source_id
+                    && instance.line <= connection.line
+            })
         })
 }
 
@@ -3066,7 +3119,8 @@ fn importable_definition_item(item: &AstItem) -> bool {
             matches!(
                 binding.context,
                 ParseContext::Function | ParseContext::Component
-            )
+            ) || (binding.context == ParseContext::System
+                && semantic::component_constructor_call(&binding.expression).is_some())
         }
         AstItem::Const(declaration) => declaration.context == ParseContext::TopLevel,
         AstItem::Schema(_)
@@ -3087,6 +3141,12 @@ fn importable_definition_item(item: &AstItem) -> bool {
         | AstItem::ClassField(_)
         | AstItem::ClassValidation(_)
         | AstItem::ClassMethod(_) => true,
+        AstItem::Connect(connection) => {
+            matches!(
+                connection.context,
+                ParseContext::TopLevel | ParseContext::System
+            )
+        }
         AstItem::ExplicitDecl(declaration) => {
             declaration.context == ParseContext::Schema
                 || (declaration.context == ParseContext::System
@@ -13739,10 +13799,23 @@ adjusted = base * factor
         std::fs::create_dir_all(&root).expect("component import fixture should be created");
         std::fs::write(
             root.join("component.eng"),
-            r#"component ImportedController {
+            r#"domain ImportedControlSignal {
+    across level: Ratio [1]
+    through flow: Ratio [1]
+    conservation sum(flow) = 0
+}
+
+component ImportedController {
+    port signal: ImportedControlSignal
     parameter gain: Ratio [1] = 0.5
     input setpoint: Ratio [1] = 1
     local_value = gain
+    signal.level eq 0
+}
+
+system ImportedComponentWorkflow {
+    controller = ImportedController(gain=0.75)
+    connect controller.signal to controller.signal
 }
 "#,
         )
@@ -13751,16 +13824,10 @@ adjusted = base * factor
             .expect("recursive component module should be written");
         let main_path = root.join("main.eng");
         let previous_source = r#"use "shared.eng"
-system ImportedComponentWorkflow {
-    controller = ImportedController(gain=0.75)
-}
 base = 2 m
 factor = 0.5
 "#;
         let source = r#"use "shared.eng"
-system ImportedComponentWorkflow {
-    controller = ImportedController(gain=0.75)
-}
 base = 180 cm
 factor = 0.75
 adjusted = base * factor
@@ -13773,14 +13840,17 @@ adjusted = base * factor
             previous.diagnostics
         );
         assert_eq!(previous.source_files.len(), 3);
+        assert_eq!(previous.semantic_program.systems.len(), 1);
         assert_eq!(previous.semantic_program.component_templates.len(), 1);
         assert_eq!(previous.semantic_program.component_instances.len(), 1);
+        assert_eq!(previous.semantic_program.connections.len(), 1);
         assert_eq!(previous.semantic_program.component_assemblies.len(), 1);
         let template = &previous.semantic_program.component_templates[0];
         assert_eq!(template.name, "ImportedController");
         assert_eq!(template.parameters.len(), 1);
         assert_eq!(template.inputs.len(), 1);
-        assert_eq!(template.local_expressions.len(), 1);
+        assert_eq!(template.ports.len(), 1);
+        assert_eq!(template.local_expressions.len(), 2);
         assert!(!template.span.is_root_source());
         assert!(!template.local_expressions[0]
             .span
@@ -13788,12 +13858,21 @@ adjusted = base * factor
             .is_root_source());
         let instance = &previous.semantic_program.component_instances[0];
         assert_eq!(instance.name, "controller");
-        assert!(instance.span.is_root_source());
+        assert!(!instance.span.is_root_source());
+        assert_eq!(
+            instance.span.source_id,
+            previous.semantic_program.systems[0].span.source_id
+        );
         assert_eq!(instance.parameters[0].value.as_deref(), Some("0.75"));
         assert_eq!(instance.parameters[0].status, "constructor_override");
+        let connection = &previous.semantic_program.connections[0];
+        assert_eq!(connection.left, "controller.signal");
+        assert_eq!(connection.right, "controller.signal");
+        assert_eq!(connection.left_span.source_id, instance.span.source_id);
+        assert_eq!(connection.right_span.source_id, instance.span.source_id);
         assert_eq!(
             previous.semantic_program.component_assemblies[0].local_expression_count,
-            1
+            2
         );
         assert!(incremental_rich_prefix_definition_ownership_matches_report(
             &previous
@@ -13875,6 +13954,37 @@ adjusted = base * factor
             )
             .is_none(),
             "an instance that no longer matches its template must use full analysis"
+        );
+
+        let mut stale_instance_owner = previous.clone();
+        stale_instance_owner.semantic_program.component_instances[0]
+            .span
+            .source_id = SourceSpan::ROOT_SOURCE_ID;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_instance_owner,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "an imported instance detached from its source system must use full analysis"
+        );
+
+        let mut stale_connection_owner = previous.clone();
+        stale_connection_owner.semantic_program.connections[0]
+            .left_span
+            .source_id = SourceSpan::ROOT_SOURCE_ID;
+        stale_connection_owner.semantic_program.connections[0]
+            .right_span
+            .source_id = SourceSpan::ROOT_SOURCE_ID;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_connection_owner,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "an imported connection detached from its instances must use full analysis"
         );
 
         let mut stale_assembly = previous.clone();
@@ -22774,6 +22884,93 @@ system ImportedAssembly {
             assembly.solver_preview.delay_history,
             BEHAVIOR_STATUS_DECLARED
         );
+
+        fs::remove_dir_all(&root).expect("temp dir cleanup");
+    }
+
+    #[test]
+    fn imports_system_owned_component_graphs_into_native_solver_metadata() {
+        let root = std::env::temp_dir().join(format!(
+            "englang-system-component-graph-import-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("temp dir");
+        fs::write(
+            root.join("graph.eng"),
+            r#"domain ImportedScalarLoop {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component ImportedCosineLoop {
+    port source: ImportedScalarLoop
+    port target: ImportedScalarLoop
+    source.x eq cos(target.x)
+    source.balance eq 0
+}
+
+system ImportedFixedPointGraph {
+    loop = ImportedCosineLoop()
+    ignored_local = 2 m
+    connect loop.source to loop.target
+}
+"#,
+        )
+        .expect("imported component graph source");
+        let main_path = root.join("main.eng");
+        let source = r#"use "graph.eng"
+
+fixed_point_result = solve component_graph
+with {
+    solver = fixed_point
+    tolerance = 0.00001
+    max_iter = 120
+    relaxation = 0.5
+    initial = 0.5
+}
+"#;
+        fs::write(&main_path, source).expect("root source");
+
+        let report = check_file(&main_path, &CheckOptions::default()).expect("check file");
+        assert!(!report.has_errors(), "{:#?}", report.diagnostics);
+        assert_eq!(report.semantic_program.systems.len(), 1);
+        assert_eq!(report.semantic_program.component_templates.len(), 1);
+        assert_eq!(report.semantic_program.component_instances.len(), 1);
+        assert_eq!(report.semantic_program.connections.len(), 1);
+        assert_eq!(report.semantic_program.component_assemblies.len(), 1);
+        let system = &report.semantic_program.systems[0];
+        let instance = &report.semantic_program.component_instances[0];
+        let connection = &report.semantic_program.connections[0];
+        assert_eq!(system.name, "ImportedFixedPointGraph");
+        assert_eq!(instance.name, "loop");
+        assert_eq!(
+            instance.template_name.as_deref(),
+            Some("ImportedCosineLoop")
+        );
+        assert_eq!(instance.span.source_id, system.span.source_id);
+        assert!(!instance.span.is_root_source());
+        assert_eq!(connection.left, "loop.source");
+        assert_eq!(connection.right, "loop.target");
+        assert_eq!(connection.left_span.source_id, system.span.source_id);
+        assert_eq!(connection.right_span.source_id, system.span.source_id);
+        assert!(report
+            .inferred_declarations
+            .iter()
+            .all(|declaration| declaration.name != "ignored_local"));
+        let assembly = &report.semantic_program.component_assemblies[0];
+        assert_eq!(assembly.name, "component_graph");
+        assert_eq!(assembly.component_count, 1);
+        assert_eq!(assembly.connection_count, 1);
+        assert!(assembly
+            .equations
+            .iter()
+            .any(|equation| equation.residual == "loop.source.x - (cos(loop.target.x))"));
+        let review = review_json(&report);
+        assert!(review.contains("ImportedFixedPointGraph"));
+        assert!(review.contains("loop.source"));
+        assert!(!build_bytecode(&report, source).is_empty());
 
         fs::remove_dir_all(&root).expect("temp dir cleanup");
     }

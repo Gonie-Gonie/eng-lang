@@ -24475,6 +24475,82 @@ with {
     }
 
     #[test]
+    fn executes_imported_system_component_graph_with_native_fixed_point_solver() {
+        let root = std::env::temp_dir().join(format!(
+            "eng_runtime_imported_component_graph_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("imported graph fixture should be created");
+        std::fs::write(
+            root.join("graph.eng"),
+            r#"domain ImportedScalarLoop {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component ImportedCosineLoop {
+    port source: ImportedScalarLoop
+    port target: ImportedScalarLoop
+    source.x eq cos(target.x)
+    source.balance eq 0
+}
+
+system ImportedFixedPointGraph {
+    loop = ImportedCosineLoop()
+    connect loop.source to loop.target
+}
+"#,
+        )
+        .expect("imported graph source should be written");
+        let path = root.join("main.eng");
+        let source = r#"use "graph.eng"
+
+fixed_point_result = solve component_graph
+with {
+    solver = fixed_point
+    tolerance = 0.00001
+    max_iter = 120
+    relaxation = 0.5
+    initial = 0.5
+}
+"#;
+        std::fs::write(&path, source).expect("root solve source should be written");
+        let report = check_file(&path, &CheckOptions::default()).expect("imported graph check");
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert_eq!(report.semantic_program.component_instances.len(), 1);
+        assert!(!report.semantic_program.component_instances[0]
+            .span
+            .is_root_source());
+        assert_eq!(report.semantic_program.connections.len(), 1);
+        assert!(!report.semantic_program.connections[0]
+            .left_span
+            .is_root_source());
+
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert_eq!(runtime.component_solutions.len(), 1);
+        let solution = &runtime.component_solutions[0];
+        assert_eq!(solution.assembly, "component_graph");
+        assert_eq!(solution.status, "solved_fixed_point");
+        assert_eq!(solution.method, "fixed_point_residual_graph");
+        assert_eq!(solution.convergence_status, "fixed_point_converged");
+        assert!(solution.failure_artifact.is_none());
+        assert!(solution.residual_norm <= solution.tolerance);
+        assert!(solution.variables.iter().any(|variable| {
+            variable.name == "loop.source.x"
+                && variable.status == "solved_fixed_point"
+                && (variable.value - 0.739085).abs() <= 0.00001
+        }));
+        assert!(solution
+            .reason
+            .contains("source solve binding `fixed_point_result`"));
+
+        std::fs::remove_dir_all(&root).expect("imported graph fixture should be removed");
+    }
+
+    #[test]
     fn materializes_expression_mapped_fixed_point_source_solve_request() {
         let source = r#"
 domain ScalarLoop {

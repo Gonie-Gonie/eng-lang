@@ -259,6 +259,7 @@ pub struct ConnectDecl {
     pub right_span: SourceSpan,
     pub line: usize,
     pub span: SourceSpan,
+    pub context: ParseContext,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

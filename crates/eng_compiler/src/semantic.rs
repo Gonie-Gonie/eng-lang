@@ -1109,6 +1109,7 @@ pub(crate) fn component_metadata_matches_derived(program: &SemanticProgram) -> b
             right_span: connection.right_span,
             line: connection.line,
             span: source_span_covering(connection.left_span, connection.right_span),
+            context: ParseContext::System,
         })
         .collect::<Vec<_>>();
     let mut diagnostics = Vec::new();
@@ -11532,7 +11533,7 @@ fn is_identifier_continue_character(character: char) -> bool {
     character.is_ascii_alphanumeric() || character == '_'
 }
 
-fn component_constructor_call(expression: &str) -> Option<(&str, &str)> {
+pub(crate) fn component_constructor_call(expression: &str) -> Option<(&str, &str)> {
     let trimmed = expression.trim();
     let open = trimmed.find('(')?;
     if !trimmed.ends_with(')') {

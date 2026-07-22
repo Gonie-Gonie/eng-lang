@@ -215,15 +215,23 @@ and const diagnostics, semantic tokens, and outline selection ranges consume
 these fields directly.
 
 The strict scalar-suffix recheck may preserve unchanged imported state-space and
-component-template prefixes only after replaying their source registry. State-space
+component-graph prefixes only after replaying their source registry. State-space
 members, vector layouts, operator endpoints, shapes, compatibility, canonical
 matrices, and parallel editor records must reproduce from semantic declarations.
 Component headers, parameters, inputs, ports, local expressions/equations,
-sequential signal contracts, root-owned instances/connections, and assembly graphs
-must also reproduce. Its suffix environment includes eligible root scalar
+sequential signal contracts, constructor instances/connections from root or imported
+systems, and assembly graphs must also reproduce. Imported instances must remain
+owned by a preceding system in the same source, and imported connections must retain
+same-source endpoints and instance ownership. Static imports admit only
+constructor-shaped system bindings and top-level/system `connect` declarations;
+other system-local executable bindings remain outside the module boundary. Its
+suffix environment includes eligible root scalar
 declarations and importable constants, never system- or component-local variables.
-System-scoped component instances/connections from imported modules are not imported.
 Any ownership or derived-metadata mismatch returns to a full check.
+
+Component instances still share the compilation-wide `component_graph` namespace.
+Duplicate instance names across loaded systems are rejected; per-system namespaced
+assemblies remain a separate module-semantics improvement.
 
 Function declarations retain exact parameter name/type/optional-unit spans and
 return type/optional-unit spans. `FunctionParamInfo.unit` and

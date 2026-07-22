@@ -10936,9 +10936,16 @@ domain ImportedSignal[Axis DOF] package "example.signal" version "1.0.0" {
 }
 
 component ImportedEditorController {
+    port signal: ImportedSignal[Time]
     parameter gain: Ratio [1] = 0.5
     input setpoint: Ratio [1] = 1
     local_value = gain
+    signal.level eq 0
+}
+
+system ImportedEditorComponentGraph {
+    controller = ImportedEditorController(gain=0.75)
+    connect controller.signal to controller.signal
 }
 "#,
         )
@@ -11003,8 +11010,16 @@ const imported_factor: Ratio [1] = 0.5
                 report.semantic_program.component_templates[0]
                     .local_expressions
                     .len(),
-                1
+                2
             );
+            assert_eq!(report.semantic_program.component_instances.len(), 1);
+            assert!(!report.semantic_program.component_instances[0]
+                .span
+                .is_root_source());
+            assert_eq!(report.semantic_program.connections.len(), 1);
+            assert!(!report.semantic_program.connections[0]
+                .left_span
+                .is_root_source());
             assert_eq!(report.semantic_program.component_assemblies.len(), 1);
         }
         assert_eq!(documents[&uri].scalar_binding_reuse_count(), 0);
@@ -11065,8 +11080,13 @@ const imported_factor: Ratio [1] = 0.5
             );
             assert_eq!(
                 report.semantic_program.component_assemblies[0].local_expression_count,
-                1
+                2
             );
+            assert_eq!(report.semantic_program.component_instances.len(), 1);
+            assert_eq!(report.semantic_program.connections.len(), 1);
+            assert!(!report.semantic_program.connections[0]
+                .right_span
+                .is_root_source());
         }
         assert_eq!(
             documents[&uri].analysis_cache_stats(),

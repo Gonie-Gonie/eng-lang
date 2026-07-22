@@ -56,12 +56,12 @@ and next cleanup action.
   state-space operators, and equation dependencies; component/kernel inspector
   rows; editor metadata smoke checks; optional VS Code extension source; and a
   compiler-owned scalar suffix recheck that can preserve strictly verified
-  imported state-space and component-template metadata without exposing
-  system-local names at root.
+  imported state-space and complete system-owned component-graph metadata
+  without exposing ordinary system-local names at root.
 - Next cleanup: keep primary TimeSeries/schema/unit/report/check flows ahead of
-  advanced system, component-graph, and kernel detail, then decide explicit
-  module semantics for imported system-scoped component instances/connections
-  and extend verification to class-object metadata.
+  advanced system, component-graph, and kernel detail, then replace the current
+  compilation-wide component-instance namespace with explicit per-system
+  assembly ownership and extend verification to class-object metadata.
 
 ## T6 Uncertainty
 

@@ -730,7 +730,7 @@ fn parse_line_items(
     if let Some(port) = parse_port_decl(tokens, line_text, context) {
         items.push(AstItem::Port(port));
     }
-    if let Some(connect) = parse_connect_decl(tokens, line_text) {
+    if let Some(connect) = parse_connect_decl(tokens, line_text, context) {
         items.push(AstItem::Connect(connect));
     }
     if let Some(variable) = parse_system_variable_decl(tokens, line_text, context) {
@@ -1953,7 +1953,11 @@ fn parse_port_decl(tokens: &[Token], line_text: &str, context: ParseContext) -> 
     })
 }
 
-fn parse_connect_decl(tokens: &[Token], line_text: &str) -> Option<ConnectDecl> {
+fn parse_connect_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<ConnectDecl> {
     let first = tokens.first()?;
     if !matches!(first.kind, TokenKind::Keyword(Keyword::Connect)) {
         return None;
@@ -1981,6 +1985,7 @@ fn parse_connect_decl(tokens: &[Token], line_text: &str) -> Option<ConnectDecl> 
         right_span,
         line: first.span.line,
         span: first.span,
+        context,
     })
 }
 
