@@ -1502,7 +1502,7 @@
   },
   {
     "fixture": "04_system_component.eng",
-    "scope": "entity.name.type.englang",
+    "scope": "entity.name.type.solver.englang",
     "text": "RoomThermal",
     "fullMatch": true
   },
@@ -3325,20 +3325,38 @@
   },
   {
     "fixture": "04_system_component.eng",
-    "scope": "entity.name.type.englang",
+    "scope": "entity.name.type.solver.englang",
     "text": "RoomState",
     "fullMatch": true
   },
   {
     "fixture": "04_system_component.eng",
-    "scope": "entity.name.type.englang",
+    "scope": "entity.name.type.solver.englang",
     "text": "RoomInput",
     "fullMatch": true
   },
   {
     "fixture": "04_system_component.eng",
-    "scope": "entity.name.type.englang",
+    "scope": "entity.name.type.solver.englang",
     "text": "RoomOutput",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "meta.solver.simulate.englang",
+    "text": "simulate StateSpaceFixture",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "keyword.control.solver.englang",
+    "text": "simulate",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "entity.name.type.solver.englang",
+    "text": "StateSpaceFixture",
     "fullMatch": true
   },
   {

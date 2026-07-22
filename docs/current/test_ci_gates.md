@@ -209,6 +209,10 @@ Current coverage:
   inspector that omits sensor declarations, actual runtime calculations, or
   explicitly non-executed static plans, or that restores the old ambiguous
   calculation key.
+- The native IDE editor-safety and structural gates also require metric,
+  validation, and alignment results to remain in Checks while solver results,
+  state-space operators, and equation dependencies render in the separate
+  System panel with semantic-token navigation.
 - `dev.bat workflow-native-status` provides the fast read-only status view for those same source/docs guards plus the latest process and run-graph artifacts.
 - These examples are intentionally covered by workflow smoke rather than public
   package smoke until their native modules are promoted into package scope.

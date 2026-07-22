@@ -195,12 +195,20 @@
             "match": "^\\s*(states|inputs|outputs)\\s+([A-Za-z_][A-Za-z0-9_]*)",
             "captures": {
               "1": { "name": "keyword.control.solver.englang" },
-              "2": { "name": "entity.name.type.englang" }
+              "2": { "name": "entity.name.type.solver.englang" }
             }
           },
           {
             "name": "entity.name.type.declaration.englang",
-            "match": "^\\s*(schema|system|domain|component|class)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+            "match": "^\\s*(system)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+            "captures": {
+              "1": { "name": "storage.type.declaration.englang" },
+              "2": { "name": "entity.name.type.solver.englang" }
+            }
+          },
+          {
+            "name": "entity.name.type.declaration.englang",
+            "match": "^\\s*(schema|domain|component|class)\\s+([A-Za-z_][A-Za-z0-9_]*)",
             "captures": {
               "1": { "name": "storage.type.declaration.englang" },
               "2": { "name": "entity.name.type.englang" }
@@ -472,6 +480,14 @@
       },
       "workflowPhrases": {
         "patterns": [
+          {
+            "name": "meta.solver.simulate.englang",
+            "match": "\\b(simulate)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
+            "captures": {
+              "1": { "name": "keyword.control.solver.englang" },
+              "2": { "name": "entity.name.type.solver.englang" }
+            }
+          },
           {
             "name": "meta.solver.connect.englang",
             "begin": "^\\s*(connect)\\b",

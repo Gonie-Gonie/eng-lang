@@ -8035,6 +8035,10 @@ function Invoke-IdeCheck {
         "TimeSeries Runtime Results",
         "Static TimeSeries Plans",
         "uncertainty: null",
+        "renderSystemPanel",
+        "systemSolverResults",
+        "System Results",
+        "Equation Dependencies",
         "sourceBreadcrumbs",
         "source-breadcrumbs",
         "advancedDataToggle",
@@ -8573,6 +8577,7 @@ function Invoke-IdeCheck {
         '{ key: "review", label: "Review" }',
         '{ key: "highlight", label: "Highlight" }',
         '{ key: "quality", label: "Quality" }',
+        '{ key: "uncertainty", label: "Uncertainty" }',
         '{ key: "checks", label: "Checks" }',
         '{ key: "effects", label: "Effects" }',
         '{ key: "network", label: "Network" }',
@@ -8584,6 +8589,7 @@ function Invoke-IdeCheck {
         '{ key: "run", label: "Run" }',
         '{ key: "modules", label: "Modules" }',
         '{ key: "objects", label: "Objects" }',
+        '{ key: "systems", label: "System" }',
         '{ key: "assembly", label: "Assembly" }',
         '{ key: "kernels", label: "Kernel" }'
     )

@@ -101,7 +101,8 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `storage.modifier.output.englang` | `output` member keyword fallback coloring aligned with output semantic colors. |
 | `storage.modifier.englang` | Generic modifier and constant keyword fallback coloring from semantic token mappings. |
 | `entity.name.type.declaration.englang` | Full type-like declaration phrases such as `schema SensorData`. |
-| `entity.name.type.englang` | Captured declaration names after `schema`, `system`, `domain`, `component`, and `class`, plus class names in object construction headers. |
+| `entity.name.type.englang` | Captured declaration names after `schema`, `domain`, `component`, and `class`, plus class names in object construction headers. |
+| `entity.name.type.solver.englang` | Captured `system`, `states`, `inputs`, and `outputs` declaration names plus the system target in `simulate SystemName`, aligned with `class.solver` semantic tokens. |
 | `meta.declaration.class-object.englang` | Full class object construction headers written as `object = Class {`. |
 | `meta.declaration.class-object-copy.englang` | Full class object copy-with headers written as `object = source with {`. |
 | `meta.declaration.function.englang` | Full `fn` and `method` declaration phrases. |
@@ -744,6 +745,7 @@ constant.other.unit.englang
 entity.name.function.englang
 entity.name.function.workflow-step.englang
 entity.name.function.solver.englang
+entity.name.type.solver.englang
 invalid.deprecated.englang
 keyword.control.deprecated.englang
 keyword.control.external-boundary.englang

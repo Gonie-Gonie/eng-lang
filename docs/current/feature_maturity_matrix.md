@@ -135,8 +135,9 @@ separate.
 - Public package: `Stable`
 - Main status: `Stable` with internal inspector coverage
 - User-facing scope: portable package, standalone runner, curated PDFs, package
-  smoke, native IDE for check/run/inspect, PlotSpec/report opening, and
-  side-effect panels.
+  smoke, native IDE for check/run/inspect with task-focused Checks and
+  Uncertainty panels plus a separate advanced System panel, PlotSpec/report
+  opening, and side-effect panels.
 - Evidence: release-check, package-smoke, IDE smoke.
 - Not included: a public cross-release compatibility commitment for the
   persistent editor protocol or a production editor platform claim.

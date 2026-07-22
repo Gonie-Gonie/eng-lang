@@ -444,7 +444,10 @@ role/status labels stay aligned with live diagnostics and role-aware highlightin
 Top-level state-space vector types and their members expose role-specific hover,
 completion, outline, reference, and rename metadata from the same compiler spans.
 Typed system vectors and linear operators use compiler-owned type/expression
-ranges for solver colors and precise Problems underlines.
+ranges for solver colors and precise Problems underlines. System declaration
+names, state-space type declaration names, and `simulate SystemName` targets use
+the same solver role in TextMate first paint and compiler semantic tokens, so
+their color does not change when checked-code highlighting arrives.
 Import targets and const name/type/unit declarations also use compiler-owned
 ranges for namespace/readonly colors, outline selection, and target/expression
 Problems underlines, including CRLF and UTF-16 source positions.

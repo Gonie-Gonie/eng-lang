@@ -124,11 +124,12 @@ review material. It is not a broad solver claim.
 - Standalone packaged runner with `.engpkg`, `.lock`, Args help, dependency
   copying, package smoke, curated PDF docs, release zip, and SHA256 checksum.
 - Portable native IDE smoke path for open/check/save/run,
-  diagnostics, variable summaries, schema/TimeSeries/metric/validation
+  diagnostics, variable summaries, schema/TimeSeries/metric/validation/alignment
   inspectors, an uncertainty inspector that separates runtime results from
-  static plans, checked-code role-aware highlight overlay, module registry
-  browser, table transform inspector rows, PlotSpec viewing, report opening,
-  and side-effect artifact panels.
+  static plans, a separate advanced System inspector for solver results,
+  state-space operators, and equation dependencies, checked-code role-aware
+  highlight overlay, module registry browser, table transform inspector rows,
+  PlotSpec viewing, report opening, and side-effect artifact panels.
 - Packaged editor-tooling binary plus an internal persistent VS Code stdio
   client for document sync, diagnostics, semantic tokens, and editor requests.
   Exact-source editor requests share one compiler report and lazy snapshot;

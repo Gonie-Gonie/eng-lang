@@ -583,6 +583,7 @@
             "keyword.control.solver.englang"
           ],
           "class.solver": [
+            "entity.name.type.solver.englang",
             "entity.name.type.englang",
             "keyword.control.solver.englang"
           ],

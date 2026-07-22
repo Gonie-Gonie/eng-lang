@@ -189,17 +189,22 @@ Right Sidebar
   summary values. The Uncertainty tab separates scalar runtime values and
   actual TimeSeries propagated results from static TimeSeries plans. It also
   lists sensor declarations, policy settings, propagation assumptions,
-  warnings, execution statuses, and source-line links.
+  warnings, execution statuses, and source-line links. The Checks tab keeps
+  metrics, validation outcomes, failure counts, and time alignment together;
+  solver-specific tables are not mixed into that routine review path.
 
 Advanced panels
-  Modules, Workflow, Objects, Assembly, Kernel, Case, Model, and DB panels expose
-  implementation evidence for native workflows and scoped simulation paths. The
-  Workflow panel shows run graph counts, process-results status, zero external
-  process evidence, and graph hashes after a run. The Model panel shows detailed
-  model cards and prediction manifests together with normalized ReviewDocument
-  model, metric, card, and prediction results, including status and evidence
-  hashes. These panels should be read as review artifacts and regression
-  coverage, not as proof of a broad solver platform.
+  Modules, Workflow, Objects, System, Assembly, Kernel, Case, Model, and DB
+  panels expose implementation evidence for native workflows and scoped
+  simulation paths. The System panel presents solver results, state-space
+  operators, and equation dependencies; selecting system, state-space, or
+  solver-colored checked code offers a direct jump to it. The Workflow panel
+  shows run graph counts, process-results status, zero external process evidence,
+  and graph hashes after a run. The Model panel shows detailed model cards and
+  prediction manifests together with normalized ReviewDocument model, metric,
+  card, and prediction results, including status and evidence hashes. These
+  panels should be read as review artifacts and regression coverage, not as
+  proof of a broad solver platform.
 
 Bottom Panel
   Problems and Terminal tabs. Problems can be filtered by severity, diagnostic

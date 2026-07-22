@@ -2473,6 +2473,147 @@ function uncertaintyPanelDistinguishesPlansAndRuntimeResults() {
   `);
 }
 
+function systemPanelSeparatesSolverReviewFromChecks() {
+  run(`
+    globalThis.previousSystemPanelState = {
+      inspectors: state.inspectors,
+      sideTab: state.sideTab
+    };
+    state.inspectors = emptyInspectors();
+    state.inspectors.metrics = [{
+      binding: "room_rmse",
+      kind: "rmse",
+      left: "measured",
+      right: "simulated",
+      value: 0.4,
+      unit: "K",
+      status: "computed"
+    }];
+    state.inspectors.validations = [{
+      status: "failed",
+      expression: "room_rmse <= 0.3 K",
+      left_value: 0.4,
+      right_value: 0.3,
+      unit: "K",
+      line: 18
+    }];
+    state.inspectors.timeAlignments = [{
+      binding: "aligned",
+      left: "measured",
+      right: "simulated",
+      status: "matched",
+      step_status: "matched"
+    }];
+    state.inspectors.systems = [{
+      name: "RoomThermal",
+      line: 3,
+      solver_results: [{
+        states: ["T_room"],
+        inputs: ["Q_in"],
+        parameters: ["C_room"],
+        algebraic_variables: [],
+        outputs: ["T_room"],
+        status: "executed",
+        method: "state_space_explicit_euler_fixed_step",
+        time_step_s: 60,
+        step_count: 10,
+        tolerance: 0.0001,
+        iteration_count: 10,
+        max_iterations: 10,
+        convergence_status: "converged"
+      }]
+    }];
+    state.inspectors.linearOperators = [{
+      system: "RoomThermal",
+      name: "A",
+      from: "StateVector",
+      to: "Derivative[StateVector]",
+      row_count: 1,
+      column_count: 1,
+      row_members: ["T_room"],
+      column_members: ["T_room"],
+      row_units: ["K/s"],
+      column_units: ["K"],
+      expression: "[[-0.001]]",
+      canonical_matrix: [[-0.001]],
+      compatibility_status: "compatible",
+      status: "materialized",
+      line: 8
+    }];
+    state.inspectors.systemIr = [{
+      name: "RoomThermal",
+      equations: [{
+        residual: "der(T_room) - A * T_room",
+        relation: "eq",
+        normalized_residual: "der(T_room) - A*T_room",
+        derivative_states: ["T_room"],
+        status: "ready",
+        line: 12,
+        dependencies: [{
+          name: "T_room",
+          role: "state",
+          quantity_kind: "Temperature"
+        }]
+      }]
+    }];
+    state.sideTab = "systems";
+    globalThis.systemPanelHtml = renderSideBody();
+    globalThis.checksWithoutSystemHtml = renderChecksPanel();
+  `);
+
+  const systemHtml = run("globalThis.systemPanelHtml");
+  for (const expected of [
+    "Systems 1",
+    "Solver Results 1",
+    "Operators 1",
+    "Equations 1",
+    "System Results",
+    "RoomThermal",
+    "State-Space Operators",
+    "Equation Dependencies",
+    "T_room"
+  ]) {
+    assert.ok(systemHtml.includes(expected), `missing system panel text: ${expected}\n${systemHtml}`);
+  }
+
+  const checksHtml = run("globalThis.checksWithoutSystemHtml");
+  for (const expected of ["Checks", "Metrics 1", "Validations 1", "Failed 1", "Alignments 1"]) {
+    assert.ok(checksHtml.includes(expected), `missing checks panel text: ${expected}\n${checksHtml}`);
+  }
+  for (const moved of ["System Results", "State-Space Operators", "Equation Dependencies"]) {
+    assert.strictEqual(checksHtml.includes(moved), false, `Checks still exposes ${moved}`);
+  }
+
+  assert.strictEqual(run(`SIDE_TABS.some((tab) => tab.key === "systems" && tab.label === "System")`), true);
+  assert.deepStrictEqual(
+    JSON.parse(run(`JSON.stringify(inspectorTabsForSemanticToken(
+      { type: "class", modifiers: ["declaration"] },
+      { kind: "system", name: "RoomThermal" }
+    ))`)),
+    ["systems"]
+  );
+  assert.deepStrictEqual(
+    JSON.parse(run(`JSON.stringify(inspectorTabsForSemanticToken(
+      { type: "type", modifiers: ["solver"] },
+      { kind: "state_space_type", name: "StateVector" }
+    ))`)),
+    ["systems"]
+  );
+
+  run(`
+    state.inspectors.systems = [];
+    state.inspectors.linearOperators = [];
+    state.inspectors.systemIr = [];
+    globalThis.emptySystemPanelHtml = renderSystemPanel();
+  `);
+  assert.ok(run("globalThis.emptySystemPanelHtml").includes("No system data yet."));
+
+  run(`
+    state.inspectors = globalThis.previousSystemPanelState.inspectors;
+    state.sideTab = globalThis.previousSystemPanelState.sideTab;
+  `);
+}
+
 function uncertaintyAliasLexicalFallbackUsesGeneratedCallContexts() {
   run(`
     globalThis.previousUncertaintyLexicalState = {
@@ -2688,6 +2829,7 @@ async function main() {
   await saveAllFailureKeepsRemainingDirtyFilesOpen();
   liveCheckTracksAllDirtyImportedBuffers();
   uncertaintyPanelDistinguishesPlansAndRuntimeResults();
+  systemPanelSeparatesSolverReviewFromChecks();
   uncertaintyAliasLexicalFallbackUsesGeneratedCallContexts();
   behaviorStatusLabelsDistinguishDeclarationAndExecution();
   process.stdout.write("Native IDE editor safety smoke passed.\n");

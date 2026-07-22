@@ -33,6 +33,7 @@ const SIDE_TABS = [
   { key: "run", label: "Run" },
   { key: "modules", label: "Modules" },
   { key: "objects", label: "Objects" },
+  { key: "systems", label: "System" },
   { key: "assembly", label: "Assembly" },
   { key: "kernels", label: "Kernel" }
 ];
@@ -3213,6 +3214,7 @@ function renderSideBody() {
   if (state.sideTab === "kernels") return renderKernelPanel();
   if (state.sideTab === "objects") return renderObjectsPanel();
   if (state.sideTab === "modules") return renderModulesPanel();
+  if (state.sideTab === "systems") return renderSystemPanel();
   if (state.sideTab === "workflow") return renderWorkflowPanel();
   if (state.sideTab === "assembly") return renderAssemblyPanel();
   if (state.sideTab === "review") return renderReviewPanel();
@@ -3403,19 +3405,79 @@ function renderReadsPanel() {
 }
 
 function renderChecksPanel() {
+  const metrics = inspectorRows("metrics");
+  const validations = inspectorRows("validations");
+  const alignments = inspectorRows("timeAlignments");
+  const failed = validations.filter(
+    (item) => String(item.status || "").toLowerCase() === "failed"
+  ).length;
   return `
-    <div class="panel-title compact">Metrics</div>
+    <div class="panel-title compact">Checks</div>
+    <div class="badges">
+      <span class="badge">Metrics ${metrics.length}</span>
+      <span class="badge">Validations ${validations.length}</span>
+      <span class="badge ${failed ? "warn" : ""}">Failed ${failed}</span>
+      <span class="badge">Alignments ${alignments.length}</span>
+    </div>
     <div class="scroll">
+      <div class="panel-title compact">Metrics</div>
       ${renderMetrics()}
       <div class="panel-title compact">Validations</div>
       ${renderValidations()}
       <div class="panel-title compact">Time Alignment</div>
       ${renderAlignments()}
-      <div class="panel-title compact">Systems</div>
+    </div>
+  `;
+}
+
+function systemSolverResults(system) {
+  const results = system?.solver_results ?? system?.solverResults;
+  if (Array.isArray(results) && results.length) return results;
+  const result = system?.solver_result ?? system?.solverResult;
+  return result && typeof result === "object" && Object.keys(result).length
+    ? [result]
+    : [];
+}
+
+function renderSystemPanel() {
+  const systems = inspectorRows("systems");
+  const operators = inspectorRows("linearOperators");
+  const systemIr = inspectorRows("systemIr");
+  const solverResultCount = systems.reduce(
+    (count, system) => count + systemSolverResults(system).length,
+    0
+  );
+  const equationCount = systemIr.reduce(
+    (count, system) => count + arrayOrEmpty(system.equations).length,
+    0
+  );
+  const hasData = systems.length || operators.length || equationCount;
+
+  if (!hasData) {
+    return `
+      <div class="panel-title compact">System</div>
+      ${panelArtifactEmptyState(
+        "No system data yet.",
+        "Run a file with a system, simulation, or solve.",
+        "System results and equation dependencies appear here."
+      )}
+    `;
+  }
+
+  return `
+    <div class="panel-title compact">System</div>
+    <div class="badges">
+      <span class="badge">Systems ${systems.length}</span>
+      <span class="badge">Solver Results ${solverResultCount}</span>
+      <span class="badge">Operators ${operators.length}</span>
+      <span class="badge">Equations ${equationCount}</span>
+    </div>
+    <div class="scroll">
+      <div class="panel-title compact">System Results</div>
       ${renderSystems()}
       <div class="panel-title compact">State-Space Operators</div>
       ${renderLinearOperators()}
-      <div class="panel-title compact">System Dependency Graph</div>
+      <div class="panel-title compact">Equation Dependencies</div>
       ${renderSystemDependencyGraph()}
     </div>
   `;
@@ -5780,9 +5842,7 @@ function renderAlignments() {
 
 function renderSystems() {
   const rows = inspectorRows("systems").map((system) => {
-    const solverResults = Array.isArray(system.solver_results)
-      ? system.solver_results
-      : (Array.isArray(system.solverResults) ? system.solverResults : []);
+    const solverResults = systemSolverResults(system);
     const solver = solverResults[0] || system.solver_result || system.solverResult || {};
     const stateNames = stringList(solver, "states", "states");
     const inputNames = stringList(solver, "inputs", "inputs");
@@ -8591,6 +8651,12 @@ function inspectorTabsForSemanticToken(token, hover = null) {
   };
 
   if (modifiers.includes("uncertain") || kind === "uncertainty") add("uncertainty");
+  if (
+    modifiers.includes("solver")
+    || kind === "system"
+    || kind === "linear_operator"
+    || kind.startsWith("state_space_")
+  ) add("systems");
   if (detailText.includes("schema") || kind === "schema_field") add("schema");
   if (modifiers.includes("timeseries") || modifiers.includes("axis") || detailText.includes("timeseries") || detailText.includes("time axis")) add("time");
   if (modifiers.includes("validation") || kind.includes("validation")) add("checks");

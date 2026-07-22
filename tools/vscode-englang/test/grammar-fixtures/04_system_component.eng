@@ -53,3 +53,10 @@ system StateSpaceFixture {
     output y: OutputVector[RoomOutput]
     operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.012 1/min]]
 }
+
+sim = simulate StateSpaceFixture
+with {
+    timestep = 1 s
+    duration = 2 s
+    solver = fixed_step
+}

@@ -3009,7 +3009,12 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         if !system.span.is_root_source() {
             continue;
         }
-        builder.push_named_span(system.span, &system.name, "class", &["declaration"]);
+        builder.push_named_span(
+            system.span,
+            &system.name,
+            "class",
+            &["declaration", "solver"],
+        );
         for variable in &system.variables {
             if program.state_space_type_blocks.iter().any(|block| {
                 block
@@ -4292,7 +4297,13 @@ fn add_compiler_resolved_symbol_reference_tokens(
         symbols.insert(schema.name.clone(), KnownSemanticSymbol::user_type("class"));
     }
     for system in &program.systems {
-        symbols.insert(system.name.clone(), KnownSemanticSymbol::user_type("class"));
+        symbols.insert(
+            system.name.clone(),
+            KnownSemanticSymbol {
+                token_type: "class",
+                modifiers: vec!["solver"],
+            },
+        );
     }
     for block in &program.state_space_type_blocks {
         symbols.insert(block.name.clone(), KnownSemanticSymbol::user_type("class"));
@@ -20760,9 +20771,32 @@ system StateSpaceFixture {
     output y: OutputVector[RoomOutput]
     operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.012 1/min]]
 }
+
+sim = simulate StateSpaceFixture
+with {
+    timestep = 1 s
+    duration = 2 s
+    solver = fixed_step
+}
 "#;
         let snapshot = snapshot_for_source(Path::new("state_space_types.eng"), source);
 
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "system StateSpaceFixture",
+            "StateSpaceFixture",
+            "class",
+            "solver",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "simulate StateSpaceFixture",
+            "StateSpaceFixture",
+            "class",
+            "solver",
+        );
         for label in ["states", "inputs", "outputs", "operator"] {
             assert_semantic_token_modifier(&snapshot, source, label, "solver");
         }

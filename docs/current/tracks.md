@@ -52,10 +52,11 @@ and next cleanup action.
 - Purpose: give engineers a review cockpit for variables, units, schemas,
   TimeSeries, plots, reports, provenance, and side effects.
 - Public scope: packaged portable native IDE and smoke path.
-- Main internal: solver/component inspector rows, editor metadata smoke checks,
-  and optional VS Code extension source.
-- Next cleanup: present TimeSeries/schema/unit/report panels before component
-  graph and solver panels.
+- Main internal: a dedicated advanced System panel for solver results,
+  state-space operators, and equation dependencies; component/kernel inspector
+  rows; editor metadata smoke checks; and optional VS Code extension source.
+- Next cleanup: keep primary TimeSeries/schema/unit/report/check flows ahead of
+  advanced system, component-graph, and kernel detail.
 
 ## T6 Uncertainty
 

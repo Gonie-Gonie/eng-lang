@@ -105,7 +105,7 @@
       "settings": { "foreground": "#00796B" }
     },
     {
-      "scope": ["entity.name.function.solver.englang"],
+      "scope": ["entity.name.function.solver.englang", "entity.name.type.solver.englang"],
       "settings": { "foreground": "#00796B" }
     },
     {
