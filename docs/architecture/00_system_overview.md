@@ -35,7 +35,7 @@ eng_compiler
   Source check, diagnostics, AST, semantic metadata, top-level workflow data, and bytecode v1.
 
 eng_jit
-  Internal hot-kernel detection and numeric lowering-plan metadata.
+  Internal hot-kernel detection, executable interpreter kernel IR, and numeric lowering plans.
 
 eng_runtime
   Run/build orchestration, bytecode VM execution, object store, result.engres generation, and doctor checks.

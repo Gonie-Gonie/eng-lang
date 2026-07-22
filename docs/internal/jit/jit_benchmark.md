@@ -57,14 +57,14 @@ Known statuses:
 
 ```text
 covered_by_current_source
-interface_only
 metadata_observed
 not_observed_for_source
 ```
 
 Current target names are `csv_heat_rate_workflow`,
 `multi_statistics_fusion`, `residual_evaluation`,
-`component_graph_solver_small_case`, and `state_space_simulation`.
+`component_graph_solver_small_case`, `source_system_solver_small_case`, and
+`state_space_simulation`.
 Targets that are not present in the input source remain
 `not_observed_for_source`.
 `metadata_observed` means the source exposes checked metadata for the target,
@@ -80,6 +80,13 @@ For square component assemblies, `residual_evaluation` may list both
 `component_graph_solver_small_case` may additionally list
 `component_newton_step`. This records residual/Jacobian/single-step kernel
 coverage, not a production component-graph solver claim.
+For source systems whose compiler-normalized scalar residual layout is
+executable, `residual_evaluation` lists `system_residual` and, when square,
+`system_residual_jacobian`. A square algebraic state/output layout also makes
+`source_system_solver_small_case` list `system_newton_step`. Parameter and
+input slots remain fixed during the partial Jacobian sample. This is
+residual/Jacobian/single-step correctness coverage, not native timing or an
+integrated solver-loop claim.
 
 ## Benchmark Catalog
 

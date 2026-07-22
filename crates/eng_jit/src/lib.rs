@@ -1,6 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use eng_compiler::{normalize_unit, parse_percentile_fraction, CheckReport, ComponentAssemblyInfo};
+use eng_compiler::{
+    all_unit_infos, normalize_unit, parse_percentile_fraction, CheckReport, ComponentAssemblyInfo,
+};
 use serde_json::{json, Value};
 
 pub const KERNEL_PLAN_FORMAT: &str = "eng-kernel-plan-v1";
@@ -59,6 +61,24 @@ pub struct KernelIr {
     pub instructions: Vec<KernelInstruction>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct SystemResidualKernel {
+    pub system: String,
+    pub scalar_inputs: Vec<String>,
+    pub residual_outputs: Vec<String>,
+    pub derivative_inputs: Vec<String>,
+    pub unknown_input_indices: Vec<usize>,
+    pub ir: KernelIr,
+}
+
+impl SystemResidualKernel {
+    pub fn supports_square_solver_step(&self) -> bool {
+        self.derivative_inputs.is_empty()
+            && !self.unknown_input_indices.is_empty()
+            && self.residual_outputs.len() == self.unknown_input_indices.len()
+    }
+}
+
 impl KernelIr {
     pub fn new(
         name: impl Into<String>,
@@ -104,6 +124,11 @@ pub enum KernelInstruction {
         right: usize,
         target: usize,
     },
+    Unary {
+        op: KernelUnaryOp,
+        input: usize,
+        target: usize,
+    },
     StoreSeries {
         register: usize,
         output: usize,
@@ -131,6 +156,20 @@ pub enum KernelBinaryOp {
     Sub,
     Mul,
     Div,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum KernelUnaryOp {
+    Neg,
+    Sqrt,
+    Exp,
+    Ln,
+    Sin,
+    Cos,
+    Tan,
+    Asin,
+    Acos,
+    Atan,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -311,23 +350,80 @@ pub fn plan_for_report_with_options(
     }
 
     for system in &report.semantic_program.systems {
-        for residual in &system.residuals {
-            let operations = vec![
-                format!("normalize_residual:{}", residual.name),
-                "defer_rhs_codegen".to_owned(),
-            ];
+        let Some(kernel) = system_residual_kernel_for_system(report, &system.name) else {
+            continue;
+        };
+        let source = system
+            .residuals
+            .iter()
+            .map(|residual| residual.expression.as_str())
+            .collect::<Vec<_>>()
+            .join("; ");
+        push_candidate(
+            &mut candidates,
+            &mut seen,
+            KernelCandidate {
+                name: system.name.clone(),
+                kind: "system_residual".to_owned(),
+                line: system.line,
+                source: source.clone(),
+                reason:
+                    "system residual graph lowers compiler-normalized equations to scalar interpreter IR"
+                        .to_owned(),
+                lowering_status: "lowerable_to_numeric_kernel_plan".to_owned(),
+                operations: vec![
+                    format!("load_system_scalar_inputs:{}", kernel.scalar_inputs.len()),
+                    format!(
+                        "evaluate_system_residuals:{}",
+                        kernel.residual_outputs.len()
+                    ),
+                    "store_system_residual_vector".to_owned(),
+                ],
+                estimate: system_residual_estimate(&kernel),
+            },
+        );
+        if kernel.supports_square_solver_step() {
+            let residual_count = kernel.residual_outputs.len();
+            let unknown_count = kernel.unknown_input_indices.len();
             push_candidate(
                 &mut candidates,
                 &mut seen,
                 KernelCandidate {
-                    name: format!("{}:{}", system.name, residual.name),
-                    kind: "system_residual".to_owned(),
-                    line: residual.line,
-                    source: residual.expression.clone(),
-                    reason: "system residual can feed a future RHS/Jacobian kernel".to_owned(),
-                    lowering_status: "interface_only".to_owned(),
-                    estimate: system_residual_estimate(&residual.expression, &operations),
-                    operations,
+                    name: format!("{}:jacobian", system.name),
+                    kind: "system_residual_jacobian".to_owned(),
+                    line: system.line,
+                    source: source.clone(),
+                    reason:
+                        "square source-system residual graph can execute a partial finite-difference Jacobian over state/output unknowns"
+                            .to_owned(),
+                    lowering_status: "lowerable_to_numeric_kernel_plan".to_owned(),
+                    operations: vec![
+                        format!("evaluate_system_residuals:{residual_count}"),
+                        format!("finite_difference_unknown_columns:{unknown_count}"),
+                        format!("store_dense_jacobian:{residual_count}x{unknown_count}"),
+                    ],
+                    estimate: system_jacobian_estimate(&kernel),
+                },
+            );
+            push_candidate(
+                &mut candidates,
+                &mut seen,
+                KernelCandidate {
+                    name: format!("{}:newton_step", system.name),
+                    kind: "system_newton_step".to_owned(),
+                    line: system.line,
+                    source,
+                    reason:
+                        "square source-system residual graph can execute one Newton step with fixed parameter/input context"
+                            .to_owned(),
+                    lowering_status: "lowerable_to_numeric_kernel_plan".to_owned(),
+                    operations: vec![
+                        format!("load_dense_jacobian:{residual_count}x{unknown_count}"),
+                        format!("load_residual_vector:{residual_count}"),
+                        format!("solve_newton_step:{unknown_count}"),
+                        "store_unknown_update".to_owned(),
+                    ],
+                    estimate: system_newton_step_estimate(&kernel),
                 },
             );
         }
@@ -600,6 +696,46 @@ pub fn execute_finite_difference_jacobian_kernel(
             "Jacobian kernel requires scalar inputs matching the variable vector",
         ));
     }
+    let active_inputs = (0..values.len()).collect::<Vec<_>>();
+    let output = execute_partial_finite_difference_jacobian_kernel(
+        residual_ir,
+        values,
+        &active_inputs,
+        finite_difference_step,
+    )?;
+    if output.values.len() != values.len() {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-JACOBIAN-LAYOUT",
+            "Jacobian kernel requires residual output count to match variable count",
+        ));
+    }
+    Ok(output)
+}
+
+pub fn execute_partial_finite_difference_jacobian_kernel(
+    residual_ir: &KernelIr,
+    values: &[f64],
+    active_inputs: &[usize],
+    finite_difference_step: f64,
+) -> Result<JacobianKernelOutput, KernelExecutionFailure> {
+    if values.is_empty() || residual_ir.scalar_input_count != values.len() {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-JACOBIAN-LAYOUT",
+            "partial Jacobian kernel requires scalar inputs matching the residual IR layout",
+        ));
+    }
+    let unique_active_inputs = active_inputs.iter().copied().collect::<BTreeSet<_>>();
+    if active_inputs.is_empty()
+        || unique_active_inputs.len() != active_inputs.len()
+        || active_inputs
+            .iter()
+            .any(|input| *input >= residual_ir.scalar_input_count)
+    {
+        return Err(KernelExecutionFailure::new(
+            "E-KERNEL-JACOBIAN-ACTIVE-INPUTS",
+            "partial Jacobian active input indices must be non-empty, unique, and in range",
+        ));
+    }
     if !finite_difference_step.is_finite() || finite_difference_step <= 0.0 {
         return Err(KernelExecutionFailure::new(
             "E-KERNEL-JACOBIAN-STEP",
@@ -607,18 +743,11 @@ pub fn execute_finite_difference_jacobian_kernel(
         ));
     }
     let baseline = execute_residual_scalar_kernel(residual_ir, values)?;
-    if baseline.len() != values.len() {
-        return Err(KernelExecutionFailure::new(
-            "E-KERNEL-JACOBIAN-LAYOUT",
-            "Jacobian kernel requires residual output count to match variable count",
-        ));
-    }
-
-    let mut jacobian = vec![vec![0.0; values.len()]; values.len()];
-    for column in 0..values.len() {
+    let mut jacobian = vec![vec![0.0; active_inputs.len()]; baseline.len()];
+    for (column, input_index) in active_inputs.iter().copied().enumerate() {
         let mut perturbed = values.to_vec();
-        let step = finite_difference_step * values[column].abs().max(1.0);
-        perturbed[column] += step;
+        let step = finite_difference_step * values[input_index].abs().max(1.0);
+        perturbed[input_index] += step;
         let residuals = execute_residual_scalar_kernel(residual_ir, &perturbed)?;
         if residuals.len() != baseline.len() {
             return Err(KernelExecutionFailure::new(
@@ -786,6 +915,117 @@ pub fn component_residual_ir_from_assembly(assembly: &ComponentAssemblyInfo) -> 
         )
         .with_scalar_input_count(assembly.variables.len()),
     )
+}
+
+pub fn system_residual_kernel_for_system(
+    report: &CheckReport,
+    system_name: &str,
+) -> Option<SystemResidualKernel> {
+    let system = report
+        .semantic_program
+        .systems
+        .iter()
+        .find(|system| system.name == system_name)?;
+    if system.equation_ir.is_empty()
+        || system.residuals.len() != system.equation_ir.len()
+        || system.equations.len() != system.equation_ir.len()
+    {
+        return None;
+    }
+
+    let referenced_variables = system
+        .equation_ir
+        .iter()
+        .flat_map(|equation| equation.dependencies.iter())
+        .map(|dependency| dependency.name.as_str())
+        .collect::<BTreeSet<_>>();
+    let mut scalar_inputs = system
+        .variables
+        .iter()
+        .filter(|variable| referenced_variables.contains(variable.name.as_str()))
+        .map(|variable| variable.name.clone())
+        .collect::<Vec<_>>();
+    let unknown_names = system
+        .variables
+        .iter()
+        .filter(|variable| matches!(variable.role.as_str(), "state" | "output"))
+        .map(|variable| variable.name.as_str())
+        .collect::<BTreeSet<_>>();
+
+    let mut derivative_inputs = Vec::new();
+    let mut seen_inputs = scalar_inputs.iter().cloned().collect::<BTreeSet<_>>();
+    for derivative in system
+        .equation_ir
+        .iter()
+        .flat_map(|equation| equation.derivative_states.iter())
+    {
+        let name = format!("der({derivative})");
+        if seen_inputs.insert(name.clone()) {
+            derivative_inputs.push(name.clone());
+            scalar_inputs.push(name);
+        }
+    }
+    for time_name in ["t", "time"] {
+        if system
+            .equation_ir
+            .iter()
+            .any(|equation| expression_mentions_token(&equation.normalized_residual, time_name))
+            && seen_inputs.insert(time_name.to_owned())
+        {
+            scalar_inputs.push(time_name.to_owned());
+        }
+    }
+    if scalar_inputs.is_empty() {
+        return None;
+    }
+
+    let mut builder = ArithmeticIrBuilder::for_scalar_inputs(&scalar_inputs);
+    let mut residual_outputs = Vec::with_capacity(system.equation_ir.len());
+    for (output, equation) in system.equation_ir.iter().enumerate() {
+        let residual = system.residuals.iter().find(|residual| {
+            residual.name == equation.residual && residual.line == equation.line
+        })?;
+        if residual.expression != equation.normalized_residual {
+            return None;
+        }
+        let tokens = tokenize_arithmetic_expression(&equation.normalized_residual)?;
+        let mut position = 0;
+        let output_register = parse_add_sub(&tokens, &mut position, &mut builder)?;
+        if position != tokens.len() {
+            return None;
+        }
+        builder.instructions.push(KernelInstruction::StoreScalar {
+            register: output_register,
+            output,
+        });
+        residual_outputs.push(equation.residual.clone());
+    }
+    if !builder.series_inputs.is_empty() {
+        return None;
+    }
+
+    let unknown_input_indices = scalar_inputs
+        .iter()
+        .enumerate()
+        .filter_map(|(index, name)| unknown_names.contains(name.as_str()).then_some(index))
+        .collect::<Vec<_>>();
+    let ir = KernelIr::new(
+        format!("{system_name}:residual_graph"),
+        "system_residual",
+        0,
+        residual_outputs.len(),
+        builder.instructions,
+    )
+    .with_scalar_input_count(scalar_inputs.len());
+
+    Some(SystemResidualKernel {
+        system: system.name.clone(),
+        scalar_inputs,
+        residual_outputs,
+        derivative_inputs,
+        unknown_input_indices,
+        ir,
+    })
 }
 
 pub fn state_space_rhs_ir_for_system(report: &CheckReport, system_name: &str) -> Option<KernelIr> {
@@ -1135,7 +1375,9 @@ fn validate_kernel_ir(ir: &KernelIr) -> Result<(), KernelExecutionFailure> {
                     ));
                 }
             }
-            KernelInstruction::LoadConstant { .. } | KernelInstruction::Binary { .. } => {}
+            KernelInstruction::LoadConstant { .. }
+            | KernelInstruction::Binary { .. }
+            | KernelInstruction::Unary { .. } => {}
         }
     }
     Ok(())
@@ -1256,6 +1498,15 @@ fn execute_row_instruction(
             };
             set_register(registers, *target, value)
         }
+        KernelInstruction::Unary {
+            op,
+            input: input_register,
+            target,
+        } => {
+            let input = get_register(registers, *input_register)?;
+            let value = evaluate_kernel_unary(op, input)?;
+            set_register(registers, *target, value)
+        }
         KernelInstruction::StoreSeries { register, output } => {
             let value = get_register(registers, *register)?;
             match &mut outputs[*output] {
@@ -1282,6 +1533,59 @@ fn execute_row_instruction(
         KernelInstruction::IntegrateTrapezoid { .. } | KernelInstruction::ReduceSeries { .. } => {
             Ok(())
         }
+    }
+}
+
+fn evaluate_kernel_unary(op: &KernelUnaryOp, input: f64) -> Result<f64, KernelExecutionFailure> {
+    let value = match op {
+        KernelUnaryOp::Neg => -input,
+        KernelUnaryOp::Sqrt if input < 0.0 => {
+            return Err(KernelExecutionFailure::new(
+                "E-KERNEL-UNARY-DOMAIN",
+                "sqrt kernel input must be non-negative",
+            ));
+        }
+        KernelUnaryOp::Sqrt => input.sqrt(),
+        KernelUnaryOp::Exp => input.exp(),
+        KernelUnaryOp::Ln if input <= 0.0 => {
+            return Err(KernelExecutionFailure::new(
+                "E-KERNEL-UNARY-DOMAIN",
+                "ln kernel input must be positive",
+            ));
+        }
+        KernelUnaryOp::Ln => input.ln(),
+        KernelUnaryOp::Sin => input.sin(),
+        KernelUnaryOp::Cos => input.cos(),
+        KernelUnaryOp::Tan if input.cos().abs() <= f64::EPSILON => {
+            return Err(KernelExecutionFailure::new(
+                "E-KERNEL-UNARY-DOMAIN",
+                "tan kernel input is at a singular point",
+            ));
+        }
+        KernelUnaryOp::Tan => input.tan(),
+        KernelUnaryOp::Asin if !(-1.0..=1.0).contains(&input) => {
+            return Err(KernelExecutionFailure::new(
+                "E-KERNEL-UNARY-DOMAIN",
+                "asin kernel input must be in [-1, 1]",
+            ));
+        }
+        KernelUnaryOp::Asin => input.asin(),
+        KernelUnaryOp::Acos if !(-1.0..=1.0).contains(&input) => {
+            return Err(KernelExecutionFailure::new(
+                "E-KERNEL-UNARY-DOMAIN",
+                "acos kernel input must be in [-1, 1]",
+            ));
+        }
+        KernelUnaryOp::Acos => input.acos(),
+        KernelUnaryOp::Atan => input.atan(),
+    };
+    if value.is_finite() {
+        Ok(value)
+    } else {
+        Err(KernelExecutionFailure::new(
+            "E-KERNEL-VALUE-FINITE",
+            "kernel unary instruction produced a non-finite value",
+        ))
     }
 }
 
@@ -1531,6 +1835,9 @@ fn candidate_has_interpreter_lowering(candidate: &KernelCandidate) -> bool {
     match candidate.kind.as_str() {
         "timeseries_arithmetic"
         | "timeseries_integrate"
+        | "system_residual"
+        | "system_residual_jacobian"
+        | "system_newton_step"
         | "component_residual_graph"
         | "component_residual_jacobian"
         | "component_newton_step"
@@ -1777,23 +2084,89 @@ fn elementwise_estimate(
     }
 }
 
-fn system_residual_estimate(expression: &str, operations: &[String]) -> KernelEstimate {
-    let input_count = expression_source_count(expression).max(1);
-    let arithmetic_count = expression
-        .chars()
-        .filter(|value| matches!(value, '+' | '-' | '*' | '/' | '^'))
+fn system_residual_estimate(kernel: &SystemResidualKernel) -> KernelEstimate {
+    let arithmetic_count = kernel
+        .ir
+        .instructions
+        .iter()
+        .filter(|instruction| {
+            matches!(
+                instruction,
+                KernelInstruction::Binary { .. } | KernelInstruction::Unary { .. }
+            )
+        })
         .count()
         .max(1);
+    let mut notes = vec![
+        format!(
+            "{} scalar input(s): {}",
+            kernel.scalar_inputs.len(),
+            kernel.scalar_inputs.join(", ")
+        ),
+        format!(
+            "{} residual output(s): {}",
+            kernel.residual_outputs.len(),
+            kernel.residual_outputs.join(", ")
+        ),
+        "compiler-normalized residual expressions execute through scalar interpreter IR".to_owned(),
+    ];
+    if !kernel.derivative_inputs.is_empty() {
+        notes.push(format!(
+            "derivative inputs remain explicit runtime context: {}",
+            kernel.derivative_inputs.join(", ")
+        ));
+    }
     KernelEstimate {
         estimated_rows: None,
-        input_count,
-        output_count: 1,
-        operation_count: operations.len().max(arithmetic_count),
+        input_count: kernel.scalar_inputs.len(),
+        output_count: kernel.residual_outputs.len(),
+        operation_count: arithmetic_count,
         scan_count: 0,
-        complexity: "O(1) per residual evaluation before solver iteration scaling".to_owned(),
+        complexity: "O(residual expressions) per source-system residual evaluation".to_owned(),
+        notes,
+    }
+}
+
+fn system_jacobian_estimate(kernel: &SystemResidualKernel) -> KernelEstimate {
+    let residual_count = kernel.residual_outputs.len();
+    let unknown_count = kernel.unknown_input_indices.len();
+    let residual_operations = system_residual_estimate(kernel).operation_count;
+    KernelEstimate {
+        estimated_rows: None,
+        input_count: kernel.scalar_inputs.len(),
+        output_count: residual_count * unknown_count,
+        operation_count: (unknown_count + 1) * residual_operations,
+        scan_count: 0,
+        complexity: "O(unknowns * residual-evaluation) partial finite-difference Jacobian"
+            .to_owned(),
         notes: vec![
-            format!("{input_count} referenced source term(s)"),
-            "interface-only RHS/Jacobian boundary".to_owned(),
+            format!(
+                "{} source-system scalar context input(s)",
+                kernel.scalar_inputs.len()
+            ),
+            format!("{unknown_count} state/output unknown column(s)"),
+            format!("{residual_count} residual row(s)"),
+            "parameter and input context stays fixed while unknown columns are perturbed"
+                .to_owned(),
+        ],
+    }
+}
+
+fn system_newton_step_estimate(kernel: &SystemResidualKernel) -> KernelEstimate {
+    let unknown_count = kernel.unknown_input_indices.len();
+    let residual_count = kernel.residual_outputs.len();
+    KernelEstimate {
+        estimated_rows: None,
+        input_count: residual_count * unknown_count + residual_count,
+        output_count: unknown_count,
+        operation_count: unknown_count.pow(3).max(1),
+        scan_count: 0,
+        complexity: "O(unknowns^3) dense source-system Newton step solve".to_owned(),
+        notes: vec![
+            format!("{residual_count} residual input(s)"),
+            format!("{residual_count}x{unknown_count} partial Jacobian input"),
+            format!("{unknown_count} state/output update(s)"),
+            "single solver step only; iteration remains outside this kernel candidate".to_owned(),
         ],
     }
 }
@@ -2142,11 +2515,30 @@ struct ArithmeticIrBuilder {
     next_register: usize,
     series_inputs: BTreeMap<String, usize>,
     scalar_inputs: BTreeMap<String, usize>,
+    scalar_layout_only: bool,
 }
 
 impl ArithmeticIrBuilder {
-    fn load_identifier(&mut self, name: &str) -> usize {
+    fn for_scalar_inputs(inputs: &[String]) -> Self {
+        Self {
+            scalar_inputs: inputs
+                .iter()
+                .enumerate()
+                .map(|(index, name)| (name.clone(), index))
+                .collect(),
+            scalar_layout_only: true,
+            ..Self::default()
+        }
+    }
+
+    fn load_identifier(&mut self, name: &str) -> Option<usize> {
         let register = self.take_register();
+        if self.scalar_layout_only {
+            let input = *self.scalar_inputs.get(name)?;
+            self.instructions
+                .push(KernelInstruction::LoadScalarInput { input, register });
+            return Some(register);
+        }
         if name.contains('.') {
             let input = intern_index(&mut self.series_inputs, name);
             self.instructions
@@ -2156,7 +2548,7 @@ impl ArithmeticIrBuilder {
             self.instructions
                 .push(KernelInstruction::LoadScalarInput { input, register });
         }
-        register
+        Some(register)
     }
 
     fn load_number(&mut self, value: f64) -> usize {
@@ -2174,6 +2566,13 @@ impl ArithmeticIrBuilder {
             right,
             target,
         });
+        target
+    }
+
+    fn unary(&mut self, op: KernelUnaryOp, input: usize) -> usize {
+        let target = self.take_register();
+        self.instructions
+            .push(KernelInstruction::Unary { op, input, target });
         target
     }
 
@@ -2232,6 +2631,9 @@ fn tokenize_arithmetic_expression(expression: &str) -> Option<Vec<ArithmeticToke
                 }
                 let text = chars[start..index].iter().collect::<String>();
                 tokens.push(ArithmeticToken::Number(text.parse::<f64>().ok()?));
+                if let Some(next_index) = registered_unit_literal_end(&chars, index) {
+                    index = next_index;
+                }
             }
             _ if ch.is_ascii_alphabetic() || ch == '_' => {
                 let start = index;
@@ -2251,6 +2653,37 @@ fn tokenize_arithmetic_expression(expression: &str) -> Option<Vec<ArithmeticToke
         }
     }
     Some(tokens)
+}
+
+fn registered_unit_literal_end(chars: &[char], number_end: usize) -> Option<usize> {
+    let mut unit_start = number_end;
+    while chars
+        .get(unit_start)
+        .is_some_and(|character| character.is_whitespace())
+    {
+        unit_start += 1;
+    }
+    let has_separator = unit_start > number_end;
+    if !has_separator && chars.get(unit_start) != Some(&'%') {
+        return None;
+    }
+
+    all_unit_infos()
+        .iter()
+        .filter_map(|info| {
+            let symbol = info.symbol.chars().collect::<Vec<_>>();
+            let unit_end = unit_start.checked_add(symbol.len())?;
+            if chars.get(unit_start..unit_end)? != symbol.as_slice() {
+                return None;
+            }
+            if chars.get(unit_end).is_some_and(|character| {
+                character.is_ascii_alphanumeric() || matches!(character, '_' | '.')
+            }) {
+                return None;
+            }
+            Some(unit_end)
+        })
+        .max()
 }
 
 fn parse_add_sub(
@@ -2307,7 +2740,28 @@ fn parse_primary(
     match tokens.get(*position)?.clone() {
         ArithmeticToken::Identifier(name) => {
             *position += 1;
-            Some(builder.load_identifier(&name))
+            if !matches!(tokens.get(*position), Some(ArithmeticToken::LeftParen)) {
+                return builder.load_identifier(&name);
+            }
+            *position += 1;
+            if name == "der" {
+                let ArithmeticToken::Identifier(state) = tokens.get(*position)?.clone() else {
+                    return None;
+                };
+                *position += 1;
+                if !matches!(tokens.get(*position), Some(ArithmeticToken::RightParen)) {
+                    return None;
+                }
+                *position += 1;
+                return builder.load_identifier(&format!("der({state})"));
+            }
+            let op = kernel_unary_function(&name)?;
+            let input = parse_add_sub(tokens, position, builder)?;
+            if !matches!(tokens.get(*position), Some(ArithmeticToken::RightParen)) {
+                return None;
+            }
+            *position += 1;
+            Some(builder.unary(op, input))
         }
         ArithmeticToken::Number(value) => {
             *position += 1;
@@ -2322,7 +2776,31 @@ fn parse_primary(
             *position += 1;
             Some(register)
         }
+        ArithmeticToken::Operator('+') => {
+            *position += 1;
+            parse_primary(tokens, position, builder)
+        }
+        ArithmeticToken::Operator('-') => {
+            *position += 1;
+            let input = parse_primary(tokens, position, builder)?;
+            Some(builder.unary(KernelUnaryOp::Neg, input))
+        }
         ArithmeticToken::Operator(_) | ArithmeticToken::RightParen => None,
+    }
+}
+
+fn kernel_unary_function(name: &str) -> Option<KernelUnaryOp> {
+    match name {
+        "sqrt" => Some(KernelUnaryOp::Sqrt),
+        "exp" => Some(KernelUnaryOp::Exp),
+        "ln" => Some(KernelUnaryOp::Ln),
+        "sin" => Some(KernelUnaryOp::Sin),
+        "cos" => Some(KernelUnaryOp::Cos),
+        "tan" => Some(KernelUnaryOp::Tan),
+        "asin" => Some(KernelUnaryOp::Asin),
+        "acos" => Some(KernelUnaryOp::Acos),
+        "atan" => Some(KernelUnaryOp::Atan),
+        _ => None,
     }
 }
 
@@ -2348,6 +2826,10 @@ fn duration_above_threshold(name: &str) -> Option<f64> {
     }
 }
 
+fn expression_mentions_token(expression: &str, expected: &str) -> bool {
+    expression_tokens(expression).any(|token| token == expected)
+}
+
 fn expression_source_count(expression: &str) -> usize {
     expression_tokens(expression)
         .filter(|token| {
@@ -2370,7 +2852,7 @@ fn expression_tokens(expression: &str) -> impl Iterator<Item = &str> {
 mod tests {
     use std::path::Path;
 
-    use eng_compiler::{check_file, CheckOptions};
+    use eng_compiler::{check_file, check_source, CheckOptions};
 
     use super::*;
 
@@ -2557,6 +3039,222 @@ mod tests {
     }
 
     #[test]
+    fn lowers_and_executes_source_system_residual_jacobian_and_newton_step() {
+        let report = check_file(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../tests/runtime/source_system_newton_solve.eng"),
+            &CheckOptions::default(),
+        )
+        .expect("source-system Newton fixture should check");
+        let kernel = system_residual_kernel_for_system(&report, "StaticNonlinearSourceSystem")
+            .expect("source-system residual graph should lower to IR");
+
+        assert_eq!(kernel.scalar_inputs, ["target", "x", "y"]);
+        assert_eq!(
+            kernel.residual_outputs,
+            [
+                "StaticNonlinearSourceSystem.residual_1",
+                "StaticNonlinearSourceSystem.residual_2"
+            ]
+        );
+        assert_eq!(kernel.unknown_input_indices, [1, 2]);
+        assert!(kernel.derivative_inputs.is_empty());
+        assert!(kernel.supports_square_solver_step());
+        assert_eq!(
+            execute_residual_scalar_kernel(&kernel.ir, &[4.0, 2.0, 3.0]).unwrap(),
+            [0.0, 0.0]
+        );
+
+        let values = [4.0, 1.0, 0.0];
+        let residuals = execute_residual_scalar_kernel(&kernel.ir, &values).unwrap();
+        assert_eq!(residuals, [-3.0, -2.0]);
+        let jacobian = execute_partial_finite_difference_jacobian_kernel(
+            &kernel.ir,
+            &values,
+            &kernel.unknown_input_indices,
+            1e-6,
+        )
+        .unwrap();
+        assert_eq!(jacobian.values.len(), 2);
+        assert_eq!(jacobian.values[0].len(), 2);
+        assert!((jacobian.values[0][0] - 2.0).abs() < 2e-6);
+        assert!(jacobian.values[0][1].abs() < 1e-8);
+        assert!((jacobian.values[1][0] + 1.0).abs() < 1e-8);
+        assert!((jacobian.values[1][1] - 1.0).abs() < 1e-8);
+        let step = execute_newton_step_kernel(&jacobian.values, &residuals, 1e-9).unwrap();
+        assert!((step.step[0] - 1.5).abs() < 2e-6);
+        assert!((step.step[1] - 3.5).abs() < 2e-6);
+        for active_inputs in [Vec::new(), vec![1, 1], vec![3]] {
+            let failure = execute_partial_finite_difference_jacobian_kernel(
+                &kernel.ir,
+                &values,
+                &active_inputs,
+                1e-6,
+            )
+            .unwrap_err();
+            assert_eq!(failure.code, "E-KERNEL-JACOBIAN-ACTIVE-INPUTS");
+        }
+
+        let plan = plan_for_report(&report);
+        let plan = plan_json(&plan);
+        for kind in [
+            "system_residual",
+            "system_residual_jacobian",
+            "system_newton_step",
+        ] {
+            let candidate = plan["candidates"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|candidate| candidate["kind"] == kind)
+                .unwrap_or_else(|| panic!("missing {kind} candidate"));
+            assert_eq!(
+                candidate["lowering_status"],
+                "lowerable_to_numeric_kernel_plan"
+            );
+            assert_eq!(candidate["executor"]["status"], "interpreter_supported");
+        }
+    }
+
+    #[test]
+    fn lowers_system_functions_derivatives_and_registered_unit_literals() {
+        let report = check_file(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../tests/runtime/source_rhs_dimensionless_functions.eng"),
+            &CheckOptions::default(),
+        )
+        .expect("dimensionless source RHS fixture should check");
+        let kernel = system_residual_kernel_for_system(&report, "DimensionlessFunctionRhs")
+            .expect("function and derivative residual graph should lower to IR");
+
+        assert_eq!(kernel.scalar_inputs, ["x", "damping", "der(x)"]);
+        assert_eq!(kernel.derivative_inputs, ["der(x)"]);
+        assert!(!kernel.supports_square_solver_step());
+        let x = 0.5_f64;
+        let damping = x.cos() + x.atan() + x.tan() / 10.0;
+        let residuals =
+            execute_residual_scalar_kernel(&kernel.ir, &[x, damping, -x.sin()]).unwrap();
+        assert!(residuals.iter().all(|value| value.abs() < 1e-12));
+        for op in [
+            KernelUnaryOp::Neg,
+            KernelUnaryOp::Sin,
+            KernelUnaryOp::Cos,
+            KernelUnaryOp::Tan,
+            KernelUnaryOp::Atan,
+        ] {
+            assert!(kernel.ir.instructions.iter().any(
+                |instruction| matches!(instruction, KernelInstruction::Unary { op: actual, .. } if actual == &op)
+            ));
+        }
+        let plan = plan_for_report(&report);
+        assert!(plan.candidates.iter().any(|candidate| {
+            candidate.kind == "system_residual"
+                && candidate.name == "DimensionlessFunctionRhs"
+                && candidate.lowering_status == "lowerable_to_numeric_kernel_plan"
+        }));
+        assert!(!plan
+            .candidates
+            .iter()
+            .any(|candidate| candidate.kind == "system_newton_step"));
+
+        let fixed_point_report = check_file(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../tests/runtime/source_system_fixed_point_solve.eng"),
+            &CheckOptions::default(),
+        )
+        .expect("fixed-point source-system fixture should check");
+        let fixed_point_kernel =
+            system_residual_kernel_for_system(&fixed_point_report, "StaticFixedPointSourceSystem")
+                .expect("fixed-point residual graph should lower to IR");
+        assert!(fixed_point_kernel.supports_square_solver_step());
+        assert!(plan_for_report(&fixed_point_report)
+            .candidates
+            .iter()
+            .any(|candidate| candidate.kind == "system_newton_step"));
+    }
+
+    #[test]
+    fn lowers_all_supported_source_system_unary_functions_and_reports_domains() {
+        let report = check_source(
+            "jit-unary-functions.eng",
+            r#"system UnaryFunctionSystem {
+    output y: DimensionlessNumber [1]
+
+    equation {
+        y eq sqrt(4) + exp(0) + ln(1) + sin(0) + cos(0) + tan(0) + asin(0) + acos(1) + atan(0)
+    }
+}
+"#,
+            &CheckOptions::default(),
+        );
+        let kernel = system_residual_kernel_for_system(&report, "UnaryFunctionSystem")
+            .expect("all runtime source-residual unary functions should lower to kernel IR");
+        assert_eq!(kernel.scalar_inputs, ["y"]);
+        let residuals = execute_residual_scalar_kernel(&kernel.ir, &[4.0]).unwrap();
+        assert!(residuals[0].abs() < 1e-12);
+        for op in [
+            KernelUnaryOp::Sqrt,
+            KernelUnaryOp::Exp,
+            KernelUnaryOp::Ln,
+            KernelUnaryOp::Sin,
+            KernelUnaryOp::Cos,
+            KernelUnaryOp::Tan,
+            KernelUnaryOp::Asin,
+            KernelUnaryOp::Acos,
+            KernelUnaryOp::Atan,
+        ] {
+            assert!(kernel.ir.instructions.iter().any(
+                |instruction| matches!(instruction, KernelInstruction::Unary { op: actual, .. } if actual == &op)
+            ));
+        }
+
+        for (op, input, code) in [
+            (KernelUnaryOp::Sqrt, -1.0, "E-KERNEL-UNARY-DOMAIN"),
+            (KernelUnaryOp::Ln, 0.0, "E-KERNEL-UNARY-DOMAIN"),
+            (KernelUnaryOp::Asin, 2.0, "E-KERNEL-UNARY-DOMAIN"),
+            (KernelUnaryOp::Acos, -2.0, "E-KERNEL-UNARY-DOMAIN"),
+            (
+                KernelUnaryOp::Tan,
+                std::f64::consts::FRAC_PI_2,
+                "E-KERNEL-UNARY-DOMAIN",
+            ),
+            (KernelUnaryOp::Exp, 1_000.0, "E-KERNEL-VALUE-FINITE"),
+        ] {
+            let ir = KernelIr::new(
+                "unary_failure",
+                "system_residual",
+                0,
+                1,
+                vec![
+                    KernelInstruction::LoadScalarInput {
+                        input: 0,
+                        register: 0,
+                    },
+                    KernelInstruction::Unary {
+                        op,
+                        input: 0,
+                        target: 1,
+                    },
+                    KernelInstruction::StoreScalar {
+                        register: 1,
+                        output: 0,
+                    },
+                ],
+            )
+            .with_scalar_input_count(1);
+            let failure = execute_interpreter_kernel(
+                &ir,
+                &KernelExecutionInput {
+                    series_inputs: Vec::new(),
+                    scalar_inputs: vec![input],
+                },
+            )
+            .unwrap_err();
+            assert_eq!(failure.code, code);
+        }
+    }
+
+    #[test]
     fn detects_component_assembly_residual_kernel_candidate() {
         let report = check_file(
             Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -2565,6 +3263,10 @@ mod tests {
         )
         .expect("official thermal component assembly example should check");
         let plan = plan_for_report(&report);
+        assert!(!plan
+            .candidates
+            .iter()
+            .any(|candidate| candidate.kind == "system_residual"));
         let candidate = plan
             .candidates
             .iter()
@@ -2694,6 +3396,10 @@ mod tests {
         )
         .expect("official multi-state thermal example should check");
         let plan = plan_for_report(&report);
+        assert!(!plan
+            .candidates
+            .iter()
+            .any(|candidate| candidate.kind == "system_residual"));
         let candidate = plan
             .candidates
             .iter()

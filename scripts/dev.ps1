@@ -9372,6 +9372,8 @@ function Invoke-JitCheck {
     Invoke-JitBenchTargetCheck $cargo "examples\official\01_csv_plot\main.eng" "multi_statistics_fusion" "covered_by_current_source" "statistics_fusion:summary:Q_coil"
     Invoke-JitBenchTargetCheck $cargo "examples\internal\21_thermal_component_assembly\main.eng" "residual_evaluation" "covered_by_current_source" "component_residual_jacobian"
     Invoke-JitBenchTargetCheck $cargo "examples\internal\21_thermal_component_assembly\main.eng" "component_graph_solver_small_case" "covered_by_current_source" "component_newton_step"
+    Invoke-JitBenchTargetCheck $cargo "tests\runtime\source_system_newton_solve.eng" "residual_evaluation" "covered_by_current_source" "system_residual_jacobian"
+    Invoke-JitBenchTargetCheck $cargo "tests\runtime\source_system_newton_solve.eng" "source_system_solver_small_case" "covered_by_current_source" "system_newton_step"
     Invoke-JitBenchTargetCheck $cargo "examples\internal\18_state_space_metadata\main.eng" "state_space_simulation" "covered_by_current_source" "state_space_solver_step"
     Invoke-JitBenchmarkCatalogCheck $cargo
     Write-Host "JIT plan check passed."

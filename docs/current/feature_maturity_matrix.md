@@ -356,8 +356,10 @@ separate.
 
 - Public package: `Internal`
 - Main status: `Internal`
-- Evidence: `eng_jit`, `jit-plan`, `jit-bench`, interpreter kernel IR,
-  benchmark catalog, and fallback metadata.
+- Evidence: `eng_jit`, `jit-plan`, `jit-bench`, executable interpreter
+  kernel IR, source-system/component residual and partial-Jacobian correctness
+  samples, single Newton-step samples, state-space RHS/step samples, benchmark
+  catalog, and explicit fallback metadata.
 - Not included: native code generation or speedup claim.
 - Next cleanup action: keep semantic benchmark strategy ahead of solver timing.
 

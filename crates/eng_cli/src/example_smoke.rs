@@ -253,6 +253,56 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         "ok: examples/internal/18_state_space_metadata/main.eng produced JIT benchmark state-space RHS coverage"
     );
 
+    let source_system_path = "tests/runtime/source_system_newton_solve.eng";
+    let source_system_report = match check_file(source_system_path, &CheckOptions::default()) {
+        Ok(report) => report,
+        Err(error) => {
+            eprintln!("{error}");
+            return ExitCode::from(1);
+        }
+    };
+    let source_system_plan = eng_jit::plan_for_report(&source_system_report);
+    let source_system_bench_smoke = jit_bench_json(
+        source_system_path,
+        1,
+        &source_system_report,
+        &source_system_plan,
+        &[BenchRun {
+            iteration: 1,
+            elapsed_ms: 1.0,
+            result_path: "build/jit-bench/iter-000/result/result.engres".to_owned(),
+        }],
+    );
+    let source_system_targets_recorded = jit_bench_has_target(
+        &source_system_bench_smoke,
+        "residual_evaluation",
+        "covered_by_current_source",
+        Some("system_residual_jacobian:StaticNonlinearSourceSystem:jacobian"),
+    ) && jit_bench_has_target(
+        &source_system_bench_smoke,
+        "source_system_solver_small_case",
+        "covered_by_current_source",
+        Some("system_newton_step:StaticNonlinearSourceSystem:newton_step"),
+    );
+    let source_system_executor_samples_recorded = [
+        "system_residual:StaticNonlinearSourceSystem",
+        "system_residual_jacobian:StaticNonlinearSourceSystem:jacobian",
+        "system_newton_step:StaticNonlinearSourceSystem:newton_step",
+    ]
+    .iter()
+    .all(|candidate| {
+        jit_bench_has_executor_sample(&source_system_bench_smoke, candidate, "executed")
+    });
+    if !source_system_targets_recorded || !source_system_executor_samples_recorded {
+        eprintln!(
+            "expected source-system fixture to execute residual, partial Jacobian, and Newton-step JIT interpreter kernels"
+        );
+        return ExitCode::from(2);
+    }
+    println!(
+        "ok: tests/runtime/source_system_newton_solve.eng executed source-system residual, partial Jacobian, and Newton-step kernels"
+    );
+
     let domain_port = match check_file(
         "examples/internal/06_domain_port/main.eng",
         &CheckOptions::default(),

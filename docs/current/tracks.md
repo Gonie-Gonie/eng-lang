@@ -96,8 +96,10 @@ and next cleanup action.
 
 - Purpose: identify hot kernels without changing public semantics.
 - Public scope: no native speedup claim.
-- Main internal: `eng_jit`, `jit-plan`, `jit-bench`, interpreter kernel IR,
-  benchmark catalog, and fallback metadata.
+- Main internal: `eng_jit`, `jit-plan`, `jit-bench`, executable interpreter
+  kernel IR, source-system/component residual and partial-Jacobian samples,
+  single Newton-step samples, state-space RHS/step samples, benchmark catalog,
+  and fallback metadata.
 - Next cleanup: keep benchmark docs clear that timing is internal coverage until
   native speedup exists.
 

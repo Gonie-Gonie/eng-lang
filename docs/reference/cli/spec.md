@@ -402,6 +402,13 @@ timeseries_arithmetic
 timeseries_integrate
 statistics_fusion
 system_residual
+system_residual_jacobian
+system_newton_step
+component_residual_graph
+component_residual_jacobian
+component_newton_step
+state_space_rhs
+state_space_solver_step
 ```
 
 Example:
@@ -434,6 +441,9 @@ Current behavior:
 - other `--<arg> <value>` flags are forwarded as Eng Args overrides
 - `benchmark_targets` records which internal target families were observed in
   the current source's kernel plan
+- `kernel_executor_samples` executes deterministic correctness samples for
+  lowerable interpreter kernels, including source-system residual, partial
+  Jacobian, and single Newton-step candidates when their checked layout permits
 - `jit.status` is `not_available`
 - comparison_policy is `no-speedup-claim`
 ```

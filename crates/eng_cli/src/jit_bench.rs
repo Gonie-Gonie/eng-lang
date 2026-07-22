@@ -82,6 +82,18 @@ fn jit_kernel_executor_sample(
     candidate: &eng_jit::KernelCandidate,
 ) -> Option<serde_json::Value> {
     match candidate.kind.as_str() {
+        "system_residual" => {
+            let kernel = system_residual_kernel_for_candidate(report, candidate)?;
+            Some(jit_system_residual_kernel_sample(candidate, &kernel))
+        }
+        "system_residual_jacobian" => {
+            let kernel = system_residual_kernel_for_candidate(report, candidate)?;
+            Some(jit_system_jacobian_kernel_sample(candidate, &kernel))
+        }
+        "system_newton_step" => {
+            let kernel = system_residual_kernel_for_candidate(report, candidate)?;
+            Some(jit_system_newton_step_kernel_sample(candidate, &kernel))
+        }
         "component_residual_jacobian" => {
             let assembly = component_assembly_for_kernel_candidate(report, candidate)?;
             let ir = eng_jit::component_residual_ir_from_assembly(assembly)?;
@@ -119,6 +131,9 @@ fn jit_kernel_ir_for_candidate(
         }
         "component_residual_graph" => component_assembly_for_kernel_candidate(report, candidate)
             .and_then(eng_jit::component_residual_ir_from_assembly),
+        "system_residual" => {
+            system_residual_kernel_for_candidate(report, candidate).map(|kernel| kernel.ir)
+        }
         "state_space_rhs" => {
             eng_jit::state_space_rhs_ir_for_system(report, candidate.name.as_str())
         }
@@ -142,6 +157,137 @@ fn jit_interpreter_kernel_sample(
             "scalar_input_count": ir.scalar_input_count,
             "output_count": output.outputs.len(),
             "outputs": jit_kernel_output_summary(&output.outputs),
+        }),
+        Err(failure) => json!({
+            "candidate": format!("{}:{}", candidate.kind, candidate.name),
+            "kind": candidate.kind,
+            "status": "failed",
+            "failure_code": failure.code,
+            "failure_message": failure.message,
+        }),
+    }
+}
+
+fn jit_system_residual_kernel_sample(
+    candidate: &eng_jit::KernelCandidate,
+    kernel: &eng_jit::SystemResidualKernel,
+) -> serde_json::Value {
+    let mut sample = jit_interpreter_kernel_sample(candidate, &kernel.ir);
+    if let Some(object) = sample.as_object_mut() {
+        object.insert(
+            "scalar_inputs".to_owned(),
+            json!(kernel.scalar_inputs.clone()),
+        );
+        object.insert(
+            "residual_outputs".to_owned(),
+            json!(kernel.residual_outputs.clone()),
+        );
+        object.insert(
+            "derivative_inputs".to_owned(),
+            json!(kernel.derivative_inputs.clone()),
+        );
+    }
+    sample
+}
+
+fn jit_system_jacobian_kernel_sample(
+    candidate: &eng_jit::KernelCandidate,
+    kernel: &eng_jit::SystemResidualKernel,
+) -> serde_json::Value {
+    let values = sample_scalar_values(kernel.ir.scalar_input_count);
+    let active_inputs = kernel
+        .unknown_input_indices
+        .iter()
+        .filter_map(|index| kernel.scalar_inputs.get(*index))
+        .cloned()
+        .collect::<Vec<_>>();
+    match eng_jit::execute_partial_finite_difference_jacobian_kernel(
+        &kernel.ir,
+        &values,
+        &kernel.unknown_input_indices,
+        1e-6,
+    ) {
+        Ok(output) => json!({
+            "candidate": format!("{}:{}", candidate.kind, candidate.name),
+            "kind": candidate.kind,
+            "status": "executed",
+            "backend": output.backend,
+            "fallback_reason": output.fallback_reason,
+            "scalar_inputs": kernel.scalar_inputs,
+            "active_inputs": active_inputs,
+            "residual_outputs": kernel.residual_outputs,
+            "rows": output.values.len(),
+            "columns": output.values.first().map(Vec::len).unwrap_or_default(),
+        }),
+        Err(failure) => json!({
+            "candidate": format!("{}:{}", candidate.kind, candidate.name),
+            "kind": candidate.kind,
+            "status": "failed",
+            "failure_code": failure.code,
+            "failure_message": failure.message,
+        }),
+    }
+}
+
+fn jit_system_newton_step_kernel_sample(
+    candidate: &eng_jit::KernelCandidate,
+    kernel: &eng_jit::SystemResidualKernel,
+) -> serde_json::Value {
+    let values = sample_scalar_values(kernel.ir.scalar_input_count);
+    let residuals = match eng_jit::execute_interpreter_kernel(
+        &kernel.ir,
+        &eng_jit::KernelExecutionInput {
+            series_inputs: Vec::new(),
+            scalar_inputs: values.clone(),
+        },
+    ) {
+        Ok(output) => output
+            .outputs
+            .into_iter()
+            .filter_map(|value| match value {
+                eng_jit::KernelOutputValue::Scalar(value) => Some(value),
+                eng_jit::KernelOutputValue::Series(_) => None,
+            })
+            .collect::<Vec<_>>(),
+        Err(failure) => {
+            return json!({
+                "candidate": format!("{}:{}", candidate.kind, candidate.name),
+                "kind": candidate.kind,
+                "status": "failed",
+                "failure_code": failure.code,
+                "failure_message": failure.message,
+            });
+        }
+    };
+    let jacobian = match eng_jit::execute_partial_finite_difference_jacobian_kernel(
+        &kernel.ir,
+        &values,
+        &kernel.unknown_input_indices,
+        1e-6,
+    ) {
+        Ok(output) => output.values,
+        Err(failure) => {
+            return json!({
+                "candidate": format!("{}:{}", candidate.kind, candidate.name),
+                "kind": candidate.kind,
+                "status": "failed",
+                "failure_code": failure.code,
+                "failure_message": failure.message,
+            });
+        }
+    };
+    match eng_jit::execute_newton_step_kernel(&jacobian, &residuals, 1e-9) {
+        Ok(output) => json!({
+            "candidate": format!("{}:{}", candidate.kind, candidate.name),
+            "kind": candidate.kind,
+            "status": "executed",
+            "backend": output.backend,
+            "fallback_reason": output.fallback_reason,
+            "scalar_inputs": kernel.scalar_inputs,
+            "active_input_indices": kernel.unknown_input_indices,
+            "residual_outputs": kernel.residual_outputs,
+            "step_count": output.step.len(),
+            "residual_norm": output.residual_norm,
         }),
         Err(failure) => json!({
             "candidate": format!("{}:{}", candidate.kind, candidate.name),
@@ -288,6 +434,16 @@ fn component_assembly_for_kernel_candidate<'a>(
         .find(|assembly| candidate.name.starts_with(&format!("{}:", assembly.name)))
 }
 
+fn system_residual_kernel_for_candidate(
+    report: &CheckReport,
+    candidate: &eng_jit::KernelCandidate,
+) -> Option<eng_jit::SystemResidualKernel> {
+    let system = report.semantic_program.systems.iter().find(|system| {
+        candidate.name == system.name || candidate.name.starts_with(&format!("{}:", system.name))
+    })?;
+    eng_jit::system_residual_kernel_for_system(report, &system.name)
+}
+
 fn sample_kernel_input(ir: &eng_jit::KernelIr) -> eng_jit::KernelExecutionInput {
     eng_jit::KernelExecutionInput {
         series_inputs: (0..ir.input_count)
@@ -407,10 +563,10 @@ fn jit_benchmark_targets(
         ),
         benchmark_target(
             "residual_evaluation",
-            if has_candidate(plan, "component_residual_graph") {
+            if has_candidate(plan, "component_residual_graph")
+                || has_candidate(plan, "system_residual")
+            {
                 "covered_by_current_source"
-            } else if has_candidate(plan, "system_residual") {
-                "interface_only"
             } else {
                 "not_observed_for_source"
             },
@@ -420,9 +576,10 @@ fn jit_benchmark_targets(
                     "component_residual_graph",
                     "component_residual_jacobian",
                     "system_residual",
+                    "system_residual_jacobian",
                 ],
             ),
-            "tracks residual evaluator candidates; system residuals may still be interface-only",
+            "tracks executable component and source-system residual evaluator candidates",
         ),
         benchmark_target(
             "component_graph_solver_small_case",
@@ -440,6 +597,23 @@ fn jit_benchmark_targets(
                 ],
             ),
             "tracks small component residual graph candidates, not production multi-domain solving",
+        ),
+        benchmark_target(
+            "source_system_solver_small_case",
+            if has_candidate(plan, "system_newton_step") {
+                "covered_by_current_source"
+            } else {
+                "not_observed_for_source"
+            },
+            candidates_by_kind(
+                plan,
+                &[
+                    "system_residual",
+                    "system_residual_jacobian",
+                    "system_newton_step",
+                ],
+            ),
+            "tracks executable source-system residual, partial Jacobian, and single Newton-step kernels",
         ),
         benchmark_target(
             "state_space_simulation",

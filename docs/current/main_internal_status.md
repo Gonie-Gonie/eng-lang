@@ -13,7 +13,7 @@ implemented and tested without being part of the published release assets.
 | Solver algorithms | Dense linear, fixed-point, Newton, DAE, adaptive ODE, dynamic component, and behavior-node tracks exist with targeted tests and artifacts. | Supporting implementation track. Not a general solver platform. |
 | State-space | Typed-block fixed-step workflows and additional internal runtime fixtures exist. | Use only for the documented narrow scope. |
 | Domain/component | Component metadata, residual assembly, constrained Thermal and Thermal/Fluid paths, report/review/IDE artifacts, and diagnostics exist. | Not production multi-domain simulation. |
-| JIT/AOT | Kernel planning, interpreter kernel IR, `jit-plan`, `jit-bench`, and benchmark catalog coverage exist. | No native speedup claim. |
+| JIT/AOT | Kernel planning, executable interpreter kernel IR, source-system/component residual and partial-Jacobian samples, single Newton-step samples, `jit-plan`, `jit-bench`, and benchmark catalog coverage exist. | No native speedup claim or integrated JIT solver loop. |
 | LSP/VS Code | Persistent stdio document sync, diagnostics, cancellable editor requests, direct protocol semantic tokens, compatibility CLI endpoints, and optional VS Code source exist. | Implemented internal editor service, without a public cross-release compatibility guarantee. |
 | Uncertainty | Deterministic samples, diagnostics, propagation metadata, and histogram artifacts exist. | Internal track. |
 | Data-driven modeling | Train/test, metrics, model specs/cards, prediction manifests, parity/residual plots, and diagnostics exist. | Internal track. |

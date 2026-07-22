@@ -126,7 +126,7 @@ candidate.
 
 `estimated_rows` is inferred from CSV promotion metadata when the candidate can
 be traced to a TimeSeries source. It is `null` when row count is not known, such
-as interface-only system residual planning.
+as scalar residual kernels that do not operate over a row axis.
 
 `operation_count` is an operation-class count used for planning and inspection.
 It is not a floating-point operation count and must not be used for performance
@@ -152,20 +152,21 @@ interpreter_supported
 fallback_metadata_only
 ```
 
-`fallback_metadata_only` is used for candidates such as current
-`system_residual` entries that reserve a future solver/RHS/Jacobian boundary
-but do not yet have executable interpreter lowering.
+`fallback_metadata_only` remains available for a candidate whose planning
+metadata cannot be reconstructed as executable interpreter IR. Current
+source-system residual candidates are emitted only after executable lowering
+succeeds.
 
 ## Kernel IR
 
 The internal interpreter executor uses `eng-kernel-ir-v1` with explicit
 instructions for loading TimeSeries inputs, scalar inputs, constants, binary
-arithmetic, series/scalar stores, TimeSeries statistics reductions, and
-trapezoid integration. This IR currently supports correctness tests for
-element-wise arithmetic, statistics, integration, scalar residual evaluation,
-continuous state-space A/B RHS evaluation, finite-difference Jacobian kernels,
-and Newton solver-step kernels. It is not a native code format and is not part
-of the public stable API.
+arithmetic, unary dimensionless functions, series/scalar stores, TimeSeries
+statistics reductions, and trapezoid integration. This IR currently supports
+correctness tests for element-wise arithmetic, statistics, integration,
+source-system and component residual evaluation, continuous state-space A/B RHS
+evaluation, finite-difference Jacobian kernels, and Newton solver-step kernels.
+It is not a native code format and is not part of the public stable API.
 
 ## Candidate Kinds
 
@@ -174,14 +175,25 @@ timeseries_arithmetic
 timeseries_integrate
 statistics_fusion
 system_residual
+system_residual_jacobian
+system_newton_step
 component_residual_graph
 component_residual_jacobian
 component_newton_step
 state_space_rhs
+state_space_solver_step
 ```
 
-`system_residual` is currently interface-only. It reserves the RHS/Jacobian
-lowering shape for later work and is not a native solver backend.
+`system_residual` executes compiler-normalized source-system residuals over an
+explicit scalar input layout. Parameters, inputs, states, and outputs retain
+compiler declaration order; referenced `der(state)` values and `t` or `time`
+are appended as explicit runtime context when required. Registered unit
+literals retain the runtime source-residual numeric convention.
+`system_residual_jacobian` perturbs only state/output input indices while
+holding parameter and input context fixed. `system_newton_step` executes one
+dense Newton update when that unknown layout is non-empty and square and no
+derivative input is required. These are executable interpreter kernels, not an
+integrated solver loop or a native backend.
 `component_residual_jacobian` records finite-difference Jacobian evaluation for
 square component residual graphs by repeatedly executing the scalar residual
 interpreter kernel.
@@ -204,8 +216,9 @@ metadata to describe numeric operations. Candidate `executor.status` must still
 be checked to know whether the current interpreter IR can execute that specific
 candidate. It does not mean native code exists.
 
-`interface_only` means the candidate is recorded to preserve the future backend
-boundary but should not be benchmarked or presented as executable JIT work.
+`interface_only` is retained as an internal compatibility status for planning
+records without executable IR. Such candidates must not be benchmarked or
+presented as executable JIT work.
 
 ## Intended Consumers
 
