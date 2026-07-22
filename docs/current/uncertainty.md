@@ -236,11 +236,15 @@ assumptions
 warnings
 ```
 
-IDE surfaces now expose the current review slice through the variable table and
-uncertainty inspector: uncertain bindings show representation/summary values,
-and the inspector carries report, summary, propagation, policy, and TimeSeries
-uncertainty metadata. Hovers and validation-result rows remain follow-up
-alignment work.
+IDE surfaces expose uncertain bindings through the variable table and a
+dedicated Uncertainty panel. The panel separates scalar runtime results from
+`typed_payload.uncertainties[]`, actual TimeSeries runtime results from
+`typed_payload.timeseries_uncertainty_calculations[]`, and static plans from
+`review.json.timeseries_uncertainty_plans[]`. Sensor declarations, review
+summaries, policy rows, propagation assumptions, warnings, statuses, and source
+lines remain visible without treating a static plan as executed work.
+Uncertainty semantic tokens and hovers can open this panel directly. Dedicated
+uncertainty validation-result navigation remains follow-up alignment work.
 
 ## Non-Goals
 

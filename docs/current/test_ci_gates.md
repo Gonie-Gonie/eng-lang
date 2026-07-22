@@ -205,6 +205,10 @@ Current coverage:
   downstream model/filter/DB consumption of the final collection,
   and workflow 03 propagated uncertainty, report, and confidence-band plot
   evidence so those workflows cannot pass by reading file-backed surrogate data.
+- `dev.bat ide-check` also executes workflow 03 and rejects an uncertainty
+  inspector that omits sensor declarations, actual runtime calculations, or
+  explicitly non-executed static plans, or that restores the old ambiguous
+  calculation key.
 - `dev.bat workflow-native-status` provides the fast read-only status view for those same source/docs guards plus the latest process and run-graph artifacts.
 - These examples are intentionally covered by workflow smoke rather than public
   package smoke until their native modules are promoted into package scope.

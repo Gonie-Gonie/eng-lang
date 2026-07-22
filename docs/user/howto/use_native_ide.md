@@ -159,18 +159,19 @@ Editor
   inspector rerenders. When the caret is between
   checked tokens, it names the nearest highlight on the same line.
   Checked-token actions can jump directly to related sidebar panels such as
-  Schema, Time, Checks, Effects, Network, Model, DB, Units, or Variables.
+  Schema, Time, Uncertainty, Checks, Effects, Network, Model, DB, Units, or
+  Variables.
   Hover titles and the Highlight panel use role and status labels such as
   Model field, DB connection field, or Domain compatible instead of
   internal metadata ids.
 
 Right Sidebar
   Variables, Units, Schema, Time, Tables, Reads, Plot, Review, Highlight,
-  Quality, Checks, Effects, Artifacts, and Run tabs are the primary review path. After a successful run,
-  source symbols, runtime variables, Args values, schema summaries, unit
-  conversions, TimeSeries ranges/statistics, metrics, validations, uncertainty
-  summaries/propagation metadata, time alignments, artifact paths, and JSON
-  artifact outlines are summarized in tables. The Highlight tab shows whether
+  Quality, Uncertainty, Checks, Effects, Artifacts, and Run tabs are the primary
+  review path. After a successful run, source symbols, runtime variables, Args
+  values, schema summaries, unit conversions, TimeSeries ranges/statistics,
+  metrics, validations, time alignments, artifact paths, and JSON artifact
+  outlines are summarized in tables. The Highlight tab shows whether
   analysis is current, in progress, or unavailable, plus filtered counts,
   color-coded domain coverage, highlight categories, source ranges, and
   per-highlight copy actions from the latest buffer analysis. It also lists
@@ -185,7 +186,10 @@ Right Sidebar
   tab summarizes network boundaries, network events, cache events, hashes, and
   cache keys for workflows that use `eng.net` or `eng.cache`. Uncertain scalar
   bindings also appear in the variable view with their representation and
-  summary values.
+  summary values. The Uncertainty tab separates scalar runtime values and
+  actual TimeSeries propagated results from static TimeSeries plans. It also
+  lists sensor declarations, policy settings, propagation assumptions,
+  warnings, execution statuses, and source-line links.
 
 Advanced panels
   Modules, Workflow, Objects, Assembly, Kernel, Case, Model, and DB panels expose

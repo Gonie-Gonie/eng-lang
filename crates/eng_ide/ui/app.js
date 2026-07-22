@@ -21,6 +21,7 @@ const SIDE_TABS = [
   { key: "review", label: "Review" },
   { key: "highlight", label: "Highlight" },
   { key: "quality", label: "Quality" },
+  { key: "uncertainty", label: "Uncertainty" },
   { key: "checks", label: "Checks" },
   { key: "effects", label: "Effects" },
   { key: "network", label: "Network" },
@@ -206,6 +207,7 @@ function emptyInspectors() {
     metrics: [],
     validations: [],
     quality: null,
+    uncertainty: null,
     timeAlignments: [],
     tableTransforms: [],
     structuredReads: [],
@@ -3207,6 +3209,7 @@ function renderSideBody() {
   if (state.sideTab === "checks") return renderChecksPanel();
   if (state.sideTab === "highlight") return renderHighlightPanel();
   if (state.sideTab === "quality") return renderQualityPanel();
+  if (state.sideTab === "uncertainty") return renderUncertaintyPanel();
   if (state.sideTab === "kernels") return renderKernelPanel();
   if (state.sideTab === "objects") return renderObjectsPanel();
   if (state.sideTab === "modules") return renderModulesPanel();
@@ -3962,6 +3965,307 @@ function renderQualityPanel() {
       ${renderQualityResults(results)}
       ${advancedDataToggle("Advanced quality data", quality)}
     </div>
+  `;
+}
+
+function renderUncertaintyPanel() {
+  const uncertainty = inspectorObject("uncertainty");
+  const runtime = reviewArray(uncertainty, "runtime");
+  const timeseriesResults = reviewArray(
+    uncertainty,
+    "timeseries_results",
+    "timeseriesResults"
+  );
+  const timeseriesPlans = reviewArray(
+    uncertainty,
+    "timeseries_plans",
+    "timeseriesPlans"
+  );
+  const declarations = reviewArray(uncertainty, "timeseries");
+  const summary = reviewArray(uncertainty, "summary");
+  const policies = reviewArray(uncertainty, "policies");
+  const propagation = reviewArray(uncertainty, "propagation");
+  const report = reviewArray(uncertainty, "report");
+  const hasData = [
+    runtime,
+    timeseriesResults,
+    timeseriesPlans,
+    declarations,
+    summary,
+    policies,
+    propagation,
+    report
+  ].some((items) => items.length);
+
+  if (!hasData) {
+    return `
+      <div class="panel-title compact">Uncertainty</div>
+      ${panelArtifactEmptyState(
+        "No uncertainty data yet.",
+        "Run a file with scalar uncertainty or TimeSeries sensor_std.",
+        "Review plans and runtime results appear here."
+      )}
+    `;
+  }
+
+  return `
+    <div class="panel-title compact">Uncertainty</div>
+    <div class="badges">
+      <span class="badge">Runtime Scalars ${runtime.length}</span>
+      <span class="badge">TimeSeries Results ${timeseriesResults.length}</span>
+      <span class="badge">Static Plans ${timeseriesPlans.length}</span>
+      <span class="badge">Sensor Declarations ${declarations.length}</span>
+    </div>
+    <div class="scroll">
+      <div class="panel-title compact">Scalar Runtime Results</div>
+      ${renderUncertaintyRuntimeScalars(runtime)}
+      <div class="panel-title compact">TimeSeries Runtime Results</div>
+      ${renderUncertaintyTimeSeriesResults(timeseriesResults)}
+      <div class="panel-title compact">Static TimeSeries Plans</div>
+      ${renderUncertaintyTimeSeriesPlans(timeseriesPlans)}
+      <div class="panel-title compact">Sensor Declarations</div>
+      ${renderUncertaintyDeclarations(declarations)}
+      <div class="panel-title compact">Review Summary</div>
+      ${renderUncertaintyReviewSummary(summary)}
+      <div class="panel-title compact">Review Policies</div>
+      ${renderUncertaintyPolicies(policies)}
+      <div class="panel-title compact">Propagation Review</div>
+      ${renderUncertaintyPropagation(propagation)}
+      ${advancedDataToggle("Advanced uncertainty data", uncertainty)}
+    </div>
+  `;
+}
+
+function uncertaintyContractLabel(value) {
+  return String(value ?? "-").replaceAll("_", " ");
+}
+
+function uncertaintyHasValue(value) {
+  return value !== null && value !== undefined && value !== "";
+}
+
+function uncertaintyStatusPill(status) {
+  const raw = String(status ?? "-");
+  const label = statusLabel(raw).replaceAll("_", " ");
+  return `<span class="status-pill ${escapeAttr(raw)}">${escapeHtml(label)}</span>`;
+}
+
+function uncertaintyMetric(value, unit = "") {
+  if (value === null || value === undefined || value === "") return "-";
+  const rendered = typeof value === "number" ? fmt(value) : String(value);
+  const unitText = String(unit || "");
+  const suffix = unitText && !rendered.includes(unitText)
+    ? ` <code>[${escapeHtml(unitText)}]</code>`
+    : "";
+  return `${escapeHtml(rendered)}${suffix}`;
+}
+
+function uncertaintyRuntimeValues(item) {
+  const unit = item.display_unit ?? item.displayUnit ?? "";
+  const rows = [];
+  for (const [label, key] of [
+    ["Mean", "mean"],
+    ["Std dev", "stddev"],
+    ["P05", "p05"],
+    ["P50", "p50"],
+    ["P95", "p95"]
+  ]) {
+    if (item[key] !== null && item[key] !== undefined && item[key] !== "") {
+      rows.push(`<div><span class="muted">${label}</span> ${uncertaintyMetric(item[key], unit)}</div>`);
+    }
+  }
+  const lower = item.lower;
+  const upper = item.upper;
+  if (lower !== null && lower !== undefined && upper !== null && upper !== undefined) {
+    rows.push(`<div><span class="muted">Interval</span> ${uncertaintyMetric(lower, unit)} to ${uncertaintyMetric(upper, unit)}</div>`);
+  }
+  if (item.error !== null && item.error !== undefined && item.error !== "") {
+    rows.push(`<div><span class="muted">Error</span> ${escapeHtml(item.error)}</div>`);
+  }
+  return rows.join("") || "-";
+}
+
+function renderUncertaintyRuntimeScalars(items) {
+  const rows = items.map((item) => {
+    const method = [
+      item.distribution,
+      item.method
+    ].filter(Boolean).map(uncertaintyContractLabel).join(" / ") || "-";
+    const counts = [
+      Number(item.sample_count ?? item.sampleCount ?? 0) > 0
+        ? `samples ${item.sample_count ?? item.sampleCount}`
+        : "",
+      Number(item.propagation_count ?? item.propagationCount ?? 0) > 0
+        ? `sources ${item.propagation_count ?? item.propagationCount}`
+        : ""
+    ].filter(Boolean).join(", ");
+    return `
+      <tr>
+        <td><strong>${escapeHtml(item.binding || "-")}</strong><div class="muted">${escapeHtml(compactText(item.expression || item.source || "-", 64))}</div></td>
+        <td>${escapeHtml(item.kind || "-")}<div class="muted">${escapeHtml(item.quantity_kind ?? item.quantityKind ?? "-")} [${escapeHtml(item.display_unit ?? item.displayUnit ?? "-")}]</div></td>
+        <td>${uncertaintyRuntimeValues(item)}</td>
+        <td>${escapeHtml(method)}${counts ? `<div class="muted">${escapeHtml(counts)}</div>` : ""}</td>
+        <td>${uncertaintyStatusPill(item.status)}</td>
+        <td>${sourceLineButton(item)}</td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Binding</th><th>Representation</th><th>Runtime Value</th><th>Method</th><th>Status</th><th>Line</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No scalar runtime results.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderUncertaintyTimeSeriesResults(items) {
+  const rows = items.map((item) => {
+    const unit = item.unit || "";
+    const calculation = [
+      item.operation,
+      item.statistic,
+      item.binding
+    ].filter(Boolean).map(uncertaintyContractLabel).join(" / ") || "-";
+    return `
+      <tr>
+        <td><strong>${escapeHtml(item.source || "-")}</strong></td>
+        <td>${escapeHtml(calculation)}</td>
+        <td>${uncertaintyMetric(item.nominal_value ?? item.nominalValue, unit)}<div class="muted">std dev ${uncertaintyMetric(item.stddev, unit)}</div></td>
+        <td>${uncertaintyMetric(item.sensor_std ?? item.sensorStd, item.sensor_std_unit ?? item.sensorStdUnit ?? unit)}</td>
+        <td>${escapeHtml(uncertaintyContractLabel(item.method))}</td>
+        <td>${uncertaintyStatusPill(item.status)}</td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Source</th><th>Calculation</th><th>Result</th><th>Sensor Std</th><th>Method</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No TimeSeries runtime results.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderUncertaintyTimeSeriesPlans(items) {
+  const rows = items.map((item) => {
+    const calculations = [
+      item.operation,
+      ...arrayOrEmpty(item.statistics),
+      item.binding
+    ].filter(Boolean).map(uncertaintyContractLabel).join(", ") || "-";
+    return `
+      <tr>
+        <td><strong>${escapeHtml(item.source || "-")}</strong><div class="muted">${escapeHtml(uncertaintyContractLabel(item.kind))}</div></td>
+        <td>${escapeHtml(calculations)}</td>
+        <td>${escapeHtml(uncertaintyContractLabel(item.propagation_model ?? item.propagationModel))}</td>
+        <td>${escapeHtml(item.sensor_std ?? item.sensorStd ?? "-")}</td>
+        <td>${uncertaintyStatusPill(item.execution_status ?? item.executionStatus)}</td>
+        <td>${sourceLineButton(item)}</td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Series</th><th>Planned Calculation</th><th>Propagation Model</th><th>Sensor Std</th><th>Execution</th><th>Line</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No static TimeSeries plans.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderUncertaintyDeclarations(items) {
+  const rows = items.map((item) => `
+    <tr>
+      <td><strong>${escapeHtml(item.binding || "-")}</strong></td>
+      <td>${escapeHtml(item.axis || "-")}</td>
+      <td>${escapeHtml(item.quantity_kind ?? item.quantityKind ?? "-")} [${escapeHtml(item.display_unit ?? item.displayUnit ?? "-")}]</td>
+      <td>${escapeHtml(item.sensor_std ?? item.sensorStd ?? "-")}</td>
+      <td>${escapeHtml(uncertaintyContractLabel(item.method))}</td>
+      <td>${uncertaintyStatusPill(item.status)}</td>
+      <td>${sourceLineButton(item)}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Binding</th><th>Axis</th><th>Quantity</th><th>Sensor Std</th><th>Method</th><th>Status</th><th>Line</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" class="muted">No TimeSeries sensor declarations.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderUncertaintyReviewSummary(items) {
+  const rows = items.map((item) => {
+    const unit = item.display_unit ?? item.displayUnit ?? "";
+    const values = [
+      uncertaintyHasValue(item.mean) ? `mean ${item.mean}` : "",
+      uncertaintyHasValue(item.stddev) ? `std dev ${item.stddev}` : "",
+      uncertaintyHasValue(item.interval_lower ?? item.intervalLower)
+        || uncertaintyHasValue(item.interval_upper ?? item.intervalUpper)
+        ? `interval ${item.interval_lower ?? item.intervalLower ?? "-"} to ${item.interval_upper ?? item.intervalUpper ?? "-"}`
+        : ""
+    ].filter(Boolean).join("; ") || "-";
+    const assumptions = reviewList(item.assumptions);
+    const warnings = reviewList(item.warnings);
+    return `
+      <tr>
+        <td><strong>${escapeHtml(item.variable || "-")}</strong><div class="muted">${sourceLineButton(item)}</div></td>
+        <td>${escapeHtml(item.representation || "-")}<div class="muted">${escapeHtml(item.quantity_kind ?? item.quantityKind ?? "-")} [${escapeHtml(unit || "-")}]</div></td>
+        <td>${escapeHtml(values)}</td>
+        <td>${escapeHtml(uncertaintyContractLabel(item.propagation_method ?? item.propagationMethod ?? item.distribution))}<div class="muted">samples ${escapeHtml(item.samples ?? "-")}</div></td>
+        <td>${escapeHtml(assumptions)}${warnings !== "-" ? `<div class="muted">Warnings: ${escapeHtml(warnings)}</div>` : ""}</td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Variable</th><th>Representation</th><th>Declared Values</th><th>Propagation</th><th>Review Notes</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">No scalar review summary.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderUncertaintyPolicies(items) {
+  const rows = items.map((item) => `
+    <tr>
+      <td>${escapeHtml(uncertaintyContractLabel(item.method))}</td>
+      <td>${escapeHtml(item.samples ?? "-")}</td>
+      <td>${escapeHtml(item.seed ?? "-")}</td>
+      <td>${uncertaintyStatusPill(item.status)}</td>
+      <td>${sourceLineButton({ line: item.owner_line ?? item.ownerLine ?? item.line })}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Method</th><th>Samples</th><th>Seed</th><th>Status</th><th>Owner</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">No uncertainty policy blocks.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderUncertaintyPropagation(items) {
+  const rows = items.map((item) => {
+    const sources = arrayOrEmpty(item.source_terms ?? item.sourceTerms).map((term) => {
+      return term && typeof term === "object"
+        ? `${term.source || "-"} (${term.role || "-"})`
+        : String(term);
+    }).join(", ") || "-";
+    const notes = [
+      ...arrayOrEmpty(item.assumptions),
+      ...arrayOrEmpty(item.warnings)
+    ].join(", ") || "-";
+    return `
+      <tr>
+        <td><strong>${escapeHtml(item.output || "-")}</strong><div class="muted">${sourceLineButton(item)}</div></td>
+        <td>${escapeHtml(uncertaintyContractLabel(item.method))}</td>
+        <td>${escapeHtml(sources)}</td>
+        <td>${escapeHtml(notes)}</td>
+        <td>${uncertaintyStatusPill(item.status)}</td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Output</th><th>Method</th><th>Sources</th><th>Assumptions / Warnings</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">No scalar propagation review rows.</td></tr>`}</tbody>
+    </table>
   `;
 }
 
@@ -8286,6 +8590,7 @@ function inspectorTabsForSemanticToken(token, hover = null) {
     if (!tabs.includes(tab)) tabs.push(tab);
   };
 
+  if (modifiers.includes("uncertain") || kind === "uncertainty") add("uncertainty");
   if (detailText.includes("schema") || kind === "schema_field") add("schema");
   if (modifiers.includes("timeseries") || modifiers.includes("axis") || detailText.includes("timeseries") || detailText.includes("time axis")) add("time");
   if (modifiers.includes("validation") || kind.includes("validation")) add("checks");

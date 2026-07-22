@@ -274,6 +274,10 @@ instead of the parallel ReportSpec validation list. Specialized solver,
 assembly, quality, uncertainty, and non-write DB panels continue to use their
 existing typed ReportSpec records until corresponding ReviewDocument rows are
 complete.
+The dedicated native IDE Uncertainty panel combines those static review records
+with typed runtime result arrays: it displays scalar and TimeSeries runtime
+results separately from `timeseries_uncertainty_plans[]`, whose
+`execution_status = not_executed` remains visible.
 
 The current native IDE Review inspector consumes `review_document` directly for
 root counts, semantic hashes, runtime inputs and values, variables/symbols,

@@ -229,16 +229,18 @@ separate.
   sections, pointwise TimeSeries `sensor_std` review metadata, review schema v2
   `timeseries_uncertainty_plans` with explicit non-execution status, runtime
   mean/percentile/integration/duration `sensor_std` calculation artifacts,
-  `sensor_std` confidence-band
-  PlotSpec rendering, internal IDE variable/inspector metadata, histogram
-  artifacts, and the current uncertainty guide.
+  `sensor_std` confidence-band PlotSpec rendering, and a native IDE
+  Uncertainty panel that distinguishes scalar and TimeSeries runtime results
+  from static TimeSeries plans while retaining declarations, review policies,
+  propagation notes, source lines, histogram artifacts, and the current
+  uncertainty guide.
 - Not included: stable Monte Carlo/Jacobian propagation contract, full
   probabilistic TimeSeries uncertainty propagation/statistics, user-function
   or runtime-dependent scalar evaluation inside uncertainty arithmetic, or
   public IDE support claim.
 - Next cleanup action: route broader probabilistic TimeSeries uncertainty
-  semantics into runtime/report/IDE artifacts before promoting the track beyond
-  narrow native workflow support.
+  semantics and dedicated validation-result navigation into runtime/report/IDE
+  artifacts before promoting the track beyond narrow native workflow support.
 
 ### Data-Driven Modeling Track
 

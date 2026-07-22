@@ -800,7 +800,12 @@ the nominal nearest-rank kernel. Plots can request `confidence_band =
 sensor_std` to carry a pointwise confidence band in PlotSpec/SVG.
 Propagation source terms are also carried through `review.json`,
 `result.engres`, runtime-updated `report_spec.json`, HTML reports, and the
-native IDE Runtime Summary.
+native IDE. Its Uncertainty panel reads scalar results from
+`typed_payload.uncertainties[]` and actual TimeSeries results from
+`typed_payload.timeseries_uncertainty_calculations[]`, while rendering
+`timeseries_uncertainty_plans[]` in a separately labeled static-plan table.
+The panel keeps execution statuses, propagation models, declarations, policies,
+review notes, and source-line navigation visible.
 
 ## Data-driven Modeling Metadata
 

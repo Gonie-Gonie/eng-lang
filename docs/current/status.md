@@ -125,7 +125,8 @@ review material. It is not a broad solver claim.
   copying, package smoke, curated PDF docs, release zip, and SHA256 checksum.
 - Portable native IDE smoke path for open/check/save/run,
   diagnostics, variable summaries, schema/TimeSeries/metric/validation
-  inspectors, checked-code role-aware highlight overlay, module registry
+  inspectors, an uncertainty inspector that separates runtime results from
+  static plans, checked-code role-aware highlight overlay, module registry
   browser, table transform inspector rows, PlotSpec viewing, report opening,
   and side-effect artifact panels.
 - Packaged editor-tooling binary plus an internal persistent VS Code stdio
@@ -269,10 +270,12 @@ is not mistaken for public module support.
     pointwise TimeSeries `sensor_std` review metadata, explicitly non-executed
     `timeseries_uncertainty_plans` in review schema v2, runtime
     mean/integration `sensor_std` calculation artifacts, confidence-band
-    PlotSpec rendering, and internal IDE metadata are reviewable.
+    PlotSpec rendering, and a native IDE Uncertainty panel that separately
+    presents scalar runtime results, TimeSeries runtime results, static plans,
+    declarations, policies, and propagation review rows are reviewable.
   - Keep internal until full probabilistic TimeSeries uncertainty
-    propagation, runtime-dependent/user-function expression support, full IDE
-    projection, and tests align.
+    propagation, runtime-dependent/user-function expression support, and
+    broader uncertainty-specific validation/result navigation align.
 - Reviewability / Review IR
   - Public package: `Stable` artifact family, `Internal` ReviewDocument
   - Main status: `Supported` artifacts, `Internal` normalized IR slice

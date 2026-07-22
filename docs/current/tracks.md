@@ -72,10 +72,12 @@ and next cleanup action.
   pointwise TimeSeries sensor standard deviation review metadata, runtime
   mean/integration/duration `sensor_std` propagation artifacts, native
   nearest-rank percentile sensitivity propagation, `sensor_std`
-  confidence-band PlotSpec rendering, internal IDE variable/inspector metadata,
+  confidence-band PlotSpec rendering, and a native IDE Uncertainty panel that
+  separates scalar/TimeSeries runtime results from static TimeSeries plans,
   plus histogram artifacts.
 - Next cleanup: keep as internal until full probabilistic TimeSeries
-  uncertainty propagation, full IDE projection, and tests align.
+  uncertainty propagation, runtime-dependent/user-function expression support,
+  and dedicated uncertainty validation-result navigation align.
 
 ## T7 Data-Driven Modeling
 

@@ -1710,7 +1710,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
         metrics: json_array_clone(&report, "computed_metrics"),
         validations: json_array_clone(&report, "validations"),
         quality: quality_inspector(&report, &result, &review),
-        uncertainty: uncertainty_inspector(&report, &review),
+        uncertainty: uncertainty_inspector(&report, &result, &review),
         time_alignments: json_array_clone(&report, "time_alignments"),
         table_transforms: table_transform_inspector(&result, &review),
         structured_reads: typed_payload_array_clone(&result, "structured_reads"),
@@ -1970,13 +1970,18 @@ fn time_series_coverage_inspector(result: &Value, review: &Value) -> Value {
         .unwrap_or_else(|| Value::Array(Vec::new()))
 }
 
-fn uncertainty_inspector(report: &Value, review: &Value) -> Value {
+fn uncertainty_inspector(report: &Value, result: &Value, review: &Value) -> Value {
     json!({
         "report": json_array_clone(report, "uncertainty"),
+        "runtime": typed_payload_array_clone(result, "uncertainties"),
         "summary": json_array_clone(review, "uncertainty_summary"),
         "propagation": json_array_clone(review, "uncertainty_propagation"),
         "policies": json_array_clone(review, "uncertainty_policies"),
         "timeseries": json_array_clone(review, "timeseries_uncertainty"),
+        "timeseries_results": typed_payload_array_clone(
+            result,
+            "timeseries_uncertainty_calculations"
+        ),
         "timeseries_plans": json_array_clone(review, "timeseries_uncertainty_plans")
     })
 }
@@ -4506,6 +4511,50 @@ fn smoke() -> Result<(), String> {
             ));
         }
     }
+    let uncertainty_example = root.join("examples/workflows/03_uncertain_sensor_report/main.eng");
+    let uncertainty_output = run_file(
+        &uncertainty_example,
+        &root.join("build").join("ide-smoke-uncertainty"),
+        &RunOptions::default(),
+    )
+    .map_err(|error| error.to_string())?;
+    let uncertainty_cached = CachedRunOutput::from_output(uncertainty_output);
+    let uncertainty_inspectors = runtime_inspectors(&root, &uncertainty_cached);
+    let uncertainty = &uncertainty_inspectors.uncertainty;
+    let has_timeseries_declaration = uncertainty
+        .get("timeseries")
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty());
+    let has_runtime_results = uncertainty
+        .get("timeseries_results")
+        .and_then(Value::as_array)
+        .is_some_and(|items| {
+            !items.is_empty()
+                && items.iter().all(|item| {
+                    json_field_string(item, "status").as_deref() == Some("propagated_sensor_std")
+                })
+        });
+    let has_static_plans = uncertainty
+        .get("timeseries_plans")
+        .and_then(Value::as_array)
+        .is_some_and(|items| {
+            !items.is_empty()
+                && items.iter().all(|item| {
+                    json_field_string(item, "execution_status").as_deref() == Some("not_executed")
+                        && json_field_string(item, "propagation_model").as_deref()
+                            == Some("independent_pointwise_sensor_std")
+                })
+        });
+    if !has_timeseries_declaration
+        || !has_runtime_results
+        || !has_static_plans
+        || uncertainty.get("timeseries_calculations").is_some()
+    {
+        return Err(format!(
+            "{} did not produce distinct IDE uncertainty declarations, runtime results, and static plans",
+            uncertainty_example.display()
+        ));
+    }
     let state_space_example = root.join("examples/internal/18_state_space_metadata/main.eng");
     let state_space_output = run_file(
         &state_space_example,
@@ -4838,7 +4887,7 @@ fn smoke() -> Result<(), String> {
         }
     }
     println!(
-        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), residual dependency inspector, behavior graph inspector, measured workflow inspectors, solved thermal assembly inspector, multi-domain boundary solve inspector, advanced Thermal/Fluid solver inspector, state-space trajectory/operator/source-equation inspector, kernel plan inspector, class object inspector, normalized review cockpit, side-effect inspectors, schema failure inspector, table transform inspector",
+        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), residual dependency inspector, behavior graph inspector, measured workflow inspectors, uncertainty plan/result inspector, solved thermal assembly inspector, multi-domain boundary solve inspector, advanced Thermal/Fluid solver inspector, state-space trajectory/operator/source-equation inspector, kernel plan inspector, class object inspector, normalized review cockpit, side-effect inspectors, schema failure inspector, table transform inspector",
         examples.len(),
         all_quantity_completions().len(),
         all_unit_infos().len(),
@@ -4868,6 +4917,12 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "function highlightTokenCopyText(tokens)",
         "function semanticTokenSelectors(token)",
         "function inspectorTabsForSemanticToken(token, hover = null)",
+        "function renderUncertaintyPanel()",
+        "TimeSeries Runtime Results",
+        "Static TimeSeries Plans",
+        "Advanced uncertainty data",
+        r#"{ key: "uncertainty", label: "Uncertainty" }"#,
+        r#"modifiers.includes("uncertain")"#,
         "const HOVER_KIND_LABELS = Object.freeze",
         "function hoverKindLabel(kind)",
         "function hoverStatusLabel(status)",
@@ -6230,7 +6285,39 @@ with {
 
     #[test]
     fn ide_surfaces_uncertainty_variables_and_inspector() {
-        let cached = cached_output_with_report_and_review(
+        let cached = cached_output_with_result_report_and_review(
+            r#"{
+              "typed_payload": {
+                "uncertainties": [
+                  {
+                    "binding": "Q_dist",
+                    "kind": "Distribution",
+                    "quantity_kind": "HeatRate",
+                    "display_unit": "kW",
+                    "method": "linear",
+                    "mean": 5.0,
+                    "stddev": 0.8,
+                    "status": "evaluated",
+                    "line": 3
+                  }
+                ],
+                "timeseries_uncertainty_calculations": [
+                  {
+                    "source": "Q_sensor",
+                    "operation": "statistics",
+                    "statistic": "mean",
+                    "binding": null,
+                    "nominal_value": 5.0,
+                    "stddev": 0.2,
+                    "unit": "kW",
+                    "sensor_std": 0.4,
+                    "sensor_std_unit": "kW",
+                    "method": "independent_pointwise_sensor_std",
+                    "status": "propagated_sensor_std"
+                  }
+                ]
+              }
+            }"#,
             r#"{
               "variable_table": [],
               "uncertainty": [
@@ -6291,6 +6378,20 @@ with {
             .get("propagation")
             .and_then(Value::as_array)
             .is_some_and(|items| items.len() == 1));
+        assert!(inspectors
+            .uncertainty
+            .get("runtime")
+            .and_then(Value::as_array)
+            .is_some_and(|items| items.len() == 1 && items[0]["status"] == "evaluated"));
+        assert!(
+            inspectors
+                .uncertainty
+                .get("timeseries_results")
+                .and_then(Value::as_array)
+                .is_some_and(
+                    |items| items.len() == 1 && items[0]["status"] == "propagated_sensor_std"
+                )
+        );
         assert!(inspectors
             .uncertainty
             .get("timeseries_plans")

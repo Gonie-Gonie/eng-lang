@@ -8030,6 +8030,11 @@ function Invoke-IdeCheck {
         "renderWorkflowNodeDetail",
         "panelArtifactEmptyState",
         "No network or cache records yet.",
+        "renderUncertaintyPanel",
+        "timeseries_results",
+        "TimeSeries Runtime Results",
+        "Static TimeSeries Plans",
+        "uncertainty: null",
         "sourceBreadcrumbs",
         "source-breadcrumbs",
         "advancedDataToggle",
@@ -8671,7 +8676,7 @@ function Invoke-IdeCheck {
             throw "Native IDE UI should use task-oriented wording instead of '$ForbiddenIdeWording'"
         }
     }
-    foreach ($RequiredAdvancedDataLabel in @("Advanced highlight data", "Advanced quality data", "Advanced kernel plan data", "Advanced review data", "Advanced node data", "Advanced effects data", "Advanced network/cache data", "Advanced DB data", "Advanced model data", "Advanced case data")) {
+    foreach ($RequiredAdvancedDataLabel in @("Advanced highlight data", "Advanced quality data", "Advanced uncertainty data", "Advanced kernel plan data", "Advanced review data", "Advanced node data", "Advanced effects data", "Advanced network/cache data", "Advanced DB data", "Advanced model data", "Advanced case data")) {
         if (-not $IdeUiSource.Contains($RequiredAdvancedDataLabel)) {
             throw "Native IDE UI missing task-oriented advanced data label $RequiredAdvancedDataLabel"
         }
@@ -8903,6 +8908,16 @@ function Invoke-IdeCheck {
         throw "Native IDE semantic token ranges must use LSP UTF-16 offsets directly"
     }
     $IdeMainSource = Get-Content -LiteralPath $TauriMainPath -Raw
+    foreach ($RequiredNativeIdeUncertaintyBackendToken in @(
+        "uncertainty_inspector(&report, &result, &review)",
+        '"runtime": typed_payload_array_clone(result, "uncertainties")',
+        '"timeseries_results": typed_payload_array_clone(',
+        '"timeseries_uncertainty_calculations"'
+    )) {
+        if (-not $IdeMainSource.Contains($RequiredNativeIdeUncertaintyBackendToken)) {
+            throw "Native IDE uncertainty backend missing token $RequiredNativeIdeUncertaintyBackendToken"
+        }
+    }
     foreach ($RequiredNativeIdeReviewDiffBackendToken in @(
         "fn ide_review_diff",
         "review_semantic_diff(&previous, &current)",

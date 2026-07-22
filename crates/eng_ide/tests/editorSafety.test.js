@@ -2357,6 +2357,122 @@ function liveCheckTracksAllDirtyImportedBuffers() {
   assert.strictEqual(run("checkRequestIsCurrent(globalThis.liveCheckRequest)"), false);
 }
 
+function uncertaintyPanelDistinguishesPlansAndRuntimeResults() {
+  run(`
+    globalThis.previousUncertaintyPanelState = {
+      inspectors: state.inspectors,
+      sideTab: state.sideTab,
+      highlightSource: state.highlightSource
+    };
+    state.inspectors = emptyInspectors();
+    state.inspectors.uncertainty = {
+      runtime: [{
+        binding: "Q_runtime",
+        kind: "Distribution",
+        quantity_kind: "HeatRate",
+        display_unit: "kW",
+        expression: "distribution(kind=normal, mean=12.5 kW, std=0.4 kW)",
+        distribution: "normal",
+        method: "linear",
+        mean: 12.5,
+        stddev: 0.4,
+        p95: 13.1,
+        sample_count: 64,
+        status: "evaluated",
+        line: 3
+      }],
+      timeseries_results: [{
+        source: "Q_sensor",
+        operation: "statistics",
+        statistic: "p95",
+        nominal_value: 13.1,
+        stddev: 0.4,
+        unit: "kW",
+        sensor_std: 0.4,
+        sensor_std_unit: "kW",
+        method: "independent_pointwise_sensor_std",
+        status: "propagated_sensor_std"
+      }],
+      timeseries_plans: [{
+        kind: "timeseries_statistics",
+        binding: null,
+        source: "Q_sensor",
+        statistics: ["p95"],
+        operation: "statistics",
+        propagation_model: "independent_pointwise_sensor_std",
+        sensor_std: "0.4 kW",
+        execution_status: "not_executed",
+        line: 8
+      }],
+      timeseries: [{
+        binding: "Q_sensor",
+        axis: "time",
+        quantity_kind: "HeatRate",
+        display_unit: "kW",
+        method: "pointwise_measured_std",
+        sensor_std: "0.4 kW",
+        status: "accepted",
+        line: 6
+      }],
+      summary: [{
+        variable: "Q_runtime",
+        representation: "Distribution",
+        quantity_kind: "HeatRate",
+        display_unit: "kW",
+        mean: "12.5 kW",
+        stddev: "0.4 kW",
+        propagation_method: "linear",
+        samples: 64,
+        assumptions: ["normal_distribution"],
+        warnings: [],
+        line: 3
+      }],
+      policies: [],
+      propagation: [],
+      report: []
+    };
+    state.sideTab = "uncertainty";
+    state.highlightSource = "Q_runtime = distribution(kind=normal, mean=12.5 kW, std=0.4 kW)";
+    globalThis.uncertaintyPanelHtml = renderSideBody();
+  `);
+
+  const html = run("globalThis.uncertaintyPanelHtml");
+  for (const expected of [
+    "Scalar Runtime Results",
+    "TimeSeries Runtime Results",
+    "Static TimeSeries Plans",
+    "Q_runtime",
+    "Q_sensor",
+    "12.5",
+    "propagated sensor std",
+    "not executed",
+    "independent pointwise sensor std",
+    "Advanced uncertainty data"
+  ]) {
+    assert.ok(html.includes(expected), `missing uncertainty panel text: ${expected}\n${html}`);
+  }
+  assert.strictEqual(run(`SIDE_TABS.some((tab) => tab.key === "uncertainty")`), true);
+  assert.deepStrictEqual(
+    JSON.parse(run(`JSON.stringify(inspectorTabsForSemanticToken(
+      { type: "function", modifiers: ["uncertain"] },
+      { kind: "uncertainty" }
+    ))`)),
+    ["uncertainty"]
+  );
+
+  run(`
+    state.inspectors.uncertainty = {};
+    globalThis.emptyUncertaintyPanelHtml = renderUncertaintyPanel();
+  `);
+  assert.ok(run("globalThis.emptyUncertaintyPanelHtml").includes("No uncertainty data yet."));
+
+  run(`
+    state.inspectors = globalThis.previousUncertaintyPanelState.inspectors;
+    state.sideTab = globalThis.previousUncertaintyPanelState.sideTab;
+    state.highlightSource = globalThis.previousUncertaintyPanelState.highlightSource;
+  `);
+}
+
 function uncertaintyAliasLexicalFallbackUsesGeneratedCallContexts() {
   run(`
     globalThis.previousUncertaintyLexicalState = {
@@ -2571,6 +2687,7 @@ async function main() {
   await discardAllDecisionDestroysWithoutSaving();
   await saveAllFailureKeepsRemainingDirtyFilesOpen();
   liveCheckTracksAllDirtyImportedBuffers();
+  uncertaintyPanelDistinguishesPlansAndRuntimeResults();
   uncertaintyAliasLexicalFallbackUsesGeneratedCallContexts();
   behaviorStatusLabelsDistinguishDeclarationAndExecution();
   process.stdout.write("Native IDE editor safety smoke passed.\n");
