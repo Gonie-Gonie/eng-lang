@@ -21,8 +21,9 @@ separate.
 - Main status: `Stable` with internal syntax experiments
 - User-facing scope: top-level execution, `args`, importable `const`, scalar
   `fn`, relative imports, fast `=`, `:=` rejection, unit diagnostics,
-  native Gregorian `Date` construction and runtime values, and current formatter
-  support.
+  unit-aware quantity Args in native scalar/format/uncertainty expressions,
+  native Gregorian `Date` construction and runtime values, and current
+  formatter support.
 - Evidence: official examples, compiler diagnostics, formatter gate, LSP
   metadata, exact Date diagnostic ranges, and `typed_payload.temporal_values[]`
   where relevant.
@@ -35,7 +36,7 @@ separate.
 - Public package: `Stable`
 - Main status: `Stable` plus data-quality test coverage
 - User-facing scope: schema/promote, CSV import, DateTime index metadata,
-  source hashes, typed args paths, and missing-value policies.
+  source hashes, typed path and quantity Args, and missing-value policies.
 - Evidence: `examples/official/01_csv_plot`, data-quality diagnostics,
   runtime artifacts, report/review metadata.
 - Not included: arbitrary table formulas, richer data source types, general

@@ -597,8 +597,8 @@ multi-domain solver claim.
 `report.html` with the OS default browser.
 
 Args flags are matched against root `args { ... }` fields. Defaults are used
-when available, primitive typed values are normalized, and resolved values are
-recorded in `arg_values`.
+when available, typed values are normalized, and resolved values plus their
+display units are recorded in `arg_values`.
 
 Current typed Args conversion:
 
@@ -609,7 +609,17 @@ Int/Integer          whole-number signed integer
 Count/usize/u32/u64  non-negative whole-number count
 Float/Number         finite numeric value
 Duration             s, min, h -> normalized seconds such as `600 s`
+Registry quantity    compatible unit literal -> declared/default display unit
 ```
+
+Quantity fields may declare a display unit, for example
+`power: HeatRate [kW] = 5 kW`. A bare CLI number is interpreted in that unit
+only when the declaration has an explicit `[unit]`. Physical quantity fields
+without an explicit annotation require a unit-bearing CLI value and normalize
+to the quantity's canonical unit. Dimensionless quantities and Duration retain
+their unambiguous bare-value behavior. Incompatible units produce
+`E-ARGS-TYPE-001`; incompatible declaration annotations produce
+`E-ARGS-UNIT-001`.
 
 ```bat
 eng.exe run examples\official\01_csv_plot\main.eng --save-artifacts --input data/sensor.csv

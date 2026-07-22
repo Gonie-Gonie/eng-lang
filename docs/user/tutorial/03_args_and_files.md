@@ -13,9 +13,10 @@ A source file with an args block:
 args {
     input: CsvFile = file("data/sensor.csv")
     output_dir: Directory = dir("outputs")
+    design_power: HeatRate [kW] = 5 kW
 }
 
-print "input = {args.input}"
+print "input = {args.input}; design = {args.design_power: .2 kW}"
 ```
 
 ## Source File
@@ -39,8 +40,9 @@ that can be inspected after the run.
 ## Explanation
 
 Arguments make workflow boundaries reviewable. A reviewer should be able to see
-which file was read, which output directory was used, and which command-line
-override changed behavior.
+which file was read, which output directory was used, which quantity and unit
+were supplied, and which command-line override changed behavior. For example,
+`--design_power "750 W"` is normalized to `0.75 kW` before native execution.
 
 ## Common Mistakes
 

@@ -1,8 +1,9 @@
 use crate::ast::FastBinding;
 use crate::quantities::{
-    candidates_for_unit, first_unit_in_expression, infer_quantity_from_name_and_unit,
+    all_quantity_completions, candidates_for_unit, first_unit_in_expression,
+    infer_quantity_from_name_and_unit,
 };
-use crate::semantic::TypedBinding;
+use crate::semantic::{SemanticProgram, TypedBinding};
 use crate::source::SourceSpan;
 use crate::Diagnostic;
 
@@ -206,7 +207,10 @@ pub fn source_diagnostic(
     None
 }
 
-pub fn argument_diagnostics(binding: &FastBinding) -> Vec<Diagnostic> {
+pub fn argument_diagnostics(
+    binding: &FastBinding,
+    typed_bindings: &[TypedBinding],
+) -> Vec<Diagnostic> {
     let expression = binding.expression.trim();
     let Some(call) = uncertainty_call_name(expression) else {
         return Vec::new();
@@ -232,32 +236,120 @@ pub fn argument_diagnostics(binding: &FastBinding) -> Vec<Diagnostic> {
             );
         }
     }
-    validate_sample_count_argument(call, &arguments, binding.expression_span, &mut diagnostics);
+    validate_sample_count_argument(
+        call,
+        &arguments,
+        binding.expression_span,
+        typed_bindings,
+        &mut diagnostics,
+    );
 
     match call {
-        "measured" => {
-            validate_measured_arguments(&arguments, binding.expression_span, &mut diagnostics)
-        }
-        "interval" | "uniform" => {
-            validate_range_arguments(call, &arguments, binding.expression_span, &mut diagnostics)
-        }
-        "normal" => {
-            validate_normal_arguments(call, &arguments, binding.expression_span, &mut diagnostics)
-        }
+        "measured" => validate_measured_arguments(
+            &arguments,
+            binding.expression_span,
+            typed_bindings,
+            &mut diagnostics,
+        ),
+        "interval" | "uniform" => validate_range_arguments(
+            call,
+            &arguments,
+            binding.expression_span,
+            typed_bindings,
+            &mut diagnostics,
+        ),
+        "normal" => validate_normal_arguments(
+            call,
+            &arguments,
+            binding.expression_span,
+            typed_bindings,
+            &mut diagnostics,
+        ),
         "distribution" => validate_distribution_arguments(
             expression,
             &arguments,
             binding.expression_span,
+            typed_bindings,
             &mut diagnostics,
         ),
-        "propagate" => {
-            validate_propagation_arguments(&arguments, binding.expression_span, &mut diagnostics)
-        }
+        "propagate" => validate_propagation_arguments(
+            &arguments,
+            binding.expression_span,
+            typed_bindings,
+            &mut diagnostics,
+        ),
         "ensemble" => {}
         _ => {}
     }
 
     diagnostics
+}
+
+pub fn resolved_argument_diagnostics(program: &SemanticProgram) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for info in &program.uncertainty_infos {
+        for (names, label) in [
+            (
+                &["std", "sigma", "uncertainty"][..],
+                "uncertainty standard deviation",
+            ),
+            (
+                &["error", "relative_error"][..],
+                "uncertainty relative error",
+            ),
+        ] {
+            let Some(argument) = info.named_arguments.iter().find(|argument| {
+                names
+                    .iter()
+                    .any(|name| argument.name.eq_ignore_ascii_case(name))
+            }) else {
+                continue;
+            };
+            let Some(value) = resolved_args_numeric_value(&argument.value, program) else {
+                continue;
+            };
+            if value < 0.0 {
+                diagnostics.push(uncertainty_diagnostic(
+                    "E-UNC-ARGS-002",
+                    Some(argument.value_span),
+                    info.expression_span,
+                    &format!("{label} must be non-negative, but resolved to {value}."),
+                    Some("Pass a zero or positive Args value."),
+                ));
+            }
+        }
+
+        let Some(argument) = info.named_arguments.iter().find(|argument| {
+            matches!(argument.name.to_ascii_lowercase().as_str(), "samples" | "n")
+        }) else {
+            continue;
+        };
+        let Some(value) = resolved_args_numeric_value(&argument.value, program) else {
+            continue;
+        };
+        if value.fract() != 0.0 || !(1.0..=256.0).contains(&value) {
+            diagnostics.push(uncertainty_diagnostic(
+                "E-UNC-ARGS-002",
+                Some(argument.value_span),
+                info.expression_span,
+                &format!(
+                    "Uncertainty sample count `{}` resolved to invalid value {value}.",
+                    argument.value
+                ),
+                Some("Pass an integer Args value between 1 and 256."),
+            ));
+        }
+    }
+    diagnostics
+}
+
+fn resolved_args_numeric_value(value: &str, program: &SemanticProgram) -> Option<f64> {
+    let name = value.trim().strip_prefix("args.")?.trim();
+    let arg = program
+        .arg_values
+        .iter()
+        .find(|argument| argument.name == name && !argument.redacted)?;
+    numeric_prefix(&arg.value)
 }
 
 pub fn uncertainty_argument_alias(expression: &str, name: &str) -> Option<&'static str> {
@@ -356,11 +448,12 @@ fn uncertainty_diagnostic(
 fn validate_measured_arguments(
     arguments: &UncertaintyArguments,
     fallback_span: SourceSpan,
+    typed_bindings: &[TypedBinding],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let measured = positional_argument_value(arguments, 0);
     if measured
-        .and_then(|argument| numeric_prefix(argument.value))
+        .and_then(|argument| numeric_argument(argument.value, typed_bindings))
         .is_none()
     {
         diagnostics.push(uncertainty_diagnostic(
@@ -377,6 +470,7 @@ fn validate_measured_arguments(
         &["std", "sigma", "uncertainty"],
         "`measured` standard deviation",
         fallback_span,
+        typed_bindings,
         diagnostics,
     );
     validate_optional_non_negative_value(
@@ -384,6 +478,7 @@ fn validate_measured_arguments(
         &["error", "relative_error"],
         "`measured` relative error",
         fallback_span,
+        typed_bindings,
         diagnostics,
     );
 }
@@ -392,15 +487,24 @@ fn validate_distribution_arguments(
     expression: &str,
     arguments: &UncertaintyArguments,
     fallback_span: SourceSpan,
+    typed_bindings: &[TypedBinding],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     match distribution_kind(expression, arguments).as_str() {
-        "normal" => {
-            validate_normal_arguments("distribution", arguments, fallback_span, diagnostics)
-        }
-        "uniform" => {
-            validate_range_arguments("distribution", arguments, fallback_span, diagnostics)
-        }
+        "normal" => validate_normal_arguments(
+            "distribution",
+            arguments,
+            fallback_span,
+            typed_bindings,
+            diagnostics,
+        ),
+        "uniform" => validate_range_arguments(
+            "distribution",
+            arguments,
+            fallback_span,
+            typed_bindings,
+            diagnostics,
+        ),
         unsupported => diagnostics.push(uncertainty_diagnostic(
             "E-UNC-ARGS-003",
             named_argument_value(arguments, &["kind", "distribution"])
@@ -416,12 +520,13 @@ fn validate_normal_arguments(
     call: &str,
     arguments: &UncertaintyArguments,
     fallback_span: SourceSpan,
+    typed_bindings: &[TypedBinding],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let mean = named_argument_value(arguments, &["mean", "mu"])
         .or_else(|| positional_argument_value(arguments, 0));
     if mean
-        .and_then(|argument| numeric_prefix(argument.value))
+        .and_then(|argument| numeric_argument(argument.value, typed_bindings))
         .is_none()
     {
         diagnostics.push(uncertainty_diagnostic(
@@ -438,6 +543,7 @@ fn validate_normal_arguments(
         &["std", "sigma"],
         &format!("`{call}` standard deviation"),
         fallback_span,
+        typed_bindings,
         diagnostics,
     );
 }
@@ -446,19 +552,22 @@ fn validate_range_arguments(
     call: &str,
     arguments: &UncertaintyArguments,
     fallback_span: SourceSpan,
+    typed_bindings: &[TypedBinding],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let lower = named_argument_value(arguments, &["lower", "min"])
         .or_else(|| positional_argument_value(arguments, 0));
     let upper = named_argument_value(arguments, &["upper", "max"])
         .or_else(|| positional_argument_value(arguments, 1));
-    let lower_numeric = lower.and_then(|argument| numeric_prefix(argument.value));
-    let upper_numeric = upper.and_then(|argument| numeric_prefix(argument.value));
+    let lower_numeric = lower.and_then(|argument| numeric_argument(argument.value, typed_bindings));
+    let upper_numeric = upper.and_then(|argument| numeric_argument(argument.value, typed_bindings));
 
     let (Some(lower_numeric), Some(upper_numeric)) = (lower_numeric, upper_numeric) else {
         let invalid_span = lower
-            .filter(|argument| numeric_prefix(argument.value).is_none())
-            .or_else(|| upper.filter(|argument| numeric_prefix(argument.value).is_none()))
+            .filter(|argument| numeric_argument(argument.value, typed_bindings).is_none())
+            .or_else(|| {
+                upper.filter(|argument| numeric_argument(argument.value, typed_bindings).is_none())
+            })
             .map(|argument| argument.span);
         diagnostics.push(uncertainty_diagnostic(
             "E-UNC-ARGS-001",
@@ -470,22 +579,27 @@ fn validate_range_arguments(
         return;
     };
 
-    if lower_numeric > upper_numeric {
-        diagnostics.push(uncertainty_diagnostic(
-            "E-UNC-ARGS-002",
-            lower.map(|argument| argument.span),
-            fallback_span,
-            &format!(
-                "`{call}` lower bound {lower_numeric} is greater than upper bound {upper_numeric}."
-            ),
-            Some("Swap the bounds or correct the declared interval/range."),
-        ));
+    if let (NumericArgument::Literal(lower_numeric), NumericArgument::Literal(upper_numeric)) =
+        (lower_numeric, upper_numeric)
+    {
+        if lower_numeric > upper_numeric {
+            diagnostics.push(uncertainty_diagnostic(
+                "E-UNC-ARGS-002",
+                lower.map(|argument| argument.span),
+                fallback_span,
+                &format!(
+                    "`{call}` lower bound {lower_numeric} is greater than upper bound {upper_numeric}."
+                ),
+                Some("Swap the bounds or correct the declared interval/range."),
+            ));
+        }
     }
 }
 
 fn validate_propagation_arguments(
     arguments: &UncertaintyArguments,
     fallback_span: SourceSpan,
+    typed_bindings: &[TypedBinding],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     if let Some(method) = named_argument_value(arguments, &["method"]) {
@@ -509,6 +623,7 @@ fn validate_propagation_arguments(
         &["scale", "gain"],
         "`propagate` scale/gain",
         fallback_span,
+        typed_bindings,
         diagnostics,
     );
     validate_optional_numeric_value(
@@ -516,6 +631,7 @@ fn validate_propagation_arguments(
         &["offset", "bias"],
         "`propagate` offset/bias",
         fallback_span,
+        typed_bindings,
         diagnostics,
     );
 }
@@ -524,11 +640,21 @@ fn validate_sample_count_argument(
     call: &str,
     arguments: &UncertaintyArguments,
     fallback_span: SourceSpan,
+    typed_bindings: &[TypedBinding],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     if let Some(value) = named_argument_value(arguments, &["samples", "n"]) {
-        match value.value.trim().parse::<usize>() {
-            Ok(count) if (1..=256).contains(&count) => {}
+        match numeric_argument(value.value, typed_bindings) {
+            Some(NumericArgument::Literal(parsed))
+                if parsed.fract() == 0.0 && (1.0..=256.0).contains(&parsed) => {}
+            Some(NumericArgument::Dynamic)
+                if typed_bindings.iter().any(|binding| {
+                    binding.name == value.value.trim()
+                        && matches!(
+                            binding.semantic_type.quantity_kind.as_str(),
+                            "Int" | "Integer" | "Count"
+                        )
+                }) => {}
             _ => diagnostics.push(uncertainty_diagnostic(
                 "E-UNC-ARGS-002",
                 Some(value.span),
@@ -545,10 +671,13 @@ fn validate_required_non_negative_value(
     names: &[&str],
     label: &str,
     fallback_span: SourceSpan,
+    typed_bindings: &[TypedBinding],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     match named_argument_value(arguments, names) {
-        Some(value) => validate_non_negative_value(value, label, fallback_span, diagnostics),
+        Some(value) => {
+            validate_non_negative_value(value, label, fallback_span, typed_bindings, diagnostics)
+        }
         None => diagnostics.push(uncertainty_diagnostic(
             "E-UNC-ARGS-001",
             None,
@@ -564,10 +693,11 @@ fn validate_optional_non_negative_value(
     names: &[&str],
     label: &str,
     fallback_span: SourceSpan,
+    typed_bindings: &[TypedBinding],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     if let Some(value) = named_argument_value(arguments, names) {
-        validate_non_negative_value(value, label, fallback_span, diagnostics);
+        validate_non_negative_value(value, label, fallback_span, typed_bindings, diagnostics);
     }
 }
 
@@ -575,11 +705,13 @@ fn validate_non_negative_value(
     value: UncertaintyArgumentValue<'_>,
     label: &str,
     fallback_span: SourceSpan,
+    typed_bindings: &[TypedBinding],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    match numeric_prefix(value.value) {
-        Some(parsed) if parsed >= 0.0 => {}
-        Some(parsed) => diagnostics.push(uncertainty_diagnostic(
+    match numeric_argument(value.value, typed_bindings) {
+        Some(NumericArgument::Dynamic) => {}
+        Some(NumericArgument::Literal(parsed)) if parsed >= 0.0 => {}
+        Some(NumericArgument::Literal(parsed)) => diagnostics.push(uncertainty_diagnostic(
             "E-UNC-ARGS-002",
             Some(value.span),
             fallback_span,
@@ -601,10 +733,11 @@ fn validate_optional_numeric_value(
     names: &[&str],
     label: &str,
     fallback_span: SourceSpan,
+    typed_bindings: &[TypedBinding],
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     if let Some(value) = named_argument_value(arguments, names) {
-        if numeric_prefix(value.value).is_none() {
+        if numeric_argument(value.value, typed_bindings).is_none() {
             diagnostics.push(uncertainty_diagnostic(
                 "E-UNC-ARGS-002",
                 Some(value.span),
@@ -614,6 +747,31 @@ fn validate_optional_numeric_value(
             ));
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum NumericArgument {
+    Literal(f64),
+    Dynamic,
+}
+
+fn numeric_argument(value: &str, typed_bindings: &[TypedBinding]) -> Option<NumericArgument> {
+    if let Some(parsed) = numeric_prefix(value) {
+        return Some(NumericArgument::Literal(parsed));
+    }
+
+    let binding = typed_bindings
+        .iter()
+        .find(|binding| binding.name == value.trim())?;
+    let quantity_kind = binding.semantic_type.quantity_kind.as_str();
+    let is_numeric_primitive = matches!(
+        quantity_kind,
+        "Int" | "Integer" | "Count" | "Float" | "Number"
+    );
+    let is_quantity = all_quantity_completions()
+        .iter()
+        .any(|quantity| quantity.quantity_kind == quantity_kind);
+    (is_numeric_primitive || is_quantity).then_some(NumericArgument::Dynamic)
 }
 
 fn uncertainty_call_name(expression: &str) -> Option<&'static str> {
@@ -668,9 +826,8 @@ fn measured_info(
     typed_bindings: &[TypedBinding],
     arguments: &UncertaintyArguments,
 ) -> UncertaintyInfo {
-    let display_unit =
-        first_unit_in_expression(&binding.expression).unwrap_or_else(|| "1".to_owned());
-    let quantity_kind = infer_quantity(&binding.name, &binding.expression, &display_unit);
+    let argument_type = direct_typed_argument(arguments, &[], 0, typed_bindings);
+    let (quantity_kind, display_unit) = constructor_quantity_and_unit(binding, argument_type);
     let source = first_argument(arguments);
     let source_span = uncertainty_source_span(binding, arguments, source.as_deref());
     UncertaintyInfo {
@@ -705,9 +862,8 @@ fn interval_info(
     typed_bindings: &[TypedBinding],
     arguments: &UncertaintyArguments,
 ) -> UncertaintyInfo {
-    let display_unit =
-        first_unit_in_expression(&binding.expression).unwrap_or_else(|| "1".to_owned());
-    let quantity_kind = infer_quantity(&binding.name, &binding.expression, &display_unit);
+    let argument_type = direct_typed_argument(arguments, &["lower", "min"], 0, typed_bindings);
+    let (quantity_kind, display_unit) = constructor_quantity_and_unit(binding, argument_type);
     let values = values_with_unit(arguments);
     let lower = named_value(arguments, &["lower", "min"]).or_else(|| values.first().cloned());
     let upper = named_value(arguments, &["upper", "max"]).or_else(|| values.get(1).cloned());
@@ -745,10 +901,13 @@ fn distribution_info(
     typed_bindings: &[TypedBinding],
     arguments: &UncertaintyArguments,
 ) -> UncertaintyInfo {
-    let display_unit =
-        first_unit_in_expression(&binding.expression).unwrap_or_else(|| "1".to_owned());
-    let quantity_kind = infer_quantity(&binding.name, &binding.expression, &display_unit);
     let distribution = distribution_kind(&binding.expression, arguments);
+    let argument_type = if distribution == "uniform" {
+        direct_typed_argument(arguments, &["lower", "min"], 0, typed_bindings)
+    } else {
+        direct_typed_argument(arguments, &["mean", "mu"], 0, typed_bindings)
+    };
+    let (quantity_kind, display_unit) = constructor_quantity_and_unit(binding, argument_type);
     let values = values_with_unit(arguments);
     let lower = named_value(arguments, &["lower", "min"]).or_else(|| values.first().cloned());
     let upper = named_value(arguments, &["upper", "max"]).or_else(|| values.get(1).cloned());
@@ -1007,6 +1166,44 @@ fn infer_quantity(name: &str, expression: &str, unit: &str) -> String {
         return "HeatRate".to_owned();
     }
     "DimensionlessNumber".to_owned()
+}
+
+fn direct_typed_argument<'a>(
+    arguments: &UncertaintyArguments,
+    names: &[&str],
+    positional_index: usize,
+    typed_bindings: &'a [TypedBinding],
+) -> Option<&'a TypedBinding> {
+    let value = named_argument_value(arguments, names)
+        .or_else(|| positional_argument_value(arguments, positional_index))?
+        .value
+        .trim();
+    typed_bindings.iter().find(|binding| binding.name == value)
+}
+
+fn constructor_quantity_and_unit(
+    binding: &FastBinding,
+    argument_type: Option<&TypedBinding>,
+) -> (String, String) {
+    if let Some(argument_type) = argument_type {
+        let quantity_kind = match argument_type.semantic_type.quantity_kind.as_str() {
+            "Int" | "Integer" | "Count" | "Float" | "Number" => "DimensionlessNumber".to_owned(),
+            quantity_kind => quantity_kind.to_owned(),
+        };
+        let display_unit = if argument_type.semantic_type.display_unit.is_empty() {
+            "1".to_owned()
+        } else {
+            argument_type.semantic_type.display_unit.clone()
+        };
+        return (quantity_kind, display_unit);
+    }
+    if let Some(display_unit) = first_unit_in_expression(&binding.expression) {
+        let quantity_kind = infer_quantity(&binding.name, &binding.expression, &display_unit);
+        return (quantity_kind, display_unit);
+    }
+    let display_unit = "1".to_owned();
+    let quantity_kind = infer_quantity(&binding.name, &binding.expression, &display_unit);
+    (quantity_kind, display_unit)
 }
 
 fn display_unit_for_binding(
@@ -1330,6 +1527,8 @@ fn call_inside(expression: &str) -> Option<&str> {
 
 fn expression_mentions_identifier(expression: &str, identifier: &str) -> bool {
     expression
-        .split(|character: char| !(character.is_ascii_alphanumeric() || character == '_'))
+        .split(|character: char| {
+            !(character.is_ascii_alphanumeric() || character == '_' || character == '.')
+        })
         .any(|token| token == identifier)
 }

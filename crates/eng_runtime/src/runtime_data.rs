@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, format_gregorian_date, normalize_unit,
-    parse_percentile_fraction, rmse_operands, timeseries_statistic_operands, CheckReport,
-    SchemaColumn, SchemaInfo, BEHAVIOR_GRAPH_EXECUTED, BEHAVIOR_GRAPH_NOT_EXECUTED,
+    parse_numeric_literal, parse_percentile_fraction, rmse_operands, timeseries_statistic_operands,
+    CheckReport, SchemaColumn, SchemaInfo, BEHAVIOR_GRAPH_EXECUTED, BEHAVIOR_GRAPH_NOT_EXECUTED,
     BEHAVIOR_IDENTITY_RUNTIME, BEHAVIOR_RELATIONSHIP_EXECUTED,
     BEHAVIOR_RUNTIME_DIAGNOSTICS_AVAILABLE, BEHAVIOR_SOLUTION_NOT_EXECUTED,
     BEHAVIOR_STATUS_DECLARED, BEHAVIOR_STATUS_EXECUTED, BEHAVIOR_STATUS_NOT_DECLARED,
@@ -10518,7 +10518,7 @@ fn runtime_date_integer(
 fn materialize_deterministic_scalars(
     report: &CheckReport,
 ) -> HashMap<String, RuntimeDeterministicScalar> {
-    let mut scalars: HashMap<String, RuntimeDeterministicScalar> = HashMap::new();
+    let mut scalars = materialize_numeric_arg_scalars(report);
     for binding in &report.semantic_program.typed_bindings {
         if !runtime_numeric_binding(report, binding)
             || report
@@ -10578,6 +10578,48 @@ fn materialize_deterministic_scalars(
         );
     }
     scalars
+}
+
+fn materialize_numeric_arg_scalars(
+    report: &CheckReport,
+) -> HashMap<String, RuntimeDeterministicScalar> {
+    report
+        .semantic_program
+        .arg_values
+        .iter()
+        .filter(|arg| !arg.redacted)
+        .filter_map(|arg| {
+            let (quantity_kind, display_unit) = if all_quantity_completions()
+                .iter()
+                .any(|quantity| quantity.quantity_kind == arg.type_name)
+            {
+                (arg.type_name.clone(), arg.display_unit.clone())
+            } else if matches!(
+                arg.type_name.as_str(),
+                "Int" | "Integer" | "Count" | "Float" | "Number"
+            ) {
+                ("DimensionlessNumber".to_owned(), "1".to_owned())
+            } else {
+                return None;
+            };
+            let canonical_unit = canonical_unit_for_quantity(&quantity_kind)?;
+            let (value, parsed_unit) = parse_numeric_literal(&arg.value)?;
+            let source_unit = parsed_unit
+                .as_deref()
+                .or_else(|| (!display_unit.is_empty()).then_some(display_unit.as_str()));
+            let canonical_value =
+                runtime_arithmetic_literal_to_canonical(value, source_unit).ok()?;
+            Some((
+                format!("args.{}", arg.name),
+                RuntimeDeterministicScalar {
+                    canonical_value,
+                    quantity_kind,
+                    display_unit,
+                    canonical_unit,
+                },
+            ))
+        })
+        .collect()
 }
 
 fn runtime_scalar_binding_expression<'a>(
@@ -10849,29 +10891,60 @@ fn materialize_uncertainty(
     prior: &[RuntimeUncertainty],
     deterministic_scalars: &HashMap<String, RuntimeDeterministicScalar>,
 ) -> RuntimeUncertainty {
-    let declared_mean = info
-        .mean
+    let declared_mean = info.mean.as_deref().and_then(|value| {
+        uncertainty_argument_in_display_unit(
+            value,
+            &info.display_unit,
+            false,
+            deterministic_scalars,
+        )
+    });
+    let declared_error_fraction = info
+        .error
         .as_deref()
-        .and_then(|value| uncertainty_value_in_display_unit(value, &info.display_unit, false));
-    let declared_error_fraction = info.error.as_deref().and_then(relative_error_fraction);
+        .and_then(|value| relative_error_fraction(value, deterministic_scalars));
     let declared_stddev = info
         .stddev
         .as_deref()
-        .and_then(|value| uncertainty_value_in_display_unit(value, &info.display_unit, true))
+        .and_then(|value| {
+            uncertainty_argument_in_display_unit(
+                value,
+                &info.display_unit,
+                true,
+                deterministic_scalars,
+            )
+        })
         .or_else(|| {
             declared_mean
                 .zip(declared_error_fraction)
                 .map(|(mean, error)| mean.abs() * error)
         });
-    let declared_lower = info
-        .lower
-        .as_deref()
-        .and_then(|value| uncertainty_value_in_display_unit(value, &info.display_unit, false));
-    let declared_upper = info
-        .upper
-        .as_deref()
-        .and_then(|value| uncertainty_value_in_display_unit(value, &info.display_unit, false));
-    let requested_count = info.sample_count.clamp(1, 256);
+    let declared_lower = info.lower.as_deref().and_then(|value| {
+        uncertainty_argument_in_display_unit(
+            value,
+            &info.display_unit,
+            false,
+            deterministic_scalars,
+        )
+    });
+    let declared_upper = info.upper.as_deref().and_then(|value| {
+        uncertainty_argument_in_display_unit(
+            value,
+            &info.display_unit,
+            false,
+            deterministic_scalars,
+        )
+    });
+    let sample_argument = info
+        .named_arguments
+        .iter()
+        .find(|argument| matches!(argument.name.as_str(), "samples" | "n"));
+    let resolved_sample_count = sample_argument
+        .map(|argument| uncertainty_sample_count(&argument.value, deterministic_scalars))
+        .unwrap_or(Some(info.sample_count));
+    let requested_count = resolved_sample_count
+        .unwrap_or(info.sample_count)
+        .clamp(1, 256);
     let distribution = info
         .distribution
         .clone()
@@ -10892,13 +10965,50 @@ fn materialize_uncertainty(
     let scale = info
         .scale
         .as_deref()
-        .and_then(first_numeric_value)
+        .and_then(|value| dimensionless_argument_value(value, deterministic_scalars))
         .unwrap_or(1.0);
     let offset = info
         .offset
         .as_deref()
-        .and_then(|value| uncertainty_value_in_display_unit(value, &info.display_unit, true))
+        .and_then(|value| {
+            uncertainty_argument_in_display_unit(
+                value,
+                &info.display_unit,
+                true,
+                deterministic_scalars,
+            )
+        })
         .unwrap_or(0.0);
+    let required_argument_missing = match (info.kind.as_str(), distribution.as_str()) {
+        ("Measured", _) => info.mean.is_none(),
+        ("Interval", _) | ("Distribution", "uniform") => {
+            info.lower.is_none() || info.upper.is_none()
+        }
+        ("Distribution", _) if !is_propagation => info.mean.is_none() || info.stddev.is_none(),
+        _ => false,
+    };
+    let argument_unresolved = !is_arithmetic_derivation
+        && (required_argument_missing
+            || info.mean.is_some() && declared_mean.is_none()
+            || info.stddev.is_some() && declared_stddev.is_none()
+            || info.error.is_some() && declared_error_fraction.is_none()
+            || info.lower.is_some() && declared_lower.is_none()
+            || info.upper.is_some() && declared_upper.is_none()
+            || info.scale.is_some()
+                && dimensionless_argument_value(
+                    info.scale.as_deref().unwrap_or_default(),
+                    deterministic_scalars,
+                )
+                .is_none()
+            || info.offset.is_some()
+                && uncertainty_argument_in_display_unit(
+                    info.offset.as_deref().unwrap_or_default(),
+                    &info.display_unit,
+                    true,
+                    deterministic_scalars,
+                )
+                .is_none()
+            || sample_argument.is_some() && resolved_sample_count.is_none());
     let source_missing = if is_arithmetic_derivation {
         info.propagation.iter().any(|term| {
             !prior
@@ -10919,6 +11029,7 @@ fn materialize_uncertainty(
         .map(|propagation| propagation.status.clone());
 
     let mut samples = match info.kind.as_str() {
+        _ if argument_unresolved => Vec::new(),
         _ if is_arithmetic_derivation && source_missing => Vec::new(),
         _ if is_arithmetic_derivation => arithmetic_propagation
             .as_ref()
@@ -10958,7 +11069,7 @@ fn materialize_uncertainty(
     };
     let arithmetic_evaluation_unavailable =
         is_arithmetic_derivation && !source_missing && samples.is_empty();
-    if samples.is_empty() {
+    if samples.is_empty() && !argument_unresolved && !arithmetic_evaluation_unavailable {
         samples.push(declared_mean.unwrap_or(0.0));
     }
     let summary = sample_summary(&samples);
@@ -10999,6 +11110,8 @@ fn materialize_uncertainty(
         samples,
         status: if source_missing {
             "source_unresolved".to_owned()
+        } else if argument_unresolved {
+            "argument_unresolved".to_owned()
         } else if arithmetic_evaluation_unavailable {
             "arithmetic_evaluation_unavailable".to_owned()
         } else if is_arithmetic_derivation {
@@ -21843,7 +21956,52 @@ fn uncertainty_value_in_display_unit(text: &str, display_unit: &str, delta: bool
     }
 }
 
-fn relative_error_fraction(text: &str) -> Option<f64> {
+fn uncertainty_argument_in_display_unit(
+    text: &str,
+    display_unit: &str,
+    delta: bool,
+    deterministic_scalars: &HashMap<String, RuntimeDeterministicScalar>,
+) -> Option<f64> {
+    if let Some(scalar) = deterministic_scalars.get(text.trim()) {
+        return if delta {
+            try_convert_delta_display_value(
+                scalar.canonical_value,
+                &scalar.canonical_unit,
+                display_unit,
+            )
+        } else {
+            try_convert_display_value(scalar.canonical_value, &scalar.canonical_unit, display_unit)
+        };
+    }
+    uncertainty_value_in_display_unit(text, display_unit, delta)
+}
+
+fn dimensionless_argument_value(
+    text: &str,
+    deterministic_scalars: &HashMap<String, RuntimeDeterministicScalar>,
+) -> Option<f64> {
+    deterministic_scalars
+        .get(text.trim())
+        .map(|scalar| scalar.canonical_value)
+        .or_else(|| first_numeric_value(text))
+}
+
+fn uncertainty_sample_count(
+    text: &str,
+    deterministic_scalars: &HashMap<String, RuntimeDeterministicScalar>,
+) -> Option<usize> {
+    let value = dimensionless_argument_value(text, deterministic_scalars)?;
+    (value.is_finite() && value.fract() == 0.0 && (1.0..=256.0).contains(&value))
+        .then_some(value as usize)
+}
+
+fn relative_error_fraction(
+    text: &str,
+    deterministic_scalars: &HashMap<String, RuntimeDeterministicScalar>,
+) -> Option<f64> {
+    if let Some(scalar) = deterministic_scalars.get(text.trim()) {
+        return Some(scalar.canonical_value);
+    }
     let value = first_numeric_value(text)?;
     if text.contains('%') {
         Some(value / 100.0)

@@ -149,10 +149,11 @@
   "$defs": {
     "argValue": {
       "type": "object",
-      "required": ["name", "type", "value", "source", "required", "line"],
+      "required": ["name", "type", "display_unit", "value", "source", "required", "line"],
       "properties": {
         "name": { "type": "string" },
         "type": { "type": "string" },
+        "display_unit": { "type": "string" },
         "value": { "type": "string" },
         "source": { "enum": ["default", "cli"] },
         "required": { "type": "boolean" },

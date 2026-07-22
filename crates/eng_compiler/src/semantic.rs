@@ -650,6 +650,8 @@ pub struct ArgsFieldInfo {
     pub span: SourceSpan,
     pub type_name: String,
     pub type_span: SourceSpan,
+    pub display_unit: String,
+    pub unit_span: Option<SourceSpan>,
     pub default_value: Option<String>,
     pub default_value_span: Option<SourceSpan>,
     pub redacted: bool,
@@ -661,6 +663,7 @@ pub struct ArgsFieldInfo {
 pub struct ArgValueInfo {
     pub name: String,
     pub type_name: String,
+    pub display_unit: String,
     pub value: String,
     pub redacted: bool,
     pub source: String,
@@ -7988,10 +7991,11 @@ fn analyze_format_fields(
                 continue;
             }
         }
-        if let Some(semantic_type) = resolve_format_expression_type(
+        if let Some(semantic_type) = resolve_format_expression_type_with_args(
             expression,
             type_context.typed_bindings,
             type_context.functions,
+            type_context.args_blocks,
         ) {
             if let Some(unit) = &format_spec.unit {
                 validate_requested_unit(
@@ -8146,7 +8150,19 @@ fn resolve_format_expression_type(
     typed_bindings: &[TypedBinding],
     functions: &[FunctionInfo],
 ) -> Option<SemanticType> {
+    resolve_format_expression_type_with_args(expression, typed_bindings, functions, &[])
+}
+
+fn resolve_format_expression_type_with_args(
+    expression: &str,
+    typed_bindings: &[TypedBinding],
+    functions: &[FunctionInfo],
+    args_blocks: &[ArgsBlockInfo],
+) -> Option<SemanticType> {
     let expression = expression.trim();
+    if let Some(semantic_type) = args_field_semantic_type(expression, args_blocks) {
+        return Some(semantic_type);
+    }
     if expression.starts_with("args.") {
         return semantic_type("String", "");
     }
@@ -8202,6 +8218,24 @@ fn resolve_format_expression_type(
         .iter()
         .find(|binding| binding.name == expression)
         .map(|binding| binding.semantic_type.clone())
+}
+
+fn args_field_semantic_type(
+    expression: &str,
+    args_blocks: &[ArgsBlockInfo],
+) -> Option<SemanticType> {
+    let field_name = expression.trim().strip_prefix("args.")?.trim();
+    if field_name.is_empty() || field_name.contains('.') {
+        return None;
+    }
+    args_blocks
+        .iter()
+        .flat_map(|args_block| &args_block.fields)
+        .find(|field| field.name == field_name)
+        .map(|field| SemanticType {
+            quantity_kind: field.type_name.clone(),
+            display_unit: field.display_unit.clone(),
+        })
 }
 
 fn is_materialized_table_quantity_kind(quantity_kind: &str) -> bool {
@@ -10172,7 +10206,7 @@ fn unit_is_supported(unit: &str) -> bool {
     !candidates_for_unit(unit).is_empty()
 }
 
-fn unit_compatible_with_quantity(quantity_kind: &str, unit: &str) -> bool {
+pub(crate) fn unit_compatible_with_quantity(quantity_kind: &str, unit: &str) -> bool {
     let quantity_kind = scalar_quantity_kind(quantity_kind);
     candidates_for_unit(unit).iter().any(|candidate| {
         candidate.quantity_kind == quantity_kind.as_str()
@@ -10243,6 +10277,27 @@ fn analyze_args_field(
     args_block: &mut ArgsBlockInfo,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
+    let display_unit = field.unit.clone().unwrap_or_else(|| {
+        if crate::quantities::all_quantity_completions()
+            .iter()
+            .any(|quantity| quantity.quantity_kind == field.type_name)
+        {
+            default_unit_for_quantity(&field.type_name)
+        } else {
+            default_unit_for_type(&field.type_name)
+        }
+    });
+    if let Some(unit) = field.unit.as_deref() {
+        validate_requested_unit(
+            &format!("Args field `{}`", field.name),
+            &field.type_name,
+            unit,
+            field.line,
+            "E-ARGS-UNIT-001",
+            field.unit_span,
+            diagnostics,
+        );
+    }
     if let (Some(default_value), Some(default_value_span)) =
         (&field.default_value, field.default_value_span)
     {
@@ -10267,6 +10322,8 @@ fn analyze_args_field(
         span: field.span,
         type_name: field.type_name.clone(),
         type_span: field.type_span,
+        display_unit,
+        unit_span: field.unit_span,
         default_value: field.default_value.clone(),
         default_value_span: field.default_value_span,
         redacted: secret_type_inner(&field.type_name).is_some(),
@@ -11710,7 +11767,9 @@ fn tokenize_component_parameter_expression(
             _ if is_identifier_start_character(character) => {
                 let start = index;
                 index += 1;
-                while index < chars.len() && is_identifier_continue_character(chars[index]) {
+                while index < chars.len()
+                    && (is_identifier_continue_character(chars[index]) || chars[index] == '.')
+                {
                     index += 1;
                 }
                 let name = chars[start..index].iter().collect::<String>();
@@ -16829,7 +16888,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
     if let Some(diagnostic) = crate::uncertainty::source_diagnostic(binding, &available_bindings) {
         accum.diagnostics.push(diagnostic);
     }
-    for diagnostic in crate::uncertainty::argument_diagnostics(binding) {
+    for diagnostic in crate::uncertainty::argument_diagnostics(binding, &available_bindings) {
         accum.diagnostics.push(diagnostic);
     }
     let uncertainty = crate::uncertainty::uncertainty_info(binding, &available_bindings);
@@ -16924,6 +16983,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         .or_else(|| db_connection_field_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| model_artifact_field_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| table_metadata_field_semantic_type(&binding.expression, &available_bindings))
+        .or_else(|| args_field_semantic_type(&binding.expression, accum.args_blocks))
         .or_else(|| binding_alias_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| {
             scalar_arithmetic_semantic_type(
@@ -17007,6 +17067,30 @@ impl SemanticAccum<'_> {
     fn available_bindings(&self) -> Vec<TypedBinding> {
         let mut bindings = self.typed_bindings.clone();
         bindings.extend(self.scoped_bindings.clone());
+        bindings.extend(self.args_blocks.iter().flat_map(|args_block| {
+            args_block
+                .fields
+                .iter()
+                .filter(|field| {
+                    crate::quantities::all_quantity_completions()
+                        .iter()
+                        .any(|quantity| quantity.quantity_kind == field.type_name)
+                        || matches!(
+                            field.type_name.as_str(),
+                            "Int" | "Integer" | "Count" | "Float" | "Number"
+                        )
+                })
+                .map(|field| TypedBinding {
+                    name: format!("args.{}", field.name),
+                    semantic_type: SemanticType {
+                        quantity_kind: field.type_name.clone(),
+                        display_unit: field.display_unit.clone(),
+                    },
+                    is_top_level: true,
+                    line: field.line,
+                    span: field.span,
+                })
+        }));
         bindings
     }
 }

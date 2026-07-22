@@ -242,6 +242,7 @@ pub struct ReportArgsBlock {
 pub struct ReportArgsField {
     pub name: String,
     pub type_name: String,
+    pub display_unit: String,
     pub default_value: Option<String>,
     pub required: bool,
     pub line: usize,
@@ -251,6 +252,7 @@ pub struct ReportArgsField {
 pub struct ReportArgValue {
     pub name: String,
     pub type_name: String,
+    pub display_unit: String,
     pub value: String,
     pub source: String,
     pub required: bool,
@@ -1322,6 +1324,7 @@ pub fn report_spec_from_report(
                 .map(|field| ReportArgsField {
                     name: field.name.clone(),
                     type_name: field.type_name.clone(),
+                    display_unit: field.display_unit.clone(),
                     default_value: field.default_value.clone(),
                     required: field.required,
                     line: field.line,
@@ -1337,6 +1340,7 @@ pub fn report_spec_from_report(
         .map(|arg| ReportArgValue {
             name: arg.name.clone(),
             type_name: arg.type_name.clone(),
+            display_unit: arg.display_unit.clone(),
             value: arg.value.clone(),
             source: arg.source.clone(),
             required: arg.required,
@@ -3028,6 +3032,10 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
                 "          \"type\": \"{}\",\n",
                 json_escape(&field.type_name)
             ));
+            json.push_str(&format!(
+                "          \"display_unit\": \"{}\",\n",
+                json_escape(&field.display_unit)
+            ));
             if let Some(default_value) = &field.default_value {
                 json.push_str(&format!(
                     "          \"default\": \"{}\",\n",
@@ -3058,6 +3066,10 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
         json.push_str(&format!(
             "      \"type\": \"{}\",\n",
             json_escape(&arg.type_name)
+        ));
+        json.push_str(&format!(
+            "      \"display_unit\": \"{}\",\n",
+            json_escape(&arg.display_unit)
         ));
         json.push_str(&format!(
             "      \"value\": \"{}\",\n",

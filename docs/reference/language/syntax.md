@@ -230,6 +230,8 @@ args {
     count: Count = 3
     gain: Float = 1.0
     window: Duration = 10 min
+    power: HeatRate [kW] = 5 kW
+    ambient: AbsoluteTemperature [degC] = 20 degC
 }
 ```
 
@@ -245,9 +247,14 @@ Supported argument types include:
 | `Int` / `Integer` / `Count` | `3` | `--count 12` |
 | `Float` / `Number` | `1.0` | `--gain 1.25` |
 | `Duration` | `10 min` | `--window 30 s` |
+| Registry quantity | `5 kW` | `--power "750 W"` |
 
 Runtime records the final bound value and whether it came from the default or
-CLI override. `Secret[T]` values are recorded as `<redacted>` with
+CLI override, together with its display unit. Compatible quantity literals are
+converted to the declared `[unit]`; quantity Args can be used directly in
+native scalar expressions, format fields, and uncertainty constructors. A bare
+physical quantity CLI value is accepted only when the field declares an
+explicit `[unit]`. `Secret[T]` values are recorded as `<redacted>` with
 `redacted: true`; the inner `T` controls argument normalization.
 
 ## Path Helpers And Exists

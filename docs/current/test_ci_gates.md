@@ -64,6 +64,10 @@ Current coverage is split across compiler tests and example artifact smoke:
   policy diagnostics are covered by compiler tests in
   `crates/eng_compiler/src/lib.rs` and the diagnostic examples under
   `examples/diagnostics/error_messages`.
+- Quantity Args coverage checks compatible-unit CLI conversion, affine
+  temperature conversion, ratio normalization, resolved uncertainty
+  constraints, native scalar use, formatting, dynamic sampling, artifact
+  `display_unit` fields, and LSP unit tokens/Outline details.
 - Runtime and artifact evidence is covered by
   `examples/internal/04_uncertainty_core/main.eng` and
   `examples/workflows/03_uncertain_sensor_report/main.eng` in

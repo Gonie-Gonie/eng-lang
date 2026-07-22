@@ -364,8 +364,9 @@ sensor = promote csv args.input as SensorData
 ```
 
 The runtime result, report spec, and review objects record `arg_values` with
-`source = default` or `source = cli`. With `--save-artifacts`, the same values
-are written to `review.json`, `report_spec.json`, and `result.engres`.
+`source = default` or `source = cli` and a `display_unit` field. With
+`--save-artifacts`, the same values are written to `review.json`,
+`report_spec.json`, and `result.engres`.
 
 Path helpers are available for CLI-bound path values:
 
@@ -379,7 +380,7 @@ input_name = stem(args.input)
 is recorded in `review.json` as `environment_dependencies` and in
 `result.engres` / `report_spec.json` under `provenance.environment_dependencies`.
 
-Primitive typed Args are normalized before they are recorded:
+Typed Args are normalized before they are recorded:
 
 ```text
 String/Path/FilePath/CsvFile/JsonFile/TomlFile/TextFile/ReportFile/PlotFile/DirectoryPath  string/path value
@@ -388,6 +389,7 @@ Int/Integer          signed whole number
 Count/usize/u32/u64  non-negative whole number
 Float/Number         finite numeric value
 Duration             s, min, h normalized to seconds
+Registry quantity    compatible unit literal normalized to the field display unit
 ```
 
 Example:
@@ -398,15 +400,19 @@ args {
     count: Count = 3
     gain: Float = 1.0
     window: Duration = 5 min
+    power: HeatRate [kW] = 5 kW
+    ambient: AbsoluteTemperature [degC] = 20 degC
 }
 ```
 
 ```bat
-target\debug\eng.exe run model.eng --enabled yes --count 12 --gain 1.25 --window "10 min"
+target\debug\eng.exe run model.eng --enabled yes --count 12 --gain 1.25 --window "10 min" --power "750 W" --ambient "293.15 K"
 ```
 
 The recorded values are `enabled=true`, `count=12`, `gain=1.25`, and
-`window=600 s`. Invalid typed values produce `E-ARGS-TYPE-001`.
+`window=600 s`, `power=0.75 kW`, and `ambient=20 degC`. Quantity Args are
+numeric in scalar expressions and format fields; uncertainty constructors can
+also use them directly. Invalid typed values produce `E-ARGS-TYPE-001`.
 
 ## Simple System Example
 

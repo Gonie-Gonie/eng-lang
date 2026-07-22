@@ -3375,6 +3375,9 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         for field in &args_block.fields {
             builder.push_named_span(field.span, &field.name, "parameter", &["declaration"]);
             builder.push_type_identifiers_within_span(field.type_span, &field.type_name, &[]);
+            if let Some(unit_span) = field.unit_span {
+                builder.push_atomic_named_span(unit_span, &field.display_unit, "type", &["unit"]);
+            }
         }
     }
 
@@ -5104,7 +5107,11 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
                 make_document_symbol_at_span(
                     &lines,
                     field.name.clone(),
-                    field.type_name.clone(),
+                    if field.display_unit.is_empty() {
+                        field.type_name.clone()
+                    } else {
+                        format!("{} [{}]", field.type_name, field.display_unit)
+                    },
                     SYMBOL_KIND_TYPE_PARAMETER,
                     field.span,
                     Vec::new(),
@@ -18917,6 +18924,61 @@ custom = calibrate(args.input, split=args.output)
         ] {
             assert_no_semantic_token_on_line_type(&snapshot, source, line, label, "keyword");
         }
+    }
+
+    #[test]
+    fn snapshot_exposes_quantity_args_units_and_native_expression_types() {
+        let source = r#"args {
+    power: HeatRate [kW] = 5 kW
+    sigma: HeatRate [W] = 200 W
+    samples: Count = 7
+}
+
+Q = args.power
+Q_unc = normal(mean=args.power, std=args.sigma, samples=args.samples)
+print "Q={args.power: .2 kW}"
+"#;
+        let snapshot = snapshot_for_source(Path::new("quantity_args.eng"), source);
+
+        assert!(
+            snapshot.diagnostics.is_empty(),
+            "quantity Args should type-check in native expressions: {:?}",
+            snapshot.diagnostics
+        );
+        for (line, unit) in [("power: HeatRate", "kW"), ("sigma: HeatRate", "W")] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, unit, "type", "unit",
+            );
+        }
+        assert_semantic_token_on_line_type(
+            &snapshot,
+            source,
+            "Q = args.power",
+            "power",
+            "property",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "print \"Q=",
+            "kW",
+            "type",
+            "unit",
+        );
+
+        let args = snapshot
+            .document_symbols
+            .iter()
+            .find(|symbol| symbol.name == "Args" && symbol.detail == "args")
+            .expect("Args Outline symbol");
+        assert!(args
+            .children
+            .iter()
+            .any(|field| field.name == "power" && field.detail == "HeatRate [kW]"));
+        assert!(args
+            .children
+            .iter()
+            .any(|field| field.name == "samples" && field.detail == "Count"));
     }
 
     #[test]

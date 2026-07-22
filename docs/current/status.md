@@ -39,8 +39,11 @@ workflow, and covered by the breaking-change policy.
 ### Core Language And Data Boundary
 
 - Top-level file execution without `script main`.
-- Root `args { ... }` for String/path/CsvFile/DirectoryPath and primitive
-  Bool/Int/Count/Float/Duration values.
+- Root `args { ... }` for String/path/CsvFile/DirectoryPath, primitive
+  Bool/Int/Count/Float values, and registry quantity values with optional
+  display-unit annotations. Compatible defaults and CLI overrides are
+  normalized into the declared display unit and execute in native scalar,
+  formatting, and uncertainty paths.
 - Fast `=` bindings, explicit quantity declarations, and `:=` rejection.
 - Native Gregorian `date(year, month, day)` values for Int literals,
   Int bindings, and Args Int fields, with leap-year/month-length diagnostics,
@@ -397,7 +400,7 @@ is not mistaken for public module support.
 ## Planned Tracks
 
 - General table derived-value execution, fill transforms, and arbitrary TimeSeries expression execution.
-- Quantity/unit-literal Args conversion and flag-only booleans.
+- Flag-only boolean Args syntax.
 - Multi-return functions, package/module imports, and full formatter policy.
 - Native composite workflow modules beyond the current pinned/live
   network/cache boundary,

@@ -2811,6 +2811,11 @@ pub fn check_source_with_import_overrides(
     semantic_output.semantic_program.config_promotions = schema_analysis.config_promotions;
     validate_db_read_schemas(&mut semantic_output);
     semantic_output.semantic_program.arg_values = arg_values;
+    semantic_output
+        .diagnostics
+        .extend(uncertainty::resolved_argument_diagnostics(
+            &semantic_output.semantic_program,
+        ));
     let table_analysis =
         table::analyze_table_transforms(&parsed, &semantic_output.semantic_program);
     semantic_output
@@ -3427,24 +3432,38 @@ fn resolve_arg_values(
             let redacted = semantic::secret_type_inner(&field.type_name).is_some();
             let value_type =
                 semantic::secret_type_inner(&field.type_name).unwrap_or(&field.type_name);
-            let value = match normalize_arg_value(value_type, &raw_value) {
+            let value = match normalize_arg_value(
+                value_type,
+                &field.display_unit,
+                field.unit_span.is_some(),
+                &raw_value,
+            ) {
                 Ok(value) => value,
                 Err(message) => {
-                    diagnostics.push(Diagnostic::error(
-                        "E-ARGS-TYPE-001",
-                        field.line,
-                        &format!(
-                            "Args field `{}` expects {}, but got `{}`.",
-                            field.name, field.type_name, raw_value
-                        ),
-                        Some(&message),
-                    ));
+                    let source_span = if source == "default" {
+                        field.default_value_span.unwrap_or(field.span)
+                    } else {
+                        field.span
+                    };
+                    diagnostics.push(
+                        Diagnostic::error(
+                            "E-ARGS-TYPE-001",
+                            field.line,
+                            &format!(
+                                "Args field `{}` expects {}, but got `{}`.",
+                                field.name, field.type_name, raw_value
+                            ),
+                            Some(&message),
+                        )
+                        .with_source_span(source_span),
+                    );
                     continue;
                 }
             };
             values.push(ArgValueInfo {
                 name: field.name.clone(),
                 type_name: field.type_name.clone(),
+                display_unit: field.display_unit.clone(),
                 value: if redacted {
                     "<redacted>".to_owned()
                 } else {
@@ -3472,7 +3491,12 @@ fn resolve_arg_values(
     (values, diagnostics)
 }
 
-fn normalize_arg_value(type_name: &str, value: &str) -> Result<String, String> {
+fn normalize_arg_value(
+    type_name: &str,
+    display_unit: &str,
+    has_explicit_unit: bool,
+    value: &str,
+) -> Result<String, String> {
     let stripped = strip_string_literal(value);
     let normalized_type = type_name.trim().to_ascii_lowercase();
     match normalized_type.as_str() {
@@ -3503,9 +3527,145 @@ fn normalize_arg_value(type_name: &str, value: &str) -> Result<String, String> {
                 Err("Use a finite numeric value.".to_owned())
             }
         }
-        "duration" => normalize_duration_arg(&stripped),
+        _ if all_quantity_completions()
+            .iter()
+            .any(|quantity| quantity.quantity_kind == type_name.trim()) =>
+        {
+            normalize_quantity_arg(type_name, display_unit, has_explicit_unit, &stripped)
+        }
         _ => Ok(stripped),
     }
+}
+
+fn normalize_quantity_arg(
+    type_name: &str,
+    display_unit: &str,
+    has_explicit_unit: bool,
+    value: &str,
+) -> Result<String, String> {
+    let (amount, source_unit) = parse_number_with_suffix(value).ok_or_else(|| {
+        format!(
+            "Use a finite {} value with a compatible unit.",
+            type_name.trim()
+        )
+    })?;
+    if !amount.is_finite() {
+        return Err("Use a finite numeric value.".to_owned());
+    }
+    if type_name.eq_ignore_ascii_case("Duration") && amount < 0.0 {
+        return Err("Use a non-negative finite duration.".to_owned());
+    }
+    let target_unit = if display_unit.trim().is_empty() {
+        all_quantity_completions()
+            .iter()
+            .find(|quantity| quantity.quantity_kind == type_name.trim())
+            .map(|quantity| quantity.canonical_unit)
+            .unwrap_or("1")
+    } else {
+        display_unit.trim()
+    };
+    let source_unit = match source_unit {
+        Some(unit) => unit,
+        None if has_explicit_unit
+            || normalize_unit(target_unit) == "1"
+            || type_name.eq_ignore_ascii_case("Duration") =>
+        {
+            target_unit
+        }
+        None => {
+            return Err(format!(
+                "Include a unit such as `{}`, or declare `{} [{}]` to make bare CLI values unambiguous.",
+                target_unit,
+                type_name.trim(),
+                target_unit
+            ));
+        }
+    };
+    if !quantity_arg_unit_compatible(type_name, source_unit) {
+        return Err(format!(
+            "Unit `{source_unit}` is not compatible with {}.",
+            type_name.trim()
+        ));
+    }
+    if !semantic::unit_compatible_with_quantity(type_name, target_unit) {
+        return Err(format!(
+            "Declared display unit `{target_unit}` is not compatible with {}.",
+            type_name.trim()
+        ));
+    }
+    let (source_scale, source_offset) = quantity_arg_unit_conversion(source_unit, type_name)?;
+    let (target_scale, target_offset) = quantity_arg_unit_conversion(target_unit, type_name)?;
+    let canonical = amount * source_scale + source_offset;
+    let normalized = (canonical - target_offset) / target_scale;
+    if !normalized.is_finite() {
+        return Err("The converted Args value is not finite.".to_owned());
+    }
+    let number = format_arg_number(normalized);
+    if normalize_unit(target_unit) == "1" {
+        Ok(number)
+    } else {
+        Ok(format!("{number} {target_unit}"))
+    }
+}
+
+fn quantity_arg_unit_compatible(type_name: &str, unit: &str) -> bool {
+    if type_name.eq_ignore_ascii_case("Duration")
+        && matches!(
+            normalize_unit(unit).as_str(),
+            "s" | "sec"
+                | "secs"
+                | "second"
+                | "seconds"
+                | "min"
+                | "mins"
+                | "minute"
+                | "minutes"
+                | "h"
+                | "hr"
+                | "hrs"
+                | "hour"
+                | "hours"
+        )
+    {
+        return true;
+    }
+    semantic::unit_compatible_with_quantity(type_name, unit)
+}
+
+fn quantity_arg_unit_conversion(unit: &str, type_name: &str) -> Result<(f64, f64), String> {
+    let normalized = normalize_unit(unit);
+    if normalized == "1" {
+        return Ok((1.0, 0.0));
+    }
+    let duration_scale = match normalized.as_str() {
+        "s" | "sec" | "secs" | "second" | "seconds" => Some(1.0),
+        "min" | "mins" | "minute" | "minutes" if type_name.eq_ignore_ascii_case("Duration") => {
+            Some(60.0)
+        }
+        "h" | "hr" | "hrs" | "hour" | "hours" if type_name.eq_ignore_ascii_case("Duration") => {
+            Some(3600.0)
+        }
+        _ => None,
+    };
+    if let Some(scale) = duration_scale {
+        return Ok((scale, 0.0));
+    }
+    let info = units::unit_info_for_symbol(unit)
+        .ok_or_else(|| format!("Unit `{unit}` is not in the built-in unit registry."))?;
+    let scale = info
+        .scale_to_canonical
+        .parse::<f64>()
+        .map_err(|_| format!("Unit `{unit}` has an invalid conversion scale."))?;
+    let offset = if type_name == "AbsoluteTemperature" {
+        info.affine_offset
+            .map(str::parse::<f64>)
+            .transpose()
+            .map_err(|_| format!("Unit `{unit}` has an invalid affine offset."))?
+            .unwrap_or(0.0)
+    } else {
+        0.0
+    };
+    Ok((scale, offset))
 }
 
 fn evaluate_arg_default(expression: &str, program: &SemanticProgram) -> Option<String> {
@@ -4242,21 +4402,6 @@ fn parse_bool_arg(value: &str) -> Option<String> {
     }
 }
 
-fn normalize_duration_arg(value: &str) -> Result<String, String> {
-    let (amount, unit) = parse_number_with_suffix(value)
-        .ok_or_else(|| "Use a duration such as `30 s`, `10 min`, or `1 h`.".to_owned())?;
-    if !amount.is_finite() || amount < 0.0 {
-        return Err("Use a non-negative finite duration.".to_owned());
-    }
-    let seconds = match unit.unwrap_or("s") {
-        "s" | "sec" | "secs" | "second" | "seconds" => amount,
-        "m" | "min" | "mins" | "minute" | "minutes" => amount * 60.0,
-        "h" | "hr" | "hrs" | "hour" | "hours" => amount * 3600.0,
-        _ => return Err("Supported duration units are s, min, and h.".to_owned()),
-    };
-    Ok(format!("{} s", format_arg_number(seconds)))
-}
-
 fn parse_number_with_suffix(value: &str) -> Option<(f64, Option<&str>)> {
     let trimmed = value.trim();
     let mut split_at = 0usize;
@@ -4793,6 +4938,10 @@ pub fn review_json(report: &CheckReport) -> String {
                 "          \"type\": \"{}\",\n",
                 json_escape(&field.type_name)
             ));
+            json.push_str(&format!(
+                "          \"display_unit\": \"{}\",\n",
+                json_escape(&field.display_unit)
+            ));
             if let Some(default_value) = &field.default_value {
                 let default_value = if field.redacted {
                     "<redacted>"
@@ -4829,6 +4978,10 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str(&format!(
             "      \"type\": \"{}\",\n",
             json_escape(&arg.type_name)
+        ));
+        json.push_str(&format!(
+            "      \"display_unit\": \"{}\",\n",
+            json_escape(&arg.display_unit)
         ));
         json.push_str(&format!(
             "      \"value\": \"{}\",\n",
@@ -17028,6 +17181,168 @@ bad_scheme = url("ftp://example.org/data")
         assert_eq!(value("count"), Some("12"));
         assert_eq!(value("gain"), Some("1.25"));
         assert_eq!(value("window"), Some("600 s"));
+    }
+
+    #[test]
+    fn resolves_quantity_args_and_exposes_them_to_native_expressions() {
+        let source = r#"args {
+    power: HeatRate [kW] = 5 kW
+    ambient: AbsoluteTemperature [degC] = 20 degC
+    efficiency: Ratio [1] = 80 %
+    samples: Count = 7
+}
+
+Q = args.power
+T = args.ambient
+eta = args.efficiency
+Q_unc = normal(mean=args.power, std=500 W, samples=args.samples)
+print "Q={args.power: .2 kW}"
+"#;
+        let report = check_source(
+            "quantity_args.eng",
+            source,
+            &CheckOptions {
+                args: vec![
+                    ArgOverride {
+                        name: "power".to_owned(),
+                        value: "750 W".to_owned(),
+                    },
+                    ArgOverride {
+                        name: "ambient".to_owned(),
+                        value: "293.15 K".to_owned(),
+                    },
+                    ArgOverride {
+                        name: "efficiency".to_owned(),
+                        value: "25%".to_owned(),
+                    },
+                    ArgOverride {
+                        name: "samples".to_owned(),
+                        value: "9".to_owned(),
+                    },
+                ],
+                ..CheckOptions::default()
+            },
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let value = |name: &str| {
+            report
+                .semantic_program
+                .arg_values
+                .iter()
+                .find(|value| value.name == name)
+                .map(|value| (value.value.as_str(), value.display_unit.as_str()))
+        };
+        assert_eq!(value("power"), Some(("0.75 kW", "kW")));
+        assert_eq!(value("ambient"), Some(("20 degC", "degC")));
+        assert_eq!(value("efficiency"), Some(("0.25", "1")));
+        assert_eq!(value("samples"), Some(("9", "")));
+
+        let inferred = |name: &str| {
+            report
+                .semantic_program
+                .typed_bindings
+                .iter()
+                .find(|binding| binding.name == name)
+                .map(|binding| {
+                    (
+                        binding.semantic_type.quantity_kind.as_str(),
+                        binding.semantic_type.display_unit.as_str(),
+                    )
+                })
+        };
+        assert_eq!(inferred("Q"), Some(("HeatRate", "kW")));
+        assert_eq!(inferred("T"), Some(("AbsoluteTemperature", "degC")));
+        assert_eq!(inferred("eta"), Some(("Ratio", "1")));
+        assert_eq!(inferred("Q_unc"), Some(("Distribution[HeatRate]", "kW")));
+        let uncertainty = report
+            .semantic_program
+            .uncertainty_infos
+            .iter()
+            .find(|info| info.binding == "Q_unc")
+            .expect("quantity Args uncertainty");
+        assert_eq!(uncertainty.mean.as_deref(), Some("args.power"));
+        assert_eq!(uncertainty.sample_count, 64);
+
+        let power_field = &report.semantic_program.args_blocks[0].fields[0];
+        let unit_span = power_field.unit_span.expect("Args field unit span");
+        assert_eq!(&source[unit_span.start..unit_span.end], "kW");
+    }
+
+    #[test]
+    fn rejects_incompatible_quantity_args_units_at_exact_spans() {
+        let source = "args {\n    power: HeatRate [m] = 1 m\n}\n";
+        let report = check_source("bad_quantity_args.eng", source, &CheckOptions::default());
+
+        let declaration = report
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-ARGS-UNIT-001")
+            .expect("Args declaration unit diagnostic");
+        let declaration_span = declaration.source_span.expect("declaration unit span");
+        assert_eq!(&source[declaration_span.start..declaration_span.end], "m");
+
+        let value = report
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "E-ARGS-TYPE-001")
+            .expect("Args value unit diagnostic");
+        let value_span = value.source_span.expect("default value span");
+        assert_eq!(&source[value_span.start..value_span.end], "1 m");
+    }
+
+    #[test]
+    fn rejects_resolved_args_that_violate_uncertainty_constraints() {
+        let source = r#"args {
+    sigma: HeatRate [W] = 100 W
+    relative_error: Ratio [1] = 1 %
+    samples: Count = 7
+}
+
+Q_unc = measured(5 kW, std=args.sigma, relative_error=args.relative_error, samples=args.samples)
+"#;
+        let report = check_source(
+            "bad_uncertainty_args.eng",
+            source,
+            &CheckOptions {
+                args: vec![
+                    ArgOverride {
+                        name: "sigma".to_owned(),
+                        value: "-100 W".to_owned(),
+                    },
+                    ArgOverride {
+                        name: "relative_error".to_owned(),
+                        value: "-5%".to_owned(),
+                    },
+                    ArgOverride {
+                        name: "samples".to_owned(),
+                        value: "300".to_owned(),
+                    },
+                ],
+                ..CheckOptions::default()
+            },
+        );
+
+        let diagnostics = report
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "E-UNC-ARGS-002")
+            .collect::<Vec<_>>();
+        assert_eq!(diagnostics.len(), 3, "{:?}", report.diagnostics);
+        let mut underlined = diagnostics
+            .iter()
+            .map(|diagnostic| {
+                let span = diagnostic
+                    .source_span
+                    .expect("resolved Args diagnostic span");
+                &source[span.start..span.end]
+            })
+            .collect::<Vec<_>>();
+        underlined.sort_unstable();
+        assert_eq!(
+            underlined,
+            vec!["args.relative_error", "args.samples", "args.sigma"]
+        );
     }
 
     #[test]

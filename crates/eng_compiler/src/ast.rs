@@ -162,6 +162,8 @@ pub struct ArgsFieldDecl {
     pub name: String,
     pub type_name: String,
     pub type_span: SourceSpan,
+    pub unit: Option<String>,
+    pub unit_span: Option<SourceSpan>,
     pub default_value: Option<String>,
     pub default_value_span: Option<SourceSpan>,
     pub line: usize,

@@ -15,7 +15,7 @@ executable. Native `model.exe` generation is reserved for a later backend gate.
 | Runtime | Current `eng.exe` is copied into the bundle | Separate single-model runtime binary |
 | Source | Top-level workflow source is copied under `source/` | Arbitrary project tree packaging |
 | Dependencies | Relative CSV promotions are copied under `source/` | Registry packages or binary asset bundles |
-| Args | root `args { ... }` help, forwarded CLI flags, path/scalar defaults, and primitive typed Args normalization | Quantity/unit-literal Args beyond primitive values |
+| Args | root `args { ... }` help, forwarded CLI flags, path/scalar defaults, primitive normalization, and registry quantity/unit conversion | Flag-only boolean syntax |
 | Reproducibility | Manifest, lock, hashes, profile metadata | Cryptographic supply-chain attestation |
 
 ## Bundle Layout
@@ -60,7 +60,9 @@ dist\main-standalone\run.bat --input data/sensor.csv
 
 `run.bat --help` prints `ARGS_HELP.txt`. Any extra `--<field> <value>` flags
 are forwarded to `eng.exe run source\<file.eng> --save-artifacts` and are recorded
-in `build/result/result.engres` under `arg_values`.
+in `build/result/result.engres` under `arg_values`. Quantity fields show their
+display unit in help, accept compatible unit-bearing values, and record the
+normalized value plus `display_unit`.
 
 Relative Args paths are interpreted from the packaged `source/` directory for
 the current official CSV workflow. For example, `--input data/sensor.csv`

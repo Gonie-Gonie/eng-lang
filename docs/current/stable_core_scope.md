@@ -10,8 +10,8 @@ workflow. It is not a complete engineering simulation solver.
 ## Public Package Scope
 
 - Top-level file execution without `script main`.
-- Root `args { ... }` for String/path/CsvFile/DirectoryPath and primitive
-  Bool/Int/Count/Float/Duration values.
+- Root `args { ... }` for String/path/CsvFile/DirectoryPath, primitive
+  Bool/Int/Count/Float values, and unit-aware registry quantities.
 - Fast `=` bindings, explicit quantity declarations, and `:=` rejection.
 - Built-in quantity/unit registry used by the official examples.
 - `degC` plus the `°C` alias for absolute temperature display.

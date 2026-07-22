@@ -1340,9 +1340,14 @@ fn args_help_text(report: &CheckReport) -> String {
                 } else {
                     "optional"
                 };
+                let value_type = if field.display_unit.is_empty() {
+                    field.type_name.clone()
+                } else {
+                    format!("{} [{}]", field.type_name, field.display_unit)
+                };
                 text.push_str(&format!(
                     "  --{} <{}>  {}",
-                    field.name, field.type_name, required
+                    field.name, value_type, required
                 ));
                 if let Some(default_value) = &field.default_value {
                     let default_value = if field.redacted {
@@ -9721,6 +9726,14 @@ fn evaluate_runtime_expression(
     if let Some(Ok(value)) = runtime_date_expression_value(report, expression) {
         return Some(RuntimeFormatValue::Text(value));
     }
+    if let Some(arg_name) = expression.strip_prefix("args.") {
+        return report
+            .semantic_program
+            .arg_values
+            .iter()
+            .find(|arg| arg.name == arg_name)
+            .map(runtime_arg_format_value);
+    }
     if let Some(value) =
         evaluate_network_response_field_expression(expression, report, runtime_data)
     {
@@ -9774,14 +9787,6 @@ fn evaluate_runtime_expression(
             quantity_kind,
             unit,
         });
-    }
-    if let Some(arg_name) = expression.strip_prefix("args.") {
-        return report
-            .semantic_program
-            .arg_values
-            .iter()
-            .find(|arg| arg.name == arg_name)
-            .map(|arg| RuntimeFormatValue::Text(arg.value.clone()));
     }
     if let Some(table_name) = expression.strip_suffix(".rows") {
         return runtime_data
@@ -9964,6 +9969,30 @@ fn evaluate_runtime_expression(
         )));
     }
     None
+}
+
+fn runtime_arg_format_value(arg: &eng_compiler::ArgValueInfo) -> RuntimeFormatValue {
+    let numeric_primitive = matches!(
+        arg.type_name.as_str(),
+        "Int" | "Integer" | "Count" | "Float" | "Number"
+    );
+    let quantity = eng_compiler::all_quantity_completions()
+        .iter()
+        .any(|quantity| quantity.quantity_kind == arg.type_name);
+    if !arg.redacted && (numeric_primitive || quantity) {
+        if let Some((value, unit)) = number_with_optional_unit(&arg.value) {
+            return RuntimeFormatValue::Number {
+                value,
+                quantity_kind: if numeric_primitive {
+                    "DimensionlessNumber".to_owned()
+                } else {
+                    arg.type_name.clone()
+                },
+                unit: unit.unwrap_or_else(|| arg.display_unit.clone()),
+            };
+        }
+    }
+    RuntimeFormatValue::Text(arg.value.clone())
 }
 
 fn evaluate_runtime_environment_expression(
@@ -11372,6 +11401,10 @@ fn result_json(input: ResultJsonInput<'_>) -> String {
                 "          \"type\": \"{}\",\n",
                 json_escape(&field.type_name)
             ));
+            args_schema.push_str(&format!(
+                "          \"display_unit\": \"{}\",\n",
+                json_escape(&field.display_unit)
+            ));
             if let Some(default_value) = &field.default_value {
                 let default_value = if field.redacted {
                     "<redacted>"
@@ -11406,6 +11439,10 @@ fn result_json(input: ResultJsonInput<'_>) -> String {
         arg_values.push_str(&format!(
             "      \"type\": \"{}\",\n",
             json_escape(&arg.type_name)
+        ));
+        arg_values.push_str(&format!(
+            "      \"display_unit\": \"{}\",\n",
+            json_escape(&arg.display_unit)
         ));
         arg_values.push_str(&format!(
             "      \"value\": \"{}\",\n",
@@ -23103,6 +23140,134 @@ print "endpoint={endpoint} mode={mode} arg_endpoint={args.arg_endpoint} arg_mode
         .expect_err("direct Date interpolation should validate runtime Args");
         assert!(direct_error.to_string().contains("E-DATE-VALUE-001"));
         assert!(direct_error.to_string().contains("day must be in 1..=28"));
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
+    fn run_source_executes_quantity_args_in_native_scalar_and_uncertainty_paths() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-native-quantity-args");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-native-quantity-args-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+        let source = r#"args {
+    power: HeatRate [kW] = 5 kW
+    sigma: HeatRate [W] = 200 W
+    efficiency: Ratio [1] = 80 %
+    ambient: AbsoluteTemperature [degC] = 20 degC
+    samples: Count = 7
+}
+
+Q = args.power
+Q_adjusted = args.power * args.efficiency
+Q_unc = normal(mean=args.power, std=args.sigma, samples=args.samples)
+print "power={args.power: .2 kW} adjusted={Q_adjusted: .3 kW} ambient={args.ambient: .2 degC}"
+"#;
+
+        let output = run_source(
+            &virtual_path,
+            source,
+            &build_root,
+            &RunOptions {
+                args: vec![
+                    ArgOverride {
+                        name: "power".to_owned(),
+                        value: "750 W".to_owned(),
+                    },
+                    ArgOverride {
+                        name: "sigma".to_owned(),
+                        value: "100 W".to_owned(),
+                    },
+                    ArgOverride {
+                        name: "efficiency".to_owned(),
+                        value: "50%".to_owned(),
+                    },
+                    ArgOverride {
+                        name: "ambient".to_owned(),
+                        value: "293.15 K".to_owned(),
+                    },
+                    ArgOverride {
+                        name: "samples".to_owned(),
+                        value: "9".to_owned(),
+                    },
+                ],
+                ..RunOptions::default()
+            },
+        )
+        .expect("run native quantity Args");
+
+        assert_eq!(
+            output.stdout.trim(),
+            "power=0.75 kW adjusted=0.375 kW ambient=20.00 degC"
+        );
+        let result: Value = serde_json::from_str(&output.result_json).expect("result json");
+        assert_eq!(
+            result
+                .pointer("/args_schema/0/fields/0/display_unit")
+                .and_then(Value::as_str),
+            Some("kW")
+        );
+        assert_eq!(
+            result
+                .pointer("/arg_values/0/display_unit")
+                .and_then(Value::as_str),
+            Some("kW")
+        );
+        assert_eq!(
+            result
+                .pointer("/arg_values/0/value")
+                .and_then(Value::as_str),
+            Some("0.75 kW")
+        );
+        let adjusted =
+            json_array_item_by_binding(&result, "/typed_payload/numeric_values", "Q_adjusted")
+                .expect("adjusted native scalar");
+        assert_eq!(adjusted["value"].as_f64(), Some(375.0));
+        assert_eq!(adjusted["display_unit"], "W");
+        let uncertainty =
+            json_array_item_by_binding(&result, "/typed_payload/uncertainties", "Q_unc")
+                .expect("Args-backed uncertainty");
+        assert_eq!(uncertainty["mean"].as_f64(), Some(0.75));
+        assert_eq!(uncertainty["stddev"].as_f64(), Some(0.1));
+        assert_eq!(uncertainty["sample_count"].as_u64(), Some(9));
+        assert_eq!(uncertainty["status"], "sampled_distribution");
+
+        let review: Value = serde_json::from_str(&output.review_json).expect("review json");
+        assert_eq!(
+            review
+                .pointer("/args_summary/0/fields/0/display_unit")
+                .and_then(Value::as_str),
+            Some("kW")
+        );
+        assert_eq!(
+            review
+                .pointer("/arg_values/0/display_unit")
+                .and_then(Value::as_str),
+            Some("kW")
+        );
+        let report_spec: Value =
+            serde_json::from_str(&output.report_spec_json).expect("report spec json");
+        assert_eq!(
+            report_spec
+                .pointer("/args_summary/0/fields/0/display_unit")
+                .and_then(Value::as_str),
+            Some("kW")
+        );
+        assert_eq!(
+            report_spec
+                .pointer("/arg_values/0/display_unit")
+                .and_then(Value::as_str),
+            Some("kW")
+        );
+        let help_report = check_source(&virtual_path, source, &CheckOptions::default());
+        assert!(args_help_text(&help_report).contains("--power <HeatRate [kW]>"));
         assert!(!virtual_path.exists());
     }
 

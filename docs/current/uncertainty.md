@@ -50,7 +50,11 @@ measured, interval, distribution, and ensemble scalars carry an uncertainty
 link. Numeric literals, backward aliases, and pure scalar arithmetic are
 evaluated natively in canonical units; their display-unit values are available
 both in `typed_payload.numeric_values[]` and each scalar object's `numeric`
-link. Uncertainty arithmetic can consume those named deterministic values.
+link. Uncertainty constructors can consume resolved quantity Args for means,
+standard deviations, bounds, relative errors, propagation scale/offset, and
+sample counts. Resolved negative deviations/errors and invalid sample counts
+are rejected before execution. Uncertainty arithmetic can consume those named
+deterministic values.
 It is not yet a stable propagation contract for arbitrary runtime-dependent
 expressions, full probabilistic TimeSeries uncertainty, or production Monte
 Carlo propagation workflows.

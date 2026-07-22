@@ -313,6 +313,7 @@ Current result fields:
     {
       "name": "input",
       "type": "String",
+      "display_unit": "",
       "value": "data/sensor.csv",
       "source": "default"
     }
@@ -436,6 +437,10 @@ Current result fields:
   }
 }
 ```
+
+Args schema fields and resolved `arg_values` carry `display_unit`. Unit-aware
+quantity overrides are normalized to that unit before scalar execution and
+artifact emission.
 
 Object-store kinds and counts reflect the materialized runtime shape. Derived,
 case, case-output, collected-result, prediction, and typed-read tables are

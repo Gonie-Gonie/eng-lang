@@ -1756,8 +1756,8 @@ fn parse_args_field_decl(
         .split_once('=')
         .map(|(left, right)| (left.trim(), Some(right.trim().to_owned())))
         .unwrap_or((raw_after_colon, None));
-    let (type_name, _) = split_type_and_unit(type_part);
-    let (type_span, _) = type_and_unit_source_spans(first.span, line_text, type_part)?;
+    let (type_name, unit) = split_type_and_unit(type_part);
+    let (type_span, unit_span) = type_and_unit_source_spans(first.span, line_text, type_part)?;
     if type_name.is_empty() {
         return None;
     }
@@ -1769,6 +1769,8 @@ fn parse_args_field_decl(
         name,
         type_name,
         type_span,
+        unit,
+        unit_span,
         default_value,
         default_value_span,
         line: first.span.line,
