@@ -30,10 +30,11 @@ use artifact::{
     OutputArtifact, OutputManifest, SourceRecord,
 };
 use runtime_data::{
-    materialize_runtime_data, RuntimeCaseDiagnostic, RuntimeCaseManifest, RuntimeCaseMetric,
-    RuntimeCaseProcessStatus, RuntimeCaseTable, RuntimeComponentResidualEvaluation, RuntimeData,
-    RuntimeMlArtifact, RuntimeNumericUncertaintyPayload, RuntimeNumericValue, RuntimeSampleTable,
-    RuntimeTable, RuntimeValues,
+    materialize_runtime_data, runtime_date_expression_value, RuntimeCaseDiagnostic,
+    RuntimeCaseManifest, RuntimeCaseMetric, RuntimeCaseProcessStatus, RuntimeCaseTable,
+    RuntimeComponentResidualEvaluation, RuntimeData, RuntimeMlArtifact,
+    RuntimeNumericUncertaintyPayload, RuntimeNumericValue, RuntimeSampleTable, RuntimeTable,
+    RuntimeTemporalValue, RuntimeValues,
 };
 pub use vm::{execute_bytecode, VmExecution, VmObject, VmObjectKind};
 
@@ -159,6 +160,7 @@ pub enum RuntimeError {
     ReviewJson(serde_json::Error),
     ReviewDocument(eng_compiler::ReviewDocumentError),
     Vm(vm::VmError),
+    InvalidRuntimeValue { code: &'static str, message: String },
     TestsFailed(String),
 }
 
@@ -177,6 +179,9 @@ impl fmt::Display for RuntimeError {
                 write!(formatter, "runtime ReviewDocument is invalid: {error}")
             }
             Self::Vm(error) => write!(formatter, "VM execution failed: {error}"),
+            Self::InvalidRuntimeValue { code, message } => {
+                write!(formatter, "{code}: {message}")
+            }
             Self::TestsFailed(message) => write!(formatter, "{message}"),
         }
     }
@@ -212,6 +217,49 @@ impl From<vm::VmError> for RuntimeError {
     fn from(value: vm::VmError) -> Self {
         Self::Vm(value)
     }
+}
+
+fn ensure_runtime_temporal_values(
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+) -> Result<(), RuntimeError> {
+    let Some(invalid) = runtime_data
+        .temporal_values
+        .iter()
+        .find(|value| value.status != "computed")
+    else {
+        for expression in report
+            .semantic_program
+            .prints
+            .iter()
+            .flat_map(|print| print.fields.iter().map(|field| field.expression.clone()))
+            .chain(
+                report
+                    .semantic_program
+                    .writes
+                    .iter()
+                    .filter(|write| write.format == "text")
+                    .flat_map(|write| runtime_text_template_expressions(&write.expression)),
+            )
+        {
+            if let Some(Err(message)) = runtime_date_expression_value(report, &expression) {
+                return Err(RuntimeError::InvalidRuntimeValue {
+                    code: "E-DATE-VALUE-001",
+                    message,
+                });
+            }
+        }
+        return Ok(());
+    };
+    Err(RuntimeError::InvalidRuntimeValue {
+        code: "E-DATE-VALUE-001",
+        message: invalid.error.clone().unwrap_or_else(|| {
+            format!(
+                "Date binding `{}` has no computed runtime value.",
+                invalid.binding
+            )
+        }),
+    })
 }
 
 #[derive(Clone, Debug)]
@@ -591,12 +639,13 @@ pub fn run_source(
             test_results_path,
         );
     }
+    let preliminary_runtime_data = materialize_runtime_data(&check_report, source);
+    ensure_runtime_temporal_values(&check_report, &preliminary_runtime_data)?;
     if artifacts_saved {
         fs::create_dir_all(&result_dir)?;
         fs::write(&static_run_plan_path, &static_run_plan_json)?;
     }
 
-    let preliminary_runtime_data = materialize_runtime_data(&check_report, source);
     execute_live_network_boundaries(
         &mut check_report,
         &preliminary_runtime_data,
@@ -4301,6 +4350,26 @@ fn render_print_template(
     }
     rendered.push_str(&print.template[cursor..]);
     rendered
+}
+
+fn runtime_text_template_expressions(source_expression: &str) -> Vec<String> {
+    let template = strip_runtime_string_value(source_expression);
+    let mut expressions = Vec::new();
+    let mut cursor = 0usize;
+    while let Some(open) = template[cursor..].find('{') {
+        let start = cursor + open;
+        let Some(close_offset) = template[start + 1..].find('}') else {
+            break;
+        };
+        let close = start + 1 + close_offset;
+        let field_text = template[start + 1..close].trim();
+        if !field_text.is_empty() {
+            let (expression, _) = split_runtime_format_field(field_text);
+            expressions.push(expression.to_owned());
+        }
+        cursor = close + 1;
+    }
+    expressions
 }
 
 fn render_runtime_text_template(
@@ -9649,6 +9718,9 @@ fn evaluate_runtime_expression(
     if let Some(value) = evaluate_runtime_read_expression(expression, report) {
         return Some(RuntimeFormatValue::Text(value));
     }
+    if let Some(Ok(value)) = runtime_date_expression_value(report, expression) {
+        return Some(RuntimeFormatValue::Text(value));
+    }
     if let Some(value) =
         evaluate_network_response_field_expression(expression, report, runtime_data)
     {
@@ -9721,6 +9793,16 @@ fn evaluate_runtime_expression(
                 quantity_kind: "Count".to_owned(),
                 unit: String::new(),
             });
+    }
+    if let Some(temporal) = runtime_data
+        .temporal_values
+        .iter()
+        .find(|temporal| temporal.binding == expression)
+    {
+        return temporal
+            .value
+            .as_ref()
+            .map(|value| RuntimeFormatValue::Text(value.clone()));
     }
     if let Some(numeric) = runtime_data
         .numeric_values
@@ -11435,6 +11517,14 @@ fn result_json(input: ResultJsonInput<'_>) -> String {
             objects.push_str(",\n        \"numeric\": ");
             push_runtime_numeric_link(&mut objects, numeric, "        ");
         }
+        if let Some(temporal) = runtime_data
+            .temporal_values
+            .iter()
+            .find(|temporal| temporal.binding == object.name)
+        {
+            objects.push_str(",\n        \"temporal\": ");
+            push_runtime_temporal_link(&mut objects, temporal, "        ");
+        }
         if let Some(table) = runtime_data
             .tables
             .iter()
@@ -11507,6 +11597,34 @@ fn result_json(input: ResultJsonInput<'_>) -> String {
         ));
         numeric_values.push_str(&format!("        \"line\": {}\n", numeric.line));
         numeric_values.push_str("      }");
+    }
+
+    let mut temporal_values = String::new();
+    for (index, temporal) in runtime_data.temporal_values.iter().enumerate() {
+        if index > 0 {
+            temporal_values.push_str(",\n");
+        }
+        temporal_values.push_str("      {\n");
+        temporal_values.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&temporal.binding)
+        ));
+        temporal_values.push_str(&format!(
+            "        \"type\": \"{}\",\n",
+            json_escape(&temporal.type_name)
+        ));
+        push_optional_json_string(&mut temporal_values, "value", temporal.value.as_deref(), 8);
+        temporal_values.push_str(&format!(
+            "        \"expression\": \"{}\",\n",
+            json_escape(&temporal.expression)
+        ));
+        temporal_values.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&temporal.status)
+        ));
+        push_optional_json_string(&mut temporal_values, "error", temporal.error.as_deref(), 8);
+        temporal_values.push_str(&format!("        \"line\": {}\n", temporal.line));
+        temporal_values.push_str("      }");
     }
 
     let mut steps = String::new();
@@ -12350,7 +12468,7 @@ fn result_json(input: ResultJsonInput<'_>) -> String {
     let system_ir = system_ir_json(report, runtime_data);
 
     let mut result_json = format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"structured_reads\": [\n{}\n    ],\n    \"config_promotions\": [\n{}\n    ],\n    \"network_boundaries\": [\n{}\n    ],\n    \"table_selections\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"db_manifests\": [\n{}\n    ],\n    \"render_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"timeseries_coverage\": [\n{}\n    ],\n    \"timeseries_fill\": [\n{}\n    ],\n    \"timeseries_fallbacks\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"model_cards\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"config_promotion_count\": {},\n    \"network_boundary_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"temporal_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"structured_reads\": [\n{}\n    ],\n    \"config_promotions\": [\n{}\n    ],\n    \"network_boundaries\": [\n{}\n    ],\n    \"table_selections\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"db_manifests\": [\n{}\n    ],\n    \"render_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"timeseries_coverage\": [\n{}\n    ],\n    \"timeseries_fill\": [\n{}\n    ],\n    \"timeseries_fallbacks\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"model_cards\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"config_promotion_count\": {},\n    \"network_boundary_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -12372,6 +12490,7 @@ fn result_json(input: ResultJsonInput<'_>) -> String {
         json_escape(&execution.result_format),
         steps,
         numeric_values,
+        temporal_values,
         statistics,
         integrations,
         table_diagnostics,
@@ -12490,6 +12609,20 @@ fn push_runtime_numeric_link(json: &mut String, numeric: &RuntimeNumericValue, i
     json.push_str(&format!(
         "{indent}  \"status\": \"{}\"\n",
         json_escape(&numeric.status)
+    ));
+    json.push_str(&format!("{indent}}}"));
+}
+
+fn push_runtime_temporal_link(json: &mut String, temporal: &RuntimeTemporalValue, indent: &str) {
+    json.push_str("{\n");
+    push_optional_json_string(json, "value", temporal.value.as_deref(), indent.len() + 2);
+    json.push_str(&format!(
+        "{indent}  \"type\": \"{}\",\n",
+        json_escape(&temporal.type_name)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"status\": \"{}\"\n",
+        json_escape(&temporal.status)
     ));
     json.push_str(&format!("{indent}}}"));
 }
@@ -13151,6 +13284,7 @@ fn finalize_runtime_review_document(
             "resolved_input_count": review_runtime_result_count(document, "inputs"),
             "schema_result_count": review_runtime_result_count(document, "schemas"),
             "numeric_value_count": runtime_data.numeric_values.len(),
+            "temporal_value_count": runtime_data.temporal_values.len(),
             "table_count": runtime_data.tables.len(),
             "timeseries_count": runtime_data.time_series.len(),
             "timeseries_coverage_count": runtime_data.timeseries_coverage.len(),
@@ -22875,6 +23009,100 @@ print "endpoint={endpoint} mode={mode} arg_endpoint={args.arg_endpoint} arg_mode
                         .as_str()
                         .is_some_and(|hash| !hash.is_empty())
             })));
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
+    fn run_source_materializes_and_prints_native_date_values() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-native-date");
+        let build_root = repo_root.join("build").join("runtime-native-date-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+        let source = concat!(
+            "args {\n",
+            "    year: Int = 2024\n",
+            "}\n",
+            "deadline = date(args.year, 2, 29)\n",
+            "alias = deadline\n",
+            "print \"deadline={deadline} alias={alias} direct={date(args.year, 12, 31)}\"\n",
+        );
+
+        let output =
+            run_source(&virtual_path, source, &build_root, &RunOptions::default()).expect("run");
+
+        assert_eq!(
+            output.stdout.trim(),
+            "deadline=2024-02-29 alias=2024-02-29 direct=2024-12-31"
+        );
+        let result: Value = serde_json::from_str(&output.result_json).expect("result json");
+        for binding in ["deadline", "alias"] {
+            let temporal =
+                json_array_item_by_binding(&result, "/typed_payload/temporal_values", binding)
+                    .unwrap_or_else(|| panic!("missing temporal payload for `{binding}`"));
+            assert_eq!(temporal["type"], "Date");
+            assert_eq!(temporal["value"], "2024-02-29");
+            assert_eq!(temporal["status"], "computed");
+            let object =
+                json_array_item_by_field(&result, "/object_store/objects", "name", binding)
+                    .unwrap_or_else(|| panic!("missing Date object for `{binding}`"));
+            assert_eq!(object["temporal"]["type"], "Date");
+            assert_eq!(object["temporal"]["value"], "2024-02-29");
+        }
+        let review: Value = serde_json::from_str(&output.review_json).expect("review json");
+        assert_eq!(
+            review
+                .pointer("/review_document/runtime_evidence/temporal_value_count")
+                .and_then(Value::as_u64),
+            Some(2)
+        );
+
+        let invalid_build = repo_root
+            .join("build")
+            .join("runtime-native-date-invalid-result");
+        let _ = fs::remove_dir_all(&invalid_build);
+        let error = run_source(
+            &virtual_path,
+            source,
+            &invalid_build,
+            &RunOptions {
+                args: vec![ArgOverride {
+                    name: "year".to_owned(),
+                    value: "2023".to_owned(),
+                }],
+                ..RunOptions::default()
+            },
+        )
+        .expect_err("non-leap runtime year should reject February 29");
+        assert!(error.to_string().contains("E-DATE-VALUE-001"));
+        assert!(error.to_string().contains("day must be in 1..=28"));
+
+        let direct_only_source = concat!(
+            "args {\n",
+            "    year: Int = 2024\n",
+            "}\n",
+            "print \"direct={date(args.year, 2, 29)}\"\n",
+        );
+        let direct_error = run_source(
+            &virtual_path,
+            direct_only_source,
+            &invalid_build,
+            &RunOptions {
+                args: vec![ArgOverride {
+                    name: "year".to_owned(),
+                    value: "2023".to_owned(),
+                }],
+                ..RunOptions::default()
+            },
+        )
+        .expect_err("direct Date interpolation should validate runtime Args");
+        assert!(direct_error.to_string().contains("E-DATE-VALUE-001"));
+        assert!(direct_error.to_string().contains("day must be in 1..=28"));
         assert!(!virtual_path.exists());
     }
 

@@ -20680,6 +20680,60 @@ predict_alias_value = predict(signal)
     }
 
     #[test]
+    fn native_date_diagnostics_use_exact_utf16_ranges() {
+        let source = concat!(
+            "bad_arity = date(2026, 1)\r\n",
+            "bad_argument = date(\"\u{1f527}\" + missing, 1, 1)\r\n",
+            "bad_month = date(2026, 13, 1)\r\n",
+            "bad_day = date(1900, 2, 29)\r\n",
+            "bad_result: String = date(2026, 1, 1)\r\n",
+            "print \"bad={date(2026, 2, 29)}\"\r\n",
+            "filtered = filter rows\r\n",
+            "where {\r\n",
+            "    valid_from <= date(2026, 4, 31)\r\n",
+            "}\r\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("native_date_diagnostics.eng"), source);
+        let lines = source.lines().collect::<Vec<_>>();
+
+        for (line_index, code, expected) in [
+            (0, "E-DATE-CALL-001", "date"),
+            (1, "E-DATE-ARG-001", "\"\u{1f527}\" + missing"),
+            (2, "E-DATE-VALUE-001", "13"),
+            (3, "E-DATE-VALUE-001", "29"),
+            (4, "E-DATE-RESULT-001", "date(2026, 1, 1)"),
+            (5, "E-DATE-VALUE-001", "29"),
+            (8, "E-DATE-VALUE-001", "31"),
+        ] {
+            let diagnostic = snapshot
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.line == line_index + 1 && diagnostic.code == code)
+                .unwrap_or_else(|| panic!("missing {code}: {:#?}", snapshot.diagnostics));
+            let line = lines[line_index];
+            let byte_start = line
+                .find(expected)
+                .unwrap_or_else(|| panic!("missing `{expected}` in `{line}`"));
+            assert_eq!(
+                diagnostic.start_character,
+                utf16_len(&line[..byte_start]),
+                "{code} start"
+            );
+            assert_eq!(
+                diagnostic.end_character,
+                utf16_len(&line[..byte_start + expected.len()]),
+                "{code} end"
+            );
+        }
+        for name in ["bad_arity", "bad_argument", "bad_month", "bad_day"] {
+            assert!(
+                snapshot.hovers.iter().all(|hover| hover.name != name),
+                "invalid Date binding `{name}` must not expose a typed hover"
+            );
+        }
+    }
+
+    #[test]
     fn snapshot_marks_only_bounded_numeric_percentiles_as_timeseries_builtins() {
         let source = r#"signal = 1
 p05_value = p05(signal)
@@ -20820,6 +20874,21 @@ joined_rows = join left_rows with right_rows
             "function",
             "temporal",
         );
+        let deadline_hover = snapshot
+            .hovers
+            .iter()
+            .find(|hover| hover.name == "deadline")
+            .expect("typed Date hover");
+        assert_eq!(deadline_hover.quantity_kind, "Date");
+        assert_eq!(deadline_hover.display_unit, "");
+        let date_completion = snapshot
+            .completions
+            .iter()
+            .find(|completion| completion.label == "date")
+            .expect("date completion");
+        assert!(date_completion
+            .detail
+            .contains("date(year: Int, month: Int, day: Int) -> Date"));
         assert_semantic_token_on_line_with_modifier(
             &snapshot,
             source,

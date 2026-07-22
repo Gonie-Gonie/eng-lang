@@ -25,6 +25,9 @@ use crate::schema::{ConfigPromotion, CsvPromotion, SchemaInfo};
 use crate::source::SourceSpan;
 use crate::stats::{is_percentile_statistic, AxisInfo, IntegrationInfo, StatsInfo};
 use crate::table::TableTransformInfo;
+use crate::temporal::{
+    format_gregorian_date, gregorian_month_length, GregorianDateComponent, GregorianDateError,
+};
 use crate::type_info::{TypeInfo, TypeInfoSource};
 use crate::uncertainty::UncertaintyInfo;
 use crate::units::{unit_derivation, unit_info_for_symbol, UnitDerivation};
@@ -1516,6 +1519,7 @@ pub(crate) fn analyze_incremental_scalar_declarations(
                     uncertainty_infos: &mut uncertainty_infos,
                     ml_infos: &mut ml_infos,
                     functions,
+                    args_blocks: &[],
                     classes,
                     class_objects,
                     db_reads: &mut db_reads,
@@ -1548,6 +1552,7 @@ pub(crate) fn analyze_incremental_scalar_declarations(
                         inferred_declarations: &mut inferred_declarations,
                         integrations: &mut integrations,
                         functions,
+                        args_blocks: &[],
                     },
                 );
                 explicit_declaration_count = explicit_declaration_count.checked_add(1)?;
@@ -1573,6 +1578,7 @@ pub(crate) fn analyze_incremental_scalar_declarations(
                     &mut type_infos,
                     &mut unit_derivations,
                     functions,
+                    &[],
                 );
                 const_declaration_count = const_declaration_count.checked_add(1)?;
             }
@@ -2437,6 +2443,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                             inferred_declarations: &mut inferred_declarations,
                             integrations: &mut integrations,
                             functions: &functions,
+                            args_blocks: &args_blocks,
                         },
                     );
                 }
@@ -2452,6 +2459,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     &mut type_infos,
                     &mut unit_derivations,
                     &functions,
+                    &args_blocks,
                 );
             }
             AstItem::FastBinding(binding) => {
@@ -2511,6 +2519,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     uncertainty_infos: &mut uncertainty_infos,
                     ml_infos: &mut ml_infos,
                     functions: &functions,
+                    args_blocks: &args_blocks,
                     classes: &classes,
                     class_objects: &class_objects,
                     db_reads: &mut db_reads,
@@ -2538,6 +2547,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     print,
                     &typed_bindings,
                     &functions,
+                    &args_blocks,
                     &mut prints,
                     &mut diagnostics,
                 );
@@ -2587,9 +2597,13 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                 ) {
                     continue;
                 }
-                if let Some(write_info) =
-                    analyze_write_decl(write, &typed_bindings, &functions, &mut diagnostics)
-                {
+                if let Some(write_info) = analyze_write_decl(
+                    write,
+                    &typed_bindings,
+                    &functions,
+                    &args_blocks,
+                    &mut diagnostics,
+                ) {
                     writes.push(write_info);
                 }
             }
@@ -2698,6 +2712,13 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         }
     }
 
+    validate_date_constructors_in_where_predicates(
+        program,
+        &typed_bindings,
+        &args_blocks,
+        &functions,
+        &mut diagnostics,
+    );
     let where_blocks = analyze_where_blocks(program, &typed_bindings, &functions, &mut diagnostics);
     let mut with_blocks = analyze_with_blocks(
         program,
@@ -5212,6 +5233,7 @@ fn analyze_print_decl(
     print: &PrintDecl,
     typed_bindings: &[TypedBinding],
     functions: &[FunctionInfo],
+    args_blocks: &[ArgsBlockInfo],
     prints: &mut Vec<PrintInfo>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
@@ -5239,8 +5261,11 @@ fn analyze_print_decl(
             span: print.template_span,
             template_offset: usize::from(print.template_is_expression),
         }),
-        typed_bindings,
-        functions,
+        FormatTypeContext {
+            typed_bindings,
+            functions,
+            args_blocks,
+        },
         PRINT_FORMAT_DIAGNOSTICS,
         diagnostics,
     );
@@ -5341,6 +5366,7 @@ fn analyze_write_decl(
     write: &WriteDecl,
     typed_bindings: &[TypedBinding],
     functions: &[FunctionInfo],
+    args_blocks: &[ArgsBlockInfo],
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<WriteInfo> {
     if write.context != ParseContext::TopLevel {
@@ -5397,8 +5423,11 @@ fn analyze_write_decl(
                 template,
                 write.line,
                 format_template_source_for_string(&write.expression, write.expression_span),
-                typed_bindings,
-                functions,
+                FormatTypeContext {
+                    typed_bindings,
+                    functions,
+                    args_blocks,
+                },
                 WRITE_TEXT_FORMAT_DIAGNOSTICS,
                 diagnostics,
             );
@@ -7872,12 +7901,18 @@ fn numeric_literal_with_optional_unit(expression: &str) -> Option<(f64, Option<S
     parse_numeric_literal(expression)
 }
 
+#[derive(Clone, Copy)]
+struct FormatTypeContext<'a> {
+    typed_bindings: &'a [TypedBinding],
+    functions: &'a [FunctionInfo],
+    args_blocks: &'a [ArgsBlockInfo],
+}
+
 fn analyze_format_fields(
     template: &str,
     line: usize,
     source: Option<FormatTemplateSource>,
-    typed_bindings: &[TypedBinding],
-    functions: &[FunctionInfo],
+    type_context: FormatTypeContext<'_>,
     context: FormatDiagnosticContext,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<FormatExpressionInfo> {
@@ -7934,9 +7969,30 @@ fn analyze_format_fields(
                 .checked_add(spec.find(unit)?)?;
             source?.span_for_template_range(unit_start, unit_start + unit.len())
         });
-        if let Some(semantic_type) =
-            resolve_format_expression_type(expression, typed_bindings, functions)
-        {
+        if let Some(expression_span) = expression_span {
+            let diagnostic_start = diagnostics.len();
+            validate_date_constructor_call(
+                expression,
+                expression_span,
+                line,
+                type_context.typed_bindings,
+                type_context.args_blocks,
+                type_context.functions,
+                diagnostics,
+            );
+            if diagnostics[diagnostic_start..]
+                .iter()
+                .any(|diagnostic| diagnostic.code.starts_with("E-DATE-"))
+            {
+                cursor = close + 1;
+                continue;
+            }
+        }
+        if let Some(semantic_type) = resolve_format_expression_type(
+            expression,
+            type_context.typed_bindings,
+            type_context.functions,
+        ) {
             if let Some(unit) = &format_spec.unit {
                 validate_requested_unit(
                     expression,
@@ -8126,6 +8182,9 @@ fn resolve_format_expression_type(
     }
     if let Some(semantic_type) = function_call_semantic_type(expression, typed_bindings, functions)
     {
+        return Some(semantic_type);
+    }
+    if let Some(semantic_type) = date_constructor_semantic_type(expression, functions) {
         return Some(semantic_type);
     }
     if let Some(semantic_type) = net_response_field_semantic_type(expression, typed_bindings) {
@@ -9067,6 +9126,332 @@ fn validate_builtin_call(
             diagnostics,
         ),
         _ => {}
+    }
+}
+
+fn date_constructor_call(expression: &str, functions: &[FunctionInfo]) -> Option<FunctionCall> {
+    let call = parse_function_call(expression)?;
+    if call.name != "date" || functions.iter().any(|function| function.name == call.name) {
+        return None;
+    }
+    Some(call)
+}
+
+fn date_constructor_semantic_type(
+    expression: &str,
+    functions: &[FunctionInfo],
+) -> Option<SemanticType> {
+    let call = date_constructor_call(expression, functions)?;
+    (call.args.len() == 3)
+        .then(|| semantic_type("Date", ""))
+        .flatten()
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum DateIntegerArgument {
+    Literal(i64),
+    Dynamic,
+}
+
+fn date_integer_argument(
+    expression: &str,
+    typed_bindings: &[TypedBinding],
+    args_blocks: &[ArgsBlockInfo],
+) -> Option<DateIntegerArgument> {
+    let expression = strip_outer_parens(expression.trim());
+    if let Ok(value) = expression.parse::<i64>() {
+        return Some(DateIntegerArgument::Literal(value));
+    }
+    if let Some(field_name) = expression.strip_prefix("args.") {
+        let field_name = field_name.trim();
+        return args_blocks
+            .iter()
+            .flat_map(|args_block| &args_block.fields)
+            .any(|field| {
+                field.name == field_name && matches!(field.type_name.as_str(), "Int" | "Integer")
+            })
+            .then_some(DateIntegerArgument::Dynamic);
+    }
+    typed_bindings
+        .iter()
+        .rev()
+        .find(|binding| binding.name == expression)
+        .filter(|binding| {
+            matches!(
+                binding.semantic_type.quantity_kind.as_str(),
+                "Int" | "Integer"
+            )
+        })
+        .map(|_| DateIntegerArgument::Dynamic)
+}
+
+fn validate_date_constructor_call(
+    expression: &str,
+    expression_span: SourceSpan,
+    line: usize,
+    typed_bindings: &[TypedBinding],
+    args_blocks: &[ArgsBlockInfo],
+    functions: &[FunctionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Some(call) = date_constructor_call(expression, functions) else {
+        return;
+    };
+    if call.args.len() != 3 {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-DATE-CALL-001",
+                line,
+                &format!(
+                    "`date` expects exactly three Int arguments, but got {}.",
+                    call.args.len()
+                ),
+                Some("Use date(year, month, day)."),
+            )
+            .with_source_span(source_span_for_child_range(
+                expression_span,
+                call.name_range.start,
+                call.name_range.end,
+            )),
+        );
+        return;
+    }
+
+    let mut arguments = [DateIntegerArgument::Dynamic; 3];
+    let mut has_invalid_argument = false;
+    for (index, ((argument, argument_range), label)) in call
+        .args
+        .iter()
+        .zip(&call.arg_ranges)
+        .zip(["year", "month", "day"])
+        .enumerate()
+    {
+        let Some(value) = date_integer_argument(argument, typed_bindings, args_blocks) else {
+            has_invalid_argument = true;
+            diagnostics.push(
+                Diagnostic::error(
+                    "E-DATE-ARG-001",
+                    line,
+                    &format!(
+                        "`date` {label} must be an Int literal, Int binding, or `args` Int field."
+                    ),
+                    Some(&format!(
+                        "Replace `{}` with an integer value for {label}.",
+                        argument.trim()
+                    )),
+                )
+                .with_source_span(source_span_for_child_range(
+                    expression_span,
+                    argument_range.start,
+                    argument_range.end,
+                )),
+            );
+            continue;
+        };
+        arguments[index] = value;
+    }
+    if has_invalid_argument {
+        return;
+    }
+
+    let literals = arguments.map(|argument| match argument {
+        DateIntegerArgument::Literal(value) => Some(value),
+        DateIntegerArgument::Dynamic => None,
+    });
+    let error = date_literal_range_error(literals);
+    if let Some(error) = error {
+        let argument_index = match error.component {
+            GregorianDateComponent::Year => 0,
+            GregorianDateComponent::Month => 1,
+            GregorianDateComponent::Day => 2,
+        };
+        let argument_range = &call.arg_ranges[argument_index];
+        diagnostics.push(
+            Diagnostic::error(
+                "E-DATE-VALUE-001",
+                line,
+                &format!(
+                    "`date` {} must be in {}..={}, but got {}.",
+                    error.component.as_str(),
+                    error.minimum,
+                    error.maximum,
+                    error.value
+                ),
+                Some("Use a valid Gregorian calendar date."),
+            )
+            .with_source_span(source_span_for_child_range(
+                expression_span,
+                argument_range.start,
+                argument_range.end,
+            )),
+        );
+    }
+}
+
+fn date_literal_range_error(values: [Option<i64>; 3]) -> Option<GregorianDateError> {
+    let [year, month, day] = values;
+    if let Some(year) = year {
+        if !(1..=9999).contains(&year) {
+            return Some(GregorianDateError {
+                component: GregorianDateComponent::Year,
+                value: year,
+                minimum: 1,
+                maximum: 9999,
+            });
+        }
+    }
+    if let Some(month) = month {
+        if !(1..=12).contains(&month) {
+            return Some(GregorianDateError {
+                component: GregorianDateComponent::Month,
+                value: month,
+                minimum: 1,
+                maximum: 12,
+            });
+        }
+    }
+    let day = day?;
+    let maximum = match (year, month) {
+        (Some(year), Some(month)) => gregorian_month_length(year, month)?,
+        (None, Some(2)) => 29,
+        (_, Some(month)) => gregorian_month_length(2000, month)?,
+        (_, None) => 31,
+    };
+    if !(1..=maximum).contains(&day) {
+        return Some(GregorianDateError {
+            component: GregorianDateComponent::Day,
+            value: day,
+            minimum: 1,
+            maximum,
+        });
+    }
+    if let (Some(year), Some(month)) = (year, month) {
+        return format_gregorian_date(year, month, day).err();
+    }
+    None
+}
+
+fn validate_date_constructor_result_type(
+    expression: &str,
+    expression_span: SourceSpan,
+    declared_type: &str,
+    line: usize,
+    functions: &[FunctionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if date_constructor_call(expression, functions).is_some() && declared_type != "Date" {
+        diagnostics.push(
+            Diagnostic::error(
+                "E-DATE-RESULT-001",
+                line,
+                &format!(
+                    "`date(...)` returns Date, but this declaration is annotated as `{declared_type}`."
+                ),
+                Some("Change the annotation to Date or use a value matching the declared type."),
+            )
+            .with_source_span(expression_span),
+        );
+    }
+}
+
+fn validate_date_constructors_in_where_predicates(
+    program: &ParsedProgram,
+    typed_bindings: &[TypedBinding],
+    args_blocks: &[ArgsBlockInfo],
+    functions: &[FunctionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for item in &program.items {
+        let AstItem::WherePredicate(predicate) = item else {
+            continue;
+        };
+        validate_date_constructors_in_expression(
+            &predicate.expression,
+            predicate.span,
+            predicate.line,
+            typed_bindings,
+            args_blocks,
+            functions,
+            diagnostics,
+        );
+    }
+}
+
+fn validate_date_constructors_in_expression(
+    expression: &str,
+    expression_span: SourceSpan,
+    line: usize,
+    typed_bindings: &[TypedBinding],
+    args_blocks: &[ArgsBlockInfo],
+    functions: &[FunctionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let mut index = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    while index < expression.len() {
+        let character = expression[index..]
+            .chars()
+            .next()
+            .expect("index remains on a character boundary");
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
+            }
+            index += character.len_utf8();
+            continue;
+        }
+        if character == '"' {
+            in_string = true;
+            index += character.len_utf8();
+            continue;
+        }
+        if !expression[index..].starts_with("date") {
+            index += character.len_utf8();
+            continue;
+        }
+        let before_is_identifier = expression[..index]
+            .chars()
+            .next_back()
+            .is_some_and(|character| character.is_ascii_alphanumeric() || character == '_');
+        let name_end = index + "date".len();
+        let after_name_is_identifier = expression[name_end..]
+            .chars()
+            .next()
+            .is_some_and(|character| character.is_ascii_alphanumeric() || character == '_');
+        if before_is_identifier || after_name_is_identifier {
+            index = name_end;
+            continue;
+        }
+        let open = name_end
+            + expression[name_end..]
+                .len()
+                .saturating_sub(expression[name_end..].trim_start().len());
+        if expression.as_bytes().get(open) != Some(&b'(') {
+            index = name_end;
+            continue;
+        }
+        let Some(call_length) = matching_closing_paren_end(&expression[open..]) else {
+            index = name_end;
+            continue;
+        };
+        let call_end = open + call_length;
+        let call_expression = &expression[index..call_end];
+        let call_span = source_span_for_child_range(expression_span, index, call_end);
+        validate_date_constructor_call(
+            call_expression,
+            call_span,
+            line,
+            typed_bindings,
+            args_blocks,
+            functions,
+            diagnostics,
+        );
+        index = call_end;
     }
 }
 
@@ -14276,6 +14661,7 @@ fn analyze_const_decl(
     type_infos: &mut Vec<TypeInfo>,
     unit_derivations: &mut Vec<UnitDerivation>,
     functions: &[FunctionInfo],
+    args_blocks: &[ArgsBlockInfo],
 ) {
     if expression_mentions_args(&declaration.expression) {
         diagnostics.push(
@@ -14328,6 +14714,23 @@ fn analyze_const_decl(
         &declaration.type_name,
         declaration.line,
         &available_bindings,
+        functions,
+        diagnostics,
+    );
+    validate_date_constructor_call(
+        &declaration.expression,
+        declaration.expression_span,
+        declaration.line,
+        &available_bindings,
+        args_blocks,
+        functions,
+        diagnostics,
+    );
+    validate_date_constructor_result_type(
+        &declaration.expression,
+        declaration.expression_span,
+        &declaration.type_name,
+        declaration.line,
         functions,
         diagnostics,
     );
@@ -14413,6 +14816,7 @@ struct ExplicitAnalysisOutputs<'a> {
     inferred_declarations: &'a mut Vec<InferredDeclaration>,
     integrations: &'a mut Vec<IntegrationInfo>,
     functions: &'a [FunctionInfo],
+    args_blocks: &'a [ArgsBlockInfo],
 }
 
 fn analyze_explicit_decl(declaration: &ExplicitDecl, outputs: ExplicitAnalysisOutputs<'_>) {
@@ -14426,6 +14830,7 @@ fn analyze_explicit_decl(declaration: &ExplicitDecl, outputs: ExplicitAnalysisOu
         inferred_declarations,
         integrations,
         functions,
+        args_blocks,
     } = outputs;
     expected_types.push(expected_type_from_explicit_decl(declaration));
     let available_bindings = typed_bindings.clone();
@@ -14456,6 +14861,23 @@ fn analyze_explicit_decl(declaration: &ExplicitDecl, outputs: ExplicitAnalysisOu
                 functions,
                 diagnostics,
             );
+            validate_date_constructor_call(
+                expression,
+                expression_span,
+                declaration.line,
+                &available_bindings,
+                args_blocks,
+                functions,
+                diagnostics,
+            );
+            validate_date_constructor_result_type(
+                expression,
+                expression_span,
+                &declaration.type_name,
+                declaration.line,
+                functions,
+                diagnostics,
+            );
         }
         if declaration.context == ParseContext::TopLevel {
             if let Some(expression_span) = declaration.expression_span {
@@ -14472,7 +14894,9 @@ fn analyze_explicit_decl(declaration: &ExplicitDecl, outputs: ExplicitAnalysisOu
                 }
             }
             records_computed_expression = rmse_operands(expression).is_some()
-                || timeseries_statistic_operands(expression).is_some();
+                || timeseries_statistic_operands(expression).is_some()
+                || (declaration.type_name == "Date"
+                    && date_constructor_call(expression, functions).is_some());
             if let Some(integration) = crate::stats::integration_info_for_expression(
                 &declaration.name,
                 expression,
@@ -16379,6 +16803,22 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         {
             return;
         }
+        let diagnostic_start = accum.diagnostics.len();
+        validate_date_constructor_call(
+            &binding.expression,
+            binding.expression_span,
+            binding.line,
+            &available_bindings,
+            accum.args_blocks,
+            accum.functions,
+            accum.diagnostics,
+        );
+        if accum.diagnostics[diagnostic_start..]
+            .iter()
+            .any(|diagnostic| diagnostic.code.starts_with("E-DATE-"))
+        {
+            return;
+        }
     }
     if let Some(diagnostic) = crate::stats::heat_rate_sum_diagnostic(binding, &available_bindings) {
         accum.diagnostics.push(diagnostic);
@@ -16467,6 +16907,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         .or_else(|| rmse_expression_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| statistic_expression_semantic_type(&binding.expression, &available_bindings))
         .or(function_call_type)
+        .or_else(|| date_constructor_semantic_type(&binding.expression, accum.functions))
         .or_else(|| {
             dimensionless_math_expression_semantic_type(
                 &binding.expression,
@@ -16555,6 +16996,7 @@ struct SemanticAccum<'a> {
     uncertainty_infos: &'a mut Vec<UncertaintyInfo>,
     ml_infos: &'a mut Vec<MlInfo>,
     functions: &'a [FunctionInfo],
+    args_blocks: &'a [ArgsBlockInfo],
     classes: &'a [ClassInfo],
     class_objects: &'a [ClassObjectInfo],
     db_reads: &'a mut Vec<DbReadInfo>,
@@ -17212,6 +17654,9 @@ fn read_call_inner<'a>(expression: &'a str, function_name: &str) -> Option<&'a s
 }
 
 fn default_unit_for_quantity(quantity_kind: &str) -> String {
+    if temporal_scalar_type(quantity_kind) {
+        return String::new();
+    }
     if let Some((_, inner_quantity)) = crate::uncertainty::uncertainty_inner_quantity(quantity_kind)
     {
         return default_unit_for_quantity(&inner_quantity);
@@ -17240,7 +17685,7 @@ fn default_unit_for_quantity(quantity_kind: &str) -> String {
 }
 
 fn default_unit_for_type(type_name: &str) -> String {
-    if preview_scalar_type(type_name) {
+    if preview_scalar_type(type_name) || temporal_scalar_type(type_name) {
         String::new()
     } else {
         default_unit_for_quantity(type_name)
@@ -17248,6 +17693,9 @@ fn default_unit_for_type(type_name: &str) -> String {
 }
 
 fn dimension_for_quantity(quantity_kind: &str) -> String {
+    if temporal_scalar_type(quantity_kind) {
+        return "Temporal".to_owned();
+    }
     if let Some((_, inner_quantity)) = crate::uncertainty::uncertainty_inner_quantity(quantity_kind)
     {
         return dimension_for_quantity(&inner_quantity);
@@ -17276,7 +17724,9 @@ fn dimension_for_quantity(quantity_kind: &str) -> String {
 }
 
 fn dimension_for_type(type_name: &str) -> String {
-    if preview_scalar_type(type_name) {
+    if temporal_scalar_type(type_name) {
+        "Temporal".to_owned()
+    } else if preview_scalar_type(type_name) {
         "Dimensionless".to_owned()
     } else {
         dimension_for_quantity(type_name)
@@ -17288,6 +17738,7 @@ fn known_decl_type(type_name: &str) -> bool {
         return known_decl_type(inner);
     }
     preview_scalar_type(type_name)
+        || temporal_scalar_type(type_name)
         || state_space_vector_type_name(type_name)
         || derivative_type_name(type_name)
         || linear_operator_type_name(type_name)
@@ -17321,6 +17772,10 @@ pub(crate) fn secret_type_inner(type_name: &str) -> Option<&str> {
         .strip_suffix(']')?
         .trim();
     (!inner.is_empty()).then_some(inner)
+}
+
+fn temporal_scalar_type(type_name: &str) -> bool {
+    type_name.trim().eq_ignore_ascii_case("date")
 }
 
 fn preview_scalar_type(type_name: &str) -> bool {

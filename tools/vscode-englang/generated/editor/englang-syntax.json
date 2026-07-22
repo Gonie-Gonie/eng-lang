@@ -93,7 +93,7 @@
                                                                    "status_label":  "Supported narrow"
                                                                },
                                                                {
-                                                                   "documentation":  "Promoted table diagnostics and schema-aware filter/select/derive/sort/require_one/join transform records with row-level diagnostics; broader table transforms are planned.",
+                                                                   "documentation":  "Gregorian Date value construction plus promoted table diagnostics and schema-aware filter/select/derive/sort/require_one/join transform records with row-level diagnostics; broader table transforms are planned.",
                                                                    "label":  "date(year: Int, month: Int, day: Int) -\u003e Date",
                                                                    "name":  "date",
                                                                    "owner":  "eng.table",

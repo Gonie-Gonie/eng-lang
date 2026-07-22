@@ -754,6 +754,10 @@ literal/alias/arithmetic chains, stores their values under
 `typed_payload.numeric_values[]` and scalar `object_store.objects[].numeric`,
 and makes those named values available to uncertainty arithmetic with unit
 normalization.
+Native `Date` bindings use `typed_payload.temporal_values[]` and scalar
+`object_store.objects[].temporal` instead. Their values are executable ISO
+`YYYY-MM-DD` strings shared by print/write formatting and Date/DateTime table
+comparisons; runtime-invalid Args overrides fail before side effects.
 `propagate(..., scale=..., offset=...)` records declared transform metadata in
 `review.json` and numeric transform values in runtime result/report artifacts.
 `review.json.uncertainty_summary[]` gives reviewers the table-shaped view:

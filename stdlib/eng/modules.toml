@@ -61,11 +61,11 @@ tests = ["cargo test -p eng_compiler records_test_assert_and_golden_metadata", "
 [module."eng.table"]
 status = "native_preview"
 backing = "compiler_runtime_builtin"
-purpose = "Promoted table diagnostics and schema-aware filter/select/derive/sort/require_one/join transform records with row-level diagnostics; broader table transforms are planned."
-artifacts = ["review.inputs", "review_document.table_transforms", "typed_payload.table_diagnostics", "typed_payload.table_selections", "typed_payload.table_transforms"]
-diagnostics = ["E-TABLE-UNKNOWN-COLUMN", "E-TABLE-PREDICATE-TYPE", "E-TABLE-JOIN-KEY-MISMATCH", "E-TABLE-SCHEMA-MISMATCH", "W-TABLE-LEGACY-SELECT-FIRST-ROW"]
+purpose = "Gregorian Date value construction plus promoted table diagnostics and schema-aware filter/select/derive/sort/require_one/join transform records with row-level diagnostics; broader table transforms are planned."
+artifacts = ["review.inputs", "review_document.table_transforms", "typed_payload.temporal_values", "object_store.Date", "typed_payload.table_diagnostics", "typed_payload.table_selections", "typed_payload.table_transforms"]
+diagnostics = ["E-DATE-CALL-001", "E-DATE-ARG-001", "E-DATE-VALUE-001", "E-DATE-RESULT-001", "E-TABLE-UNKNOWN-COLUMN", "E-TABLE-PREDICATE-TYPE", "E-TABLE-JOIN-KEY-MISMATCH", "E-TABLE-SCHEMA-MISMATCH", "W-TABLE-LEGACY-SELECT-FIRST-ROW"]
 examples = ["examples/workflows/01_weather_api_to_standard_file", "examples/workflows/02_native_surrogate_case_workflow"]
-tests = ["cargo test -p eng_runtime table_", "cargo test -p eng_compiler table_"]
+tests = ["cargo test -p eng_compiler native_date", "cargo test -p eng_runtime native_date", "cargo test -p eng_lsp native_date", "cargo test -p eng_runtime table_", "cargo test -p eng_compiler table_"]
 symbols = ["date(year: Int, month: Int, day: Int) -> Date"]
 
 [module."eng.timeseries"]

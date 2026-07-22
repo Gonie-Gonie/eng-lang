@@ -7,6 +7,8 @@ rules.
 ## Common Value Types
 
 - `Bool`, `Int`, `Float`, `Number`, and `String` are scalar values.
+- `Date` is a Gregorian calendar scalar created by
+  `date(year, month, day)`. Its runtime representation is `YYYY-MM-DD`.
 - `Quantity [unit]` annotations attach engineering quantity and source unit to a
   binding, schema column, state, input, parameter, or output.
 - `Optional[T]` is used for nullable config/schema fields where the surrounding

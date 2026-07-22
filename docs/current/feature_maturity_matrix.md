@@ -20,10 +20,12 @@ separate.
 - Public package: `Stable`
 - Main status: `Stable` with internal syntax experiments
 - User-facing scope: top-level execution, `args`, importable `const`, scalar
-  `fn`, relative imports, fast `=`, `:=` rejection, unit diagnostics, and
-  current formatter support.
+  `fn`, relative imports, fast `=`, `:=` rejection, unit diagnostics,
+  native Gregorian `Date` construction and runtime values, and current formatter
+  support.
 - Evidence: official examples, compiler diagnostics, formatter gate, LSP
-  metadata where relevant.
+  metadata, exact Date diagnostic ranges, and `typed_payload.temporal_values[]`
+  where relevant.
 - Not included: package/module imports, multi-return functions, broad
   expression language, full AST-aware formatting policy.
 - Next cleanup action: keep syntax docs centered on semantic workflow clarity.

@@ -141,6 +141,10 @@ syntax:
   transform artifacts, Date/DateTime predicate comparison, row-level
   diagnostics, and Gregorian-year coverage artifacts without real
   network access.
+- Focused `native_date` compiler/runtime/LSP tests cover Gregorian leap
+  rules, fast/explicit/`const`/alias typing, Args override validation,
+  ISO print and artifact values, object-store links, shadowing, and exact UTF-16
+  diagnostic ranges.
 - `runtime/config_optional_fields.eng` covers typed JSON config promotion with
   optional missing/null fields recorded in result and review artifacts.
 - `runtime/case_manifest.eng` and

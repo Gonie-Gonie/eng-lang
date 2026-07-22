@@ -2044,7 +2044,7 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native: Promoted table diagnostics and schema-aware filter/select/derive/sort/require_one/join transform records with row-level diagnostics",
+                                 "detail":  "Native: Gregorian Date value construction plus promoted table diagnostics and schema-aware filter/select/derive/sort/require_one/join transform records with row-level diagnostics",
                                  "kind":  "stdlib",
                                  "label":  "eng.table",
                                  "lsp_kind":  9

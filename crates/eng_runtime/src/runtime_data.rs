@@ -4,12 +4,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use eng_compiler::{
-    all_quantity_completions, all_unit_infos, normalize_unit, parse_percentile_fraction,
-    rmse_operands, timeseries_statistic_operands, CheckReport, SchemaColumn, SchemaInfo,
-    BEHAVIOR_GRAPH_EXECUTED, BEHAVIOR_GRAPH_NOT_EXECUTED, BEHAVIOR_IDENTITY_RUNTIME,
-    BEHAVIOR_RELATIONSHIP_EXECUTED, BEHAVIOR_RUNTIME_DIAGNOSTICS_AVAILABLE,
-    BEHAVIOR_SOLUTION_NOT_EXECUTED, BEHAVIOR_STATUS_DECLARED, BEHAVIOR_STATUS_EXECUTED,
-    BEHAVIOR_STATUS_NOT_DECLARED, BEHAVIOR_VARIABLE_NOT_EVALUATED,
+    all_quantity_completions, all_unit_infos, format_gregorian_date, normalize_unit,
+    parse_percentile_fraction, rmse_operands, timeseries_statistic_operands, CheckReport,
+    SchemaColumn, SchemaInfo, BEHAVIOR_GRAPH_EXECUTED, BEHAVIOR_GRAPH_NOT_EXECUTED,
+    BEHAVIOR_IDENTITY_RUNTIME, BEHAVIOR_RELATIONSHIP_EXECUTED,
+    BEHAVIOR_RUNTIME_DIAGNOSTICS_AVAILABLE, BEHAVIOR_SOLUTION_NOT_EXECUTED,
+    BEHAVIOR_STATUS_DECLARED, BEHAVIOR_STATUS_EXECUTED, BEHAVIOR_STATUS_NOT_DECLARED,
+    BEHAVIOR_VARIABLE_NOT_EVALUATED,
 };
 use eng_report::{
     PlotAxis, PlotBin, PlotConfidenceBand, PlotPoint, PlotSeries, PlotSpec, ReportAssemblyBoundary,
@@ -82,6 +83,7 @@ pub struct RuntimeData {
     pub structured_reads: Vec<RuntimeStructuredRead>,
     pub db_connections: Vec<RuntimeDbConnection>,
     pub numeric_values: Vec<RuntimeNumericValue>,
+    pub temporal_values: Vec<RuntimeTemporalValue>,
     pub statistics: Vec<RuntimeStatistics>,
     pub integrations: Vec<RuntimeIntegration>,
     pub timeseries_uncertainty_calculations: Vec<RuntimeTimeSeriesUncertaintyCalculation>,
@@ -1603,6 +1605,17 @@ pub struct RuntimeNumericValue {
     pub line: usize,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RuntimeTemporalValue {
+    pub binding: String,
+    pub type_name: String,
+    pub value: Option<String>,
+    pub expression: String,
+    pub status: String,
+    pub error: Option<String>,
+    pub line: usize,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct RuntimeNumericUncertaintyPayload {
     pub binding: String,
@@ -3087,6 +3100,9 @@ pub(crate) fn materialize_runtime_data_with_result_dir(
         plot_options: parse_plot_options(source),
         ..RuntimeData::default()
     };
+    let deterministic_scalars = materialize_deterministic_scalars(report);
+    let runtime_integers = materialize_runtime_integer_values(report);
+    data.temporal_values = materialize_temporal_values(report, &runtime_integers);
 
     for promotion in &report.semantic_program.csv_promotions {
         let Some(schema) = report
@@ -3162,7 +3178,6 @@ pub(crate) fn materialize_runtime_data_with_result_dir(
         &data.statistics,
         &data.integrations,
     );
-    let deterministic_scalars = materialize_deterministic_scalars(report);
     data.uncertainties = materialize_uncertainties(report, &deterministic_scalars);
     data.ml_artifacts = materialize_ml_artifacts(report, &data.time_series, &data.tables);
     let prediction_tables = materialize_prediction_tables(&data.ml_artifacts, &data.tables);
@@ -5721,9 +5736,40 @@ fn table_column_value(table: &RuntimeTable, column_name: &str, row: usize) -> Op
 }
 
 fn resolve_table_selection_value(value: &str, report: &CheckReport) -> Option<String> {
+    resolve_table_selection_value_inner(value, report, 0)
+}
+
+fn resolve_table_selection_value_inner(
+    value: &str,
+    report: &CheckReport,
+    depth: usize,
+) -> Option<String> {
+    if depth
+        > report
+            .semantic_program
+            .typed_bindings
+            .len()
+            .saturating_add(4)
+    {
+        return None;
+    }
     let value = value.trim();
-    if let Some(inner) = strip_call_inner(value, "date") {
-        return resolve_table_selection_date(inner, report);
+    if let Some(arguments) = native_date_arguments(value, report) {
+        return resolve_table_selection_date(&arguments, report, depth + 1);
+    }
+    if let Some(binding) = report
+        .semantic_program
+        .typed_bindings
+        .iter()
+        .rev()
+        .find(|binding| {
+            binding.is_top_level
+                && binding.name == value
+                && binding.semantic_type.quantity_kind == "Date"
+        })
+    {
+        let expression = runtime_scalar_binding_expression(report, binding)?;
+        return resolve_table_selection_value_inner(expression, report, depth + 1);
     }
     if let Some(arg_name) = value.strip_prefix("args.") {
         return report
@@ -5736,24 +5782,56 @@ fn resolve_table_selection_value(value: &str, report: &CheckReport) -> Option<St
     Some(strip_selection_quotes(value))
 }
 
-fn resolve_table_selection_date(inner: &str, report: &CheckReport) -> Option<String> {
-    let parts = split_selection_top_level(inner, ',');
-    if parts.len() != 3 {
+fn resolve_table_selection_date(
+    arguments: &[String],
+    report: &CheckReport,
+    depth: usize,
+) -> Option<String> {
+    if arguments.len() != 3 {
         return None;
     }
-    let year = resolve_table_selection_value(&parts[0], report)?
-        .parse::<i32>()
-        .ok()?;
-    let month = resolve_table_selection_value(&parts[1], report)?
-        .parse::<u32>()
-        .ok()?;
-    let day = resolve_table_selection_value(&parts[2], report)?
-        .parse::<u32>()
-        .ok()?;
-    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+    let year = resolve_table_selection_integer(&arguments[0], report, depth)?;
+    let month = resolve_table_selection_integer(&arguments[1], report, depth)?;
+    let day = resolve_table_selection_integer(&arguments[2], report, depth)?;
+    format_gregorian_date(year, month, day).ok()
+}
+
+fn resolve_table_selection_integer(value: &str, report: &CheckReport, depth: usize) -> Option<i64> {
+    if depth
+        > report
+            .semantic_program
+            .typed_bindings
+            .len()
+            .saturating_add(4)
+    {
         return None;
     }
-    Some(format!("{year:04}-{month:02}-{day:02}"))
+    let value = value.trim();
+    if let Ok(value) = value.parse::<i64>() {
+        return Some(value);
+    }
+    if let Some(arg_name) = value.strip_prefix("args.") {
+        return report
+            .semantic_program
+            .arg_values
+            .iter()
+            .find(|arg| arg.name == arg_name.trim())
+            .and_then(|arg| arg.value.parse::<i64>().ok());
+    }
+    let binding = report
+        .semantic_program
+        .typed_bindings
+        .iter()
+        .rev()
+        .find(|binding| {
+            binding.name == value
+                && matches!(
+                    binding.semantic_type.quantity_kind.as_str(),
+                    "Int" | "Integer"
+                )
+        })?;
+    let expression = runtime_scalar_binding_expression(report, binding)?;
+    resolve_table_selection_integer(expression, report, depth + 1)
 }
 
 fn table_selection_value_after(actual: &str, expected: &str) -> bool {
@@ -10237,6 +10315,204 @@ struct RuntimeDeterministicScalar {
     quantity_kind: String,
     display_unit: String,
     canonical_unit: String,
+}
+
+fn materialize_runtime_integer_values(report: &CheckReport) -> HashMap<String, i64> {
+    let mut integers = HashMap::new();
+    for binding in &report.semantic_program.typed_bindings {
+        if !matches!(
+            binding.semantic_type.quantity_kind.as_str(),
+            "Int" | "Integer"
+        ) {
+            continue;
+        }
+        let Some(expression) = runtime_scalar_binding_expression(report, binding) else {
+            continue;
+        };
+        if let Some(arg_name) = expression.trim().strip_prefix("args.") {
+            if let Some(value) = report
+                .semantic_program
+                .arg_values
+                .iter()
+                .find(|arg| arg.name == arg_name.trim())
+                .and_then(|arg| arg.value.parse::<i64>().ok())
+            {
+                integers.insert(binding.name.clone(), value);
+            }
+            continue;
+        }
+        let symbols = integers
+            .iter()
+            .map(|(name, value)| (name.clone(), *value as f64))
+            .collect::<HashMap<_, _>>();
+        let mut canonicalize = runtime_arithmetic_literal_to_canonical;
+        let Ok(parsed) = parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
+            expression,
+            &symbols,
+            &HashMap::new(),
+            &mut canonicalize,
+            ArithmeticExpressionProfile::RUNTIME_SCALAR,
+        ) else {
+            continue;
+        };
+        let Ok(value) = parsed.evaluate(&symbols) else {
+            continue;
+        };
+        if let Some(value) = exact_runtime_integer(value) {
+            integers.insert(binding.name.clone(), value);
+        }
+    }
+    integers
+}
+
+fn exact_runtime_integer(value: f64) -> Option<i64> {
+    (value.is_finite()
+        && value.fract() == 0.0
+        && value >= i64::MIN as f64
+        && value <= i64::MAX as f64)
+        .then_some(value as i64)
+}
+
+fn materialize_temporal_values(
+    report: &CheckReport,
+    integers: &HashMap<String, i64>,
+) -> Vec<RuntimeTemporalValue> {
+    let mut temporal_values = Vec::new();
+    for binding in &report.semantic_program.typed_bindings {
+        if !binding.is_top_level || binding.semantic_type.quantity_kind != "Date" {
+            continue;
+        }
+        let Some(expression) = runtime_scalar_binding_expression(report, binding) else {
+            continue;
+        };
+        let is_native_constructor = native_date_arguments(expression, report).is_some();
+        let is_temporal_alias = temporal_values
+            .iter()
+            .any(|value: &RuntimeTemporalValue| value.binding == expression.trim());
+        if !is_native_constructor && !is_temporal_alias {
+            continue;
+        }
+        let result =
+            evaluate_runtime_date_expression(expression, report, integers, &temporal_values);
+        let (value, status, error) = match result {
+            Ok(value) => (Some(value), "computed".to_owned(), None),
+            Err(error) => (None, "invalid_runtime_value".to_owned(), Some(error)),
+        };
+        temporal_values.push(RuntimeTemporalValue {
+            binding: binding.name.clone(),
+            type_name: "Date".to_owned(),
+            value,
+            expression: expression.to_owned(),
+            status,
+            error,
+            line: binding.line,
+        });
+    }
+    temporal_values
+}
+
+pub(crate) fn runtime_date_expression_value(
+    report: &CheckReport,
+    expression: &str,
+) -> Option<Result<String, String>> {
+    native_date_arguments(expression, report)?;
+    let integers = materialize_runtime_integer_values(report);
+    Some(evaluate_runtime_date_expression(
+        expression,
+        report,
+        &integers,
+        &[],
+    ))
+}
+
+fn evaluate_runtime_date_expression(
+    expression: &str,
+    report: &CheckReport,
+    integers: &HashMap<String, i64>,
+    prior_temporal_values: &[RuntimeTemporalValue],
+) -> Result<String, String> {
+    let expression = expression.trim();
+    if let Some(value) = prior_temporal_values
+        .iter()
+        .find(|value| value.binding == expression)
+    {
+        return value.value.clone().ok_or_else(|| {
+            value
+                .error
+                .clone()
+                .unwrap_or_else(|| format!("Date binding `{expression}` has no runtime value."))
+        });
+    }
+    if report
+        .semantic_program
+        .functions
+        .iter()
+        .any(|function| function.name == "date")
+    {
+        return Err("User-defined `date` shadows the native Date constructor.".to_owned());
+    }
+    let Some(arguments) = native_date_arguments(expression, report) else {
+        return Err(format!(
+            "Date expression `{expression}` is not a native date(year, month, day) call or Date alias."
+        ));
+    };
+    if arguments.len() != 3 {
+        return Err(format!(
+            "date(year, month, day) requires three arguments, but got {}.",
+            arguments.len()
+        ));
+    }
+    let mut values = [0_i64; 3];
+    for (index, (argument, label)) in arguments.iter().zip(["year", "month", "day"]).enumerate() {
+        values[index] = runtime_date_integer(argument, report, integers).ok_or_else(|| {
+            format!(
+                "date {label} `{}` did not resolve to an Int runtime value.",
+                argument.trim()
+            )
+        })?;
+    }
+    format_gregorian_date(values[0], values[1], values[2]).map_err(|error| {
+        format!(
+            "date {} must be in {}..={}, but got {}.",
+            error.component.as_str(),
+            error.minimum,
+            error.maximum,
+            error.value
+        )
+    })
+}
+
+fn native_date_arguments(expression: &str, report: &CheckReport) -> Option<Vec<String>> {
+    if report
+        .semantic_program
+        .functions
+        .iter()
+        .any(|function| function.name == "date")
+    {
+        return None;
+    }
+    let call = crate::parse_runtime_function_call(expression)?;
+    (call.name == "date").then_some(call.args)
+}
+
+fn runtime_date_integer(
+    expression: &str,
+    report: &CheckReport,
+    integers: &HashMap<String, i64>,
+) -> Option<i64> {
+    let expression = expression.trim();
+    if let Ok(value) = expression.parse::<i64>() {
+        return Some(value);
+    }
+    if let Some(arg_name) = expression.strip_prefix("args.") {
+        return report
+            .semantic_program
+            .arg_values
+            .iter()
+            .find(|arg| arg.name == arg_name.trim())
+            .and_then(|arg| arg.value.parse::<i64>().ok());
+    }
+    integers.get(expression).copied()
 }
 
 fn materialize_deterministic_scalars(
@@ -22708,6 +22984,78 @@ fn days_from_civil(year: i32, month: u32, day: u32) -> i64 {
 mod tests {
     use super::*;
     use eng_compiler::{check_file, check_source, CheckOptions, CheckReport};
+
+    #[test]
+    fn materializes_native_date_values_and_aliases() {
+        let source = concat!(
+            "args {\n",
+            "    year: Int = 2024\n",
+            "}\n",
+            "runtime_year: Int = args.year\n",
+            "deadline = date(runtime_year, 2, 29)\n",
+            "release: Date = date(2026, 7, 21)\n",
+            "const epoch: Date = date(2000, 1, 1)\n",
+            "alias = deadline\n",
+            "spaced = date (2024, 2, 29)\n",
+            "wrapped = (date(2024, 2, 29))\n",
+        );
+        let report = check_source("runtime-date.eng", source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:#?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+        for (binding, expected) in [
+            ("deadline", "2024-02-29"),
+            ("release", "2026-07-21"),
+            ("epoch", "2000-01-01"),
+            ("alias", "2024-02-29"),
+            ("spaced", "2024-02-29"),
+            ("wrapped", "2024-02-29"),
+        ] {
+            let temporal = runtime
+                .temporal_values
+                .iter()
+                .find(|value| value.binding == binding)
+                .unwrap_or_else(|| panic!("missing runtime Date value for `{binding}`"));
+            assert_eq!(temporal.value.as_deref(), Some(expected));
+            assert_eq!(temporal.type_name, "Date");
+            assert_eq!(temporal.status, "computed");
+            assert_eq!(temporal.error, None);
+        }
+        assert_eq!(
+            resolve_table_selection_value("deadline", &report).as_deref(),
+            Some("2024-02-29")
+        );
+        assert_eq!(
+            resolve_table_selection_value("date(args.year, 12, 31)", &report).as_deref(),
+            Some("2024-12-31")
+        );
+        assert_eq!(
+            resolve_table_selection_value("(date (2024, 2, 29))", &report).as_deref(),
+            Some("2024-02-29")
+        );
+        assert_eq!(
+            resolve_table_selection_value("date(2026, 2, 29)", &report),
+            None
+        );
+
+        let shadowed_source = concat!(
+            "fn date(year: Length [m], month: Length [m], day: Length [m]) -> Length [m] {\n",
+            "    return year\n",
+            "}\n",
+            "base = 2 m\n",
+            "shadowed = date(base, base, base)\n",
+        );
+        let shadowed = check_source(
+            "runtime-shadowed-date.eng",
+            shadowed_source,
+            &CheckOptions::default(),
+        );
+        assert!(!shadowed.has_errors(), "{:#?}", shadowed.diagnostics);
+        assert_eq!(
+            resolve_table_selection_value("date(base, base, base)", &shadowed).as_deref(),
+            Some("date(base, base, base)")
+        );
+    }
 
     #[test]
     fn case_apply_cases_binding_accepts_command_and_call_styles() {

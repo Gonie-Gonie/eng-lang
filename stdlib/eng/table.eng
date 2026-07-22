@@ -1,13 +1,17 @@
 # module: eng.table
 # status: supported diagnostics, row-selection, and filter/select/derive/sort/require_one/join transform records; planned broader transform APIs
-# purpose: domain-neutral promoted-table diagnostics, filters, column projection, derived-column provenance, row ordering, row requirements, joins, and schema helpers.
+# purpose: native Gregorian Date values plus domain-neutral promoted-table diagnostics, filters, column projection, derived-column provenance, row ordering, row requirements, joins, and schema helpers.
 #
 # Current implementation:
 #   typed CSV promotion, source-hash provenance, row/column diagnostics,
 #   parse/conversion counts, and time-axis coverage summaries are supported
 #   through compiler/runtime built-ins for current examples. Schema-aware
+#   `date(year, month, day)` creates a typed, executable Gregorian Date value
+#   from Int literals, Int bindings, or args Int fields. It validates leap
+#   years and month lengths, supports Date aliases and print output, and emits
+#   typed_payload.temporal_values[] plus scalar object-store temporal values.
 #   `filter <table>` with `where { ... }`
-#   predicates, including Date/DateTime literal comparison,
+#   predicates, including Date/DateTime value comparison,
 #   `select <table> columns a, b`,
 #   `derive <table> column name = expression`, `sort <table> by column`,
 #   `require_one <filtered_table>`, and `join <left> with <right>` plus
@@ -24,8 +28,8 @@
 #
 # Review contract:
 #   source schema, row counts, column counts, missing cells, parse failures,
-#   conversion failures, time-axis coverage, selected row/reason, filter
-#   predicate summaries, Date/DateTime predicate type diagnostics,
+#   conversion failures, time-axis coverage, native Date values, selected
+#   row/reason, filter predicate summaries, Date/DateTime predicate type diagnostics,
 #   selected columns, derived columns, sort keys,
 #   operation row counts, join keys, matched pair counts, transform
 #   row-level diagnostics, and source spans.

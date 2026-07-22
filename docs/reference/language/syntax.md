@@ -472,6 +472,29 @@ on {
 }
 ```
 
+`date(year, month, day)` is also a general value constructor, not table-only
+syntax. Each argument must be an `Int` literal, an existing `Int` binding, or
+an `args` field declared as `Int`. Valid fast, explicit, and `const` bindings
+produce `Date` hover/type metadata; aliases preserve that type.
+
+```eng partial
+args {
+    year: Int = 2024
+}
+
+deadline = date(args.year, 2, 29)
+release: Date = date(2026, 7, 21)
+print "deadline={deadline}"
+```
+
+The compiler checks arity, argument types, the Gregorian year range
+`1..=9999`, month lengths, and leap days. It reports `E-DATE-CALL-001`,
+`E-DATE-ARG-001`, `E-DATE-VALUE-001`, or `E-DATE-RESULT-001` on the exact
+offending source range. Runtime argument overrides are validated again.
+Executed Date bindings are available in `typed_payload.temporal_values[]` and
+as `object_store.objects[].temporal`; print/write formatting uses the same ISO
+value.
+
 `select` accepts `column` for one selected column and `columns` for a comma
 separated list. The compiler validates referenced predicate, selected,
 derived-source, and sort-key columns against the promoted table schema, rejects
@@ -479,7 +502,7 @@ obvious predicate literal type mismatches with `E-TABLE-PREDICATE-TYPE`, and
 validates join keys against both promoted table schemas. Date/DateTime
 predicates compare ISO timestamp strings by UTC instant when both sides include
 time zones, and compare date-only values by their `YYYY-MM-DD` prefix, including
-values produced by `date(year, month, day)`. It records the transform contract in
+values produced by a direct or bound `date(year, month, day)` value. It records the transform contract in
 `review_document.table_transforms[]`.
 Runtime artifacts record row counts, selected columns, derived columns, sort
 keys, predicate evidence, join key pair counts, and row diagnostics in

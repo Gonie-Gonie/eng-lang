@@ -82,6 +82,10 @@ E-TABLE-UNKNOWN-COLUMN table filter predicate references a column outside the pr
 E-TABLE-PREDICATE-TYPE table filter predicate compares a schema column with an incompatible literal
 E-TABLE-JOIN-KEY-MISMATCH join key does not compare columns from the joined tables
 E-TABLE-SCHEMA-MISMATCH table join key columns have incompatible schema types
+E-DATE-CALL-001       date constructor does not have exactly three Int arguments
+E-DATE-ARG-001        date constructor argument is not an Int literal, binding, or Args field
+E-DATE-VALUE-001      date constructor or runtime Args override is not a valid Gregorian date
+E-DATE-RESULT-001     date constructor result is assigned to a non-Date annotation
 E-RMSE-CALL-001       rmse requires exactly two TimeSeries binding or member paths
 E-STATS-DURATION-CALL-001 duration_above requires a series and finite threshold literal
 E-STATS-DURATION-SOURCE-001 duration_above source is not a Time-axis series path

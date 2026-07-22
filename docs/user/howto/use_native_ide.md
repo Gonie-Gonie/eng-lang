@@ -90,12 +90,16 @@ Editor
   top. While the caret is inside a call, the editor shows the active typed
   parameter, overload position, and parameter documentation for local or
   statically imported user functions, zero-argument class-object methods, and
-  callable built-ins such as `join(...)`, `normal(...)`, and `sqrt(...)`.
+  callable built-ins such as `join(...)`, `date(...)`, `normal(...)`, and
+  `sqrt(...)`.
   Scalar math help names its actual
   `DimensionlessNumber [1] -> DimensionlessNumber [1]` contract. Valid
   direct, nested, and arithmetic calls produce typed variable hover; wrong
   arity, unresolved or unitful arguments, and incompatible annotated results
   are underlined at the compiler-owned source range.
+  Valid `date(year, month, day)` calls likewise produce Date hover and
+  temporal coloring; wrong arity, non-Int arguments, invalid Gregorian dates,
+  and incompatible annotations use exact compiler ranges.
   The request uses the current unsaved buffer and every other modified open
   EngLang tab, and a result is discarded if the caret or any participating
   buffer changes. Escape dismisses the popup. Command-style workflow verbs
@@ -330,7 +334,8 @@ The extension shares the same checked-code diagnostics, hover, completion, and
 role-aware highlighting data as the native IDE. It also shows typed parameter
 help while entering local or statically imported user-function calls,
 zero-argument class-object method calls, and built-in calls such as
-`join(...)`, `normal(...)`, `duration_above(...)`, and `sqrt(...)`.
+`join(...)`, `date(...)`, `normal(...)`, `duration_above(...)`, and
+`sqrt(...)`.
 Built-in help comes from compiler-owned module contracts and includes overloads,
 optional parameters, return types, and declared return units. Scalar math uses
 the explicit `DimensionlessNumber [1]` parameter and return contract rather

@@ -355,6 +355,17 @@ Current result fields:
         "status": "uncertainty_attached"
       }
     ],
+    "temporal_values": [
+      {
+        "binding": "deadline",
+        "type": "Date",
+        "value": "2024-02-29",
+        "expression": "date(args.year, 2, 29)",
+        "status": "computed",
+        "error": null,
+        "line": 5
+      }
+    ],
     "statistics": [
       {
         "status": "computed",
@@ -571,6 +582,13 @@ links include the materialized value, display unit, quantity kind,
 representation, uncertainty binding, and materialization status. The native
 runtime evaluates supported deterministic literal/alias/arithmetic chains in
 canonical units and reuses them in scalar uncertainty arithmetic.
+
+Native Gregorian `Date` bindings are separate from numeric scalars.
+`typed_payload.temporal_values[]` records the source expression, ISO
+`YYYY-MM-DD` value, status, optional runtime validation error, and source line.
+The matching scalar object has a `temporal` link with `type`, `value`, and
+`status`. Runtime Args overrides are checked before network or side-effect
+execution, and invalid calendar values fail with `E-DATE-VALUE-001`.
 
 The plot manifest section records:
 

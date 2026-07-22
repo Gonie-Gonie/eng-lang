@@ -19,6 +19,7 @@ mod semantic;
 mod source;
 mod stats;
 mod table;
+mod temporal;
 mod type_info;
 mod uncertainty;
 mod units;
@@ -119,6 +120,9 @@ pub use stats::{
 pub use table::{
     TableColumnInfo, TableDerivedColumnInfo, TableJoinKeyInfo, TablePredicateInfo,
     TableSortKeyInfo, TableTransformInfo,
+};
+pub use temporal::{
+    format_gregorian_date, gregorian_month_length, GregorianDateComponent, GregorianDateError,
 };
 pub use type_info::{TypeInfo, TypeInfoSource};
 pub use uncertainty::{
@@ -23757,6 +23761,137 @@ with {
         assert!(
             report.diagnostics.is_empty(),
             "a user function should win over the builtin math name: {:#?}",
+            report.diagnostics
+        );
+        let binding = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "shadowed")
+            .expect("shadowed function result should remain typed");
+        assert_eq!(binding.semantic_type.quantity_kind, "Length");
+        assert_eq!(binding.semantic_type.display_unit, "m");
+    }
+
+    #[test]
+    fn types_and_validates_native_date_constructors() {
+        let source = concat!(
+            "args {\n",
+            "    year: Int = 2024\n",
+            "}\n",
+            "deadline = date(args.year, 2, 29)\n",
+            "release: Date = date(2026, 7, 21)\n",
+            "const epoch: Date = date(2000, 2, 29)\n",
+            "alias = deadline\n",
+            "spaced = date (2024, 2, 29)\n",
+            "wrapped = (date(2024, 2, 29))\n",
+            "print \"direct={date(args.year, 12, 31)}\"\n",
+        );
+        let report = check_source("native-date.eng", source, &CheckOptions::default());
+
+        assert!(
+            report.diagnostics.is_empty(),
+            "valid Gregorian Date values should compile cleanly: {:#?}",
+            report.diagnostics
+        );
+        for name in ["deadline", "release", "epoch", "alias", "spaced", "wrapped"] {
+            let binding = report
+                .semantic_program
+                .typed_bindings
+                .iter()
+                .find(|binding| binding.name == name)
+                .unwrap_or_else(|| panic!("missing typed Date binding `{name}`"));
+            assert_eq!(binding.semantic_type.quantity_kind, "Date");
+            assert_eq!(binding.semantic_type.display_unit, "");
+            assert!(report
+                .semantic_program
+                .hover_hints
+                .iter()
+                .any(|hover| hover.name == name && hover.quantity_kind == "Date"));
+        }
+        assert!(report
+            .inferred_declarations
+            .iter()
+            .any(|declaration| declaration.name == "release"
+                && declaration.expression == "date(2026, 7, 21)"));
+
+        let invalid_source = concat!(
+            "bad_arity = date(2026, 1)\n",
+            "bad_argument = date(\"2026\", 1, 1)\n",
+            "bad_month = date(2026, 13, 1)\n",
+            "bad_day = date(1900, 2, 29)\n",
+            "wrong_type: String = date(2026, 1, 1)\n",
+            "print \"bad={date(2026, 2, 29)}\"\n",
+            "filtered = filter rows\n",
+            "where {\n",
+            "    valid_from <= date(2026, 4, 31)\n",
+            "}\n",
+        );
+        let invalid = check_source(
+            "invalid-native-date.eng",
+            invalid_source,
+            &CheckOptions::default(),
+        );
+        let span_text = |code: &str, line: usize| {
+            let span = invalid
+                .diagnostics
+                .iter()
+                .find(|diagnostic| diagnostic.code == code && diagnostic.line == line)
+                .unwrap_or_else(|| {
+                    panic!("missing {code} on line {line}: {:#?}", invalid.diagnostics)
+                })
+                .source_span
+                .expect("Date diagnostics should own exact source spans");
+            &invalid_source[span.start..span.end]
+        };
+        for (code, line, expected) in [
+            ("E-DATE-CALL-001", 1, "date"),
+            ("E-DATE-ARG-001", 2, "\"2026\""),
+            ("E-DATE-VALUE-001", 3, "13"),
+            ("E-DATE-VALUE-001", 4, "29"),
+            ("E-DATE-RESULT-001", 5, "date(2026, 1, 1)"),
+            ("E-DATE-VALUE-001", 6, "29"),
+            ("E-DATE-VALUE-001", 9, "31"),
+        ] {
+            assert_eq!(span_text(code, line), expected);
+        }
+        assert_eq!(
+            invalid
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code.starts_with("E-DATE-"))
+                .count(),
+            7
+        );
+        for name in ["bad_arity", "bad_argument", "bad_month", "bad_day"] {
+            assert!(
+                invalid
+                    .semantic_program
+                    .typed_bindings
+                    .iter()
+                    .all(|binding| binding.name != name),
+                "invalid Date binding `{name}` must not expose a misleading inferred type"
+            );
+        }
+    }
+
+    #[test]
+    fn user_function_shadows_native_date_constructor_semantics() {
+        let source = concat!(
+            "fn date(year: Length [m], month: Length [m], day: Length [m]) -> Length [m] {\n",
+            "    return year\n",
+            "}\n",
+            "base = 2 m\n",
+            "shadowed = date(base, base, base)\n",
+        );
+        let report = check_source("shadowed-date.eng", source, &CheckOptions::default());
+
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .all(|diagnostic| !diagnostic.code.starts_with("E-DATE-")),
+            "a user function should win over the native Date constructor: {:#?}",
             report.diagnostics
         );
         let binding = report

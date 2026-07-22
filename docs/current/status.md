@@ -42,6 +42,10 @@ workflow, and covered by the breaking-change policy.
 - Root `args { ... }` for String/path/CsvFile/DirectoryPath and primitive
   Bool/Int/Count/Float/Duration values.
 - Fast `=` bindings, explicit quantity declarations, and `:=` rejection.
+- Native Gregorian `date(year, month, day)` values for Int literals,
+  Int bindings, and Args Int fields, with leap-year/month-length diagnostics,
+  Date aliases, print reuse, `typed_payload.temporal_values[]`, and scalar
+  object-store temporal values.
 - Top-level importable `const`, pure scalar `fn`, checked return dimensions,
   relative file imports, and no imported executable-body side effects.
 - Built-in quantity/unit registry with `degC` as the canonical ASCII
