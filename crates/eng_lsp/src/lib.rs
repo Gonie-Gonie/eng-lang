@@ -741,6 +741,15 @@ const EDITOR_LEGACY_WORKFLOW_BUILTIN_ALIASES: &[&str] =
 const EDITOR_LEGACY_WORKFLOW_OPTION_ALIASES: &[&str] =
     &["fixture", "layers", "test_fraction", "x", "y"];
 
+const SAMPLE_METHOD_COMPLETIONS: &[(&str, &str)] = &[
+    ("grid", "deterministic Cartesian grid sampling method"),
+    ("random", "deterministic seeded random sampling method"),
+    (
+        "lhs",
+        "deterministic seeded Latin hypercube sampling method",
+    ),
+];
+
 const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     ("date", "calendar date constructor"),
     ("dir", "eng.path directory path helper"),
@@ -781,11 +790,6 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     ("grid", "eng.sampling grid construction helper"),
     ("random", "eng.sampling random generator helper"),
     ("lhs", "eng.sampling Latin hypercube helper"),
-    ("latin_hypercube", "eng.sampling Latin hypercube helper"),
-    (
-        "latin-hypercube",
-        "eng.sampling Latin hypercube helper alias",
-    ),
     (
         "materialize",
         "Create reviewable case rows and case directories",
@@ -7961,11 +7965,11 @@ fn workflow_builtin_modifiers_for_line(
     keyword: &str,
     token_start: usize,
 ) -> &'static [&'static str] {
-    if keyword == "uniform"
+    if matches!(keyword, "uniform" | "latin_hypercube" | "latin-hypercube")
         && previous_identifier_before(line, token_start)
             .is_some_and(|previous| previous == "sample")
     {
-        return &["defaultLibrary", "workflowStep"];
+        return &["defaultLibrary", "workflowStep", "deprecated"];
     }
     if keyword == "predict"
         && next_non_whitespace_after(line, token_start + keyword.len()) == Some('(')
@@ -10329,19 +10333,7 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
             "sample random",
             "eng.sampling deterministic random sample table",
         ),
-        (
-            "sample uniform",
-            "eng.sampling deterministic uniform/random sample table alias",
-        ),
         ("sample lhs", "eng.sampling Latin hypercube sample table"),
-        (
-            "sample latin_hypercube",
-            "eng.sampling Latin hypercube sample table alias",
-        ),
-        (
-            "sample latin-hypercube",
-            "eng.sampling Latin hypercube sample table alias",
-        ),
     ] {
         let kind = if is_starter_snippet_label(label) {
             "snippet"
@@ -10782,6 +10774,17 @@ pub fn completion_items_at(
     line: usize,
     character: usize,
 ) -> Vec<LspCompletion> {
+    if let Some(prefix) = sample_method_completion_prefix(source, line, character) {
+        let mut seen = BTreeMap::new();
+        let mut items = Vec::new();
+        for (label, detail) in SAMPLE_METHOD_COMPLETIONS {
+            if prefix.is_empty() || label.starts_with(&prefix) {
+                push_completion(&mut items, &mut seen, label, "keyword", detail);
+            }
+        }
+        return items;
+    }
+
     if let Some(context) = with_block_completion_context(source, line) {
         let mut seen = BTreeMap::new();
         let mut items = Vec::new();
@@ -11121,6 +11124,55 @@ pub fn completion_items_at(
     }
 
     completion_items(report)
+}
+
+fn sample_method_completion_prefix(source: &str, line: usize, character: usize) -> Option<String> {
+    let line_text = source.lines().nth(line)?;
+    let cursor = utf16_offset_to_byte(line_text, character)?;
+    let before_cursor = &line_text[..cursor];
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut chars = before_cursor.char_indices().peekable();
+    while let Some((_, character)) = chars.next() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        if character == '"' {
+            in_string = true;
+        } else if character == '#'
+            || (character == '/' && chars.peek().is_some_and(|(_, next)| *next == '/'))
+        {
+            return None;
+        }
+    }
+    if in_string {
+        return None;
+    }
+
+    let sample_start = before_cursor.rfind("sample")?;
+    if sample_start > 0 && is_ident_byte(before_cursor.as_bytes()[sample_start - 1]) {
+        return None;
+    }
+    let method_text = &before_cursor[sample_start + "sample".len()..];
+    if !method_text.chars().next().is_some_and(char::is_whitespace) {
+        return None;
+    }
+    let prefix = method_text.trim_start();
+    if prefix
+        .chars()
+        .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-'))
+    {
+        Some(prefix.to_ascii_lowercase())
+    } else {
+        None
+    }
 }
 
 struct WithBlockCompletionContext {
@@ -11875,20 +11927,8 @@ fn completion_insert_snippet_for_label(label: &str) -> Option<String> {
             "sample random\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}"
                 .to_owned(),
         ),
-        "sample uniform" => Some(
-            "sample uniform\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}"
-                .to_owned(),
-        ),
         "sample lhs" => Some(
             "sample lhs\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}"
-                .to_owned(),
-        ),
-        "sample latin_hypercube" => Some(
-            "sample latin_hypercube\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}"
-                .to_owned(),
-        ),
-        "sample latin-hypercube" => Some(
-            "sample latin-hypercube\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}"
                 .to_owned(),
         ),
         _ => None,
@@ -14207,6 +14247,23 @@ print "done"
                 .any(|completion| completion["label"] == "datetime"),
             "unsupported datetime constructor must not be advertised"
         );
+        assert!(completion_items
+            .iter()
+            .any(|completion| completion["label"] == "uniform"));
+        for alias in [
+            "latin_hypercube",
+            "latin-hypercube",
+            "sample uniform",
+            "sample latin_hypercube",
+            "sample latin-hypercube",
+        ] {
+            assert!(
+                !completion_items
+                    .iter()
+                    .any(|completion| completion["label"] == alias),
+                "sampling compatibility alias {alias} must not be advertised"
+            );
+        }
         for label in ["eng.path", "eng.net", "eng.uncertainty"] {
             assert!(
                 completion_items
@@ -14560,8 +14617,8 @@ print "done"
             ("fill missing", "stdlib"),
             ("http get", "stdlib"),
             ("http post", "stdlib"),
-            ("sample uniform", "stdlib"),
-            ("sample latin-hypercube", "stdlib"),
+            ("sample random", "stdlib"),
+            ("sample lhs", "stdlib"),
             ("open sqlite", "stdlib"),
             ("write sqlite", "stdlib"),
             ("write standard_text", "stdlib"),
@@ -14625,14 +14682,14 @@ print "done"
             write_sqlite_completion["insert_snippet"],
             "${1:db} = open sqlite ${2:args.database_target}\nwrite ${3:predictions} to ${1:db}.table(\"${4:predictions}\")\nwith {\n    mode = ${5:replace}\n    transaction = commit\n}"
         );
-        let sample_uniform_completion = completions
+        let sample_random_completion = completions
             .iter()
-            .find(|completion| completion["label"] == "sample uniform")
-            .expect("editor metadata should include sample uniform completion");
-        assert_eq!(sample_uniform_completion["lsp_kind"], 9);
+            .find(|completion| completion["label"] == "sample random")
+            .expect("editor metadata should include sample random completion");
+        assert_eq!(sample_random_completion["lsp_kind"], 9);
         assert_eq!(
-            sample_uniform_completion["insert_snippet"],
-            "sample uniform\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}"
+            sample_random_completion["insert_snippet"],
+            "sample random\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}"
         );
         let check_coverage_completion = completions
             .iter()
@@ -20465,6 +20522,22 @@ with {
             "keyword",
             "workflowStep",
         );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "designs = sample uniform",
+            "uniform",
+            "keyword",
+            "deprecated",
+        );
+        assert_semantic_token_on_line_without_modifier(
+            &snapshot,
+            source,
+            "load = uniform",
+            "uniform",
+            "function",
+            "deprecated",
+        );
     }
 
     #[test]
@@ -20897,6 +20970,39 @@ legacy_station = select_first_row(stations, return_column="station_id")
         for label in ["regression_table", "train_regression", "ann"] {
             assert_semantic_token_modifier(&snapshot, source, label, "deprecated");
         }
+        for (line, label) in [
+            ("alias_designs = sample uniform", "uniform"),
+            ("latin_designs = sample latin_hypercube", "latin_hypercube"),
+            (
+                "latin_hyphen_designs = sample latin-hypercube",
+                "latin-hypercube",
+            ),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                label,
+                "keyword",
+                "deprecated",
+            );
+        }
+        assert_semantic_token_on_line_without_modifier(
+            &snapshot,
+            source,
+            "designs = sample lhs",
+            "lhs",
+            "keyword",
+            "deprecated",
+        );
+        assert_semantic_token_on_line_without_modifier(
+            &snapshot,
+            source,
+            "people_density = uniform",
+            "uniform",
+            "function",
+            "deprecated",
+        );
         assert_semantic_token_on_line_with_modifier(
             &snapshot,
             source,
@@ -21625,6 +21731,35 @@ gap = coverage.max_gap_hours
             "property",
             "timeseries",
         );
+    }
+
+    #[test]
+    fn sample_method_completion_only_advertises_canonical_methods() {
+        let source = "designs = sample ";
+        let completions = completion_items_for_source_position(
+            Path::new("sample_method_completion.eng"),
+            source,
+            0,
+            source.len(),
+        );
+        assert_eq!(
+            completions
+                .iter()
+                .map(|completion| completion.label.as_str())
+                .collect::<Vec<_>>(),
+            vec!["grid", "random", "lhs"]
+        );
+
+        let prefixed = "designs = sample r";
+        let completions = completion_items_for_source_position(
+            Path::new("sample_method_completion.eng"),
+            prefixed,
+            0,
+            prefixed.len(),
+        );
+        assert_eq!(completions.len(), 1);
+        assert_eq!(completions[0].label, "random");
+        assert_eq!(completions[0].kind, "keyword");
     }
 
     #[test]

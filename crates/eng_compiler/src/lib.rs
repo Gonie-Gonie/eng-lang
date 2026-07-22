@@ -21705,6 +21705,56 @@ schema SensorData {
     }
 
     #[test]
+    fn sample_method_aliases_warn_on_exact_tokens_and_keep_canonical_methods() {
+        let source = concat!(
+            "# uniform latin_hypercube latin-hypercube\r\n",
+            "uniform_designs = sample uniform\r\n",
+            "underscore_designs = sample latin_hypercube\r\n",
+            "hyphen_designs = sample latin-hypercube\r\n",
+            "random_designs = sample random\r\n",
+            "lhs_designs = sample lhs\r\n",
+        );
+        let report = check_source(
+            "sampling_method_aliases.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        let warnings = report
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code.ends_with("-ALIAS"))
+            .map(|diagnostic| {
+                let span = diagnostic.source_span.expect("sampling alias span");
+                (diagnostic.code.as_str(), &source[span.start..span.end])
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            warnings,
+            vec![
+                ("W-SAMPLING-UNIFORM-ALIAS", "uniform"),
+                ("W-SAMPLING-LATIN-HYPERCUBE-ALIAS", "latin_hypercube"),
+                ("W-SAMPLING-LATIN-HYPERCUBE-ALIAS", "latin-hypercube"),
+            ]
+        );
+        let methods = report
+            .semantic_program
+            .sample_generations
+            .iter()
+            .map(|generation| (generation.binding.as_str(), generation.method.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            methods,
+            vec![
+                ("uniform_designs", "random"),
+                ("underscore_designs", "lhs"),
+                ("hyphen_designs", "lhs"),
+                ("random_designs", "random"),
+                ("lhs_designs", "lhs"),
+            ]
+        );
+    }
+
+    #[test]
     fn sample_table_metadata_fields_are_typed() {
         let report = check_source(
             "sample_metadata.eng",

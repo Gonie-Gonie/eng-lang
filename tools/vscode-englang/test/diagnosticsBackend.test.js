@@ -84,7 +84,9 @@ function documentFixture() {
     "    value := 1",
     "}",
     "legacy_model = regression_table(designs)",
-    "ann_model = ann(split)"
+    "ann_model = ann(split)",
+    "distribution = uniform(0, 1); uniform_designs = sample uniform",
+    "latin_designs = sample latin-hypercube"
   ];
   return {
     isDirty: false,
@@ -154,6 +156,20 @@ function successfulReview() {
         severity: "warning",
         message: "`ann(...)` is a compatibility-only alias for `mlp(...)`.",
         line: 5,
+        column: 1
+      },
+      {
+        code: "W-SAMPLING-UNIFORM-ALIAS",
+        severity: "warning",
+        message: "`sample uniform` is a compatibility-only spelling for `sample random`.",
+        line: 6,
+        column: 1
+      },
+      {
+        code: "W-SAMPLING-LATIN-HYPERCUBE-ALIAS",
+        severity: "warning",
+        message: "`sample latin-hypercube` is a compatibility-only spelling for `sample lhs`.",
+        line: 7,
         column: 1
       }
     ],
@@ -231,7 +247,7 @@ try {
   processCalls[0].callback(null, JSON.stringify(review), "");
   assert.strictEqual(diagnostics.sets.length, 1);
   assert.strictEqual(diagnostics.sets[0].uri, document.uri.toString());
-  assert.strictEqual(diagnostics.sets[0].diagnostics.length, 4);
+  assert.strictEqual(diagnostics.sets[0].diagnostics.length, 6);
 
   const scriptDiagnostic = diagnostics.sets[0].diagnostics[0];
   assert.strictEqual(scriptDiagnostic.source, "eng/file");
@@ -261,6 +277,35 @@ try {
   assert.deepStrictEqual(annAliasDiagnostic.range.start, { line: 4, character: 12 });
   assert.deepStrictEqual(annAliasDiagnostic.range.end, { line: 4, character: 15 });
   assert.deepStrictEqual(annAliasDiagnostic.tags, [vscodeMock.DiagnosticTag.Deprecated]);
+  const uniformAliasDiagnostic = diagnostics.sets[0].diagnostics[4];
+  const uniformAliasStart = document.lineAt(5).text.lastIndexOf("uniform");
+  assert.strictEqual(uniformAliasDiagnostic.code.value, "W-SAMPLING-UNIFORM-ALIAS");
+  assert.match(uniformAliasDiagnostic.code.target.toString(), /sample-generation-metadata/);
+  assert.deepStrictEqual(uniformAliasDiagnostic.range.start, {
+    line: 5,
+    character: uniformAliasStart
+  });
+  assert.deepStrictEqual(uniformAliasDiagnostic.range.end, {
+    line: 5,
+    character: uniformAliasStart + "uniform".length
+  });
+  assert.deepStrictEqual(uniformAliasDiagnostic.tags, [vscodeMock.DiagnosticTag.Deprecated]);
+  const latinAliasDiagnostic = diagnostics.sets[0].diagnostics[5];
+  const latinAliasStart = document.lineAt(6).text.indexOf("latin-hypercube");
+  assert.strictEqual(
+    latinAliasDiagnostic.code.value,
+    "W-SAMPLING-LATIN-HYPERCUBE-ALIAS"
+  );
+  assert.match(latinAliasDiagnostic.code.target.toString(), /sample-generation-metadata/);
+  assert.deepStrictEqual(latinAliasDiagnostic.range.start, {
+    line: 6,
+    character: latinAliasStart
+  });
+  assert.deepStrictEqual(latinAliasDiagnostic.range.end, {
+    line: 6,
+    character: latinAliasStart + "latin-hypercube".length
+  });
+  assert.deepStrictEqual(latinAliasDiagnostic.tags, [vscodeMock.DiagnosticTag.Deprecated]);
   assert.deepStrictEqual(cachedReviews.at(-1), review);
   assert.strictEqual(riskDecorations.at(-1), cachedReviews.at(-1));
   assert.strictEqual(validationDecorations.at(-1), cachedReviews.at(-1));

@@ -505,6 +505,11 @@ summary files; the structured rows stay in `typed_payload.sample_tables[].row_pr
 `random` and `lhs` use deterministic seeded generation; repro profile rejects
 them without `seed`.
 
+For source compatibility, `sample uniform` maps to `sample random`, while
+`sample latin_hypercube` and `sample latin-hypercube` map to `sample lhs`.
+These spellings emit warnings and are omitted from completion. This does not
+affect the canonical `uniform(lower, upper)` parameter distribution function.
+
 Sample-like tables with a `case_id` column also materialize case artifacts.
 Runtime output includes `typed_payload.case_tables[]` summary rows,
 `typed_payload.case_manifests[]` per-case rows, and

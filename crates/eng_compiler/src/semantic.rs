@@ -5702,6 +5702,23 @@ fn analyze_sample_generations(
                 return None;
             };
             let method = sample_generation_method(&binding.expression)?;
+            if let Some((code, alias, canonical, span)) =
+                sample_generation_alias(&binding.expression, binding.expression_span)
+            {
+                diagnostics.push(
+                    Diagnostic::warning(
+                        code,
+                        span.line,
+                        &format!(
+                            "`sample {alias}` is a compatibility-only spelling for `sample {canonical}`."
+                        ),
+                        Some(&format!(
+                            "Use `sample {canonical}`; count, seed, and parameter options are unchanged."
+                        )),
+                    )
+                    .with_source_span(span),
+                );
+            }
             Some(sample_generation_info(
                 binding,
                 &method,
@@ -5721,6 +5738,42 @@ fn sample_generation_method(expression: &str) -> Option<String> {
         _ => return None,
     };
     Some(method.to_owned())
+}
+
+fn sample_generation_alias(
+    expression: &str,
+    expression_span: SourceSpan,
+) -> Option<(&'static str, &str, &'static str, SourceSpan)> {
+    let trimmed = expression.trim_start();
+    let leading = expression.len().checked_sub(trimmed.len())?;
+    let after_sample = trimmed.strip_prefix("sample")?;
+    let method = after_sample.trim_start();
+    let whitespace = after_sample.len().checked_sub(method.len())?;
+    if whitespace == 0 {
+        return None;
+    }
+    let alias = method.trim_end();
+    let (code, canonical) = match alias.to_ascii_lowercase().as_str() {
+        "uniform" => ("W-SAMPLING-UNIFORM-ALIAS", "random"),
+        "latin_hypercube" | "latin-hypercube" => ("W-SAMPLING-LATIN-HYPERCUBE-ALIAS", "lhs"),
+        _ => return None,
+    };
+    let method_offset = leading
+        .checked_add("sample".len())?
+        .checked_add(whitespace)?;
+    let start = expression_span.start.checked_add(method_offset)?;
+    Some((
+        code,
+        alias,
+        canonical,
+        SourceSpan::new_in_source(
+            expression_span.source_id,
+            start,
+            start.checked_add(alias.len())?,
+            expression_span.line,
+            expression_span.column.checked_add(method_offset)?,
+        ),
+    ))
 }
 
 fn sample_generation_info(

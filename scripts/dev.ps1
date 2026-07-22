@@ -4137,6 +4137,7 @@ function Assert-VscodeExtensionContract {
     $ReviewPanelRendererPath = Join-Path $ExtensionRoot "reviewPanelRenderer.js"
     $CaseRunCompletionTestPath = Join-Path $ExtensionRoot "test\caseRunCompletion.test.js"
     $TimeAlignmentCompletionTestPath = Join-Path $ExtensionRoot "test\timeAlignmentCompletion.test.js"
+    $SamplingCompletionTestPath = Join-Path $ExtensionRoot "test\samplingCompletion.test.js"
     $CodeActionsTestPath = Join-Path $ExtensionRoot "test\codeActions.test.js"
     $DecorationsTestPath = Join-Path $ExtensionRoot "test\decorations.test.js"
     $DiagnosticsBackendTestPath = Join-Path $ExtensionRoot "test\diagnosticsBackend.test.js"
@@ -4255,6 +4256,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $TimeAlignmentCompletionTestPath)) {
         throw "missing VS Code TimeSeries alignment completion smoke at $TimeAlignmentCompletionTestPath"
+    }
+    if (-not (Test-Path $SamplingCompletionTestPath)) {
+        throw "missing VS Code sampling method completion smoke at $SamplingCompletionTestPath"
     }
     if (-not (Test-Path $CodeActionsTestPath)) {
         throw "missing VS Code compiler code action smoke at $CodeActionsTestPath"
@@ -7219,7 +7223,6 @@ function Assert-VscodeExtensionContract {
         @{ Label = "sample lhs"; Tokens = @("sample lhs", "seed =", "uniform("); RequiresSnippetKind = $false },
         @{ Label = "sample grid"; Tokens = @("sample grid", "count =", "uniform("); RequiresSnippetKind = $false },
         @{ Label = "sample random"; Tokens = @("sample random", "seed =", "uniform("); RequiresSnippetKind = $false },
-        @{ Label = "sample uniform"; Tokens = @("sample uniform", "seed =", "uniform("); RequiresSnippetKind = $false },
         @{ Label = "materialize cases"; Tokens = @("materialize cases"); RequiresSnippetKind = $false },
         @{ Label = "apply cases"; Tokens = @("apply", "over", "template = file", "overwrite = true"); RequiresSnippetKind = $false },
         @{ Label = "write sqlite"; Tokens = @('open sqlite ${2:args.database_target}', ".table", "transaction = commit"); RequiresSnippetKind = $false },
@@ -7249,7 +7252,7 @@ function Assert-VscodeExtensionContract {
             throw "generated VS Code SQLite snippet must pass FilePath args directly instead of wrapping args.database_target in file(...)"
         }
     }
-    foreach ($RequiredCompletion in @("records", "promote json records", "sample uniform", "sample latin-hypercube", "read json", "eng.table", "split")) {
+    foreach ($RequiredCompletion in @("records", "promote json records", "sample random", "sample lhs", "read json", "eng.table", "split")) {
         $Completion = @($EditorMetadata.completion_items | Where-Object { $_.label -eq $RequiredCompletion }) | Select-Object -First 1
         if ($null -eq $Completion) {
             throw "generated VS Code editor metadata missing completion item $RequiredCompletion"
@@ -7258,9 +7261,14 @@ function Assert-VscodeExtensionContract {
             throw "generated VS Code editor metadata completion item $RequiredCompletion missing lsp_kind"
         }
     }
-    $SampleUniformCompletion = @($EditorMetadata.completion_items | Where-Object { $_.label -eq "sample uniform" }) | Select-Object -First 1
-    if (-not [string]$SampleUniformCompletion.insert_snippet -or -not ([string]$SampleUniformCompletion.insert_snippet).Contains("sample uniform`nwith {")) {
-        throw "generated VS Code editor metadata sample uniform completion must include a with-block insert_snippet"
+    $SampleRandomCompletion = @($EditorMetadata.completion_items | Where-Object { $_.label -eq "sample random" }) | Select-Object -First 1
+    if (-not [string]$SampleRandomCompletion.insert_snippet -or -not ([string]$SampleRandomCompletion.insert_snippet).Contains("sample random`nwith {")) {
+        throw "generated VS Code editor metadata sample random completion must include a with-block insert_snippet"
+    }
+    foreach ($SamplingAliasCompletion in @("latin_hypercube", "latin-hypercube", "sample uniform", "sample latin_hypercube", "sample latin-hypercube")) {
+        if ($MetadataCompletionLabels -contains $SamplingAliasCompletion) {
+            throw "generated VS Code completion items must not advertise sampling compatibility alias $SamplingAliasCompletion"
+        }
     }
     $ReadJsonCompletion = @($EditorMetadata.completion_items | Where-Object { $_.label -eq "read json" }) | Select-Object -First 1
     if ($ReadJsonCompletion.insert -ne "read json args.config" -or $ReadJsonCompletion.insert_snippet -ne 'read json ${1:args.config}') {
@@ -7556,6 +7564,7 @@ function Assert-VscodeExtensionContract {
         $ReviewPanelRendererPath,
         $CaseRunCompletionTestPath,
         $TimeAlignmentCompletionTestPath,
+        $SamplingCompletionTestPath,
         $CodeActionsTestPath,
         $DecorationsTestPath,
         $DiagnosticsBackendTestPath,
@@ -7572,6 +7581,7 @@ function Assert-VscodeExtensionContract {
     Invoke-JavaScriptSyntaxCheck -Paths $VscodeJavaScriptPaths -Label "VS Code extension"
     Invoke-JavaScriptProgram -Path $CaseRunCompletionTestPath -Label "VS Code native case run completion smoke"
     Invoke-JavaScriptProgram -Path $TimeAlignmentCompletionTestPath -Label "VS Code TimeSeries alignment completion smoke"
+    Invoke-JavaScriptProgram -Path $SamplingCompletionTestPath -Label "VS Code sampling method completion smoke"
     Invoke-JavaScriptProgram -Path $CodeActionsTestPath -Label "VS Code compiler code action smoke"
     Invoke-JavaScriptProgram -Path $DecorationsTestPath -Label "VS Code review decoration smoke"
     Invoke-JavaScriptProgram -Path $DiagnosticsBackendTestPath -Label "VS Code fake eng.exe diagnostics backend smoke"
@@ -8998,10 +9008,15 @@ function Invoke-LspCheck {
     if ($EditorMetadata.format -ne "eng-lsp-editor-metadata-v2") {
         throw "eng-lsp --editor-metadata returned unexpected format $($EditorMetadata.format)"
     }
-    foreach ($RequiredCompletion in @("records", "promote json records", "sample uniform", "sample latin-hypercube", "read json", "eng.table", "split")) {
+    foreach ($RequiredCompletion in @("records", "promote json records", "sample random", "sample lhs", "read json", "eng.table", "split")) {
         $Completion = @($EditorMetadata.completion_items | Where-Object { $_.label -eq $RequiredCompletion }) | Select-Object -First 1
         if ($null -eq $Completion) {
             throw "eng-lsp --editor-metadata missing completion item $RequiredCompletion"
+        }
+    }
+    foreach ($SamplingAliasCompletion in @("latin_hypercube", "latin-hypercube", "sample uniform", "sample latin_hypercube", "sample latin-hypercube")) {
+        if (@($EditorMetadata.completion_items.label) -contains $SamplingAliasCompletion) {
+            throw "eng-lsp --editor-metadata must not advertise sampling compatibility alias $SamplingAliasCompletion"
         }
     }
     foreach ($RequiredModifier in @("workflowStep", "unit", "quantity", "solver", "path", "temporal")) {

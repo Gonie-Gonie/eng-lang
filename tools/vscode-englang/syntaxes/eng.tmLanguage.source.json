@@ -1086,8 +1086,16 @@
             ]
           },
           {
+            "name": "meta.workflow.legacy-sample-method.englang",
+            "match": "\\b(sample)\\s+(uniform|latin_hypercube|latin-hypercube)\\b",
+            "captures": {
+              "1": { "name": "keyword.control.workflow.englang" },
+              "2": { "name": "keyword.control.deprecated.englang" }
+            }
+          },
+          {
             "name": "meta.workflow.sample-method.englang",
-            "match": "\\b(sample)\\s+(lhs|latin_hypercube|latin-hypercube|grid|random|uniform)\\b",
+            "match": "\\b(sample)\\s+(lhs|grid|random)\\b",
             "captures": {
               "1": { "name": "keyword.control.workflow.englang" },
               "2": { "name": "constant.language.englang" }

@@ -933,6 +933,21 @@ use `loaded`, `declared`, and `resolved`. A run decision is `scheduled` until
 execution actually occurs, or `skipped` when the saved lock is reused. These
 values do not mean that a stdlib module has Planned maturity.
 
+## Sample Generation Metadata
+
+The canonical sampling declarations are `sample grid`, `sample random`, and
+`sample lhs`. Runtime artifacts normalize every accepted declaration to one of
+those three method names in `typed_payload.sample_tables[]`, together with the
+count, seed, parameter ranges, generated rows, row hashes, and previews.
+
+`sample uniform` remains executable as a compatibility spelling of
+`sample random`; `sample latin_hypercube` and `sample latin-hypercube` remain
+executable spellings of `sample lhs`. They emit `W-SAMPLING-UNIFORM-ALIAS` or
+`W-SAMPLING-LATIN-HYPERCUBE-ALIAS` on the method token, and editor quick fixes
+replace only that token. Completion advertises only the canonical spellings.
+The `uniform(lower, upper)` parameter distribution function is canonical and
+is not deprecated.
+
 ## Promoted Table Selection And Transform Metadata
 
 Compatibility-only `select_first_row(...)` records deterministic row selection

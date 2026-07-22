@@ -825,25 +825,25 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "meta.workflow.sample-method.englang",
+    "scope": "meta.workflow.legacy-sample-method.englang",
     "text": "sample uniform",
     "fullMatch": true
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "constant.language.englang",
+    "scope": "keyword.control.deprecated.englang",
     "text": "uniform",
     "fullMatch": true
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "meta.workflow.sample-method.englang",
+    "scope": "meta.workflow.legacy-sample-method.englang",
     "text": "sample latin_hypercube",
     "fullMatch": true
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "meta.workflow.sample-method.englang",
+    "scope": "meta.workflow.legacy-sample-method.englang",
     "text": "sample latin-hypercube",
     "fullMatch": true
   },
@@ -860,13 +860,13 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "constant.language.englang",
+    "scope": "keyword.control.deprecated.englang",
     "text": "latin_hypercube",
     "fullMatch": true
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "constant.language.englang",
+    "scope": "keyword.control.deprecated.englang",
     "text": "latin-hypercube",
     "fullMatch": true
   },

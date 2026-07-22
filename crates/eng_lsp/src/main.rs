@@ -2292,6 +2292,22 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
             "mlp",
             "Replace ann with mlp",
         )),
+        "W-SAMPLING-UNIFORM-ALIAS" => {
+            optional_code_action(lsp_diagnostic_range_replacement_code_action(
+                uri,
+                diagnostic,
+                "random",
+                "Replace sampling method with random",
+            ))
+        }
+        "W-SAMPLING-LATIN-HYPERCUBE-ALIAS" => {
+            optional_code_action(lsp_diagnostic_range_replacement_code_action(
+                uri,
+                diagnostic,
+                "lhs",
+                "Replace sampling method with lhs",
+            ))
+        }
         "E-IO-JSON-FIELD-ACCESS-001" => {
             optional_code_action(lsp_json_read_promotion_code_action(uri, text, diagnostic))
         }
@@ -9846,6 +9862,62 @@ mod tests {
             diagnostic["range"]
         );
         assert_eq!(actions[0]["edit"]["changes"][uri][0]["newText"], "mlp");
+    }
+
+    #[test]
+    fn sampling_alias_quick_fixes_replace_only_the_method_token() {
+        let uri = "file:///C:/workspace/sampling-alias.eng";
+        let source = concat!(
+            "# uniform latin_hypercube latin-hypercube\r\n",
+            "a = sample uniform\r\n",
+            "b = sample latin_hypercube\r\n",
+            "c = sample latin-hypercube\r\n",
+        );
+        for (line, code, alias, replacement, title) in [
+            (
+                1,
+                "W-SAMPLING-UNIFORM-ALIAS",
+                "uniform",
+                "random",
+                "Replace sampling method with random",
+            ),
+            (
+                2,
+                "W-SAMPLING-LATIN-HYPERCUBE-ALIAS",
+                "latin_hypercube",
+                "lhs",
+                "Replace sampling method with lhs",
+            ),
+            (
+                3,
+                "W-SAMPLING-LATIN-HYPERCUBE-ALIAS",
+                "latin-hypercube",
+                "lhs",
+                "Replace sampling method with lhs",
+            ),
+        ] {
+            let source_line = source.lines().nth(line).expect("sampling alias line");
+            let start = source_line.rfind(alias).expect("sampling alias token");
+            let diagnostic = json!({
+                "range": {
+                    "start": { "line": line, "character": start },
+                    "end": { "line": line, "character": start + alias.len() }
+                },
+                "code": code,
+                "message": "sampling compatibility alias"
+            });
+            let actions = code_actions_for_diagnostic(uri, source, &diagnostic);
+            assert_eq!(actions.len(), 1);
+            assert_eq!(actions[0]["title"], title);
+            assert_eq!(
+                actions[0]["edit"]["changes"][uri][0]["range"],
+                diagnostic["range"]
+            );
+            assert_eq!(
+                actions[0]["edit"]["changes"][uri][0]["newText"],
+                replacement
+            );
+        }
     }
 
     #[test]

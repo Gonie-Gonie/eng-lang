@@ -28,6 +28,14 @@ class EngCompletionProvider {
   }
 
   async provideCompletionItems(document, position, cancellationToken) {
+    const samplingMethods = samplingMethodCompletionsForContext(
+      document,
+      position,
+      this.completionItems
+    );
+    if (samplingMethods !== undefined) {
+      return completionItemsFromPayload({ completions: samplingMethods }, []);
+    }
     const documentVersion = document.version;
     const liveCompletionPayload = await this.completionSnapshotForPosition?.(
       document,
@@ -92,6 +100,69 @@ function completionItemsFromPayload(completionPayload, fallbackCompletionItems, 
     addCompletion(items, seen, item);
   }
   return items;
+}
+
+function samplingMethodCompletionsForContext(document, position, completionItems = []) {
+  const prefix = samplingMethodCompletionPrefix(document, position);
+  if (prefix === undefined) {
+    return undefined;
+  }
+  const simpleByLabel = new Map(
+    completionItems
+      .filter((completion) => typeof completion?.label === "string")
+      .map((completion) => [completion.label, completion])
+  );
+  const methods = [];
+  const seen = new Set();
+  for (const completion of completionItems) {
+    const match = /^sample\s+([A-Za-z0-9_-]+)$/.exec(completion?.label ?? "");
+    const method = match?.[1];
+    if (!method || seen.has(method) || !method.startsWith(prefix)) {
+      continue;
+    }
+    seen.add(method);
+    const simple = simpleByLabel.get(method) ?? {};
+    methods.push({
+      ...simple,
+      label: method,
+      detail: completion.detail ?? simple.detail,
+      kind: "keyword",
+      lsp_kind: "keyword",
+      insert: method,
+      insert_snippet: undefined
+    });
+  }
+  return methods;
+}
+
+function samplingMethodCompletionPrefix(document, position) {
+  const lineText = String(document?.lineAt?.(position.line)?.text ?? "");
+  const beforeCursor = lineText.slice(0, position.character);
+  let inString = false;
+  let escaped = false;
+  for (let index = 0; index < beforeCursor.length; index += 1) {
+    const character = beforeCursor[index];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (character.charCodeAt(0) === 92) {
+        escaped = true;
+      } else if (character === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (character === '"') {
+      inString = true;
+    } else if (character === "#" || (character === "/" && beforeCursor[index + 1] === "/")) {
+      return undefined;
+    }
+  }
+  if (inString) {
+    return undefined;
+  }
+  const match = /(?:^|[^A-Za-z0-9_])sample\s+([A-Za-z0-9_-]*)$/.exec(beforeCursor);
+  return match ? match[1].toLowerCase() : undefined;
 }
 
 function argsFieldCompletionsFromDocument(document) {
@@ -710,5 +781,7 @@ module.exports = {
   httpResponseFieldCompletionsForContext,
   localMemberCompletionsForContext,
   memberAccessCompletionContext,
-  receiverLookupCandidates
+  receiverLookupCandidates,
+  samplingMethodCompletionPrefix,
+  samplingMethodCompletionsForContext
 };

@@ -18,6 +18,14 @@ const DIAGNOSTIC_DOC_TARGETS = new Map([
   [
     "W-ML-ANN-ALIAS",
     `${DIAGNOSTIC_DOC_ROOT}/reference/artifacts/report_review.md#data-driven-modeling-metadata`
+  ],
+  [
+    "W-SAMPLING-UNIFORM-ALIAS",
+    `${DIAGNOSTIC_DOC_ROOT}/reference/artifacts/report_review.md#sample-generation-metadata`
+  ],
+  [
+    "W-SAMPLING-LATIN-HYPERCUBE-ALIAS",
+    `${DIAGNOSTIC_DOC_ROOT}/reference/artifacts/report_review.md#sample-generation-metadata`
   ]
 ]);
 
@@ -655,6 +663,16 @@ function diagnosticFallbackRangeForCode(lineText, item, sourceColumn) {
   if (code === "W-ML-ANN-ALIAS") {
     return functionCallNameRange(lineText, "ann", searchStart);
   }
+  if (code === "W-SAMPLING-UNIFORM-ALIAS") {
+    return samplingMethodRange(lineText, ["uniform"], searchStart);
+  }
+  if (code === "W-SAMPLING-LATIN-HYPERCUBE-ALIAS") {
+    return samplingMethodRange(
+      lineText,
+      ["latin_hypercube", "latin-hypercube"],
+      searchStart
+    );
+  }
   if (code === "W-STATS-SUM-001") {
     return functionCallNameRange(lineText, "sum", searchStart);
   }
@@ -907,6 +925,26 @@ function functionCallNameRange(lineText, name, startCharacter = 0) {
   const searchStart = Math.max(0, Math.min(startCharacter, text.length));
   return functionCallNameRangeFrom(text, name, searchStart)
     ?? functionCallNameRangeFrom(text, name, 0);
+}
+
+function samplingMethodRange(lineText, aliases, startCharacter = 0) {
+  const text = String(lineText || "");
+  const searchStart = Math.max(0, Math.min(startCharacter, text.length));
+  const accepted = new Set(aliases);
+  const pattern = /\bsample\s+(uniform|latin_hypercube|latin-hypercube)\b/g;
+  let fallback;
+  for (let match = pattern.exec(text); match; match = pattern.exec(text)) {
+    if (!accepted.has(match[1])) {
+      continue;
+    }
+    const start = match.index + match[0].lastIndexOf(match[1]);
+    const range = { start, end: start + match[1].length };
+    fallback ??= range;
+    if (range.start >= searchStart || range.end > searchStart) {
+      return range;
+    }
+  }
+  return fallback;
 }
 
 function functionCallNameRangeFrom(text, name, searchStart) {
@@ -1353,6 +1391,8 @@ function diagnosticTags(item) {
     code === "W-TABLE-LEGACY-SELECT-FIRST-ROW" ||
     code === "W-ML-TRAIN-ALIAS" ||
     code === "W-ML-ANN-ALIAS" ||
+    code === "W-SAMPLING-UNIFORM-ALIAS" ||
+    code === "W-SAMPLING-LATIN-HYPERCUBE-ALIAS" ||
     code === "E-SCRIPT-001" ||
     code === "E-STRUCT-ARGS-001" ||
     message.includes("legacy") ||

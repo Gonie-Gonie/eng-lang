@@ -551,6 +551,12 @@ diagnostics and later editor projections. Missing `count` and missing parameter
 diagnostics select the exact `sample <method>` expression rather than whichever
 same-spelled word appears first on the line. The sampling corpus guard requires
 every `E-SAMPLING-*` diagnostic to retain a valid compiler range.
+Compatibility method diagnostics select only `uniform`, `latin_hypercube`,
+or `latin-hypercube` after `sample`. Semantic tokens add `deprecated` only
+in that method context; `uniform(...)` distribution calls remain uncertain
+functions. TextMate first-paint uses
+`meta.workflow.legacy-sample-method.englang` plus
+`keyword.control.deprecated.englang` for the same three phrases.
 
 Simulation and algebraic/component-solver diagnostics also consume source-owned
 ranges. Unknown targets select only the target name, missing required options

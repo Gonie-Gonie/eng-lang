@@ -619,7 +619,9 @@ they are written explicitly, but are not suggested as usable APIs.
 The generated completion metadata also carries plain insert text and VS Code
 snippet insert text for common helper and workflow completions such as
 `file(...)`, `read text`, `http get`, `check coverage`, `fill missing`, and
-`sample uniform`. Internal spellings such as `fill_missing` are not offered as
+`sample random`/`sample lhs`. After `sample `, completion is restricted to
+`grid`, `random`, and `lhs`; executable compatibility spellings are not
+suggested. Internal spellings such as `fill_missing` are not offered as
 public completion labels. Static snippets remain
 only for larger examples whose prefixes do not duplicate generated completion
 labels.
