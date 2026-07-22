@@ -734,11 +734,13 @@ full analysis. This richer root-edit contract may retain unchanged supported
 `eng.*` module and static file imports after exact root line, span, kind, and
 status verification. Static imports additionally require the complete recursive
 path-to-source-ID registry to reproduce exactly. Preserved imported semantic
-definitions are limited to schemas, constants, and functions whose internal
-spans retain registered source ownership; imported systems, domains, components,
-and classes use full analysis. Only root import declaration lines are reparsed
-for verification; supported imported definitions and other richer-prefix
-constructs are preserved without reparsing or semantic reanalysis.
+definitions are limited to schemas, constants, functions, and domains whose
+internal spans retain registered source ownership. Domain headers, type
+parameters, across/through variables, and conservation expressions are verified
+together; imported systems, components, and classes use full analysis. Only
+root import declaration lines are reparsed for verification; supported imported
+definitions and other richer-prefix constructs are preserved without reparsing
+or semantic reanalysis.
 Open or watched import changes invalidate cached dependent reports before this
 path is considered. This is not general incremental parsing or semantic
 recomputation.

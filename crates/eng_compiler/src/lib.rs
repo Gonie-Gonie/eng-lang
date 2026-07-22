@@ -671,10 +671,10 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// or operand. This richer root-edit contract may retain unchanged supported `eng.*` module and
 /// static file imports when every compiler import record exactly matches its root source line, span,
 /// kind, and status. Static imports additionally require the complete recursive path-to-source-ID
-/// registry to reproduce exactly and limit imported semantic definitions to schemas, constants, and
-/// functions with internally consistent registered source ownership. Only root import declaration
-/// lines are reparsed for verification; imported definitions and other richer prefix constructs are
-/// not reparsed or reanalyzed.
+/// registry to reproduce exactly and limit imported semantic definitions to schemas, constants,
+/// functions, and domains with internally consistent registered source ownership. Only root import
+/// declaration lines are reparsed for verification; imported definitions and other richer prefix
+/// constructs are not reparsed or reanalyzed.
 /// Changes inside it, a token-bearing non-declaration in the affected suffix, diagnostics,
 /// unsupported calls, unverifiable cache or axis metadata, unresolved or duplicate names, and edits
 /// without an affected declaration return `None` for a normal full check.
@@ -1574,6 +1574,7 @@ fn incremental_report_requires_rich_prefix_contract(
     offsets: IncrementalScalarRecordOffsets,
 ) -> bool {
     !report.semantic_program.schemas.is_empty()
+        || !report.semantic_program.domains.is_empty()
         || report
             .semantic_program
             .typed_bindings
@@ -1611,10 +1612,6 @@ fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckRep
             .any(|info| !info.span.is_root_source())
         || program
             .linear_operators
-            .iter()
-            .any(|info| !info.span.is_root_source())
-        || program
-            .domains
             .iter()
             .any(|info| !info.span.is_root_source())
         || program
@@ -1733,7 +1730,38 @@ fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckRep
                 .missing_policies
                 .iter()
                 .all(|policy| policy.line > schema.line)
-    })
+    }) && program
+        .domains
+        .iter()
+        .all(|domain| incremental_domain_definition_ownership_matches_report(domain, &source_ids))
+}
+
+fn incremental_domain_definition_ownership_matches_report(
+    domain: &semantic::DomainInfo,
+    source_ids: &HashSet<usize>,
+) -> bool {
+    let source_id = domain.span.source_id;
+    source_ids.contains(&source_id)
+        && domain.line == domain.span.line
+        && domain.type_parameters.iter().all(|parameter| {
+            parameter.kind_span.source_id == source_id && parameter.name_span.source_id == source_id
+        })
+        && domain.variables.iter().all(|variable| {
+            variable.span.source_id == source_id
+                && variable.line == variable.span.line
+                && variable.type_span.source_id == source_id
+                && variable
+                    .unit_span
+                    .is_none_or(|span| span.source_id == source_id)
+                && matches!(variable.role.as_str(), "across" | "through")
+        })
+        && domain.conservations.iter().all(|conservation| {
+            conservation.domain == domain.name
+                && conservation.span.source_id == source_id
+                && conservation.line == conservation.span.line
+                && conservation.expression_span.source_id == source_id
+                && conservation.status == "recorded"
+        })
 }
 
 fn incremental_rich_prefix_derived_metadata_matches(report: &CheckReport) -> bool {
@@ -12436,6 +12464,135 @@ factor = 0.5
             .is_none(),
             "the fast-only API must not adopt the rich declaration-prefix contract"
         );
+    }
+
+    #[test]
+    fn incrementally_rechecks_scalar_suffix_after_unchanged_static_domain_import() {
+        fn assert_fresh_equivalent(reused: &CheckReport, fresh: &CheckReport, source: &str) {
+            assert_eq!(reused.source_path, fresh.source_path);
+            assert_eq!(reused.source_files, fresh.source_files);
+            assert_eq!(reused.source_hash, fresh.source_hash);
+            assert_eq!(reused.source_lines, fresh.source_lines);
+            assert_eq!(reused.diagnostics, fresh.diagnostics);
+            assert_eq!(reused.inferred_declarations, fresh.inferred_declarations);
+            assert_eq!(reused.syntax_summary, fresh.syntax_summary);
+            assert_eq!(reused.semantic_program, fresh.semantic_program);
+            assert_eq!(
+                reused.quantity_completion_count,
+                fresh.quantity_completion_count
+            );
+            assert_eq!(reused.unit_info_count, fresh.unit_info_count);
+            assert_eq!(review_json(reused), review_json(fresh));
+            assert_eq!(
+                encode_bytecode(&build_bytecode_program(reused, source)),
+                encode_bytecode(&build_bytecode_program(fresh, source))
+            );
+        }
+
+        let root = std::env::temp_dir().join(format!(
+            "eng_compiler_incremental_static_domain_import_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("static domain import fixture should be created");
+        std::fs::write(
+            root.join("domain.eng"),
+            r#"domain ImportedSignal[Axis DOF] package "example.signal" version "1.0.0" {
+    across level: Ratio [1]
+    through flow: Ratio [1]
+    conservation sum(flow) = 0
+}
+"#,
+        )
+        .expect("imported domain module should be written");
+        std::fs::write(root.join("shared.eng"), "use \"domain.eng\"\n")
+            .expect("recursive domain module should be written");
+        let main_path = root.join("main.eng");
+        let previous_source = r#"use "shared.eng"
+base = 2 m
+factor = 0.5
+"#;
+        let source = r#"use "shared.eng"
+base = 180 cm
+factor = 0.75
+adjusted = base * factor
+"#;
+        std::fs::write(&main_path, previous_source).expect("domain root should be written");
+        let previous = check_source(&main_path, previous_source, &CheckOptions::default());
+        assert!(
+            previous.diagnostics.is_empty(),
+            "unexpected imported domain diagnostics: {:#?}",
+            previous.diagnostics
+        );
+        assert_eq!(previous.source_files.len(), 3);
+        assert_eq!(previous.semantic_program.imports.len(), 1);
+        assert_eq!(previous.semantic_program.domains.len(), 1);
+        let domain = &previous.semantic_program.domains[0];
+        assert_eq!(domain.type_parameters.len(), 1);
+        assert_eq!(domain.variables.len(), 2);
+        assert_eq!(domain.conservations.len(), 1);
+        assert_eq!(domain.span.source_id, previous.source_files[2].source_id);
+
+        let reused =
+            recheck_scalar_declaration_suffix_incrementally(&previous, previous_source, source)
+                .expect("an unchanged recursive domain import should preserve the scalar suffix");
+        let fresh = check_source(&main_path, source, &CheckOptions::default());
+        assert_fresh_equivalent(&reused, &fresh, source);
+        assert_eq!(
+            reused.semantic_program.domains,
+            previous.semantic_program.domains
+        );
+
+        let mut stale_parameter_owner = previous.clone();
+        stale_parameter_owner.semantic_program.domains[0].type_parameters[0]
+            .name_span
+            .source_id = SourceSpan::ROOT_SOURCE_ID;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_parameter_owner,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "inconsistent imported domain parameter ownership must use full analysis"
+        );
+
+        let mut stale_variable_owner = previous.clone();
+        stale_variable_owner.semantic_program.domains[0].variables[0]
+            .unit_span
+            .as_mut()
+            .expect("domain variable should retain its unit span")
+            .source_id = SourceSpan::ROOT_SOURCE_ID;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_variable_owner,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "inconsistent imported domain variable ownership must use full analysis"
+        );
+
+        let mut stale_conservation_owner = previous.clone();
+        stale_conservation_owner.semantic_program.domains[0].conservations[0]
+            .expression_span
+            .source_id = SourceSpan::ROOT_SOURCE_ID;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_conservation_owner,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "inconsistent imported conservation ownership must use full analysis"
+        );
+        assert!(
+            recheck_scalar_binding_suffix_incrementally(&previous, previous_source, source)
+                .is_none(),
+            "the fast-only API must retain its scalar-only static import contract"
+        );
+
+        std::fs::remove_dir_all(&root).expect("static domain import fixture should be removed");
     }
 
     #[test]

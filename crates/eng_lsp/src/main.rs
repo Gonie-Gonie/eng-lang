@@ -10878,8 +10878,19 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).expect("rich-prefix scalar fixture should be created");
         std::fs::write(
+            root.join("domain.eng"),
+            r#"domain ImportedSignal[Axis DOF] package "example.signal" version "1.0.0" {
+    across level: Ratio [1]
+    through flow: Ratio [1]
+    conservation sum(flow) = 0
+}
+"#,
+        )
+        .expect("static domain module should be written");
+        std::fs::write(
             root.join("shared.eng"),
-            r#"schema ImportedPowerRow {
+            r#"use "domain.eng"
+schema ImportedPowerRow {
     time: DateTime index
     power: HeatRate [kW]
 }
@@ -10963,7 +10974,7 @@ const imported_factor: Ratio [1] = 0.5
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
             (0, 2, 0, true, true),
-            "the unchanged static import, module, file, axis, cache, helper, and print prefix should preserve the scalar suffix fast path"
+            "the unchanged recursive domain/schema import, module, file, axis, cache, helper, and print prefix should preserve the scalar suffix fast path"
         );
 
         let fallback_source = changed_source.replace(
