@@ -1064,7 +1064,9 @@ pub(crate) struct IncrementalScalarDeclarationAnalysis {
 /// additionally require a result dimension that matches their annotation. Scalar calls may nest
 /// recursively inside other scalar-call arguments. The arithmetic grammar is shared with component
 /// parameter validation; workflow expressions and non-scalar functions cannot enter this local
-/// semantic path.
+/// semantic path. Preserved non-scalar prefix bindings may remain in the trusted report, but suffix
+/// expressions cannot use them as aliases or operands, and every new suffix binding must resolve to
+/// a registered scalar quantity.
 /// An empty suffix is accepted so the caller can remove the final affected declarations atomically.
 pub(crate) fn analyze_incremental_scalar_declarations(
     program: &ParsedProgram,
@@ -1131,9 +1133,7 @@ pub(crate) fn analyze_incremental_scalar_declarations(
             }
             AstItem::ExplicitDecl(declaration) if declaration.context == ParseContext::TopLevel => {
                 let expression = declaration.expression.as_deref()?;
-                if !crate::quantities::all_quantity_completions()
-                    .iter()
-                    .any(|quantity| quantity.quantity_kind == declaration.type_name)
+                if !registered_scalar_quantity_kind(&declaration.type_name)
                     || !supports_incremental_annotated_scalar_expression(
                         expression,
                         &declaration.type_name,
@@ -1159,9 +1159,7 @@ pub(crate) fn analyze_incremental_scalar_declarations(
                 explicit_declaration_count = explicit_declaration_count.checked_add(1)?;
             }
             AstItem::Const(declaration) if declaration.context == ParseContext::TopLevel => {
-                if !crate::quantities::all_quantity_completions()
-                    .iter()
-                    .any(|quantity| quantity.quantity_kind == declaration.type_name)
+                if !registered_scalar_quantity_kind(&declaration.type_name)
                     || !supports_incremental_annotated_scalar_expression(
                         &declaration.expression,
                         &declaration.type_name,
@@ -1198,6 +1196,9 @@ pub(crate) fn analyze_incremental_scalar_declarations(
         || hover_hints.len() != declaration_count
         || type_infos.len() != declaration_count
         || unit_derivations.len() != declaration_count
+        || !typed_bindings[prefix_count..]
+            .iter()
+            .all(|binding| registered_scalar_quantity_kind(&binding.semantic_type.quantity_kind))
         || !integrations.is_empty()
         || !uncertainty_infos.is_empty()
         || !ml_infos.is_empty()
@@ -1219,6 +1220,12 @@ pub(crate) fn analyze_incremental_scalar_declarations(
     })
 }
 
+fn registered_scalar_quantity_kind(quantity_kind: &str) -> bool {
+    crate::quantities::all_quantity_completions()
+        .iter()
+        .any(|completion| completion.quantity_kind == quantity_kind)
+}
+
 pub(crate) fn supports_incremental_scalar_expression(
     expression: &str,
     available_bindings: &[TypedBinding],
@@ -1228,9 +1235,10 @@ pub(crate) fn supports_incremental_scalar_expression(
         return true;
     }
     if is_identifier(expression) {
-        return available_bindings
-            .iter()
-            .any(|binding| binding.name == expression);
+        return available_bindings.iter().any(|binding| {
+            binding.name == expression
+                && registered_scalar_quantity_kind(&binding.semantic_type.quantity_kind)
+        });
     }
     if ["simulate", "solve"].iter().any(|command| {
         expression.strip_prefix(command).is_some_and(|rest| {
@@ -1322,11 +1330,6 @@ fn registered_scalar_function<'a>(
     trust: ScalarFunctionTrust,
 ) -> Option<&'a FunctionInfo> {
     let function = functions.iter().find(|function| function.name == name)?;
-    let registered_quantity = |quantity_kind: &str| {
-        crate::quantities::all_quantity_completions()
-            .iter()
-            .any(|completion| completion.quantity_kind == quantity_kind)
-    };
 
     let status_is_eligible = match trust {
         ScalarFunctionTrust::DeclaredSignature => {
@@ -1336,11 +1339,11 @@ fn registered_scalar_function<'a>(
     };
 
     if status_is_eligible
-        && registered_quantity(&function.return_quantity_kind)
+        && registered_scalar_quantity_kind(&function.return_quantity_kind)
         && function
             .parameters
             .iter()
-            .all(|parameter| registered_quantity(&parameter.quantity_kind))
+            .all(|parameter| registered_scalar_quantity_kind(&parameter.quantity_kind))
     {
         Some(function)
     } else {

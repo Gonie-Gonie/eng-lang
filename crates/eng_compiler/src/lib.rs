@@ -662,9 +662,11 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 ///
 /// The unified entry point may also preserve an unchanged richer prefix before the final scalar
 /// suffix. This requires a clean, cache-free, axis-free prior report; registered scalar types for
-/// every preserved typed binding; exact semantic-vector tail ownership; and an isolated old-suffix
-/// analysis that matches the report. Unchanged root scalar helpers and command metadata such as
-/// `print` may therefore remain in the prefix. The richer prefix is not reparsed or reanalyzed.
+/// every old and new suffix result; exact semantic-vector tail ownership; and an isolated old-suffix
+/// analysis that matches the report. Unchanged root scalar helpers, non-scalar bindings, and command
+/// metadata such as `print` may therefore remain in the prefix. A scalar suffix cannot use a
+/// preserved non-scalar binding as an alias or operand. The richer prefix is not reparsed or
+/// reanalyzed.
 /// Changes inside it, a token-bearing non-declaration in the affected suffix, diagnostics,
 /// unsupported calls, caches, unresolved or duplicate names, and edits without an affected
 /// declaration return `None` for a normal full check.
@@ -1392,15 +1394,6 @@ fn incremental_rich_prefix_supports_scalar_suffix(
         .iter()
         .map(|source| source.source_id)
         .collect::<HashSet<_>>();
-    let Some(prefix_typed_bindings) = report
-        .semantic_program
-        .typed_bindings
-        .get(..first_typed_record)
-    else {
-        return false;
-    };
-    let registered_quantities = crate::quantities::all_quantity_completions();
-
     root_source.source_id == SourceSpan::ROOT_SOURCE_ID
         && source_ids.len() == report.source_files.len()
         && report.diagnostics.is_empty()
@@ -1452,11 +1445,6 @@ fn incremental_rich_prefix_supports_scalar_suffix(
             .len()
             .checked_sub(first_typed_record)
             == Some(suffix.declarations.len())
-        && prefix_typed_bindings.iter().all(|binding| {
-            registered_quantities
-                .iter()
-                .any(|quantity| quantity.quantity_kind == binding.semantic_type.quantity_kind)
-        })
 }
 
 fn incremental_rich_prefix_owns_workflow_line(
@@ -11766,6 +11754,7 @@ factor = 0.5
         }
 
         let previous_source = concat!(
+            "input_file = file(\"input.csv\")\n",
             "fn identity_power(value: HeatRate [kW]) -> HeatRate [kW] {\n",
             "    return value\n",
             "}\n",
@@ -11775,6 +11764,7 @@ factor = 0.5
             "scaled = identity_power(base)\n",
         );
         let source = concat!(
+            "input_file = file(\"input.csv\")\n",
             "fn identity_power(value: HeatRate [kW]) -> HeatRate [kW] {\n",
             "    return value\n",
             "}\n",
@@ -11820,7 +11810,20 @@ factor = 0.5
             reused.semantic_program.prints,
             previous.semantic_program.prints
         );
-        assert_eq!(reused.semantic_program.workflow.line, 5);
+        assert_eq!(
+            reused.semantic_program.typed_bindings.first(),
+            previous.semantic_program.typed_bindings.first(),
+            "the preserved non-scalar prefix binding should remain exact"
+        );
+        assert_eq!(
+            reused
+                .semantic_program
+                .typed_bindings
+                .first()
+                .map(|binding| binding.semantic_type.quantity_kind.as_str()),
+            Some("FilePath")
+        );
+        assert_eq!(reused.semantic_program.workflow.line, 1);
         assert!(
             recheck_scalar_binding_suffix_incrementally(&previous, previous_source, source)
                 .is_none(),
@@ -11837,6 +11840,7 @@ factor = 0.5
         );
 
         let cleared_source = concat!(
+            "input_file = file(\"input.csv\")\n",
             "fn identity_power(value: HeatRate [kW]) -> HeatRate [kW] {\n",
             "    return value\n",
             "}\n",
@@ -11852,9 +11856,10 @@ factor = 0.5
             &CheckOptions::default(),
         );
         assert_fresh_equivalent(&cleared, &cleared_fresh, cleared_source);
-        assert_eq!(cleared.semantic_program.workflow.line, 5);
+        assert_eq!(cleared.semantic_program.workflow.line, 1);
 
         let restarted_source = concat!(
+            "input_file = file(\"input.csv\")\n",
             "fn identity_power(value: HeatRate [kW]) -> HeatRate [kW] {\n",
             "    return value\n",
             "}\n",
@@ -11875,6 +11880,20 @@ factor = 0.5
             &CheckOptions::default(),
         );
         assert_fresh_equivalent(&restarted, &restarted_fresh, restarted_source);
+
+        let non_scalar_alias_source = source.replace(
+            "scaled: HeatRate [W] = identity_power(base) + 0 W\n",
+            "scaled_input = input_file\n",
+        );
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &reused,
+                source,
+                &non_scalar_alias_source,
+            )
+            .is_none(),
+            "a non-scalar prefix alias in the changed suffix must use full analysis"
+        );
 
         let trailing_command_source = format!("{restarted_source}print \"scaled={{scaled:W}}\"\n");
         assert!(

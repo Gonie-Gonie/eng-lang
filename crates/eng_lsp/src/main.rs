@@ -10879,6 +10879,7 @@ mod tests {
         std::fs::create_dir_all(&root).expect("rich-prefix scalar fixture should be created");
         let path = root.join("current.eng");
         let initial_source = concat!(
+            "input_file = file(\"input.csv\")\n",
             "fn identity_power(value: HeatRate [kW]) -> HeatRate [kW] {\n",
             "    return value\n",
             "}\n",
@@ -10906,6 +10907,7 @@ mod tests {
         );
 
         let changed_source = concat!(
+            "input_file = file(\"input.csv\")\n",
             "fn identity_power(value: HeatRate [kW]) -> HeatRate [kW] {\n",
             "    return value\n",
             "}\n",
@@ -10935,10 +10937,13 @@ mod tests {
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
             (0, 2, 0, true, true),
-            "the unchanged helper and print prefix should preserve the scalar suffix fast path"
+            "the unchanged file input, helper, and print prefix should preserve the scalar suffix fast path"
         );
 
-        let fallback_source = format!("{changed_source}print \"scaled={{scaled:W}}\"\n");
+        let fallback_source = changed_source.replace(
+            "scaled: HeatRate [W] = identity_power(base) + 0 W\n",
+            "scaled_input = input_file\n",
+        );
         let fallback_notification = json!({
             "method": "textDocument/didChange",
             "params": {
@@ -10948,7 +10953,7 @@ mod tests {
         });
         let (changed_uri, changed_state) =
             document_state_from_notification(&fallback_notification, &documents)
-                .expect("trailing command edit should be accepted");
+                .expect("non-scalar alias edit should be accepted");
         documents.insert(changed_uri.clone(), changed_state);
         let affected = diagnostic_documents_after_change(&changed_uri, &documents);
         invalidate_dependent_document_analyses(&changed_uri, &affected);
@@ -10959,7 +10964,7 @@ mod tests {
         assert_eq!(
             documents[&uri].scalar_binding_reuse_count(),
             1,
-            "a token-bearing command must use a fresh compiler report"
+            "a non-scalar prefix alias must use a fresh compiler report"
         );
         assert_eq!(
             documents[&uri].analysis_cache_stats(),

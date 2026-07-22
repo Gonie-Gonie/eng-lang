@@ -266,10 +266,12 @@ separate.
   prefix, as may static imports whose recursively imported definitions are only
   pure registered scalar constants and functions. A clean, cache-free, axis-free
   report may also preserve an unchanged richer prefix before its final scalar
-  suffix when every preserved typed binding is a registered scalar and exact
+  suffix when every old and new suffix result is a registered scalar and exact
   semantic-vector tail ownership is verified against isolated old-suffix
-  analysis. This admits unchanged root scalar helpers and command metadata such
-  as `print`; the richer prefix itself is not reparsed or reanalyzed.
+  analysis. This admits unchanged root scalar helpers, non-scalar file/path
+  bindings, and command metadata such as `print`; the richer prefix itself
+  is not reparsed or reanalyzed, and its non-scalar bindings cannot be used as
+  suffix aliases or operands.
   Preserved imported definitions retain source ownership; constants can seed
   backward root aliases and arithmetic, and eligible constants may themselves
   use scalar function calls as values or arithmetic operands. Any suffix

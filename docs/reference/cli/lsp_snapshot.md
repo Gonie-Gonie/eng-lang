@@ -723,8 +723,10 @@ preserve an unchanged, verified report prefix and reparse and semantically
 reanalyze only a final suffix of supported scalar declarations. The preserved
 prefix may include an unchanged scalar-only import environment or, under stricter
 clean-report and vector-ownership checks, richer top-level constructs such as a
-pure scalar helper and `print`. Changes inside that richer prefix and
-token-bearing non-declarations in the affected suffix use full analysis. This is
-not general incremental parsing or semantic recomputation.
+file/path binding, pure scalar helper, and `print`. Old and new suffix
+results must remain registered scalars, and suffix expressions cannot use a
+preserved non-scalar binding as an alias or operand. Changes inside that richer
+prefix and token-bearing non-declarations in the affected suffix use full
+analysis. This is not general incremental parsing or semantic recomputation.
 
 This JSON contract is not a replacement for full LSP editor validation.

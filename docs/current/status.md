@@ -137,14 +137,16 @@ review material. It is not a broad solver claim.
   reanalyze only a final suffix of top-level fast, explicit, and pure scalar
   `const` declarations. Scalar-only documents may retain unchanged supported
   module or static imports. A clean cache-free/axis-free report may also retain
-  an unchanged richer prefix, including root scalar helpers and `print`, when
-  every preserved typed binding is registered and exact semantic-vector tail
-  ownership matches isolated old-suffix analysis. The richer prefix itself is
-  not reparsed or reanalyzed; edits inside it use full analysis. Suffix forms may
-  interleave and switch style, and expressions may use earlier typed bindings or
-  preserved registered, unit-consistent scalar calls directly, in arithmetic,
-  or recursively inside scalar arguments. Explicit and `const` result
-  dimensions must match their annotations.
+  an unchanged richer prefix, including root scalar helpers, non-scalar
+  file/path bindings, and `print`, when every old and new suffix result is a
+  registered scalar and exact semantic-vector tail ownership matches isolated
+  old-suffix analysis. The richer prefix itself is not reparsed or reanalyzed;
+  suffix expressions cannot use preserved non-scalar bindings as aliases or
+  operands, and edits inside the prefix use full analysis. Suffix forms may
+  interleave and switch style, and expressions may use earlier scalar bindings
+  or preserved registered, unit-consistent scalar calls directly, in
+  arithmetic, or recursively inside scalar arguments. Explicit and `const`
+  result dimensions must match their annotations.
   Full checks recursively validate those nested calls, including calls inside
   parenthesized scalar arithmetic and built-in arguments, underline the innermost
   invalid argument or unknown function name, ignore call-like string contents,

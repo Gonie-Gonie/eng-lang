@@ -257,11 +257,13 @@ In scalar-only documents, unchanged supported `use/import eng.*` module
 declarations or static imports whose recursively imported definitions are only
 pure registered scalar constants and functions may remain before the affected
 suffix. A clean, cache-free, axis-free report may also retain an unchanged
-richer prefix when every preserved typed binding is a registered scalar and the
-prior report proves exact semantic-vector tail ownership. This covers, for
-example, an unchanged pure scalar `fn` helper and `print` before the final
-scalar declarations; an edit inside that richer prefix still uses full
-analysis. Compiler-validated suffix expressions may use numeric or
+richer prefix when every old and new suffix result is a registered scalar and
+the prior report proves exact semantic-vector tail ownership. The preserved
+prefix may include non-scalar bindings such as file or directory paths, but
+suffix expressions cannot use them as scalar aliases or operands. This covers,
+for example, an unchanged file input, pure scalar `fn` helper, and `print`
+before the final scalar declarations; an edit inside that richer prefix still
+uses full analysis. Compiler-validated suffix expressions may use numeric or
 registered-unit literals, backward aliases, parentheses, `+`, `-`, `*`, `/`,
 and earlier typed bindings. The server preserves the report before the first
 declaration at or after the first change and reparses and semantically
