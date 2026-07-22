@@ -672,9 +672,9 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// static file imports when every compiler import record exactly matches its root source line, span,
 /// kind, and status. Static imports additionally require the complete recursive path-to-source-ID
 /// registry to reproduce exactly and limit imported semantic definitions to schemas, constants,
-/// functions, and domains with internally consistent registered source ownership. Only root import
-/// declaration lines are reparsed for verification; imported definitions and other richer prefix
-/// constructs are not reparsed or reanalyzed.
+/// functions, domains, and classes with internally consistent registered source ownership. Only
+/// root import declaration lines are reparsed for verification; imported definitions and other
+/// richer prefix constructs are not reparsed or reanalyzed.
 /// Changes inside it, a token-bearing non-declaration in the affected suffix, diagnostics,
 /// unsupported calls, unverifiable cache or axis metadata, unresolved or duplicate names, and edits
 /// without an affected declaration return `None` for a normal full check.
@@ -1575,6 +1575,7 @@ fn incremental_report_requires_rich_prefix_contract(
 ) -> bool {
     !report.semantic_program.schemas.is_empty()
         || !report.semantic_program.domains.is_empty()
+        || !report.semantic_program.classes.is_empty()
         || report
             .semantic_program
             .typed_bindings
@@ -1628,10 +1629,6 @@ fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckRep
             .any(|info| !info.left_span.is_root_source() || !info.right_span.is_root_source())
         || program
             .component_assemblies
-            .iter()
-            .any(|info| !info.span.is_root_source())
-        || program
-            .classes
             .iter()
             .any(|info| !info.span.is_root_source())
         || program
@@ -1734,6 +1731,10 @@ fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckRep
         .domains
         .iter()
         .all(|domain| incremental_domain_definition_ownership_matches_report(domain, &source_ids))
+        && program
+            .classes
+            .iter()
+            .all(|class| incremental_class_definition_ownership_matches_report(class, &source_ids))
 }
 
 fn incremental_domain_definition_ownership_matches_report(
@@ -1761,6 +1762,45 @@ fn incremental_domain_definition_ownership_matches_report(
                 && conservation.line == conservation.span.line
                 && conservation.expression_span.source_id == source_id
                 && conservation.status == "recorded"
+        })
+}
+
+fn incremental_class_definition_ownership_matches_report(
+    class: &semantic::ClassInfo,
+    source_ids: &HashSet<usize>,
+) -> bool {
+    let source_id = class.span.source_id;
+    source_ids.contains(&source_id)
+        && class.line == class.span.line
+        && class.status == "metadata_only"
+        && class.fields.iter().all(|field| {
+            field.span.source_id == source_id
+                && field.line == field.span.line
+                && field.type_span.source_id == source_id
+                && field
+                    .unit_span
+                    .is_none_or(|span| span.source_id == source_id)
+                && field
+                    .default_value_span
+                    .is_none_or(|span| span.source_id == source_id)
+                && field.default_value.is_some() == field.default_value_span.is_some()
+                && field.required == field.default_value.is_none()
+                && field.status == "declared"
+        })
+        && class.validations.iter().all(|validation| {
+            validation.expression_span.source_id == source_id
+                && validation.line == validation.expression_span.line
+                && validation.status == "declared"
+        })
+        && class.methods.iter().all(|method| {
+            method.span.source_id == source_id
+                && method.line == method.span.line
+                && method.return_type_span.source_id == source_id
+                && method
+                    .return_unit_span
+                    .is_none_or(|span| span.source_id == source_id)
+                && method.expression_span.source_id == source_id
+                && method.status == "typed"
         })
 }
 
@@ -12593,6 +12633,142 @@ adjusted = base * factor
         );
 
         std::fs::remove_dir_all(&root).expect("static domain import fixture should be removed");
+    }
+
+    #[test]
+    fn incrementally_rechecks_scalar_suffix_after_unchanged_static_class_import() {
+        fn assert_fresh_equivalent(reused: &CheckReport, fresh: &CheckReport, source: &str) {
+            assert_eq!(reused.source_path, fresh.source_path);
+            assert_eq!(reused.source_files, fresh.source_files);
+            assert_eq!(reused.source_hash, fresh.source_hash);
+            assert_eq!(reused.source_lines, fresh.source_lines);
+            assert_eq!(reused.diagnostics, fresh.diagnostics);
+            assert_eq!(reused.inferred_declarations, fresh.inferred_declarations);
+            assert_eq!(reused.syntax_summary, fresh.syntax_summary);
+            assert_eq!(reused.semantic_program, fresh.semantic_program);
+            assert_eq!(
+                reused.quantity_completion_count,
+                fresh.quantity_completion_count
+            );
+            assert_eq!(reused.unit_info_count, fresh.unit_info_count);
+            assert_eq!(review_json(reused), review_json(fresh));
+            assert_eq!(
+                encode_bytecode(&build_bytecode_program(reused, source)),
+                encode_bytecode(&build_bytecode_program(fresh, source))
+            );
+        }
+
+        let root = std::env::temp_dir().join(format!(
+            "eng_compiler_incremental_static_class_import_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("static class import fixture should be created");
+        std::fs::write(
+            root.join("class.eng"),
+            r#"class ImportedConstruction {
+    name: String
+    u_value: Conductance [W/K]
+    thickness: Length [m] = 0.2 m
+    validate {
+        name != ""
+        u_value > 0 W/K
+    }
+    method conductance() -> Conductance [W/K] = self.u_value
+}
+"#,
+        )
+        .expect("imported class module should be written");
+        std::fs::write(root.join("shared.eng"), "use \"class.eng\"\n")
+            .expect("recursive class module should be written");
+        let main_path = root.join("main.eng");
+        let previous_source = r#"use "shared.eng"
+base = 2 m
+factor = 0.5
+"#;
+        let source = r#"use "shared.eng"
+base = 180 cm
+factor = 0.75
+adjusted = base * factor
+"#;
+        std::fs::write(&main_path, previous_source).expect("class root should be written");
+        let previous = check_source(&main_path, previous_source, &CheckOptions::default());
+        assert!(
+            previous.diagnostics.is_empty(),
+            "unexpected imported class diagnostics: {:#?}",
+            previous.diagnostics
+        );
+        assert_eq!(previous.source_files.len(), 3);
+        assert_eq!(previous.semantic_program.imports.len(), 1);
+        assert_eq!(previous.semantic_program.classes.len(), 1);
+        let class = &previous.semantic_program.classes[0];
+        assert_eq!(class.fields.len(), 3);
+        assert_eq!(class.validations.len(), 2);
+        assert_eq!(class.methods.len(), 1);
+        assert_eq!(class.span.source_id, previous.source_files[2].source_id);
+
+        let reused =
+            recheck_scalar_declaration_suffix_incrementally(&previous, previous_source, source)
+                .expect("an unchanged recursive class import should preserve the scalar suffix");
+        let fresh = check_source(&main_path, source, &CheckOptions::default());
+        assert_fresh_equivalent(&reused, &fresh, source);
+        assert_eq!(
+            reused.semantic_program.classes,
+            previous.semantic_program.classes
+        );
+
+        let mut stale_field_owner = previous.clone();
+        stale_field_owner.semantic_program.classes[0].fields[2]
+            .default_value_span
+            .as_mut()
+            .expect("class field should retain its default-value span")
+            .source_id = SourceSpan::ROOT_SOURCE_ID;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_field_owner,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "inconsistent imported class field ownership must use full analysis"
+        );
+
+        let mut stale_validation_owner = previous.clone();
+        stale_validation_owner.semantic_program.classes[0].validations[0]
+            .expression_span
+            .source_id = SourceSpan::ROOT_SOURCE_ID;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_validation_owner,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "inconsistent imported class validation ownership must use full analysis"
+        );
+
+        let mut stale_method_owner = previous.clone();
+        stale_method_owner.semantic_program.classes[0].methods[0]
+            .return_unit_span
+            .as_mut()
+            .expect("class method should retain its return-unit span")
+            .source_id = SourceSpan::ROOT_SOURCE_ID;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_method_owner,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "inconsistent imported class method ownership must use full analysis"
+        );
+        assert!(
+            recheck_scalar_binding_suffix_incrementally(&previous, previous_source, source)
+                .is_none(),
+            "the fast-only API must retain its scalar-only static import contract"
+        );
+
+        std::fs::remove_dir_all(&root).expect("static class import fixture should be removed");
     }
 
     #[test]

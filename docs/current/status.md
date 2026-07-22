@@ -151,12 +151,14 @@ review material. It is not a broad solver claim.
   source-line, span, kind, and status verification; static imports additionally
   require the complete recursive path-to-source-ID registry to reproduce
   exactly. Preserved imported semantic definitions are limited to schemas,
-  constants, functions, and domains with internally consistent registered
-  source ownership. Domain headers, type parameters, across/through variables,
-  and conservation expressions are verified together; imported systems,
-  components, and classes use full analysis. The caller must preserve the
-  resolved import environment, and LSP import changes invalidate dependent
-  reports before reuse. Suffix forms may interleave and switch style,
+  constants, functions, domains, and classes with internally consistent
+  registered source ownership. Domain headers, type parameters, across/through
+  variables, and conservation expressions are verified together. Class headers,
+  fields and defaults, validation expressions, and method return/expression
+  metadata are verified together; imported systems, components, and class
+  objects use full analysis. The caller must preserve the resolved import
+  environment, and LSP import changes invalidate dependent reports before reuse.
+  Suffix forms may interleave and switch style,
   and expressions may use earlier scalar bindings or preserved registered,
   unit-consistent scalar calls directly, in arithmetic, or recursively inside
   scalar arguments. Explicit and `const` result dimensions must match their

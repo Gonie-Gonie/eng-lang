@@ -25,11 +25,11 @@ embedding compiler logic in JavaScript.
   imports, while an unchanged richer prefix such as a pure scalar helper and
   `print` can be retained only when the prior report proves exact suffix
   ownership; rich static imports are limited to source-owned schemas, constants,
-  functions, and domains; the suffix supports literals, backward aliases, pure
-  registered-unit arithmetic, and dimension-valid preserved scalar function
-  calls, plus coordinated edits, additions/removals, standalone trivia changes,
-  and line-ending shifts, with full-analysis fallback for edits in the richer
-  prefix and unsupported tails
+  functions, domains, and class definitions; the suffix supports literals,
+  backward aliases, pure registered-unit arithmetic, and dimension-valid
+  preserved scalar function calls, plus coordinated edits, additions/removals,
+  standalone trivia changes, and line-ending shifts, with full-analysis
+  fallback for edits in the richer prefix and unsupported tails
 - quote/escape-aware call and workflow-option diagnostics, so commas, semicolons,
   parentheses, and arithmetic symbols inside strings do not become arguments,
   process `env` entries, or scalar operators
@@ -270,13 +270,14 @@ unchanged supported `eng.*` module and static file imports whose compiler
 records exactly match their root source lines, spans, kinds, and statuses.
 Static imports additionally require the complete recursive path-to-source-ID
 registry to reproduce exactly. Preserved imported semantic definitions are
-limited to schemas, constants, functions, and domains whose internal spans
-retain registered source ownership. Domain headers, type parameters,
+limited to schemas, constants, functions, domains, and classes whose internal
+spans retain registered source ownership. Domain headers, type parameters,
 across/through variables, and conservation expressions are verified together.
-Imported systems, components, and classes use full analysis. Only root import
-declaration lines are reparsed for verification; supported imported definitions
-and other richer-prefix constructs are preserved without reparsing or semantic
-reanalysis.
+Class headers, fields and defaults, validation expressions, and method
+return/expression metadata are verified together. Imported systems, components,
+and class objects use full analysis. Only root import declaration lines are
+reparsed for verification; supported imported definitions and other
+richer-prefix constructs are preserved without reparsing or semantic reanalysis.
 Compiler-validated suffix expressions may use
 numeric or registered-unit literals, backward aliases, parentheses, and
 `+`, `-`, `*`, `/` arithmetic over earlier typed bindings. The server
