@@ -3,8 +3,8 @@
   "source": "examples\\internal\\17_measured_vs_simulated\\main.eng",
   "profile": "repro",
   "review": {
-    "format": "eng-review-preview-1",
-    "review_schema_version": 1,
+    "format": "eng-review-preview-2",
+    "review_schema_version": 2,
     "csv_promotion_count": 2,
     "weather_binding": "weather_data",
     "weather_source_hash": "0d906d0becc7b187",

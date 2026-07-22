@@ -1977,7 +1977,7 @@ fn uncertainty_inspector(report: &Value, review: &Value) -> Value {
         "propagation": json_array_clone(review, "uncertainty_propagation"),
         "policies": json_array_clone(review, "uncertainty_policies"),
         "timeseries": json_array_clone(review, "timeseries_uncertainty"),
-        "timeseries_calculations": json_array_clone(review, "timeseries_uncertainty_calculations")
+        "timeseries_plans": json_array_clone(review, "timeseries_uncertainty_plans")
     })
 }
 
@@ -6257,7 +6257,13 @@ with {
               ],
               "uncertainty_policies": [],
               "timeseries_uncertainty": [],
-              "timeseries_uncertainty_calculations": []
+              "timeseries_uncertainty_plans": [
+                {
+                  "source": "Q_sensor",
+                  "propagation_model": "independent_pointwise_sensor_std",
+                  "execution_status": "not_executed"
+                }
+              ]
             }"#,
         );
 
@@ -6285,6 +6291,17 @@ with {
             .get("propagation")
             .and_then(Value::as_array)
             .is_some_and(|items| items.len() == 1));
+        assert!(inspectors
+            .uncertainty
+            .get("timeseries_plans")
+            .and_then(Value::as_array)
+            .is_some_and(
+                |items| items.len() == 1 && items[0]["execution_status"] == "not_executed"
+            ));
+        assert!(inspectors
+            .uncertainty
+            .get("timeseries_calculations")
+            .is_none());
     }
 
     #[test]

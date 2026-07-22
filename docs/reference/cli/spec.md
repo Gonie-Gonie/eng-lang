@@ -244,6 +244,7 @@ Review JSON includes:
 
 ```text
 review_schema_version
+timeseries_uncertainty_plans
 review_document
 syntax_summary
 quantity_completion_count

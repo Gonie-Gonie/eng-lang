@@ -37,8 +37,8 @@
     "system_ir"
   ],
   "properties": {
-    "format": { "const": "eng-review-preview-1" },
-    "review_schema_version": { "const": 1 },
+    "format": { "const": "eng-review-preview-2" },
+    "review_schema_version": { "const": 2 },
     "compiler_version": { "type": "string" },
     "source_path": { "type": "string" },
     "source_hash": { "type": "string" },
@@ -183,9 +183,9 @@
       "type": "array",
       "items": { "$ref": "#/$defs/timeSeriesUncertainty" }
     },
-    "timeseries_uncertainty_calculations": {
+    "timeseries_uncertainty_plans": {
       "type": "array",
-      "items": { "$ref": "#/$defs/timeSeriesUncertaintyCalculation" }
+      "items": { "$ref": "#/$defs/timeSeriesUncertaintyPlan" }
     },
     "domain_summary": {
       "type": "array",
@@ -3549,7 +3549,7 @@
         "line": { "type": "integer", "minimum": 1 }
       }
     },
-    "timeSeriesUncertaintyCalculation": {
+    "timeSeriesUncertaintyPlan": {
       "type": "object",
       "required": [
         "kind",
@@ -3557,9 +3557,9 @@
         "source",
         "statistics",
         "operation",
-        "method",
+        "propagation_model",
         "sensor_std",
-        "status",
+        "execution_status",
         "line"
       ],
       "properties": {
@@ -3571,9 +3571,9 @@
           "items": { "type": "string" }
         },
         "operation": { "type": "string" },
-        "method": { "const": "pointwise_measured_std_metadata" },
+        "propagation_model": { "const": "independent_pointwise_sensor_std" },
         "sensor_std": { "type": "string" },
-        "status": { "const": "metadata_only" },
+        "execution_status": { "const": "not_executed" },
         "line": { "type": "integer", "minimum": 1 }
       }
     }

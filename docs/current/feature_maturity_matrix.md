@@ -226,8 +226,9 @@ separate.
   diagnostics, explicit uncertainty statistic/probability validation
   type-checking, runtime pass/fail materialization for explicit statistic,
   probability, and `between` validations, `review.json` summary/propagation
-  sections, pointwise TimeSeries `sensor_std` review metadata, runtime
-  mean/percentile/integration/duration `sensor_std` propagation artifacts,
+  sections, pointwise TimeSeries `sensor_std` review metadata, review schema v2
+  `timeseries_uncertainty_plans` with explicit non-execution status, runtime
+  mean/percentile/integration/duration `sensor_std` calculation artifacts,
   `sensor_std` confidence-band
   PlotSpec rendering, internal IDE variable/inspector metadata, histogram
   artifacts, and the current uncertainty guide.

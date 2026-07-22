@@ -118,12 +118,16 @@ with {
 It must be a non-negative unitful value compatible with the TimeSeries value
 quantity. The compiler records it in `review.json.timeseries_uncertainty[]`.
 When `summarize` or `integrate(...)` consumes that TimeSeries, the compiler
-also records static `review.json.timeseries_uncertainty_calculations[]`
-linkage entries; `duration_above(...)` summaries are separated as duration
-operations. Runtime `result.engres` propagates independent pointwise
-`sensor_std` through mean, nearest-rank percentile, integrate, and
-duration-above calculations. Percentile propagation uses finite-difference
-sensitivity around the nominal nearest-rank kernel. A line plot can request
+also records static `review.json.timeseries_uncertainty_plans[]` entries with
+`propagation_model = independent_pointwise_sensor_std` and
+`execution_status = not_executed`; `duration_above(...)` summaries are
+separated as duration operations. Runtime `result.engres` records actual
+calculations under
+`typed_payload.timeseries_uncertainty_calculations[]` and propagates
+independent pointwise `sensor_std` through mean, nearest-rank percentile,
+integrate, and duration-above calculations. Percentile propagation uses
+finite-difference sensitivity around the nominal nearest-rank kernel. A line
+plot can request
 `confidence_band = sensor_std`, which records a pointwise
 measured-standard-deviation band in PlotSpec/SVG.
 

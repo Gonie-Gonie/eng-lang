@@ -2,8 +2,8 @@
   "name": "internal_22_multi_domain_boundary_solve",
   "source": "examples\\internal\\22_multi_domain_boundary_solve\\main.eng",
   "review": {
-    "format": "eng-review-preview-1",
-    "review_schema_version": 1,
+    "format": "eng-review-preview-2",
+    "review_schema_version": 2,
     "domain_count": 3,
     "component_count": 5,
     "connection_count": 3,

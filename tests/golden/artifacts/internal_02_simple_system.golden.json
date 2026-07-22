@@ -2,8 +2,8 @@
   "name": "internal_02_simple_system",
   "source": "examples\\internal\\02_simple_system\\main.eng",
   "review": {
-    "format": "eng-review-preview-1",
-    "review_schema_version": 1,
+    "format": "eng-review-preview-2",
+    "review_schema_version": 2,
     "scripts": 0,
     "schemas": 0,
     "structs": 0,

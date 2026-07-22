@@ -469,6 +469,8 @@ file_operations
 process_runs
 table_selections
 uncertainty_info
+timeseries_uncertainty
+timeseries_uncertainty_plans
 ml_info
 system_summary
 system_ir
@@ -561,7 +563,10 @@ and source spans for source-linked graph navigation.
 
 The uncertainty track section records declared uncertainty forms, deterministic
 runtime summaries when available, scale/offset transforms, and propagation
-source terms with source, role, and quantity kind. Scalar object `numeric`
+source terms with source, role, and quantity kind. Review schema v2 names
+static TimeSeries propagation work `timeseries_uncertainty_plans` and marks it
+`not_executed`; runtime numeric results remain
+`typed_payload.timeseries_uncertainty_calculations`. Scalar object `numeric`
 links include the materialized value, display unit, quantity kind,
 representation, uncertainty binding, and materialization status. The native
 runtime evaluates supported deterministic literal/alias/arithmetic chains in

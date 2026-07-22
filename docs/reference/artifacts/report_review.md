@@ -58,9 +58,17 @@ target\debug\eng.exe run examples\official\01_csv_plot\main.eng --save-artifacts
 The current review contract includes:
 
 ```text
-format = eng-review-preview-1
-review_schema_version = 1
+format = eng-review-preview-2
+review_schema_version = 2
 ```
+
+Version 2 separates static TimeSeries uncertainty plans from runtime
+calculations. The v1
+`review.json.timeseries_uncertainty_calculations[]` field became
+`review.json.timeseries_uncertainty_plans[]`; plan entries now expose
+`propagation_model = independent_pointwise_sensor_std` and
+`execution_status = not_executed`. Numeric results retain
+`result.engres.typed_payload.timeseries_uncertainty_calculations[]`.
 
 Primary sections:
 
@@ -731,9 +739,10 @@ review.json                 uncertainty_summary
 review.json                 uncertainty_propagation
 review.json                 uncertainty_policies
 review.json                 timeseries_uncertainty
-review.json                 timeseries_uncertainty_calculations
+review.json                 timeseries_uncertainty_plans
 report_spec.json            uncertainty
 result.engres               typed_payload.uncertainties
+result.engres               typed_payload.timeseries_uncertainty_calculations
 report.html                 Uncertainty table
 plots/plot_spec.json        histogram when plot distribution(...) is requested
 ```
@@ -779,8 +788,12 @@ Pointwise TimeSeries sensor standard deviation metadata is recorded in
 `review.json.timeseries_uncertainty[]`; invalid TimeSeries owner, missing unit,
 negative value, or incompatible unit produces `E-UNC-TS-STD-001`.
 TimeSeries statistics and integrations that consume such a source are recorded
-in static `review.json.timeseries_uncertainty_calculations[]` linkage entries.
-Runtime `result.engres` propagates independent pointwise `sensor_std` through
+as static `review.json.timeseries_uncertainty_plans[]` entries. Their
+`propagation_model` records the independent pointwise assumption and their
+`execution_status` remains `not_executed`; these entries do not claim numeric
+work. Runtime `result.engres` records actual calculations under
+`typed_payload.timeseries_uncertainty_calculations[]` and propagates
+independent pointwise `sensor_std` through
 mean, nearest-rank percentile, integration, and `duration_above(...)`
 calculations. Percentile propagation uses finite-difference sensitivity around
 the nominal nearest-rank kernel. Plots can request `confidence_band =
@@ -1018,7 +1031,7 @@ Get-Content build\result\report_spec.json -Raw |
 Expected values:
 
 ```text
-eng-review-preview-1 / 1
+eng-review-preview-2 / 2
 eng-report-spec-v1 / 1
 ```
 

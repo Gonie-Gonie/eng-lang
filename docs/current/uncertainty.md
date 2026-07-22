@@ -201,9 +201,12 @@ TimeSeries value quantity. Invalid metadata produces `E-UNC-TS-STD-001`.
 `review.json.timeseries_uncertainty[]` records the binding, axis, value
 quantity, display unit, method `pointwise_measured_std`, `sensor_std`, status,
 and source line. When `summarize` or `integrate(...)` consumes that TimeSeries,
-`review.json.timeseries_uncertainty_calculations[]` records the static
-statistics/integration linkage, with `duration_above(...)` recorded as a
-duration operation. Runtime `result.engres` also records
+`review.json.timeseries_uncertainty_plans[]` records the static
+statistics/integration plan, with `duration_above(...)` recorded as a duration
+operation. Each plan names the
+`independent_pointwise_sensor_std` propagation model and has
+`execution_status = not_executed`; it is not a numeric result. Runtime
+`result.engres` records actual calculations separately under
 `typed_payload.timeseries_uncertainty_calculations[]`: current support
 propagates independent pointwise `sensor_std` through `mean`, `pNN`,
 `integrate(...)`, and `duration_above(...)`. Percentiles use finite-difference

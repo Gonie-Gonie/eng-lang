@@ -2,8 +2,8 @@
   "name": "official_01_csv_plot",
   "source": "examples\\official\\01_csv_plot\\main.eng",
   "review": {
-    "format": "eng-review-preview-1",
-    "review_schema_version": 1,
+    "format": "eng-review-preview-2",
+    "review_schema_version": 2,
     "scripts": 0,
     "schemas": 1,
     "structs": 0,

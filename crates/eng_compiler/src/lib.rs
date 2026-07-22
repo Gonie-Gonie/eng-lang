@@ -3783,8 +3783,8 @@ pub fn build_bytecode(report: &CheckReport, source: &str) -> String {
 pub fn review_json(report: &CheckReport) -> String {
     let mut json = String::new();
     json.push_str("{\n");
-    json.push_str("  \"format\": \"eng-review-preview-1\",\n");
-    json.push_str("  \"review_schema_version\": 1,\n");
+    json.push_str("  \"format\": \"eng-review-preview-2\",\n");
+    json.push_str("  \"review_schema_version\": 2,\n");
     json.push_str(&format!(
         "  \"compiler_version\": \"{}\",\n",
         json_escape(COMPILER_VERSION)
@@ -5223,7 +5223,7 @@ pub fn review_json(report: &CheckReport) -> String {
     json.push_str("\n  ],\n");
     push_uncertainty_policies_json(&mut json, report);
     push_timeseries_uncertainty_json(&mut json, report);
-    push_timeseries_uncertainty_calculations_json(&mut json, report);
+    push_timeseries_uncertainty_plans_json(&mut json, report);
     push_simulation_requests_json(&mut json, report);
     json.push_str("  \"timeseries_kernels\": [\n");
     for (index, kernel) in report
@@ -7772,8 +7772,8 @@ fn push_timeseries_uncertainty_json(json: &mut String, report: &CheckReport) {
     json.push_str("\n  ],\n");
 }
 
-fn push_timeseries_uncertainty_calculations_json(json: &mut String, report: &CheckReport) {
-    json.push_str("  \"timeseries_uncertainty_calculations\": [\n");
+fn push_timeseries_uncertainty_plans_json(json: &mut String, report: &CheckReport) {
+    json.push_str("  \"timeseries_uncertainty_plans\": [\n");
     let mut first_entry = true;
     for stats in &report.semantic_program.stats_infos {
         let Some(sensor_std) = timeseries_sensor_std_option(report, &stats.source) else {
@@ -7792,10 +7792,10 @@ fn push_timeseries_uncertainty_calculations_json(json: &mut String, report: &Che
             .cloned()
             .collect::<Vec<_>>();
         if !summary_statistics.is_empty() {
-            push_timeseries_uncertainty_calculation_entry(
+            push_timeseries_uncertainty_plan_entry(
                 json,
                 &mut first_entry,
-                TimeSeriesUncertaintyCalculationEntry {
+                TimeSeriesUncertaintyPlanEntry {
                     kind: "timeseries_statistics",
                     binding: None,
                     source: &stats.source,
@@ -7807,10 +7807,10 @@ fn push_timeseries_uncertainty_calculations_json(json: &mut String, report: &Che
             );
         }
         if !duration_statistics.is_empty() {
-            push_timeseries_uncertainty_calculation_entry(
+            push_timeseries_uncertainty_plan_entry(
                 json,
                 &mut first_entry,
-                TimeSeriesUncertaintyCalculationEntry {
+                TimeSeriesUncertaintyPlanEntry {
                     kind: "timeseries_duration_above",
                     binding: None,
                     source: &stats.source,
@@ -7826,10 +7826,10 @@ fn push_timeseries_uncertainty_calculations_json(json: &mut String, report: &Che
         let Some(sensor_std) = timeseries_sensor_std_option(report, &integration.source) else {
             continue;
         };
-        push_timeseries_uncertainty_calculation_entry(
+        push_timeseries_uncertainty_plan_entry(
             json,
             &mut first_entry,
-            TimeSeriesUncertaintyCalculationEntry {
+            TimeSeriesUncertaintyPlanEntry {
                 kind: "timeseries_integrate",
                 binding: Some(&integration.binding),
                 source: &integration.source,
@@ -7843,7 +7843,7 @@ fn push_timeseries_uncertainty_calculations_json(json: &mut String, report: &Che
     json.push_str("\n  ],\n");
 }
 
-struct TimeSeriesUncertaintyCalculationEntry<'a> {
+struct TimeSeriesUncertaintyPlanEntry<'a> {
     kind: &'a str,
     binding: Option<&'a str>,
     source: &'a str,
@@ -7853,12 +7853,12 @@ struct TimeSeriesUncertaintyCalculationEntry<'a> {
     line: usize,
 }
 
-fn push_timeseries_uncertainty_calculation_entry(
+fn push_timeseries_uncertainty_plan_entry(
     json: &mut String,
     first_entry: &mut bool,
-    entry: TimeSeriesUncertaintyCalculationEntry<'_>,
+    entry: TimeSeriesUncertaintyPlanEntry<'_>,
 ) {
-    let TimeSeriesUncertaintyCalculationEntry {
+    let TimeSeriesUncertaintyPlanEntry {
         kind,
         binding,
         source,
@@ -7889,12 +7889,12 @@ fn push_timeseries_uncertainty_calculation_entry(
         "      \"operation\": \"{}\",\n",
         json_escape(operation)
     ));
-    json.push_str("      \"method\": \"pointwise_measured_std_metadata\",\n");
+    json.push_str("      \"propagation_model\": \"independent_pointwise_sensor_std\",\n");
     json.push_str(&format!(
         "      \"sensor_std\": \"{}\",\n",
         json_escape(sensor_std)
     ));
-    json.push_str("      \"status\": \"metadata_only\",\n");
+    json.push_str("      \"execution_status\": \"not_executed\",\n");
     json.push_str(&format!("      \"line\": {}\n", line));
     json.push_str("    }");
 }
@@ -17957,7 +17957,7 @@ system Envelope {
     }
 
     #[test]
-    fn records_timeseries_uncertainty_calculation_metadata() {
+    fn records_timeseries_uncertainty_runtime_plans() {
         let report = check_source(
             "ok.eng",
             "Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW\nwith {\n    sensor_std = 0.2 kW\n}\nE = integrate(Q_series, over=Time)\n\nreport {\n    summarize Q_series by [mean, p95, duration_above(4 kW)]\n}\n",
@@ -17965,16 +17965,41 @@ system Envelope {
         );
 
         assert!(!report.has_errors(), "{:?}", report.diagnostics);
-        let review = review_json(&report);
-        assert!(review.contains("\"timeseries_uncertainty_calculations\""));
-        assert!(review.contains("\"kind\": \"timeseries_statistics\""));
-        assert!(review.contains("\"kind\": \"timeseries_duration_above\""));
-        assert!(review.contains("\"kind\": \"timeseries_integrate\""));
-        assert!(review.contains("\"statistics\": [\"mean\", \"p95\"]"));
-        assert!(review.contains("\"operation\": \"duration_above\""));
-        assert!(review.contains("\"statistics\": [\"duration_above(4 kW)\"]"));
-        assert!(review.contains("\"sensor_std\": \"0.2 kW\""));
-        assert!(review.contains("\"status\": \"metadata_only\""));
+        let review_json = review_json(&report);
+        let review: serde_json::Value = serde_json::from_str(&review_json).expect("review JSON");
+        assert_eq!(review["format"], "eng-review-preview-2");
+        assert_eq!(review["review_schema_version"].as_u64(), Some(2));
+        let plans = review["timeseries_uncertainty_plans"]
+            .as_array()
+            .expect("TimeSeries uncertainty plans");
+        assert_eq!(plans.len(), 3);
+        assert!(plans
+            .iter()
+            .any(|plan| plan["kind"] == "timeseries_statistics"
+                && plan["statistics"] == serde_json::json!(["mean", "p95"])));
+        assert!(plans
+            .iter()
+            .any(|plan| plan["kind"] == "timeseries_duration_above"
+                && plan["operation"] == "duration_above"
+                && plan["statistics"] == serde_json::json!(["duration_above(4 kW)"])));
+        assert!(plans
+            .iter()
+            .any(|plan| plan["kind"] == "timeseries_integrate"
+                && plan["operation"] == "integrate"
+                && plan["binding"] == "E"));
+        for plan in plans {
+            assert_eq!(plan["source"], "Q_series");
+            assert_eq!(plan["sensor_std"], "0.2 kW");
+            assert_eq!(
+                plan["propagation_model"],
+                "independent_pointwise_sensor_std"
+            );
+            assert_eq!(plan["execution_status"], "not_executed");
+            assert!(plan.get("method").is_none());
+            assert!(plan.get("status").is_none());
+        }
+        assert!(review.get("timeseries_uncertainty_calculations").is_none());
+        assert!(!review_json.contains("pointwise_measured_std_metadata"));
     }
 
     #[test]
@@ -22441,7 +22466,7 @@ with {
 
         let json = review_json(&report);
 
-        assert!(json.contains("\"review_schema_version\": 1"));
+        assert!(json.contains("\"review_schema_version\": 2"));
         assert!(json.contains("\"variable_table\""));
         assert!(json.contains("\"unit_conversion_table\""));
         assert!(json.contains("\"schema_summary\""));

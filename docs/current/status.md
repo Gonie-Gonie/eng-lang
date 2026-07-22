@@ -266,9 +266,10 @@ is not mistaken for public module support.
     and propagation sections, direct-compare diagnostics, explicit
     statistic/probability validation type-checking, runtime pass/fail
     materialization for explicit statistic/probability/between validations,
-    pointwise TimeSeries `sensor_std` review metadata, runtime mean/integration
-    `sensor_std` propagation artifacts, confidence-band PlotSpec rendering, and
-    internal IDE metadata are reviewable.
+    pointwise TimeSeries `sensor_std` review metadata, explicitly non-executed
+    `timeseries_uncertainty_plans` in review schema v2, runtime
+    mean/integration `sensor_std` calculation artifacts, confidence-band
+    PlotSpec rendering, and internal IDE metadata are reviewable.
   - Keep internal until full probabilistic TimeSeries uncertainty
     propagation, runtime-dependent/user-function expression support, full IDE
     projection, and tests align.

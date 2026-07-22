@@ -1547,12 +1547,15 @@ function Invoke-WorkflowsTest {
             Assert-ArtifactValue $ReviewUncertainty[0].sensor_std "0.2 kW" "Workflow 03 review uncertainty sensor_std"
             Assert-ArtifactValue $ReviewUncertainty[0].method "pointwise_measured_std" "Workflow 03 review uncertainty method"
             Assert-ArtifactValue $ReviewUncertainty[0].status "accepted" "Workflow 03 review uncertainty status"
-            $ReviewUncertaintyCalcs = @($ReviewData.timeseries_uncertainty_calculations | Where-Object {
+            Assert-ArtifactValue $ReviewData.format "eng-review-preview-2" "Workflow 03 review format"
+            Assert-ArtifactNumber $ReviewData.review_schema_version 2 "Workflow 03 review schema version"
+            $ReviewUncertaintyPlans = @($ReviewData.timeseries_uncertainty_plans | Where-Object {
                 [string]$_.source -eq "Q_sensor" -and
                 [string]$_.sensor_std -eq "0.2 kW" -and
-                [string]$_.status -eq "metadata_only"
+                [string]$_.propagation_model -eq "independent_pointwise_sensor_std" -and
+                [string]$_.execution_status -eq "not_executed"
             })
-            Assert-ArtifactNumber $ReviewUncertaintyCalcs.Count 3 "Workflow 03 review uncertainty metadata row count"
+            Assert-ArtifactNumber $ReviewUncertaintyPlans.Count 3 "Workflow 03 review uncertainty plan row count"
 
             $ReportStatistics = @($ReportSpecData.computed_statistics | Where-Object {
                 [string]$_.source -eq "Q_sensor" -and
@@ -1627,7 +1630,9 @@ function Invoke-WorkflowsTest {
             }
             foreach ($RequiredSensorReviewToken in @(
                 '"timeseries_uncertainty"',
-                '"timeseries_uncertainty_calculations"',
+                '"timeseries_uncertainty_plans"',
+                '"propagation_model": "independent_pointwise_sensor_std"',
+                '"execution_status": "not_executed"',
                 '"sensor_std": "0.2 kW"',
                 '"source": "Q_sensor"',
                 '"key": "confidence_band"',
@@ -1637,6 +1642,10 @@ function Invoke-WorkflowsTest {
                 if (-not $ReviewJson.Contains($RequiredSensorReviewToken)) {
                     throw "Workflow 03 native review missing token $RequiredSensorReviewToken"
                 }
+            }
+            if ($ReviewJson.Contains('"timeseries_uncertainty_calculations"') -or
+                $ReviewJson.Contains('"pointwise_measured_std_metadata"')) {
+                throw "Workflow 03 native review exposed the removed TimeSeries uncertainty calculation metadata contract"
             }
             foreach ($RequiredSensorOutputToken in @(
                 '"kind": "csv_export"',

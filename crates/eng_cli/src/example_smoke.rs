@@ -6417,7 +6417,26 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         },
     ) {
         Ok(output) => {
-            if !output.review_json.contains("\"timeseries_uncertainty\"")
+            if !output
+                .review_json
+                .contains("\"format\": \"eng-review-preview-2\"")
+                || !output.review_json.contains("\"review_schema_version\": 2")
+                || !output
+                    .review_json
+                    .contains("\"timeseries_uncertainty_plans\"")
+                || !output.review_json.contains(
+                    "\"propagation_model\": \"independent_pointwise_sensor_std\"",
+                )
+                || !output
+                    .review_json
+                    .contains("\"execution_status\": \"not_executed\"")
+                || output
+                    .review_json
+                    .contains("\"timeseries_uncertainty_calculations\"")
+                || output
+                    .review_json
+                    .contains("\"pointwise_measured_std_metadata\"")
+                || !output.review_json.contains("\"timeseries_uncertainty\"")
                 || !output
                     .review_json
                     .contains("\"method\": \"pointwise_measured_std\"")
