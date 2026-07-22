@@ -3335,7 +3335,7 @@
       "type": "object",
       "required": ["status", "method", "solve_order", "ode_runner", "jacobian_sparsity"],
       "properties": {
-        "status": { "const": "metadata_only" },
+        "status": { "const": "ready" },
         "method": { "type": "string" },
         "solve_order": {
           "type": "array",
@@ -3356,7 +3356,7 @@
       "type": "object",
       "required": ["status", "reason"],
       "properties": {
-        "status": { "const": "deferred" },
+        "status": { "const": "not_executed" },
         "reason": { "type": "string" }
       }
     },

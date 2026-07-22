@@ -177,6 +177,10 @@ separate.
   examples where current docs state evidence.
 - Evidence: official and internal examples, runtime tests, report/review/IDE
   solver artifacts.
+- Artifact status: pre-runtime system IR keeps the solver boundary `unsolved`,
+  exposes a `ready` `source_order_residual_plan`, and marks its runner
+  `not_executed`. Supported runtime execution upgrades the matching plan and
+  boundary with the actual solver status, method, and evidence.
 - Not included: a general nonlinear/DAE solver product, production multi-domain
   simulation, broad component coupling, event handling, or broad behavior graph
   solving. Dense linear, fixed-point, Newton, implicit-Euler DAE, dynamic

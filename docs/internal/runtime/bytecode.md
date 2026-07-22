@@ -136,8 +136,9 @@ provenance.equation_count
 provenance.residual_count
 ```
 
-The compiler-owned `system_ir` starts with an
-`unsolved`/`metadata_only` plan. Runtime simulation
+The compiler-owned `system_ir` starts with an `unsolved` numeric
+boundary whose reason is `numeric solve has not been executed`, a
+`ready` `source_order_residual_plan`, and a `not_executed` runner. Runtime simulation
 materializes one-state thermal, multi-state source-equation ODE, and typed-block
 state-space results. Targeted source `solve` requests materialize
 dense-linear, fixed-point, Newton, implicit-Euler DAE, dynamic-component,

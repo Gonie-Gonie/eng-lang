@@ -588,11 +588,12 @@ The compiler-owned system/equation baseline records a machine-readable
 ```text
 system name
 solver_boundary.status = unsolved
-solver_boundary.reason
+solver_boundary.reason = numeric solve has not been executed
 parameter/state/input/equation/residual counts
-solver_plan.status = metadata_only
+solver_plan.status = ready
+solver_plan.method = source_order_residual_plan
 source-order solve_order residual list
-ODE runner status = deferred
+ODE runner status = not_executed
 Jacobian sparsity dependencies per residual
 legacy jacobian_seed compatibility entries
 equation relation and normalized residual
@@ -600,7 +601,9 @@ parameter/state/input dependencies per residual
 derivative state mentions
 ```
 
-These values describe the static source plan before runtime execution. During
+These values describe a prepared static source plan before runtime execution:
+the boundary is still `unsolved`, while the plan is `ready` and its
+runner has `not_executed`. During
 `eng run`, runtime-augmented `review.json` adds grouped
 `simulation_results` while preserving that static plan.
 `report_spec.json` and `result.engres` attach numeric

@@ -465,9 +465,11 @@ The compiler-owned static system artifact contract also includes
 ```text
 system_ir
   solver_boundary.status = unsolved
-  solver_plan.status = metadata_only
+  solver_boundary.reason = numeric solve has not been executed
+  solver_plan.status = ready
+  solver_plan.method = source_order_residual_plan
   solver_plan.solve_order
-  solver_plan.ode_runner.status = deferred
+  solver_plan.ode_runner.status = not_executed
   solver_plan.jacobian_sparsity
   solver_plan.jacobian_seed (optional compatibility alias for jacobian_sparsity)
   equations: relation, normalized residual, dependency list, derivative states
@@ -478,8 +480,10 @@ field and allow `solver_plan.jacobian_seed` only as a compatibility alias.
 Sparsity entries use `status = sparsity_metadata`; compatibility seed entries
 retain `status = symbolic_seed` for existing consumers.
 
-The `unsolved` and `metadata_only` values above describe the
-pre-runtime source plan. For `eng run`, runtime-augmented
+The `unsolved` boundary above means no numeric result exists yet. The
+`ready` plan and `not_executed` runner mean residual order and
+Jacobian sparsity are available before runtime solver selection. For
+`eng run`, runtime-augmented
 `review.json` preserves that plan and adds grouped
 `simulation_results`. `report_spec.json` and
 `result.engres` upgrade the matching boundary and attach

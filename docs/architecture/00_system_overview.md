@@ -106,7 +106,10 @@ equation unit consistency diagnostics
 residual metadata in review/report/result artifacts
 system_ir dependency metadata in review/report/result artifacts
 static solver_boundary status = unsolved
-static solver_plan status = metadata_only
+static solver_boundary reason = numeric solve has not been executed
+static solver_plan status = ready
+static solver_plan method = source_order_residual_plan
+static ODE runner status = not_executed
 source-order residuals and Jacobian sparsity dependencies
 ```
 
@@ -146,8 +149,9 @@ review/report variable tables, system summaries, the system IR dependency list,
 and the static solver plan. Supported `simulate` and `solve`
 commands then materialize native numeric results as typed trajectories,
 residual values, convergence histories, step diagnostics, and explicit failure
-artifacts. The static `unsolved`/`metadata_only` values
-describe the pre-runtime plan, not the capability of the runtime as a whole.
+artifacts. The static `unsolved` boundary means that no numeric result has
+been produced yet; the `ready` plan and `not_executed` runner mean
+that residual order and sparsity are available before runtime solver selection.
 
 ## Data Boundary
 

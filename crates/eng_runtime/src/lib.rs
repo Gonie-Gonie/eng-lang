@@ -15131,7 +15131,7 @@ fn solver_boundaries_json(report: &CheckReport, runtime_data: &RuntimeData) -> S
             .unwrap_or("unsolved");
         let reason = solution
             .map(|solution| solution.reason.as_str())
-            .unwrap_or("numeric solver deferred until the solver milestone");
+            .unwrap_or("numeric solve has not been executed");
         json.push_str("      {\n");
         json.push_str(&format!(
             "        \"system\": \"{}\",\n",
@@ -19452,6 +19452,52 @@ mod tests {
                 .as_object()
                 .expect("failed validation review")
         ));
+    }
+
+    #[test]
+    fn unexecuted_system_artifacts_use_pre_runtime_statuses() {
+        let report = check_source(
+            "pending.eng",
+            "system RoomThermal {\n    parameter C: HeatCapacity = 500 kJ/K\n    parameter UA: Conductance = 150 W/K\n    state T: AbsoluteTemperature = 24 degC\n    input T_out: AbsoluteTemperature\n    input Q_internal: HeatRate\n    equation {\n        C * der(T) eq UA * (T_out - T) + Q_internal\n    }\n}\n",
+            &CheckOptions::default(),
+        );
+        let runtime_data = RuntimeData::default();
+
+        let boundaries: Value = serde_json::from_str(&format!(
+            "[{}]",
+            solver_boundaries_json(&report, &runtime_data)
+        ))
+        .expect("solver boundaries json");
+        assert_eq!(
+            boundaries.pointer("/0/status").and_then(Value::as_str),
+            Some("unsolved")
+        );
+        assert_eq!(
+            boundaries.pointer("/0/reason").and_then(Value::as_str),
+            Some("numeric solve has not been executed")
+        );
+
+        let systems: Value =
+            serde_json::from_str(&format!("[{}]", system_ir_json(&report, &runtime_data)))
+                .expect("system ir json");
+        assert_eq!(
+            systems
+                .pointer("/0/solver_plan/status")
+                .and_then(Value::as_str),
+            Some("ready")
+        );
+        assert_eq!(
+            systems
+                .pointer("/0/solver_plan/method")
+                .and_then(Value::as_str),
+            Some("source_order_residual_plan")
+        );
+        assert_eq!(
+            systems
+                .pointer("/0/solver_plan/ode_runner/status")
+                .and_then(Value::as_str),
+            Some("not_executed")
+        );
     }
 
     fn run_plan_has_node(run_plan: &Value, id: &str) -> bool {

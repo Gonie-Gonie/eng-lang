@@ -1682,7 +1682,7 @@
       "type": "object",
       "required": ["status", "method", "solve_order", "ode_runner", "jacobian_sparsity"],
       "properties": {
-        "status": { "enum": ["metadata_only", "computed", "skipped_unsupported_shape"] },
+        "status": { "enum": ["ready", "computed", "skipped_unsupported_shape"] },
         "method": { "type": "string" },
         "solve_order": {
           "type": "array",
@@ -1703,7 +1703,7 @@
       "type": "object",
       "required": ["status", "reason"],
       "properties": {
-        "status": { "enum": ["deferred", "computed", "skipped_unsupported_shape"] },
+        "status": { "enum": ["not_executed", "computed", "skipped_unsupported_shape"] },
         "reason": { "type": "string" }
       }
     },

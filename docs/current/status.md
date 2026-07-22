@@ -232,6 +232,10 @@ visible:
 - Bar and histogram plot paths used by current report/PlotSpec tests.
 - Minimal `system`/`eq`, source-equation ODE, typed-block state-space, and
   constrained component residual examples when documented as narrow scopes.
+- Static system IR distinguishes an `unsolved` numeric boundary from a
+  `ready` `source_order_residual_plan` whose runner is
+  `not_executed`; native runtime results replace those plan fields with the
+  actual status, method, and execution reason.
 - Class/domain object authoring for typed fields/defaults, object literals,
   validation, metadata methods, copy-with metadata, diagnostics, report/review
   serialization, IDE summaries, and LSP metadata.

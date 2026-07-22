@@ -1856,7 +1856,7 @@ pub fn report_spec_from_report(
             name: system.name.clone(),
             solver_boundary: ReportSolverBoundary {
                 status: "unsolved".to_owned(),
-                reason: "numeric solver deferred until the solver milestone".to_owned(),
+                reason: "numeric solve has not been executed".to_owned(),
                 parameter_count: system
                     .variables
                     .iter()
@@ -9449,7 +9449,19 @@ mod tests {
         assert_eq!(spec.provenance.equation_count, 1);
         assert_eq!(spec.systems[0].equations[0].status, "unit_consistent");
         assert_eq!(spec.system_ir[0].solver_boundary.status, "unsolved");
-        assert_eq!(spec.system_ir[0].solver_plan.status, "metadata_only");
+        assert_eq!(
+            spec.system_ir[0].solver_boundary.reason,
+            "numeric solve has not been executed"
+        );
+        assert_eq!(spec.system_ir[0].solver_plan.status, "ready");
+        assert_eq!(
+            spec.system_ir[0].solver_plan.method,
+            "source_order_residual_plan"
+        );
+        assert_eq!(
+            spec.system_ir[0].solver_plan.ode_runner.status,
+            "not_executed"
+        );
         assert_eq!(
             spec.system_ir[0].solver_plan.solve_order,
             vec!["RoomThermal.residual_1".to_owned()]

@@ -1698,13 +1698,14 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     residuals: Vec::new(),
                     equation_ir: Vec::new(),
                     solver_plan: SolverPlanInfo {
-                        status: "metadata_only".to_owned(),
-                        method: "source_order_symbolic_seed".to_owned(),
+                        status: "ready".to_owned(),
+                        method: "source_order_residual_plan".to_owned(),
                         solve_order: Vec::new(),
                         ode_runner: OdeRunnerInfo {
-                            status: "deferred".to_owned(),
-                            reason: "numeric ODE runner deferred until the solver milestone"
-                                .to_owned(),
+                            status: "not_executed".to_owned(),
+                            reason:
+                                "native runtime selects an eligible solver when execution is requested"
+                                    .to_owned(),
                         },
                         jacobian_sparsity: Vec::new(),
                         jacobian_seed: Vec::new(),

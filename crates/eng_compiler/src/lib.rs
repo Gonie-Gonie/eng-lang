@@ -6551,9 +6551,7 @@ fn push_system_ir_json(json: &mut String, systems: &[SystemInfo]) {
         ));
         json.push_str("      \"solver_boundary\": {\n");
         json.push_str("        \"status\": \"unsolved\",\n");
-        json.push_str(
-            "        \"reason\": \"numeric solver deferred until the solver milestone\",\n",
-        );
+        json.push_str("        \"reason\": \"numeric solve has not been executed\",\n");
         json.push_str(&format!(
             "        \"parameter_count\": {},\n",
             system
@@ -20251,7 +20249,8 @@ with {
         assert_eq!(system.equations[0].status, "unit_consistent");
         assert_eq!(system.residuals[0].dimension, "Power");
         assert_eq!(system.equation_ir[0].dependencies.len(), 5);
-        assert_eq!(system.solver_plan.status, "metadata_only");
+        assert_eq!(system.solver_plan.status, "ready");
+        assert_eq!(system.solver_plan.method, "source_order_residual_plan");
         assert_eq!(
             system.solver_plan.solve_order,
             vec!["RoomThermal.residual_1".to_owned()]
@@ -20269,7 +20268,11 @@ with {
             vec!["T".to_owned()]
         );
         assert_eq!(system.solver_plan.jacobian_seed[0].status, "symbolic_seed");
-        assert_eq!(system.solver_plan.ode_runner.status, "deferred");
+        assert_eq!(system.solver_plan.ode_runner.status, "not_executed");
+        assert_eq!(
+            system.solver_plan.ode_runner.reason,
+            "native runtime selects an eligible solver when execution is requested"
+        );
         assert_eq!(
             system.equation_ir[0].derivative_states,
             vec!["T".to_owned()]
@@ -22355,6 +22358,7 @@ schema SensorData {
         assert!(json.contains("\"system_summary\""));
         assert!(json.contains("\"system_ir\""));
         assert!(json.contains("\"solver_boundary\""));
+        assert!(json.contains("\"reason\": \"numeric solve has not been executed\""));
         assert!(json.contains("\"solver_plan\""));
         assert!(json.contains("\"solve_order\": [\"RoomThermal.residual_1\"]"));
         assert!(json.contains("\"jacobian_sparsity\""));
