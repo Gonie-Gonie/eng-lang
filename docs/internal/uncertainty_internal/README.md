@@ -11,7 +11,7 @@ Use fast bindings in the top-level workflow:
 
 ```eng
 T_supply_meas = measured(12 degC, std=0.2 K)
-L_sensor_meas = measured(10 m, error=1 %)
+L_sensor_meas = measured(10 m, relative_error=1 %)
 T_return_band = interval(20 degC, 24 degC)
 Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)
 Q_aux_band = uniform(0.3 kW, 0.7 kW, samples=21)
@@ -37,7 +37,7 @@ The current implementation materializes deterministic sample sets:
 
 - `measured(value, std=...)` records the measured value and creates a small
   deterministic normal sample when a standard deviation is supplied.
-- `measured(value, error=1 %)` records relative error metadata and derives the
+- `measured(value, relative_error=1 %)` records relative error metadata and derives the
   deterministic sample standard deviation from the measured value.
 - `interval(lower, upper)` records lower, midpoint, and upper samples.
 - `normal(mean=..., std=..., samples=n)` uses deterministic quantile samples,
@@ -50,6 +50,13 @@ The current implementation materializes deterministic sample sets:
   other uncertain scalar samples is materialized as a deterministic linear or
   interval arithmetic propagation preview.
 
+Constructor completion uses only canonical argument names. Existing sources may
+still use `sigma/uncertainty -> std`, `error -> relative_error`,
+`n -> samples`, `min/max -> lower/upper`, `mu -> mean`,
+`distribution -> kind`, and `gain/bias -> scale/offset` where those
+aliases apply. The compiler reports `W-UNC-ARG-ALIAS` on the exact key and the
+editor can replace that key without changing its value.
+
 `ensemble(...)` and `propagate(...)` require the first argument to be an
 uncertainty binding that was defined earlier in the same semantic pass. Unknown
 sources produce `E-UNC-SOURCE-001`; deterministic bindings such as `Q = 5 kW`
@@ -61,6 +68,7 @@ The compiler also validates the current uncertainty-track argument contract:
 E-UNC-ARGS-001  missing or malformed required uncertainty argument
 E-UNC-ARGS-002  invalid numeric, range, count, or transform argument
 E-UNC-ARGS-003  unsupported uncertainty option for the current uncertainty-track scope
+W-UNC-ARG-ALIAS compatibility-only uncertainty argument name
 E-UNC-DIRECT-COMPARE  direct Bool comparison of an uncertain value
 E-UNC-PROBABILITY-EXPR-INVALID  invalid probability(...) comparison
 E-UNC-PERCENTILE-UNIT-MISMATCH  percentile threshold has incompatible units

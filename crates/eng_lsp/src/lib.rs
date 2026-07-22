@@ -4,11 +4,11 @@ use std::path::Path;
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, bundled_module_registry, check_source,
     check_source_with_import_overrides, classify_diagnostic_review_risk, classify_review_risk,
-    is_percentile_statistic, read_only_io_expression, review_validation_records, CheckOptions,
-    CheckReport, ClassFieldInfo, CommandStyleInfo, Diagnostic, DomainTypeParameterInfo,
-    FileOperationInfo, FunctionInfo, ImportSourceOverrides, ReviewValidationRecord,
-    SemanticProgram, Severity, SourceSpan, WithBlockInfo, WithOptionInfo, WriteInfo,
-    DIMENSIONLESS_MATH_FUNCTIONS, PERCENTILE_STATISTIC_PATTERN,
+    is_percentile_statistic, read_only_io_expression, review_validation_records,
+    uncertainty_argument_alias, CheckOptions, CheckReport, ClassFieldInfo, CommandStyleInfo,
+    Diagnostic, DomainTypeParameterInfo, FileOperationInfo, FunctionInfo, ImportSourceOverrides,
+    ReviewValidationRecord, SemanticProgram, Severity, SourceSpan, WithBlockInfo, WithOptionInfo,
+    WriteInfo, DIMENSIONLESS_MATH_FUNCTIONS, PERCENTILE_STATISTIC_PATTERN,
 };
 use serde_json::{json, Value};
 
@@ -738,8 +738,23 @@ const PUBLIC_TYPE_COMPLETIONS: &[(&str, &str)] = &[
 
 const EDITOR_LEGACY_WORKFLOW_BUILTIN_ALIASES: &[&str] =
     &["regression_table", "train_regression", "ann"];
-const EDITOR_LEGACY_WORKFLOW_OPTION_ALIASES: &[&str] =
-    &["fixture", "layers", "test_fraction", "x", "y"];
+const EDITOR_LEGACY_WORKFLOW_OPTION_ALIASES: &[&str] = &[
+    "bias",
+    "distribution",
+    "error",
+    "fixture",
+    "gain",
+    "layers",
+    "max",
+    "min",
+    "mu",
+    "n",
+    "sigma",
+    "test_fraction",
+    "uncertainty",
+    "x",
+    "y",
+];
 
 const SAMPLE_METHOD_COMPLETIONS: &[(&str, &str)] = &[
     ("grid", "deterministic Cartesian grid sampling method"),
@@ -858,7 +873,6 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("backend", "execution backend option"),
     ("body", "HTTP request body option"),
     ("body_size_limit", "HTTP response body size limit"),
-    ("bias", "uncertainty propagation offset alias"),
     ("cache", "cache behavior option"),
     ("cache_dir", "cache storage directory option"),
     ("cache_key", "cache identity option"),
@@ -885,7 +899,6 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
         "Pinned offline HTTP response used instead of live network",
     ),
     ("headers", "HTTP request headers"),
-    ("gain", "uncertainty propagation scale alias"),
     ("hidden", "MLP hidden layer option"),
     ("initial", "solver initial value"),
     ("initial_algebraic", "solver initial algebraic value"),
@@ -900,14 +913,12 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("mass_matrix", "solver mass-matrix policy"),
     ("max_gap", "maximum allowed gap option"),
     ("max_iter", "solver maximum iteration count"),
-    ("mu", "uncertainty mean alias"),
     (
         "method",
         "operation method; fill uses interpolate or record_only",
     ),
     ("missing", "missing value policy"),
     ("mode", "write mode"),
-    ("n", "uncertainty sample count alias"),
     (
         "on_many",
         "What to do when `require_one` finds multiple rows",
@@ -941,7 +952,6 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ),
     ("seed", "deterministic sampling seed"),
     ("sensor_std", "TimeSeries sensor standard deviation"),
-    ("sigma", "uncertainty standard deviation alias"),
     ("split", "Train/test split to evaluate or lint"),
     ("solver", "solver algorithm option"),
     ("start", "range start option"),
@@ -2887,12 +2897,13 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             }
         }
         for argument in &uncertainty.named_arguments {
-            builder.push_named_span(
-                argument.key_span,
-                &argument.name,
-                "property",
-                &["uncertain"],
-            );
+            let modifiers: &[&str] =
+                if uncertainty_argument_alias(&uncertainty.expression, &argument.name).is_some() {
+                    &["uncertain", "deprecated"]
+                } else {
+                    &["uncertain"]
+                };
+            builder.push_named_span(argument.key_span, &argument.name, "property", modifiers);
             let name = argument.name.to_ascii_lowercase();
             let unquoted_value = argument.value.trim().trim_matches('"');
             if matches!(name.as_str(), "kind" | "distribution" | "method")
@@ -11482,39 +11493,20 @@ fn function_argument_option_labels(function_name: &str) -> Option<&'static [&'st
             "seed",
         ]),
         "evaluate" | "metrics" | "leakage_lint" => Some(&["split"]),
-        "measured" => Some(&["std", "sigma", "uncertainty", "error", "relative_error"]),
-        "interval" | "uniform" => Some(&["lower", "min", "upper", "max", "samples", "n"]),
-        "normal" => Some(&["mean", "mu", "std", "sigma", "samples", "n"]),
-        "distribution" => Some(&[
-            "kind",
-            "distribution",
-            "mean",
-            "mu",
-            "std",
-            "sigma",
-            "lower",
-            "min",
-            "upper",
-            "max",
-            "samples",
-            "n",
-        ]),
-        "propagate" => Some(&["method", "scale", "gain", "offset", "bias", "samples", "n"]),
-        "ensemble" => Some(&["method", "samples", "n"]),
+        "measured" => Some(&["std", "relative_error", "samples"]),
+        "interval" | "uniform" => Some(&["lower", "upper", "samples"]),
+        "normal" => Some(&["mean", "std", "samples"]),
+        "distribution" => Some(&["kind", "mean", "std", "lower", "upper", "samples"]),
+        "propagate" => Some(&["method", "scale", "offset", "samples"]),
+        "ensemble" => Some(&["method", "samples"]),
         _ => None,
     }
 }
 
 fn function_argument_option_completion_detail(label: &str) -> Option<&'static str> {
     contextual_workflow_option_completion_detail(label).or(match label {
-        "distribution" => Some("uncertainty distribution kind option alias"),
-        "error" => Some("measurement absolute error option"),
-        "layers" => Some("MLP hidden layer alias"),
-        "max" => Some("upper uncertainty or range bound alias"),
         "mean" => Some("uncertainty mean option"),
-        "min" => Some("lower uncertainty or range bound alias"),
         "std" => Some("uncertainty standard deviation option"),
-        "test_fraction" => Some("train/test split fraction alias"),
         _ => None,
     })
 }
@@ -14264,6 +14256,14 @@ print "done"
                 "sampling compatibility alias {alias} must not be advertised"
             );
         }
+        for alias in ["bias", "gain", "mu", "n", "sigma"] {
+            assert!(
+                !completion_items
+                    .iter()
+                    .any(|completion| completion["label"] == alias),
+                "uncertainty compatibility alias {alias} must not be advertised globally"
+            );
+        }
         for label in ["eng.path", "eng.net", "eng.uncertainty"] {
             assert!(
                 completion_items
@@ -14430,7 +14430,25 @@ print "done"
         assert!(
             syntax_catalog["legacy_workflow_option_aliases"]
                 .as_array()
-                .is_some_and(|labels| labels.iter().any(|label| label == "fixture")),
+                .is_some_and(|labels| [
+                    "bias",
+                    "distribution",
+                    "error",
+                    "fixture",
+                    "gain",
+                    "layers",
+                    "max",
+                    "min",
+                    "mu",
+                    "n",
+                    "sigma",
+                    "test_fraction",
+                    "uncertainty",
+                    "x",
+                    "y",
+                ]
+                .iter()
+                .all(|alias| labels.iter().any(|label| label == alias))),
             "syntax catalog should expose legacy workflow option aliases"
         );
         assert!(
@@ -20473,6 +20491,10 @@ filled_zone = fill missing measured.T_zone
         let source = r#"Q_direct = normal(mean=5 kW, std=0.8 kW, samples=31)
 Q_dist = distribution(kind=normal, mean=5 kW, std=0.8 kW, samples=31)
 Q_range = distribution(kind=uniform, lower=1 kW, upper=8 kW, samples=11)
+Q_alias = distribution(distribution=normal, mu=5 kW, sigma=0.8 kW, n=31)
+Q_interval_alias = interval(min=1 kW, max=8 kW, n=11)
+Q_propagated_alias = propagate(Q_direct, gain=1.1, bias=0.2 kW, n=13)
+T_measured_alias = measured(12 degC, uncertainty=0.2 K, error=1 %, n=16)
 designs = sample uniform
 with {
     count = 2
@@ -20538,6 +20560,55 @@ with {
             "function",
             "deprecated",
         );
+        for (line, alias) in [
+            ("Q_alias = distribution", "distribution"),
+            ("Q_alias = distribution", "mu"),
+            ("Q_alias = distribution", "sigma"),
+            ("Q_alias = distribution", "n"),
+            ("Q_interval_alias =", "min"),
+            ("Q_interval_alias =", "max"),
+            ("Q_interval_alias =", "n"),
+            ("Q_propagated_alias =", "gain"),
+            ("Q_propagated_alias =", "bias"),
+            ("Q_propagated_alias =", "n"),
+            ("T_measured_alias =", "uncertainty"),
+            ("T_measured_alias =", "error"),
+            ("T_measured_alias =", "n"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                alias,
+                "property",
+                "deprecated",
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                alias,
+                "property",
+                "uncertain",
+            );
+        }
+        for (line, canonical) in [
+            ("Q_direct = normal", "mean"),
+            ("Q_direct = normal", "std"),
+            ("Q_direct = normal", "samples"),
+            ("Q_dist = distribution", "kind"),
+            ("Q_range = distribution", "lower"),
+            ("Q_range = distribution", "upper"),
+        ] {
+            assert_semantic_token_on_line_without_modifier(
+                &snapshot,
+                source,
+                line,
+                canonical,
+                "property",
+                "deprecated",
+            );
+        }
     }
 
     #[test]
@@ -23027,7 +23098,7 @@ with {
 
     #[test]
     fn function_argument_completion_uses_uncertainty_context() {
-        let source = "Q = distribution(kind=normal, sig";
+        let source = "Q = distribution(kind=normal, st";
         let line = 0;
         let character = source.len();
         let report = check_source(
@@ -23037,12 +23108,12 @@ with {
         );
         let completions = completion_items_at(&report, source, line, character);
 
-        let sigma = completions
+        let std = completions
             .iter()
-            .find(|completion| completion.label == "sigma")
-            .expect("distribution argument completion should include sigma");
-        assert_eq!(sigma.kind, "property");
-        assert_eq!(sigma.detail, "uncertainty standard deviation alias");
+            .find(|completion| completion.label == "std")
+            .expect("distribution argument completion should include std");
+        assert_eq!(std.kind, "property");
+        assert_eq!(std.detail, "uncertainty standard deviation option");
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "kind"));
@@ -23057,20 +23128,31 @@ with {
             &CheckOptions::default(),
         );
         let completions = completion_items_at(&report, source, line, source.len());
-        for label in [
-            "kind",
-            "distribution",
-            "mean",
-            "sigma",
-            "lower",
-            "upper",
-            "n",
-        ] {
+        for label in ["kind", "mean", "std", "lower", "upper", "samples"] {
             assert!(
                 completions
                     .iter()
                     .any(|completion| completion.label == label && completion.kind == "property"),
                 "distribution argument completion should include property {label}"
+            );
+        }
+        for alias in [
+            "distribution",
+            "mu",
+            "sigma",
+            "min",
+            "max",
+            "n",
+            "gain",
+            "bias",
+            "uncertainty",
+            "error",
+        ] {
+            assert!(
+                !completions
+                    .iter()
+                    .any(|completion| completion.label == alias),
+                "uncertainty argument completion should hide alias {alias}"
             );
         }
         assert!(!completions
@@ -23079,7 +23161,7 @@ with {
 
         let source = r#"Q = distribution(
     kind=normal,
-    sig"#;
+    st"#;
         let line = 2;
         let character = source.lines().nth(line).unwrap().len();
         let report = check_source(
@@ -23090,7 +23172,7 @@ with {
         let completions = completion_items_at(&report, source, line, character);
         assert!(completions
             .iter()
-            .any(|completion| completion.label == "sigma" && completion.kind == "property"));
+            .any(|completion| completion.label == "std" && completion.kind == "property"));
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "kind"));

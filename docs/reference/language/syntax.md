@@ -1955,6 +1955,7 @@ generation.
 | `E-UNC-PROBABILITY-EXPR-INVALID` | `probability(...)` is not an uncertain-threshold comparison | Compare exactly one uncertain value with a compatible threshold |
 | `E-UNC-PERCENTILE-UNIT-MISMATCH` | Uncertainty percentile threshold has incompatible units | Use a threshold with the percentile quantity's dimension |
 | `E-UNC-TS-STD-001` | TimeSeries `sensor_std` metadata is invalid | Attach a non-negative unitful value to a compatible TimeSeries |
+| `W-UNC-ARG-ALIAS` | Compatibility-only uncertainty argument name | Rename the key to its canonical form; the value is unchanged |
 | `W-QTY-AMBIG-001` | Unit maps to multiple quantity kinds | Add an explicit declaration |
 
 ## Common Recipes

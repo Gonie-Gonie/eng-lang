@@ -190,6 +190,13 @@ treated as implemented percentile helpers. `fill_missing(...)` uses
 `fill missing ...` workflow phrase; `select_first_row(...)` uses
 `support.function.deprecated.englang`.
 
+Canonical uncertainty named arguments use
+`variable.parameter.property.englang` on first paint and the `uncertain`
+semantic modifier after analysis. Compatibility-only `sigma`, `uncertainty`,
+`error`, `n`, `min`, `max`, `mu`, `distribution`, `gain`, and
+`bias` keys use `keyword.control.deprecated.englang` first paint and
+`property + uncertain + deprecated` semantic tokens.
+
 External boundary constructors/checks such as `file(...)`, `dir(...)`,
 `url(...)`, `env(...)`, `secret env(...)`, and `exists(...)` use
 `support.function.external-boundary.englang`; path helpers such as `join(...)`,

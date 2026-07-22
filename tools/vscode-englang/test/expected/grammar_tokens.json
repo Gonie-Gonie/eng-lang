@@ -3429,13 +3429,13 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "variable.parameter.property.englang",
+    "scope": "keyword.control.deprecated.englang",
     "text": "sigma",
     "fullMatch": true
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "variable.parameter.property.englang",
+    "scope": "keyword.control.deprecated.englang",
     "text": "n",
     "fullMatch": true
   },

@@ -399,7 +399,10 @@ definition before its first use.
 Uncertainty diagnostics can also repair common constructor mistakes such as
 unsupported distribution kind, unsupported propagation method, invalid sample
 count, missing constructor arguments, unknown sources, missing source arguments,
-and deterministic sources that should be `measured(...)`. Propagation `with`
+and deterministic sources that should be `measured(...)`. Constructor
+completion advertises canonical uncertainty keys only; compatibility keys such
+as `sigma`, `n`, `mu`, `gain`, and `bias` are marked deprecated
+and have range-only rename quick fixes. Propagation `with`
 blocks can repair invalid uncertainty policy, sample-count, and seed option
 values, and can insert a reproducible seed for Monte Carlo propagation. A direct
 uncertainty comparison can be changed to `mean(...)`; this edit uses the exact

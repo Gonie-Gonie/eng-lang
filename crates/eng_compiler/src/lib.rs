@@ -107,7 +107,8 @@ pub use table::{
 };
 pub use type_info::{TypeInfo, TypeInfoSource};
 pub use uncertainty::{
-    UncertaintyInfo, UncertaintyNamedArgumentInfo, UncertaintyPropagationTerm, UncertaintyValueInfo,
+    uncertainty_argument_alias, UncertaintyInfo, UncertaintyNamedArgumentInfo,
+    UncertaintyPropagationTerm, UncertaintyValueInfo,
 };
 pub use units::{all_unit_infos, UnitDerivation, UnitInfo};
 pub use workflow::Workflow;
@@ -18336,6 +18337,93 @@ with {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "E-UNC-SOURCE-002"));
+    }
+
+    #[test]
+    fn uncertainty_argument_aliases_warn_on_exact_keys_and_preserve_behavior() {
+        let source = concat!(
+            "# sigma error n uncertainty mu min max distribution gain bias\r\n",
+            "measured_alias = measured(12 degC, sigma=0.2 K, error=1 %, n=16)\r\n",
+            "measured_uncertainty = measured(12 degC, uncertainty=0.3 K)\r\n",
+            "normal_alias = normal(mu=5 kW, sigma=0.8 kW, n=31)\r\n",
+            "interval_alias = interval(min=1 kW, max=2 kW, n=5)\r\n",
+            "uniform_alias = uniform(min=1 kW, max=8 kW, n=11)\r\n",
+            "distribution_alias = distribution(distribution=normal, mu=5 kW, sigma=0.8 kW, n=17)\r\n",
+            "source = normal(mean=4 kW, std=0.4 kW, samples=9)\r\n",
+            "propagated_alias = propagate(source, gain=1.1, bias=0.2 kW, n=13)\r\n",
+            "ensemble_alias = ensemble(source, n=8)\r\n",
+            "canonical = distribution(kind=uniform, lower=1 kW, upper=2 kW, samples=4)\r\n",
+        );
+        let report = check_source(
+            "uncertainty_argument_aliases.eng",
+            source,
+            &CheckOptions::default(),
+        );
+        assert!(
+            !report.has_errors(),
+            "valid compatibility arguments should remain executable: {:?}",
+            report.diagnostics
+        );
+        let warnings = report
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "W-UNC-ARG-ALIAS")
+            .map(|diagnostic| {
+                let span = diagnostic.source_span.expect("uncertainty alias key span");
+                (&source[span.start..span.end], diagnostic.message.as_str())
+            })
+            .collect::<Vec<_>>();
+        let expected = [
+            ("sigma", "std"),
+            ("error", "relative_error"),
+            ("n", "samples"),
+            ("uncertainty", "std"),
+            ("mu", "mean"),
+            ("sigma", "std"),
+            ("n", "samples"),
+            ("min", "lower"),
+            ("max", "upper"),
+            ("n", "samples"),
+            ("min", "lower"),
+            ("max", "upper"),
+            ("n", "samples"),
+            ("distribution", "kind"),
+            ("mu", "mean"),
+            ("sigma", "std"),
+            ("n", "samples"),
+            ("gain", "scale"),
+            ("bias", "offset"),
+            ("n", "samples"),
+            ("n", "samples"),
+        ];
+        assert_eq!(warnings.len(), expected.len());
+        for ((actual_alias, message), (expected_alias, canonical)) in warnings.iter().zip(expected)
+        {
+            assert_eq!(*actual_alias, expected_alias);
+            assert!(
+                message.contains(&format!("for `{canonical}`")),
+                "warning for {expected_alias} should name canonical {canonical}: {message}"
+            );
+        }
+
+        let normal = report
+            .semantic_program
+            .uncertainty_infos
+            .iter()
+            .find(|info| info.binding == "normal_alias")
+            .expect("normal alias metadata");
+        assert_eq!(normal.mean.as_deref(), Some("5 kW"));
+        assert_eq!(normal.stddev.as_deref(), Some("0.8 kW"));
+        assert_eq!(normal.sample_count, 31);
+        let propagated = report
+            .semantic_program
+            .uncertainty_infos
+            .iter()
+            .find(|info| info.binding == "propagated_alias")
+            .expect("propagation alias metadata");
+        assert_eq!(propagated.scale.as_deref(), Some("1.1"));
+        assert_eq!(propagated.offset.as_deref(), Some("0.2 kW"));
+        assert_eq!(propagated.sample_count, 13);
     }
 
     #[test]

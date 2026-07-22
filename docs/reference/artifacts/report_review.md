@@ -747,6 +747,13 @@ uncertainty sources produce `E-UNC-SOURCE-002`.
 Malformed required arguments produce `E-UNC-ARGS-001`; invalid numeric/range/
 count/transform arguments produce `E-UNC-ARGS-002`; unsupported distribution
 kinds or propagation methods produce `E-UNC-ARGS-003`.
+Canonical constructor argument names are `std`, `relative_error`,
+`samples`, `lower`, `upper`, `mean`, `kind`, `method`, `scale`,
+and `offset` where applicable. Compatibility names `sigma`, `uncertainty`,
+`error`, `n`, `min`, `max`, `mu`, `distribution`, `gain`, and
+`bias` remain executable and produce `W-UNC-ARG-ALIAS` on the exact key.
+Completion exposes only canonical names; editor quick fixes rename the key while
+preserving the argument value.
 `with { uncertainty = ... }` policy metadata is checked before runtime and
 recorded in `review.json.uncertainty_policies[]`. Invalid policy names produce
 `E-WITH-UNCERTAINTY-POLICY-001`, invalid sample counts produce

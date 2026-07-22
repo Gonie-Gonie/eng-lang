@@ -7270,6 +7270,11 @@ function Assert-VscodeExtensionContract {
             throw "generated VS Code completion items must not advertise sampling compatibility alias $SamplingAliasCompletion"
         }
     }
+    foreach ($UncertaintyAliasCompletion in @("bias", "gain", "mu", "n", "sigma")) {
+        if ($MetadataCompletionLabels -contains $UncertaintyAliasCompletion) {
+            throw "generated VS Code completion items must not advertise uncertainty compatibility alias $UncertaintyAliasCompletion"
+        }
+    }
     $ReadJsonCompletion = @($EditorMetadata.completion_items | Where-Object { $_.label -eq "read json" }) | Select-Object -First 1
     if ($ReadJsonCompletion.insert -ne "read json args.config" -or $ReadJsonCompletion.insert_snippet -ne 'read json ${1:args.config}') {
         throw "generated VS Code editor metadata read json completion must include insert and insert_snippet"
@@ -7445,6 +7450,12 @@ function Assert-VscodeExtensionContract {
         }
         if ([string]::IsNullOrWhiteSpace($CaseRunResultTableField.detail)) {
             throw "generated VS Code editor metadata native case run result field $RequiredCaseRunResultTableField missing detail"
+        }
+    }
+    foreach ($UncertaintyOptionAlias in @("bias", "distribution", "error", "gain", "max", "min", "mu", "n", "sigma", "uncertainty")) {
+        $LegacyWorkflowOptionAlias = @($EditorMetadata.syntax_catalog.legacy_workflow_option_aliases | Where-Object { $_ -eq $UncertaintyOptionAlias }) | Select-Object -First 1
+        if ($null -eq $LegacyWorkflowOptionAlias) {
+            throw "generated VS Code editor metadata must keep uncertainty compatibility alias $UncertaintyOptionAlias as a highlight-only legacy workflow option alias"
         }
     }
     foreach ($RequiredTimeAlignmentResultField in @("materialized", "materialization_status", "alignment_status", "target_count", "output_count", "resample_step")) {
@@ -9017,6 +9028,16 @@ function Invoke-LspCheck {
     foreach ($SamplingAliasCompletion in @("latin_hypercube", "latin-hypercube", "sample uniform", "sample latin_hypercube", "sample latin-hypercube")) {
         if (@($EditorMetadata.completion_items.label) -contains $SamplingAliasCompletion) {
             throw "eng-lsp --editor-metadata must not advertise sampling compatibility alias $SamplingAliasCompletion"
+        }
+    }
+    foreach ($UncertaintyAliasCompletion in @("bias", "gain", "mu", "n", "sigma")) {
+        if (@($EditorMetadata.completion_items.label) -contains $UncertaintyAliasCompletion) {
+            throw "eng-lsp --editor-metadata must not advertise uncertainty compatibility alias $UncertaintyAliasCompletion"
+        }
+    }
+    foreach ($UncertaintyOptionAlias in @("bias", "distribution", "error", "gain", "max", "min", "mu", "n", "sigma", "uncertainty")) {
+        if (@($EditorMetadata.syntax_catalog.legacy_workflow_option_aliases) -notcontains $UncertaintyOptionAlias) {
+            throw "eng-lsp --editor-metadata must retain uncertainty compatibility alias $UncertaintyOptionAlias for highlighting"
         }
     }
     foreach ($RequiredModifier in @("workflowStep", "unit", "quantity", "solver", "path", "temporal")) {

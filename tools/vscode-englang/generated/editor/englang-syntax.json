@@ -754,9 +754,19 @@
                                                                    "ann"
                                                                ],
                            "legacy_workflow_option_aliases":  [
+                                                                  "bias",
+                                                                  "distribution",
+                                                                  "error",
                                                                   "fixture",
+                                                                  "gain",
                                                                   "layers",
+                                                                  "max",
+                                                                  "min",
+                                                                  "mu",
+                                                                  "n",
+                                                                  "sigma",
                                                                   "test_fraction",
+                                                                  "uncertainty",
                                                                   "x",
                                                                   "y"
                                                               ],
@@ -1749,10 +1759,6 @@
                                                         "label":  "body_size_limit"
                                                     },
                                                     {
-                                                        "detail":  "uncertainty propagation offset alias",
-                                                        "label":  "bias"
-                                                    },
-                                                    {
                                                         "detail":  "cache behavior option",
                                                         "label":  "cache"
                                                     },
@@ -1845,10 +1851,6 @@
                                                         "label":  "headers"
                                                     },
                                                     {
-                                                        "detail":  "uncertainty propagation scale alias",
-                                                        "label":  "gain"
-                                                    },
-                                                    {
                                                         "detail":  "MLP hidden layer option",
                                                         "label":  "hidden"
                                                     },
@@ -1905,10 +1907,6 @@
                                                         "label":  "max_iter"
                                                     },
                                                     {
-                                                        "detail":  "uncertainty mean alias",
-                                                        "label":  "mu"
-                                                    },
-                                                    {
                                                         "detail":  "operation method; fill uses interpolate or record_only",
                                                         "label":  "method"
                                                     },
@@ -1919,10 +1917,6 @@
                                                     {
                                                         "detail":  "write mode",
                                                         "label":  "mode"
-                                                    },
-                                                    {
-                                                        "detail":  "uncertainty sample count alias",
-                                                        "label":  "n"
                                                     },
                                                     {
                                                         "detail":  "What to do when `require_one` finds multiple rows",
@@ -2019,10 +2013,6 @@
                                                     {
                                                         "detail":  "TimeSeries sensor standard deviation",
                                                         "label":  "sensor_std"
-                                                    },
-                                                    {
-                                                        "detail":  "uncertainty standard deviation alias",
-                                                        "label":  "sigma"
                                                     },
                                                     {
                                                         "detail":  "Train/test split to evaluate or lint",

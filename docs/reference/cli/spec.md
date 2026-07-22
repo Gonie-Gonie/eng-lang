@@ -144,6 +144,7 @@ E-UNC-SOURCE-002      referenced binding is not an uncertainty source
 E-UNC-ARGS-001        missing or malformed required uncertainty argument
 E-UNC-ARGS-002        invalid numeric/range/count/transform uncertainty argument
 E-UNC-ARGS-003        unsupported uncertainty option
+W-UNC-ARG-ALIAS       compatibility-only uncertainty argument name
 W-UNC-INDEPENDENCE-ASSUMED uncertainty propagation assumed independent inputs
 W-WITH-UNCERTAINTY-SEED-001 reproducible uncertainty sampling needs an explicit seed
 E-DOMAIN-CONTRACT-001  domain has no across variable

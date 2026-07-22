@@ -197,8 +197,7 @@ $GrammarOnlyFunctionArgumentAliases = @(
     "axis",
     "over",
     "mean",
-    "std",
-    "error"
+    "std"
 )
 # Preserve broad TextMate operator coloring for legacy clause words while the
 # compiler-owned operator catalog stays focused on expression/operator words.

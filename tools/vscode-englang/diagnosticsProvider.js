@@ -26,7 +26,23 @@ const DIAGNOSTIC_DOC_TARGETS = new Map([
   [
     "W-SAMPLING-LATIN-HYPERCUBE-ALIAS",
     `${DIAGNOSTIC_DOC_ROOT}/reference/artifacts/report_review.md#sample-generation-metadata`
+  ],
+  [
+    "W-UNC-ARG-ALIAS",
+    `${DIAGNOSTIC_DOC_ROOT}/reference/artifacts/report_review.md#uncertainty-metadata`
   ]
+]);
+const UNCERTAINTY_ARGUMENT_ALIASES = new Set([
+  "bias",
+  "distribution",
+  "error",
+  "gain",
+  "max",
+  "min",
+  "mu",
+  "n",
+  "sigma",
+  "uncertainty"
 ]);
 
 class EngDiagnosticsController {
@@ -673,6 +689,13 @@ function diagnosticFallbackRangeForCode(lineText, item, sourceColumn) {
       searchStart
     );
   }
+  if (code === "W-UNC-ARG-ALIAS") {
+    const alias = firstBacktickPayload(item?.message);
+    if (UNCERTAINTY_ARGUMENT_ALIASES.has(alias)) {
+      return namedArgumentKeyRange(lineText, alias, searchStart)
+        ?? namedArgumentKeyRange(lineText, alias, 0);
+    }
+  }
   if (code === "W-STATS-SUM-001") {
     return functionCallNameRange(lineText, "sum", searchStart);
   }
@@ -824,6 +847,29 @@ function optionValueRangeFrom(lineText, optionName, startCharacter = 0) {
         return valueStart < valueEnd
           ? { start: valueStart, end: valueEnd }
           : { start: nameStart, end: nameEnd };
+      }
+    }
+    cursor = nameEnd;
+  }
+  return undefined;
+}
+
+function namedArgumentKeyRange(lineText, argumentName, startCharacter = 0) {
+  const text = stripLineComment(lineText);
+  let cursor = Math.max(0, Math.min(startCharacter, text.length));
+  while (cursor < text.length) {
+    const nameStart = text.indexOf(argumentName, cursor);
+    if (nameStart < 0) {
+      return undefined;
+    }
+    const nameEnd = nameStart + argumentName.length;
+    if (!isIdentifierPart(text[nameStart - 1]) && !isIdentifierPart(text[nameEnd])) {
+      let equals = nameEnd;
+      while (equals < text.length && /\s/.test(text[equals])) {
+        equals += 1;
+      }
+      if (text[equals] === "=") {
+        return { start: nameStart, end: nameEnd };
       }
     }
     cursor = nameEnd;
@@ -1393,6 +1439,7 @@ function diagnosticTags(item) {
     code === "W-ML-ANN-ALIAS" ||
     code === "W-SAMPLING-UNIFORM-ALIAS" ||
     code === "W-SAMPLING-LATIN-HYPERCUBE-ALIAS" ||
+    code === "W-UNC-ARG-ALIAS" ||
     code === "E-SCRIPT-001" ||
     code === "E-STRUCT-ARGS-001" ||
     message.includes("legacy") ||

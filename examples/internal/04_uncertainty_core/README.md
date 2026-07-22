@@ -12,7 +12,7 @@ Language features shown:
 
 ```text
 - root args block with a simple String default
-- measured(..., std=...), measured(..., error=...), interval(...),
+- measured(..., std=...), measured(..., relative_error=...), interval(...),
   normal(...), uniform(...), ensemble(...)
 - propagate(..., method=linear, scale=..., offset=...)
 - deterministic arithmetic propagation from an uncertain source plus a scalar

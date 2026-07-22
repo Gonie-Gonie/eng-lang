@@ -144,6 +144,24 @@ pub fn argument_diagnostics(binding: &FastBinding) -> Vec<Diagnostic> {
 
     let arguments = uncertainty_arguments(binding);
     let mut diagnostics = Vec::new();
+    for argument in &arguments.named {
+        if let Some(canonical) = uncertainty_argument_alias(&binding.expression, &argument.name) {
+            diagnostics.push(
+                Diagnostic::warning(
+                    "W-UNC-ARG-ALIAS",
+                    argument.key_span.line,
+                    &format!(
+                        "`{}` is a compatibility-only uncertainty argument name for `{canonical}`.",
+                        argument.name
+                    ),
+                    Some(&format!(
+                        "Use `{canonical}=...`; the argument value and runtime behavior are unchanged."
+                    )),
+                )
+                .with_source_span(argument.key_span),
+            );
+        }
+    }
     validate_sample_count_argument(call, &arguments, binding.expression_span, &mut diagnostics);
 
     match call {
@@ -170,6 +188,24 @@ pub fn argument_diagnostics(binding: &FastBinding) -> Vec<Diagnostic> {
     }
 
     diagnostics
+}
+
+pub fn uncertainty_argument_alias(expression: &str, name: &str) -> Option<&'static str> {
+    let call = uncertainty_call_name(expression)?;
+    let alias = name.to_ascii_lowercase();
+    match (call, alias.as_str()) {
+        (_, "n") => Some("samples"),
+        ("measured", "sigma" | "uncertainty") => Some("std"),
+        ("measured", "error") => Some("relative_error"),
+        ("interval" | "uniform" | "distribution", "min") => Some("lower"),
+        ("interval" | "uniform" | "distribution", "max") => Some("upper"),
+        ("normal" | "distribution", "mu") => Some("mean"),
+        ("normal" | "distribution", "sigma") => Some("std"),
+        ("distribution", "distribution") => Some("kind"),
+        ("propagate", "gain") => Some("scale"),
+        ("propagate", "bias") => Some("offset"),
+        _ => None,
+    }
 }
 
 pub fn uncertainty_semantic_type(name: &str, expression: &str) -> Option<(String, String)> {

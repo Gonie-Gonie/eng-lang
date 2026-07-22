@@ -3,7 +3,7 @@ args {
 }
 
 T_supply_meas = measured(12 degC, std=0.2 K)
-L_sensor_meas = measured(10 m, error=1 %)
+L_sensor_meas = measured(10 m, relative_error=1 %)
 T_return_band = interval(20 degC, 24 degC)
 Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)
 Q_aux_band = uniform(0.3 kW, 0.7 kW, samples=21)

@@ -86,7 +86,8 @@ function documentFixture() {
     "legacy_model = regression_table(designs)",
     "ann_model = ann(split)",
     "distribution = uniform(0, 1); uniform_designs = sample uniform",
-    "latin_designs = sample latin-hypercube"
+    "latin_designs = sample latin-hypercube",
+    "uncertain = distribution(kind=normal, mu=5, sigma=0.8, n=31)"
   ];
   return {
     isDirty: false,
@@ -171,6 +172,13 @@ function successfulReview() {
         message: "`sample latin-hypercube` is a compatibility-only spelling for `sample lhs`.",
         line: 7,
         column: 1
+      },
+      {
+        code: "W-UNC-ARG-ALIAS",
+        severity: "warning",
+        message: "`sigma` is a compatibility-only uncertainty argument name for `std`.",
+        line: 8,
+        column: 1
       }
     ],
     review_document: {
@@ -247,7 +255,7 @@ try {
   processCalls[0].callback(null, JSON.stringify(review), "");
   assert.strictEqual(diagnostics.sets.length, 1);
   assert.strictEqual(diagnostics.sets[0].uri, document.uri.toString());
-  assert.strictEqual(diagnostics.sets[0].diagnostics.length, 6);
+  assert.strictEqual(diagnostics.sets[0].diagnostics.length, 7);
 
   const scriptDiagnostic = diagnostics.sets[0].diagnostics[0];
   assert.strictEqual(scriptDiagnostic.source, "eng/file");
@@ -306,6 +314,22 @@ try {
     character: latinAliasStart + "latin-hypercube".length
   });
   assert.deepStrictEqual(latinAliasDiagnostic.tags, [vscodeMock.DiagnosticTag.Deprecated]);
+  const uncertaintyAliasDiagnostic = diagnostics.sets[0].diagnostics[6];
+  const uncertaintyAliasStart = document.lineAt(7).text.indexOf("sigma");
+  assert.strictEqual(uncertaintyAliasDiagnostic.code.value, "W-UNC-ARG-ALIAS");
+  assert.match(uncertaintyAliasDiagnostic.code.target.toString(), /uncertainty-metadata/);
+  assert.deepStrictEqual(uncertaintyAliasDiagnostic.range.start, {
+    line: 7,
+    character: uncertaintyAliasStart
+  });
+  assert.deepStrictEqual(uncertaintyAliasDiagnostic.range.end, {
+    line: 7,
+    character: uncertaintyAliasStart + "sigma".length
+  });
+  assert.deepStrictEqual(
+    uncertaintyAliasDiagnostic.tags,
+    [vscodeMock.DiagnosticTag.Deprecated]
+  );
   assert.deepStrictEqual(cachedReviews.at(-1), review);
   assert.strictEqual(riskDecorations.at(-1), cachedReviews.at(-1));
   assert.strictEqual(validationDecorations.at(-1), cachedReviews.at(-1));

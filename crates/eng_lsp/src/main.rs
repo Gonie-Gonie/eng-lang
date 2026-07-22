@@ -2308,6 +2308,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
                 "Replace sampling method with lhs",
             ))
         }
+        "W-UNC-ARG-ALIAS" => optional_code_action(lsp_uncertainty_argument_alias_code_action(
+            uri, text, diagnostic,
+        )),
         "E-IO-JSON-FIELD-ACCESS-001" => {
             optional_code_action(lsp_json_read_promotion_code_action(uri, text, diagnostic))
         }
@@ -2536,6 +2539,42 @@ fn lsp_diagnostic_range_replacement_code_action(
         "diagnostics": [diagnostic.clone()],
         "edit": single_change_workspace_edit(uri, range, replacement)
     }))
+}
+
+fn lsp_uncertainty_argument_alias_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    for (alias, canonical, title) in [
+        ("bias", "offset", "Replace uncertainty argument with offset"),
+        (
+            "distribution",
+            "kind",
+            "Replace uncertainty argument with kind",
+        ),
+        (
+            "error",
+            "relative_error",
+            "Replace uncertainty argument with relative_error",
+        ),
+        ("gain", "scale", "Replace uncertainty argument with scale"),
+        ("max", "upper", "Replace uncertainty argument with upper"),
+        ("min", "lower", "Replace uncertainty argument with lower"),
+        ("mu", "mean", "Replace uncertainty argument with mean"),
+        ("n", "samples", "Replace uncertainty argument with samples"),
+        ("sigma", "std", "Replace uncertainty argument with std"),
+        (
+            "uncertainty",
+            "std",
+            "Replace uncertainty argument with std",
+        ),
+    ] {
+        if diagnostic_range_for_exact_text(text, diagnostic, alias).is_some() {
+            return lsp_diagnostic_range_replacement_code_action(uri, diagnostic, canonical, title);
+        }
+    }
+    None
 }
 
 fn lsp_close_unterminated_interpolation_code_action(
@@ -9918,6 +9957,67 @@ mod tests {
                 replacement
             );
         }
+    }
+
+    #[test]
+    fn uncertainty_argument_alias_quick_fixes_replace_only_the_key() {
+        let uri = "file:///C:/workspace/uncertainty-argument-alias.eng";
+        let source = concat!(
+            "# bias distribution error gain max min mu n sigma uncertainty\r\n",
+            "a = propagate(source, bias=1, gain=2, n=3)\r\n",
+            "b = distribution(distribution=normal, mu=4, sigma=5, n=6)\r\n",
+            "c = uniform(min=7, max=8, n=9)\r\n",
+            "d = measured(10, error=0.1, uncertainty=0.2)\r\n",
+        );
+        for (line, alias, canonical) in [
+            (1, "bias", "offset"),
+            (1, "gain", "scale"),
+            (1, "n", "samples"),
+            (2, "distribution", "kind"),
+            (2, "mu", "mean"),
+            (2, "sigma", "std"),
+            (2, "n", "samples"),
+            (3, "min", "lower"),
+            (3, "max", "upper"),
+            (3, "n", "samples"),
+            (4, "error", "relative_error"),
+            (4, "uncertainty", "std"),
+        ] {
+            let source_line = source.lines().nth(line).expect("uncertainty alias line");
+            let start = if alias == "distribution" {
+                source_line.rfind(alias)
+            } else {
+                source_line.find(&format!("{alias}="))
+            }
+            .expect("uncertainty alias key");
+            let diagnostic = json!({
+                "range": {
+                    "start": { "line": line, "character": start },
+                    "end": { "line": line, "character": start + alias.len() }
+                },
+                "code": "W-UNC-ARG-ALIAS",
+                "message": format!(
+                    "`{alias}` is a compatibility-only uncertainty argument name for `{canonical}`."
+                )
+            });
+            let actions = code_actions_for_diagnostic(uri, source, &diagnostic);
+            assert_eq!(actions.len(), 1, "missing quick fix for {alias}");
+            assert_eq!(
+                actions[0]["edit"]["changes"][uri][0]["range"],
+                diagnostic["range"]
+            );
+            assert_eq!(actions[0]["edit"]["changes"][uri][0]["newText"], canonical);
+        }
+
+        let wrong_range = json!({
+            "range": {
+                "start": { "line": 0, "character": 2 },
+                "end": { "line": 0, "character": 5 }
+            },
+            "code": "W-UNC-ARG-ALIAS",
+            "message": "`bias` is a compatibility-only uncertainty argument name for `offset`."
+        });
+        assert!(code_actions_for_diagnostic(uri, source, &wrong_range).is_empty());
     }
 
     #[test]

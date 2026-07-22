@@ -1440,12 +1440,6 @@
                                  "lsp_kind":  10
                              },
                              {
-                                 "detail":  "uncertainty propagation offset alias",
-                                 "kind":  "property",
-                                 "label":  "bias",
-                                 "lsp_kind":  10
-                             },
-                             {
                                  "detail":  "cache behavior option",
                                  "kind":  "property",
                                  "label":  "cache",
@@ -1578,12 +1572,6 @@
                                  "lsp_kind":  10
                              },
                              {
-                                 "detail":  "uncertainty propagation scale alias",
-                                 "kind":  "property",
-                                 "label":  "gain",
-                                 "lsp_kind":  10
-                             },
-                             {
                                  "detail":  "MLP hidden layer option",
                                  "kind":  "property",
                                  "label":  "hidden",
@@ -1659,18 +1647,6 @@
                                  "detail":  "solver maximum iteration count",
                                  "kind":  "property",
                                  "label":  "max_iter",
-                                 "lsp_kind":  10
-                             },
-                             {
-                                 "detail":  "uncertainty mean alias",
-                                 "kind":  "property",
-                                 "label":  "mu",
-                                 "lsp_kind":  10
-                             },
-                             {
-                                 "detail":  "uncertainty sample count alias",
-                                 "kind":  "property",
-                                 "label":  "n",
                                  "lsp_kind":  10
                              },
                              {
@@ -1803,12 +1779,6 @@
                                  "detail":  "TimeSeries sensor standard deviation",
                                  "kind":  "property",
                                  "label":  "sensor_std",
-                                 "lsp_kind":  10
-                             },
-                             {
-                                 "detail":  "uncertainty standard deviation alias",
-                                 "kind":  "property",
-                                 "label":  "sigma",
                                  "lsp_kind":  10
                              },
                              {
@@ -2787,7 +2757,7 @@
                                  "lsp_kind":  11
                              }
                          ],
-    "completion_items_count":  449,
+    "completion_items_count":  444,
     "format":  "eng-lsp-editor-metadata-v2",
     "semantic_token_legend":  {
                                   "token_modifiers":  [
@@ -3595,9 +3565,19 @@
                                                                    "ann"
                                                                ],
                            "legacy_workflow_option_aliases":  [
+                                                                  "bias",
+                                                                  "distribution",
+                                                                  "error",
                                                                   "fixture",
+                                                                  "gain",
                                                                   "layers",
+                                                                  "max",
+                                                                  "min",
+                                                                  "mu",
+                                                                  "n",
+                                                                  "sigma",
                                                                   "test_fraction",
+                                                                  "uncertainty",
                                                                   "x",
                                                                   "y"
                                                               ],
@@ -4590,10 +4570,6 @@
                                                         "label":  "body_size_limit"
                                                     },
                                                     {
-                                                        "detail":  "uncertainty propagation offset alias",
-                                                        "label":  "bias"
-                                                    },
-                                                    {
                                                         "detail":  "cache behavior option",
                                                         "label":  "cache"
                                                     },
@@ -4686,10 +4662,6 @@
                                                         "label":  "headers"
                                                     },
                                                     {
-                                                        "detail":  "uncertainty propagation scale alias",
-                                                        "label":  "gain"
-                                                    },
-                                                    {
                                                         "detail":  "MLP hidden layer option",
                                                         "label":  "hidden"
                                                     },
@@ -4746,10 +4718,6 @@
                                                         "label":  "max_iter"
                                                     },
                                                     {
-                                                        "detail":  "uncertainty mean alias",
-                                                        "label":  "mu"
-                                                    },
-                                                    {
                                                         "detail":  "operation method; fill uses interpolate or record_only",
                                                         "label":  "method"
                                                     },
@@ -4760,10 +4728,6 @@
                                                     {
                                                         "detail":  "write mode",
                                                         "label":  "mode"
-                                                    },
-                                                    {
-                                                        "detail":  "uncertainty sample count alias",
-                                                        "label":  "n"
                                                     },
                                                     {
                                                         "detail":  "What to do when `require_one` finds multiple rows",
@@ -4860,10 +4824,6 @@
                                                     {
                                                         "detail":  "TimeSeries sensor standard deviation",
                                                         "label":  "sensor_std"
-                                                    },
-                                                    {
-                                                        "detail":  "uncertainty standard deviation alias",
-                                                        "label":  "sigma"
                                                     },
                                                     {
                                                         "detail":  "Train/test split to evaluate or lint",

@@ -826,7 +826,14 @@
                 "match": "\\b(quadratic|triangular)\\b"
               },
               {
-                "match": "\\b(kind|distribution|mean|mu|std|sigma|uncertainty|error|relative_error|samples|n|lower|min|upper|max|method|scale|gain|offset|bias)\\b\\s*(=)",
+                "match": "\\b(distribution|mu|sigma|uncertainty|error|n|min|max|gain|bias)\\b\\s*(=)",
+                "captures": {
+                  "1": { "name": "keyword.control.deprecated.englang" },
+                  "2": { "name": "keyword.operator.englang" }
+                }
+              },
+              {
+                "match": "\\b(kind|mean|std|relative_error|samples|lower|upper|method|scale|offset)\\b\\s*(=)",
                 "captures": {
                   "1": { "name": "variable.parameter.property.englang" },
                   "2": { "name": "keyword.operator.englang" }

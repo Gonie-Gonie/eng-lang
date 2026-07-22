@@ -62,7 +62,7 @@ quantity and unit metadata:
 ```text
 UncertaintyRep
   Certain
-  Measured(std, error, confidence)
+  Measured(std, relative_error, confidence)
   Interval(lower, upper)
   Distribution(kind, params, samples)
   Ensemble(samples)
@@ -90,13 +90,21 @@ Keep the initial surface constructor-based:
 
 ```eng
 T_supply = measured(12 degC, std=0.2 K)
-L_sensor = measured(10 m, error=1 %)
+L_sensor = measured(10 m, relative_error=1 %)
 Q_band = interval(4.8 kW, 5.4 kW)
 Q_dist = normal(mean=5 kW, std=0.8 kW, samples=31)
 Q_uniform = uniform(4 kW, 6 kW, samples=21)
 Q_ensemble = ensemble(Q_dist, samples=31)
 Q_adjusted = propagate(Q_dist, method=linear, scale=1.08, offset=0.4 kW)
 ```
+
+Canonical named arguments are `std`, `relative_error`, `samples`,
+`lower`, `upper`, `mean`, `kind`, `method`, `scale`, and
+`offset` as applicable to each constructor. Older `sigma`, `uncertainty`,
+`error`, `n`, `min`, `max`, `mu`, `distribution`, `gain`, and
+`bias` argument names remain executable compatibility spellings. They emit
+`W-UNC-ARG-ALIAS` on the argument key; completion advertises only canonical
+names and editor quick fixes replace only the key.
 
 Unicode or shorthand forms such as `+/-` should remain deferred until the
 constructor contract, diagnostics, report fields, and IDE display are aligned.
