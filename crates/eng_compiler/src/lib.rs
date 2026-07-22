@@ -668,9 +668,11 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// bindings, cached boundaries, and command metadata such as `print` may therefore remain
 /// in the prefix. After the suffix patch, axis metadata is regenerated and cache records are rekeyed
 /// with the new source hash. A scalar suffix cannot use a preserved non-scalar binding as an alias
-/// or operand. This richer contract is root-source-only and import-free; module and static imports
-/// continue through the stricter scalar-only import contract. The richer prefix is not reparsed or
-/// reanalyzed.
+/// or operand. This richer contract remains root-source-only but may retain unchanged supported
+/// `eng.*` module imports when every compiler import record exactly matches its root source line,
+/// span, kind, and status. Static file imports continue through the stricter scalar-only import
+/// contract. Only those module declaration lines are reparsed for verification; richer prefix
+/// constructs are not reparsed or reanalyzed.
 /// Changes inside it, a token-bearing non-declaration in the affected suffix, diagnostics,
 /// unsupported calls, unverifiable cache or axis metadata, unresolved or duplicate names, and edits
 /// without an affected declaration return `None` for a normal full check.
@@ -837,7 +839,12 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
         .is_some();
     let rich_prefix_contract = !scalar_only_contract
         && mode == IncrementalScalarDeclarationMode::Any
-        && incremental_rich_prefix_supports_scalar_suffix(report, &previous_suffix, record_offsets);
+        && incremental_rich_prefix_supports_scalar_suffix(
+            report,
+            &previous_suffix,
+            record_offsets,
+            &previous_lines[..changed_index],
+        );
     if !scalar_only_contract && !rich_prefix_contract {
         return None;
     }
@@ -1410,6 +1417,7 @@ fn incremental_rich_prefix_supports_scalar_suffix(
     report: &CheckReport,
     suffix: &ParsedScalarDeclarationSuffix,
     offsets: IncrementalScalarRecordOffsets,
+    prefix_lines: &[source::SourceLine],
 ) -> bool {
     let Some(annotated_declaration_count) = suffix
         .explicit_declaration_count
@@ -1429,7 +1437,7 @@ fn incremental_rich_prefix_supports_scalar_suffix(
         && report.source_files.len() == 1
         && source_ids.len() == report.source_files.len()
         && report.diagnostics.is_empty()
-        && report.semantic_program.imports.is_empty()
+        && incremental_rich_prefix_module_imports_match_report(report, prefix_lines)
         && incremental_rich_prefix_derived_metadata_matches(report)
         && report.syntax_summary.ast_items > suffix.declarations.len()
         && report.syntax_summary.tokens >= suffix.token_count
@@ -1477,6 +1485,45 @@ fn incremental_rich_prefix_supports_scalar_suffix(
             .len()
             .checked_sub(offsets.unit_derivation)
             == Some(suffix.declarations.len())
+}
+
+fn incremental_rich_prefix_module_imports_match_report(
+    report: &CheckReport,
+    prefix_lines: &[source::SourceLine],
+) -> bool {
+    if report.syntax_summary.imports != report.semantic_program.imports.len() {
+        return false;
+    }
+
+    let mut import_lines = HashSet::new();
+    report.semantic_program.imports.iter().all(|info| {
+        let Some(index) = info.line.checked_sub(1) else {
+            return false;
+        };
+        let Some(line) = prefix_lines.get(index) else {
+            return false;
+        };
+        if !import_lines.insert(info.line)
+            || info.span.source_id != SourceSpan::ROOT_SOURCE_ID
+            || info.span.line != info.line
+            || !matches!(info.kind.as_str(), "use" | "import")
+            || info.status != "declared"
+        {
+            return false;
+        }
+
+        let parsed = parser::parse_top_level_source_line(line);
+        let [AstItem::Import(declaration)] = parsed.items.as_slice() else {
+            return false;
+        };
+        parsed.lines.len() == 1
+            && incremental_import_is_supported(declaration)
+            && declaration.kind != "file"
+            && declaration.target == info.target
+            && declaration.target_span == info.span
+            && declaration.kind == info.kind
+            && declaration.line == info.line
+    })
 }
 
 fn incremental_rich_prefix_derived_metadata_matches(report: &CheckReport) -> bool {
@@ -11786,6 +11833,8 @@ factor = 0.5
         }
 
         let previous_source = concat!(
+            "use eng.stats\n",
+            "import eng.path\n",
             "input_file = file(\"input.csv\")\n",
             "series: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
             "process_result = run command \"cmd\"\n",
@@ -11802,6 +11851,8 @@ factor = 0.5
             "scaled = identity_power(base)\n",
         );
         let source = concat!(
+            "use eng.stats\n",
+            "import eng.path\n",
             "input_file = file(\"input.csv\")\n",
             "series: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
             "process_result = run command \"cmd\"\n",
@@ -11833,9 +11884,16 @@ factor = 0.5
         })
         .semantic_program;
         assert!(
-            incremental_scalar_report_shape(&previous, 0, &empty_semantic_program).is_none(),
+            incremental_scalar_report_shape(
+                &previous,
+                previous.semantic_program.imports.len(),
+                &empty_semantic_program,
+            )
+            .is_none(),
             "a metadata-rich prefix must remain outside the scalar-only report contract"
         );
+        assert_eq!(previous.source_files.len(), 1);
+        assert_eq!(previous.semantic_program.imports.len(), 2);
         assert_eq!(previous.semantic_program.axis_infos.len(), 1);
         assert_eq!(previous.semantic_program.cache_records.len(), 1);
 
@@ -11851,6 +11909,10 @@ factor = 0.5
         assert_eq!(
             reused.semantic_program.functions,
             previous.semantic_program.functions
+        );
+        assert_eq!(
+            reused.semantic_program.imports,
+            previous.semantic_program.imports
         );
         assert_eq!(
             reused.semantic_program.prints,
@@ -11886,7 +11948,7 @@ factor = 0.5
                 .map(|binding| binding.semantic_type.quantity_kind.as_str()),
             Some("FilePath")
         );
-        assert_eq!(reused.semantic_program.workflow.line, 1);
+        assert_eq!(reused.semantic_program.workflow.line, 3);
         assert!(
             recheck_scalar_binding_suffix_incrementally(&previous, previous_source, source)
                 .is_none(),
@@ -11903,6 +11965,8 @@ factor = 0.5
         );
 
         let cleared_source = concat!(
+            "use eng.stats\n",
+            "import eng.path\n",
             "input_file = file(\"input.csv\")\n",
             "series: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
             "process_result = run command \"cmd\"\n",
@@ -11925,9 +11989,11 @@ factor = 0.5
             &CheckOptions::default(),
         );
         assert_fresh_equivalent(&cleared, &cleared_fresh, cleared_source);
-        assert_eq!(cleared.semantic_program.workflow.line, 1);
+        assert_eq!(cleared.semantic_program.workflow.line, 3);
 
         let restarted_source = concat!(
+            "use eng.stats\n",
+            "import eng.path\n",
             "input_file = file(\"input.csv\")\n",
             "series: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
             "process_result = run command \"cmd\"\n",
@@ -11984,6 +12050,30 @@ factor = 0.5
             recheck_scalar_declaration_suffix_incrementally(&stale_cache, previous_source, source,)
                 .is_none(),
             "unverified cache metadata must use full analysis"
+        );
+
+        let mut stale_module_import = previous.clone();
+        stale_module_import.semantic_program.imports[0].status = "stale".to_owned();
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_module_import,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "unverified module import metadata must use full analysis"
+        );
+
+        let mut mismatched_module_import = previous.clone();
+        mismatched_module_import.semantic_program.imports[0].target = "eng.plot".to_owned();
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &mismatched_module_import,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "module import metadata that does not match its source line must use full analysis"
         );
 
         let edited_cache_prefix_source =

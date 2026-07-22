@@ -264,9 +264,13 @@ cached process or data boundaries, a pure scalar `fn` helper, and `print`.
 Axis metadata is rebuilt after the suffix patch, and cache records are rekeyed
 with the changed source hash. Suffix expressions cannot use preserved
 non-scalar values as scalar aliases or operands. An edit inside that richer
-prefix still uses full analysis. The richer contract is root-source-only and
-import-free; unchanged module and static imports continue through the stricter
-scalar-only import contract. Compiler-validated suffix expressions may use
+prefix still uses full analysis. The richer contract remains root-source-only
+but may retain unchanged supported `eng.*` module imports whose compiler
+records exactly match their root source lines, spans, kinds, and statuses.
+Static file imports continue through the stricter scalar-only import contract.
+Only those module declaration lines are reparsed for verification; other
+richer-prefix constructs are preserved without reparsing or semantic reanalysis.
+Compiler-validated suffix expressions may use
 numeric or registered-unit literals, backward aliases, parentheses, and
 `+`, `-`, `*`, `/` arithmetic over earlier typed bindings. The server
 preserves the report before the first
@@ -301,8 +305,8 @@ Token-bearing non-declaration lines in the affected suffix, edits inside a
 richer prefix, incomplete or duplicate renames, forward or unresolved
 references, dimensionally incompatible arithmetic, invalid or unsupported
 calls, non-scalar suffix declarations, workflow expressions, diagnostics,
-import-line edits, imports inside the affected suffix, caches, and unverified
-report ownership run a full compiler analysis.
+import-line edits, imports inside the affected suffix, edited or unverifiable
+cache metadata, and unverified report ownership run a full compiler analysis.
 Changing an open import hard-invalidates its recursive open dependents, while
 unrelated document analyses remain cached. This remains a narrow partial path,
 not general incremental parse or semantic recomputation.

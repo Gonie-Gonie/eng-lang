@@ -10879,6 +10879,7 @@ mod tests {
         std::fs::create_dir_all(&root).expect("rich-prefix scalar fixture should be created");
         let path = root.join("current.eng");
         let initial_source = concat!(
+            "use eng.stats\n",
             "input_file = file(\"input.csv\")\n",
             "series: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
             "process_result = run command \"cmd\"\n",
@@ -10913,6 +10914,7 @@ mod tests {
         );
 
         let changed_source = concat!(
+            "use eng.stats\n",
             "input_file = file(\"input.csv\")\n",
             "series: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
             "process_result = run command \"cmd\"\n",
@@ -10949,7 +10951,7 @@ mod tests {
         assert_eq!(
             documents[&uri].analysis_cache_stats(),
             (0, 2, 0, true, true),
-            "the unchanged file, axis, cache, helper, and print prefix should preserve the scalar suffix fast path"
+            "the unchanged module, file, axis, cache, helper, and print prefix should preserve the scalar suffix fast path"
         );
 
         let fallback_source = changed_source.replace(

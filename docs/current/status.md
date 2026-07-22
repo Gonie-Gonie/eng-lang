@@ -143,11 +143,14 @@ review material. It is not a broad solver claim.
   an exact independent tail, prior cache and axis metadata must regenerate
   exactly, and isolated old-suffix analysis must match the report. Axis metadata
   is rebuilt and cache records are rekeyed with the new source hash after the
-  patch. The richer prefix itself is not reparsed or reanalyzed; suffix
-  expressions cannot use preserved non-scalar bindings as aliases or operands,
-  and edits inside the prefix use full analysis. This richer contract is
-  root-source-only and import-free; module and static imports retain their
-  stricter scalar-only validation. Suffix forms may interleave and switch style,
+  patch. Except for individually verified module declaration lines, richer
+  prefix constructs are not reparsed or reanalyzed; suffix expressions cannot
+  use preserved non-scalar bindings as aliases or operands, and edits inside
+  the prefix use full analysis. This richer contract remains root-source-only
+  but may retain unchanged supported `eng.*` module imports after exact
+  source-line, span, kind, and status verification. Static file imports retain
+  their stricter scalar-only validation. Suffix forms may interleave and switch
+  style,
   and expressions may use earlier scalar bindings or preserved registered,
   unit-consistent scalar calls directly, in arithmetic, or recursively inside
   scalar arguments. Explicit and `const` result dimensions must match their

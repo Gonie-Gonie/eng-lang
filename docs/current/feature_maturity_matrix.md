@@ -270,12 +270,15 @@ separate.
   has an exact independent tail, derived cache and axis metadata regenerate
   exactly, and isolated old-suffix analysis matches. This admits unchanged root
   scalar helpers, non-scalar file/path and TimeSeries bindings, cached boundaries,
-  and command metadata such as `print`. The richer prefix itself is not
-  reparsed or reanalyzed, and its non-scalar bindings cannot be used as suffix
-  aliases or operands. Axis metadata is rebuilt and cache records are rekeyed
-  with the new source hash after a successful patch. The richer contract is
-  root-source-only and import-free; module and static imports retain the
-  stricter scalar-only import contract.
+  and command metadata such as `print`. Except for individually verified module
+  declaration lines, richer prefix constructs are not reparsed or reanalyzed,
+  and their non-scalar bindings cannot be used as suffix aliases or operands.
+  Axis metadata is rebuilt and cache records are rekeyed
+  with the new source hash after a successful patch. The richer contract remains
+  root-source-only but may retain unchanged supported `eng.*` module imports
+  whose compiler records exactly match their root source lines, spans, kinds,
+  and statuses. Static file imports retain the stricter scalar-only import
+  contract.
   Preserved imported definitions retain source ownership; constants can seed
   backward root aliases and arithmetic, and eligible constants may themselves
   use scalar function calls as values or arithmetic operands. Any suffix
