@@ -15,7 +15,9 @@ Language features shown:
 - measured(..., std=...), measured(..., relative_error=...), interval(...),
   normal(...), uniform(...), ensemble(...)
 - propagate(..., method=linear, scale=..., offset=...)
-- deterministic arithmetic propagation from an uncertain source plus a scalar
+- native scalar evaluation for a deterministic gain alias and mixed-unit offset
+- deterministic arithmetic propagation from an uncertain source through those
+  named scalar values
 - with { uncertainty = linear } review policy metadata
 - report show entries for uncertainty values
 - plot distribution(...) with a with { title = ... } option block

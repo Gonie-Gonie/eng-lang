@@ -561,7 +561,11 @@ and source spans for source-linked graph navigation.
 
 The uncertainty track section records declared uncertainty forms, deterministic
 runtime summaries when available, scale/offset transforms, and propagation
-source terms with source, role, and quantity kind.
+source terms with source, role, and quantity kind. Scalar object `numeric`
+links include the materialized value, display unit, quantity kind,
+representation, uncertainty binding, and materialization status. The native
+runtime evaluates supported deterministic literal/alias/arithmetic chains in
+canonical units and reuses them in scalar uncertainty arithmetic.
 
 The plot manifest section records:
 

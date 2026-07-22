@@ -9,7 +9,10 @@ Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)
 Q_aux_band = uniform(0.3 kW, 0.7 kW, samples=21)
 Q_coil_ensemble = ensemble(Q_coil_dist, samples=31)
 Q_total_unc = propagate(Q_coil_dist, method=linear, scale=1.08, offset=0.4 kW)
-Q_arithmetic_unc = Q_coil_dist + 0.5 kW
+gain_base = 1
+gain = gain_base + 0.08
+Q_offset = 500 W
+Q_arithmetic_unc = Q_coil_dist * gain + Q_offset
 with {
     uncertainty = linear
     samples = 31

@@ -49,6 +49,10 @@ The current implementation materializes deterministic sample sets:
 - Arithmetic that combines uncertain scalar samples with numeric literals or
   other uncertain scalar samples is materialized as a deterministic linear or
   interval arithmetic propagation preview.
+- Prior deterministic scalar literals, backward aliases, and pure arithmetic
+  are evaluated natively in canonical units and may participate in the same
+  uncertainty expression. Mixed display units are converted through the unit
+  registry before evaluation.
 
 Constructor completion uses only canonical argument names. Existing sources may
 still use `sigma/uncertainty -> std`, `error -> relative_error`,
@@ -191,10 +195,11 @@ an Uncertainty table with Transform and Propagation columns.
 
 The current propagation is deterministic and supports explicit linear
 scale/offset transforms with source validation plus a narrow scalar arithmetic
-preview. It is still not a full Jacobian or Monte Carlo propagation engine, and
-arithmetic involving deterministic named scalar bindings may stay metadata-only
-until scalar values are carried in the VM object store. The implemented subset
-is concrete enough for artifact review, histogram testing, and IDE inspection.
+preview. Deterministic named scalar dependencies now carry actual values in
+`typed_payload.numeric_values[]` and scalar `object_store.objects[].numeric`
+links, and the uncertainty evaluator consumes those values directly. It is
+still not a full Jacobian, user-function, runtime-dependent expression, or
+Monte Carlo propagation engine.
 
 ## Official Example
 

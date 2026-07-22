@@ -740,6 +740,11 @@ plots/plot_spec.json        histogram when plot distribution(...) is requested
 
 The runtime path is deterministic. It records samples and summary fields for
 user testing, but it is not yet a full stochastic propagation engine.
+`result.engres` materializes supported deterministic scalar
+literal/alias/arithmetic chains, stores their values under
+`typed_payload.numeric_values[]` and scalar `object_store.objects[].numeric`,
+and makes those named values available to uncertainty arithmetic with unit
+normalization.
 `propagate(..., scale=..., offset=...)` records declared transform metadata in
 `review.json` and numeric transform values in runtime result/report artifacts.
 `review.json.uncertainty_summary[]` gives reviewers the table-shaped view:

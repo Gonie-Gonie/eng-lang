@@ -218,8 +218,10 @@ separate.
   constructors, linear propagation metadata, probability/statistic validation,
   and report confidence-band artifacts.
 - Evidence: workflow 03, diagnostics, deterministic samples,
-  scalar `typed_payload.numeric_values`, narrow measured/interval arithmetic
-  artifacts, propagation metadata, validated
+  scalar `typed_payload.numeric_values` and object-store numeric values,
+  canonical-unit evaluation of deterministic literal/alias/pure-arithmetic
+  chains, named deterministic operands in measured/interval/distribution
+  arithmetic, unit-aware linear transforms, propagation metadata, validated
   `with { uncertainty = ... }` review policy metadata, direct-compare
   diagnostics, explicit uncertainty statistic/probability validation
   type-checking, runtime pass/fail materialization for explicit statistic,
@@ -230,8 +232,9 @@ separate.
   PlotSpec rendering, internal IDE variable/inspector metadata, histogram
   artifacts, and the current uncertainty guide.
 - Not included: stable Monte Carlo/Jacobian propagation contract, full
-  probabilistic TimeSeries uncertainty propagation/statistics, broad
-  deterministic scalar-binding value propagation, or public IDE support claim.
+  probabilistic TimeSeries uncertainty propagation/statistics, user-function
+  or runtime-dependent scalar evaluation inside uncertainty arithmetic, or
+  public IDE support claim.
 - Next cleanup action: route broader probabilistic TimeSeries uncertainty
   semantics into runtime/report/IDE artifacts before promoting the track beyond
   narrow native workflow support.

@@ -12467,6 +12467,15 @@ fn vm_object_kind(object: &VmObject) -> &'static str {
 
 fn push_runtime_numeric_link(json: &mut String, numeric: &RuntimeNumericValue, indent: &str) {
     json.push_str("{\n");
+    push_optional_json_number(json, "value", numeric.value, indent.len() + 2);
+    json.push_str(&format!(
+        "{indent}  \"unit\": \"{}\",\n",
+        json_escape(&numeric.display_unit)
+    ));
+    json.push_str(&format!(
+        "{indent}  \"quantity_kind\": \"{}\",\n",
+        json_escape(&numeric.quantity_kind)
+    ));
     json.push_str(&format!(
         "{indent}  \"representation\": \"{}\",\n",
         json_escape(&numeric.representation)
@@ -22969,7 +22978,7 @@ print "mode={args.mode}"
 
         let output = run_source(
             &virtual_path,
-            "Q = 10 kW\nQ_meas = measured(10 kW, std=1 kW)\n",
+            "Q: HeatRate [kW] = 10 kW\nQ_meas = measured(10 kW, std=1 kW)\n",
             &build_root,
             &RunOptions::default(),
         )
@@ -22989,6 +22998,28 @@ print "mode={args.mode}"
             .result_json
             .contains("\"uncertainty_binding\": \"Q_meas\""));
         assert!(output.result_json.contains("\"stddev\": 1"));
+        let result: Value = serde_json::from_str(&output.result_json).expect("result json");
+        let certain_object =
+            json_array_item_by_field(&result, "/object_store/objects", "name", "Q")
+                .expect("certain scalar object");
+        assert_eq!(
+            certain_object
+                .pointer("/numeric/value")
+                .and_then(Value::as_f64),
+            Some(10.0)
+        );
+        assert_eq!(
+            certain_object
+                .pointer("/numeric/unit")
+                .and_then(Value::as_str),
+            Some("kW")
+        );
+        assert_eq!(
+            certain_object
+                .pointer("/numeric/quantity_kind")
+                .and_then(Value::as_str),
+            Some("HeatRate")
+        );
         assert!(!virtual_path.exists());
     }
 

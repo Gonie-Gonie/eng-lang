@@ -14,6 +14,14 @@ pub(crate) struct ArithmeticExpressionProfile {
 }
 
 impl ArithmeticExpressionProfile {
+    pub(crate) const RUNTIME_SCALAR: Self = Self {
+        parse_code: "E-RUNTIME-SCALAR-PARSE",
+        finite_code: "E-RUNTIME-SCALAR-FINITE",
+        unknown_code: "E-RUNTIME-SCALAR-SYMBOL",
+        divide_by_zero_code: "E-RUNTIME-SCALAR-DIVIDE-BY-ZERO",
+        label: "runtime scalar expression",
+    };
+
     pub(crate) const SOURCE_RESIDUAL: Self = Self {
         parse_code: "E-SOURCE-EXPR-PARSE",
         finite_code: "E-SOURCE-EXPR-FINITE",

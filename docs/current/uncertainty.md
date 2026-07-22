@@ -47,8 +47,13 @@ constructors, selected diagnostics, scalar runtime numeric payloads, histogram
 artifacts, and report/review projection. `result.engres` now records
 `typed_payload.numeric_values` so certain scalars stay on the fast path while
 measured, interval, distribution, and ensemble scalars carry an uncertainty
-link. It is not yet a stable propagation contract for arbitrary arithmetic,
-TimeSeries uncertainty, or production Monte Carlo propagation workflows.
+link. Numeric literals, backward aliases, and pure scalar arithmetic are
+evaluated natively in canonical units; their display-unit values are available
+both in `typed_payload.numeric_values[]` and each scalar object's `numeric`
+link. Uncertainty arithmetic can consume those named deterministic values.
+It is not yet a stable propagation contract for arbitrary runtime-dependent
+expressions, full probabilistic TimeSeries uncertainty, or production Monte
+Carlo propagation workflows.
 `examples/workflows/03_uncertain_sensor_report` is an executable native
 workflow example for typed sensor data with `sensor_std`, summary/duration
 linkage, and confidence-band plot metadata while keeping broad uncertainty
@@ -134,9 +139,12 @@ uncertain sources. `Q_total = Q_meas + 2 kW` remains a fast linear case;
 multiple measured sources use an independent first-order standard-deviation
 combination and record a runtime status for that assumption; interval sources
 use deterministic corner evaluation for the current bounds. Distribution and
-ensemble arithmetic remain deterministic sample-backed behavior. This is
-deliberately narrower than a general symbolic Jacobian, Monte Carlo engine, or
-full deterministic-binding value evaluator.
+ensemble arithmetic remain deterministic sample-backed behavior. Expressions
+may also use prior deterministic numeric literals, backward aliases, pure
+`+ - * /` arithmetic, and the runtime scalar math functions; values and
+uncertainty deltas are normalized through the unit registry before evaluation.
+This remains deliberately narrower than a general symbolic Jacobian, Monte
+Carlo engine, user-function evaluator, or runtime-dependent scalar graph.
 
 Compiler review now accepts and validates `with { uncertainty = ... }` policy
 metadata. Allowed policy names are `linear`, `interval`, `monte_carlo`, and

@@ -259,8 +259,9 @@ is not mistaken for public module support.
   - Public package: `Internal`
   - Main status: `Internal`
   - Current handling: scalar runtime numeric payloads distinguish
-    Certain/uncertain representations; narrow measured/interval arithmetic
-    propagation,
+    Certain/uncertain representations and carry native values for deterministic
+    literal/alias/pure-arithmetic chains; named deterministic values participate
+    in unit-normalized measured/interval/distribution arithmetic propagation;
     validated `with { uncertainty = ... }` policy metadata, review summary
     and propagation sections, direct-compare diagnostics, explicit
     statistic/probability validation type-checking, runtime pass/fail
@@ -269,7 +270,8 @@ is not mistaken for public module support.
     `sensor_std` propagation artifacts, confidence-band PlotSpec rendering, and
     internal IDE metadata are reviewable.
   - Keep internal until full probabilistic TimeSeries uncertainty
-    propagation, full IDE projection, and tests align.
+    propagation, runtime-dependent/user-function expression support, full IDE
+    projection, and tests align.
 - Reviewability / Review IR
   - Public package: `Stable` artifact family, `Internal` ReviewDocument
   - Main status: `Supported` artifacts, `Internal` normalized IR slice

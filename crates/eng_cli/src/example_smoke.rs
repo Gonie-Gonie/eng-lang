@@ -6385,6 +6385,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !result.contains("\"distribution\": \"uniform\"")
                 || !result.contains("\"propagation\"")
                 || !result.contains("\"p95\"")
+                || !uncertainty_example_has_native_scalar_arithmetic(&result)
                 || !review.contains("\"uncertainty_info\"")
                 || !report_spec.contains("\"uncertainty\"")
                 || !plot_spec.contains("\"plot_type\": \"histogram\"")
@@ -7240,6 +7241,43 @@ fn native_workflow_has_sample_table(
                 .and_then(Value::as_array)
                 .is_some_and(|columns| columns.len() == 6)
     })
+}
+
+fn uncertainty_example_has_native_scalar_arithmetic(result_json: &str) -> bool {
+    let Ok(result) = serde_json::from_str::<Value>(result_json) else {
+        return false;
+    };
+    let Some(numeric_values) = result
+        .pointer("/typed_payload/numeric_values")
+        .and_then(Value::as_array)
+    else {
+        return false;
+    };
+    let has_numeric = |binding: &str, expected: f64, unit: &str| {
+        numeric_values.iter().any(|numeric| {
+            numeric.get("binding").and_then(Value::as_str) == Some(binding)
+                && numeric.get("display_unit").and_then(Value::as_str) == Some(unit)
+                && numeric
+                    .get("value")
+                    .and_then(Value::as_f64)
+                    .is_some_and(|value| (value - expected).abs() < 1.0e-9)
+        })
+    };
+    let propagated = result
+        .pointer("/typed_payload/uncertainties")
+        .and_then(Value::as_array)
+        .is_some_and(|uncertainties| {
+            uncertainties.iter().any(|uncertainty| {
+                uncertainty.get("binding").and_then(Value::as_str) == Some("Q_arithmetic_unc")
+                    && uncertainty.get("status").and_then(Value::as_str)
+                        == Some("propagated_linear_arithmetic")
+                    && uncertainty
+                        .get("mean")
+                        .and_then(Value::as_f64)
+                        .is_some_and(|mean| (mean - 5.9).abs() < 0.01)
+            })
+        });
+    has_numeric("gain", 1.08, "1") && has_numeric("Q_offset", 500.0, "W") && propagated
 }
 
 fn native_workflow_has_zero_process_results(process_results_json: &str) -> bool {

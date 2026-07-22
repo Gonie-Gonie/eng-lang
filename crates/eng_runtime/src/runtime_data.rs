@@ -3162,7 +3162,8 @@ pub(crate) fn materialize_runtime_data_with_result_dir(
         &data.statistics,
         &data.integrations,
     );
-    data.uncertainties = materialize_uncertainties(report);
+    let deterministic_scalars = materialize_deterministic_scalars(report);
+    data.uncertainties = materialize_uncertainties(report, &deterministic_scalars);
     data.ml_artifacts = materialize_ml_artifacts(report, &data.time_series, &data.tables);
     let prediction_tables = materialize_prediction_tables(&data.ml_artifacts, &data.tables);
     if !prediction_tables.is_empty() {
@@ -3176,6 +3177,7 @@ pub(crate) fn materialize_runtime_data_with_result_dir(
         &data.time_series,
         &data.integrations,
         &data.metrics,
+        &deterministic_scalars,
     );
     data.validations = materialize_validations(
         report,
@@ -10229,10 +10231,165 @@ fn runtime_time_alignment_record(
     }
 }
 
-fn materialize_uncertainties(report: &CheckReport) -> Vec<RuntimeUncertainty> {
+#[derive(Clone, Debug, PartialEq)]
+struct RuntimeDeterministicScalar {
+    canonical_value: f64,
+    quantity_kind: String,
+    display_unit: String,
+    canonical_unit: String,
+}
+
+fn materialize_deterministic_scalars(
+    report: &CheckReport,
+) -> HashMap<String, RuntimeDeterministicScalar> {
+    let mut scalars: HashMap<String, RuntimeDeterministicScalar> = HashMap::new();
+    for binding in &report.semantic_program.typed_bindings {
+        if !runtime_numeric_binding(report, binding)
+            || report
+                .semantic_program
+                .uncertainty_infos
+                .iter()
+                .any(|uncertainty| uncertainty.binding == binding.name)
+        {
+            continue;
+        }
+        let Some(expression) = runtime_scalar_binding_expression(report, binding) else {
+            continue;
+        };
+        let Some(canonical_unit) =
+            canonical_unit_for_quantity(&binding.semantic_type.quantity_kind)
+        else {
+            continue;
+        };
+        let symbols = scalars
+            .iter()
+            .map(|(name, scalar)| (name.clone(), scalar.canonical_value))
+            .collect::<HashMap<_, _>>();
+        let symbol_units = scalars
+            .iter()
+            .map(|(name, scalar)| {
+                (
+                    name.clone(),
+                    ArithmeticUnitMetadata {
+                        display_unit: scalar.display_unit.clone(),
+                        canonical_unit: scalar.canonical_unit.clone(),
+                        quantity_kind: scalar.quantity_kind.clone(),
+                    },
+                )
+            })
+            .collect::<HashMap<_, _>>();
+        let mut canonicalize = runtime_arithmetic_literal_to_canonical;
+        let Ok(parsed) = parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
+            expression,
+            &symbols,
+            &symbol_units,
+            &mut canonicalize,
+            ArithmeticExpressionProfile::RUNTIME_SCALAR,
+        ) else {
+            continue;
+        };
+        let Ok(canonical_value) = parsed.evaluate(&symbols) else {
+            continue;
+        };
+        scalars.insert(
+            binding.name.clone(),
+            RuntimeDeterministicScalar {
+                canonical_value,
+                quantity_kind: binding.semantic_type.quantity_kind.clone(),
+                display_unit: binding.semantic_type.display_unit.clone(),
+                canonical_unit,
+            },
+        );
+    }
+    scalars
+}
+
+fn runtime_scalar_binding_expression<'a>(
+    report: &'a CheckReport,
+    binding: &eng_compiler::TypedBinding,
+) -> Option<&'a str> {
+    report
+        .inferred_declarations
+        .iter()
+        .find(|declaration| {
+            declaration.name == binding.name
+                && declaration.line == binding.line
+                && declaration.expression_span.source_id == binding.span.source_id
+        })
+        .map(|declaration| declaration.expression.as_str())
+        .or_else(|| {
+            report
+                .semantic_program
+                .consts
+                .iter()
+                .find(|constant| {
+                    constant.name == binding.name
+                        && constant.line == binding.line
+                        && constant.span.source_id == binding.span.source_id
+                })
+                .map(|constant| constant.expression.as_str())
+        })
+        .or_else(|| {
+            report
+                .semantic_program
+                .hover_hints
+                .iter()
+                .find(|hover| {
+                    hover.name == binding.name
+                        && hover.line == binding.line
+                        && hover.span.source_id == binding.span.source_id
+                })
+                .and_then(|hover| hover.expression.as_deref())
+        })
+}
+
+fn runtime_arithmetic_literal_to_canonical(
+    value: f64,
+    unit: Option<&str>,
+) -> Result<f64, SolverFailure> {
+    let Some(unit) = unit.map(str::trim).filter(|unit| !unit.is_empty()) else {
+        return Ok(value);
+    };
+    if normalize_unit(unit) == "1" {
+        return Ok(value);
+    }
+    let info = all_unit_infos()
+        .iter()
+        .find(|info| normalize_unit(info.symbol) == normalize_unit(unit))
+        .ok_or_else(|| {
+            SolverFailure::new(
+                "E-RUNTIME-SCALAR-UNIT",
+                format!("runtime scalar expression uses unsupported unit '{unit}'"),
+            )
+        })?;
+    let scale = info.scale_to_canonical.parse::<f64>().map_err(|_| {
+        SolverFailure::new(
+            "E-RUNTIME-SCALAR-UNIT",
+            format!("runtime scalar unit '{unit}' has an invalid conversion scale"),
+        )
+    })?;
+    let offset = info
+        .affine_offset
+        .map(|offset| {
+            offset.parse::<f64>().map_err(|_| {
+                SolverFailure::new(
+                    "E-RUNTIME-SCALAR-UNIT",
+                    format!("runtime scalar unit '{unit}' has an invalid affine offset"),
+                )
+            })
+        })
+        .transpose()?
+        .unwrap_or(0.0);
+    Ok(value * scale + offset)
+}
+
+fn materialize_uncertainties(
+    report: &CheckReport,
+    deterministic_scalars: &HashMap<String, RuntimeDeterministicScalar>,
+) -> Vec<RuntimeUncertainty> {
     let mut uncertainties = Vec::new();
     for info in &report.semantic_program.uncertainty_infos {
-        let uncertainty = materialize_uncertainty(info, &uncertainties);
+        let uncertainty = materialize_uncertainty(info, &uncertainties, deterministic_scalars);
         uncertainties.push(uncertainty);
     }
     uncertainties
@@ -10244,6 +10401,7 @@ fn materialize_numeric_values(
     series: &[RuntimeTimeSeries],
     integrations: &[RuntimeIntegration],
     metrics: &[RuntimeMetric],
+    deterministic_scalars: &HashMap<String, RuntimeDeterministicScalar>,
 ) -> Vec<RuntimeNumericValue> {
     report
         .semantic_program
@@ -10254,8 +10412,14 @@ fn materialize_numeric_values(
             let uncertainty = uncertainties
                 .iter()
                 .find(|uncertainty| uncertainty.binding == binding.name);
-            let computed_value =
-                runtime_numeric_binding_value(report, binding, series, integrations, metrics);
+            let computed_value = runtime_numeric_binding_value(
+                report,
+                binding,
+                series,
+                integrations,
+                metrics,
+                deterministic_scalars,
+            );
             RuntimeNumericValue {
                 binding: binding.name.clone(),
                 value_kind: "scalar".to_owned(),
@@ -10285,6 +10449,7 @@ fn runtime_numeric_binding_value(
     series: &[RuntimeTimeSeries],
     integrations: &[RuntimeIntegration],
     metrics: &[RuntimeMetric],
+    deterministic_scalars: &HashMap<String, RuntimeDeterministicScalar>,
 ) -> Option<f64> {
     if let Some(metric) = metrics.iter().find(|metric| metric.binding == binding.name) {
         if metric.status != "computed" {
@@ -10306,6 +10471,13 @@ fn runtime_numeric_binding_value(
         return computed_scalar_in_display_unit(
             integration.value,
             &integration.unit,
+            &binding.semantic_type.display_unit,
+        );
+    }
+    if let Some(scalar) = deterministic_scalars.get(&binding.name) {
+        return try_convert_display_value(
+            scalar.canonical_value,
+            &scalar.canonical_unit,
             &binding.semantic_type.display_unit,
         );
     }
@@ -10399,20 +10571,30 @@ fn runtime_numeric_uncertainty_payload(
 fn materialize_uncertainty(
     info: &eng_compiler::UncertaintyInfo,
     prior: &[RuntimeUncertainty],
+    deterministic_scalars: &HashMap<String, RuntimeDeterministicScalar>,
 ) -> RuntimeUncertainty {
-    let declared_mean = info.mean.as_deref().and_then(first_numeric_value);
+    let declared_mean = info
+        .mean
+        .as_deref()
+        .and_then(|value| uncertainty_value_in_display_unit(value, &info.display_unit, false));
     let declared_error_fraction = info.error.as_deref().and_then(relative_error_fraction);
     let declared_stddev = info
         .stddev
         .as_deref()
-        .and_then(first_numeric_value)
+        .and_then(|value| uncertainty_value_in_display_unit(value, &info.display_unit, true))
         .or_else(|| {
             declared_mean
                 .zip(declared_error_fraction)
                 .map(|(mean, error)| mean.abs() * error)
         });
-    let declared_lower = info.lower.as_deref().and_then(first_numeric_value);
-    let declared_upper = info.upper.as_deref().and_then(first_numeric_value);
+    let declared_lower = info
+        .lower
+        .as_deref()
+        .and_then(|value| uncertainty_value_in_display_unit(value, &info.display_unit, false));
+    let declared_upper = info
+        .upper
+        .as_deref()
+        .and_then(|value| uncertainty_value_in_display_unit(value, &info.display_unit, false));
     let requested_count = info.sample_count.clamp(1, 256);
     let distribution = info
         .distribution
@@ -10439,7 +10621,7 @@ fn materialize_uncertainty(
     let offset = info
         .offset
         .as_deref()
-        .and_then(first_numeric_value)
+        .and_then(|value| uncertainty_value_in_display_unit(value, &info.display_unit, true))
         .unwrap_or(0.0);
     let source_missing = if is_arithmetic_derivation {
         info.propagation.iter().any(|term| {
@@ -10452,7 +10634,7 @@ fn materialize_uncertainty(
     };
 
     let arithmetic_propagation = if is_arithmetic_derivation && !source_missing {
-        arithmetic_uncertainty_propagation(info, prior, requested_count)
+        arithmetic_uncertainty_propagation(info, prior, deterministic_scalars, requested_count)
     } else {
         None
     };
@@ -10478,11 +10660,14 @@ fn materialize_uncertainty(
             .unwrap_or_default(),
         "Distribution" if is_propagation && source_missing => Vec::new(),
         "Distribution" if is_propagation => source
-            .map(|source| {
-                resample_deterministic(&source.samples, requested_count)
-                    .into_iter()
-                    .map(|value| value * scale + offset)
-                    .collect()
+            .and_then(|source| {
+                materialize_linear_propagation_samples(
+                    source,
+                    &info.display_unit,
+                    requested_count,
+                    scale,
+                    offset,
+                )
             })
             .unwrap_or_default(),
         "Distribution" if distribution == "uniform" => {
@@ -10559,6 +10744,22 @@ fn materialize_uncertainty(
     }
 }
 
+fn materialize_linear_propagation_samples(
+    source: &RuntimeUncertainty,
+    target_unit: &str,
+    requested_count: usize,
+    scale: f64,
+    offset: f64,
+) -> Option<Vec<f64>> {
+    resample_deterministic(&source.samples, requested_count)
+        .into_iter()
+        .map(|value| {
+            try_convert_display_value(value, &source.display_unit, target_unit)
+                .map(|value| value * scale + offset)
+        })
+        .collect()
+}
+
 #[derive(Clone, Debug)]
 struct RuntimeArithmeticPropagation {
     samples: Vec<f64>,
@@ -10568,13 +10769,16 @@ struct RuntimeArithmeticPropagation {
 fn arithmetic_uncertainty_propagation(
     info: &eng_compiler::UncertaintyInfo,
     prior: &[RuntimeUncertainty],
+    deterministic_scalars: &HashMap<String, RuntimeDeterministicScalar>,
     requested_count: usize,
 ) -> Option<RuntimeArithmeticPropagation> {
     let sources = arithmetic_uncertainty_sources(info, prior);
     if sources.is_empty() {
         return None;
     }
-    if let Some(samples) = measured_linear_arithmetic_samples(info, &sources, requested_count) {
+    if let Some(samples) =
+        measured_linear_arithmetic_samples(info, &sources, deterministic_scalars, requested_count)
+    {
         let status = if sources.len() > 1 {
             "propagated_independent_linear_arithmetic"
         } else {
@@ -10585,22 +10789,23 @@ fn arithmetic_uncertainty_propagation(
             status: status.to_owned(),
         });
     }
-    if let Some(samples) = interval_corner_arithmetic_samples(info, &sources) {
+    if let Some(samples) = interval_corner_arithmetic_samples(info, &sources, deterministic_scalars)
+    {
         return Some(RuntimeArithmeticPropagation {
             samples,
             status: "propagated_interval_arithmetic".to_owned(),
         });
     }
-    sampled_arithmetic_samples(info, &sources, requested_count).map(|samples| {
-        RuntimeArithmeticPropagation {
+    sampled_arithmetic_samples(info, &sources, deterministic_scalars, requested_count).map(
+        |samples| RuntimeArithmeticPropagation {
             samples,
             status: if info.method.as_deref() == Some("interval") {
                 "propagated_interval_arithmetic".to_owned()
             } else {
                 "propagated_linear_arithmetic".to_owned()
             },
-        }
-    })
+        },
+    )
 }
 
 fn arithmetic_uncertainty_sources<'a>(
@@ -10620,20 +10825,24 @@ fn arithmetic_uncertainty_sources<'a>(
 fn measured_linear_arithmetic_samples(
     info: &eng_compiler::UncertaintyInfo,
     sources: &[&RuntimeUncertainty],
+    deterministic_scalars: &HashMap<String, RuntimeDeterministicScalar>,
     requested_count: usize,
 ) -> Option<Vec<f64>> {
     if !sources.iter().all(|source| source.kind == "Measured") {
         return None;
     }
-    let mut means = HashMap::new();
+    let mut means = deterministic_scalar_symbols(deterministic_scalars);
     for source in sources {
-        means.insert(source.binding.clone(), source.mean?);
+        means.insert(
+            source.binding.clone(),
+            uncertainty_value_to_canonical(source, source.mean?)?,
+        );
     }
-    let parsed = parse_runtime_arithmetic_expression(info, &means, sources)?;
+    let parsed = parse_runtime_arithmetic_expression(info, &means, sources, deterministic_scalars)?;
     let mean = parsed.evaluate(&means).ok()?;
     let mut variance = 0.0;
     for source in sources {
-        let stddev = source.stddev?;
+        let stddev = uncertainty_delta_to_canonical(source, source.stddev?)?;
         if stddev == 0.0 {
             continue;
         }
@@ -10647,16 +10856,16 @@ fn measured_linear_arithmetic_samples(
             (parsed.evaluate(&plus).ok()? - parsed.evaluate(&minus).ok()?) / (2.0 * step);
         variance += derivative * derivative * stddev * stddev;
     }
-    Some(normal_samples(
-        mean,
-        variance.sqrt(),
-        requested_count.max(3),
-    ))
+    normal_samples(mean, variance.sqrt(), requested_count.max(3))
+        .into_iter()
+        .map(|value| uncertainty_value_from_canonical(info, value))
+        .collect()
 }
 
 fn interval_corner_arithmetic_samples(
     info: &eng_compiler::UncertaintyInfo,
     sources: &[&RuntimeUncertainty],
+    deterministic_scalars: &HashMap<String, RuntimeDeterministicScalar>,
 ) -> Option<Vec<f64>> {
     if sources.is_empty() || !sources.iter().all(|source| source.kind == "Interval") {
         return None;
@@ -10666,17 +10875,26 @@ fn interval_corner_arithmetic_samples(
     }
     let bounds = sources
         .iter()
-        .map(|source| Some((source.binding.clone(), source.lower?, source.upper?)))
+        .map(|source| {
+            Some((
+                source.binding.clone(),
+                uncertainty_value_to_canonical(source, source.lower?)?,
+                uncertainty_value_to_canonical(source, source.upper?)?,
+            ))
+        })
         .collect::<Option<Vec<_>>>()?;
-    let symbols = bounds
-        .iter()
-        .map(|(binding, lower, _upper)| (binding.clone(), *lower))
-        .collect::<HashMap<_, _>>();
-    let parsed = parse_runtime_arithmetic_expression(info, &symbols, sources)?;
+    let mut symbols = deterministic_scalar_symbols(deterministic_scalars);
+    symbols.extend(
+        bounds
+            .iter()
+            .map(|(binding, lower, _upper)| (binding.clone(), *lower)),
+    );
+    let parsed =
+        parse_runtime_arithmetic_expression(info, &symbols, sources, deterministic_scalars)?;
     let corner_count = 1usize << bounds.len();
     let mut samples = Vec::with_capacity(corner_count);
     for mask in 0..corner_count {
-        let mut corner = HashMap::new();
+        let mut corner = deterministic_scalar_symbols(deterministic_scalars);
         for (index, (binding, lower, upper)) in bounds.iter().enumerate() {
             let value = if (mask & (1usize << index)) == 0 {
                 *lower
@@ -10685,7 +10903,10 @@ fn interval_corner_arithmetic_samples(
             };
             corner.insert(binding.clone(), value);
         }
-        samples.push(parsed.evaluate(&corner).ok()?);
+        samples.push(uncertainty_value_from_canonical(
+            info,
+            parsed.evaluate(&corner).ok()?,
+        )?);
     }
     Some(samples)
 }
@@ -10693,6 +10914,7 @@ fn interval_corner_arithmetic_samples(
 fn sampled_arithmetic_samples(
     info: &eng_compiler::UncertaintyInfo,
     sources: &[&RuntimeUncertainty],
+    deterministic_scalars: &HashMap<String, RuntimeDeterministicScalar>,
     requested_count: usize,
 ) -> Option<Vec<f64>> {
     let count = sources
@@ -10707,35 +10929,42 @@ fn sampled_arithmetic_samples(
         .map(|source| {
             (
                 source.binding.as_str(),
-                resample_deterministic(&source.samples, count),
+                resample_deterministic(&source.samples, count)
+                    .into_iter()
+                    .map(|value| uncertainty_value_to_canonical(source, value))
+                    .collect::<Option<Vec<_>>>(),
             )
         })
-        .collect::<Vec<_>>();
-    let first_symbols = resampled
+        .map(|(name, samples)| Some((name, samples?)))
+        .collect::<Option<Vec<_>>>()?;
+    let mut first_symbols = deterministic_scalar_symbols(deterministic_scalars);
+    first_symbols.extend(resampled.iter().filter_map(|(name, samples)| {
+        samples
+            .first()
+            .copied()
+            .map(|value| ((*name).to_owned(), value))
+    }));
+    if !sources
         .iter()
-        .filter_map(|(name, samples)| {
-            samples
-                .first()
-                .copied()
-                .map(|value| ((*name).to_owned(), value))
-        })
-        .collect::<HashMap<_, _>>();
-    if first_symbols.len() != sources.len() {
+        .all(|source| first_symbols.contains_key(&source.binding))
+    {
         return None;
     }
-    let parsed = parse_runtime_arithmetic_expression(info, &first_symbols, sources)?;
+    let parsed =
+        parse_runtime_arithmetic_expression(info, &first_symbols, sources, deterministic_scalars)?;
     let mut samples = Vec::with_capacity(count);
     for index in 0..count {
-        let symbols = resampled
-            .iter()
-            .filter_map(|(name, values)| {
-                values
-                    .get(index)
-                    .copied()
-                    .map(|value| ((*name).to_owned(), value))
-            })
-            .collect::<HashMap<_, _>>();
-        samples.push(parsed.evaluate(&symbols).ok()?);
+        let mut symbols = deterministic_scalar_symbols(deterministic_scalars);
+        symbols.extend(resampled.iter().filter_map(|(name, values)| {
+            values
+                .get(index)
+                .copied()
+                .map(|value| ((*name).to_owned(), value))
+        }));
+        samples.push(uncertainty_value_from_canonical(
+            info,
+            parsed.evaluate(&symbols).ok()?,
+        )?);
     }
     Some(samples)
 }
@@ -10744,29 +10973,74 @@ fn parse_runtime_arithmetic_expression(
     info: &eng_compiler::UncertaintyInfo,
     symbols: &HashMap<String, f64>,
     sources: &[&RuntimeUncertainty],
+    deterministic_scalars: &HashMap<String, RuntimeDeterministicScalar>,
 ) -> Option<ParsedArithmeticExpression> {
-    let symbol_units = sources
+    let mut symbol_units = deterministic_scalars
         .iter()
-        .map(|source| {
+        .map(|(name, scalar)| {
             (
-                source.binding.clone(),
+                name.clone(),
                 ArithmeticUnitMetadata {
-                    display_unit: source.display_unit.clone(),
-                    canonical_unit: source.display_unit.clone(),
-                    quantity_kind: source.quantity_kind.clone(),
+                    display_unit: scalar.display_unit.clone(),
+                    canonical_unit: scalar.canonical_unit.clone(),
+                    quantity_kind: scalar.quantity_kind.clone(),
                 },
             )
         })
         .collect::<HashMap<_, _>>();
-    let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
+    symbol_units.extend(sources.iter().map(|source| {
+        (
+            source.binding.clone(),
+            ArithmeticUnitMetadata {
+                display_unit: source.display_unit.clone(),
+                canonical_unit: canonical_unit_for_quantity(&source.quantity_kind)
+                    .unwrap_or_else(|| source.display_unit.clone()),
+                quantity_kind: source.quantity_kind.clone(),
+            },
+        )
+    }));
+    let mut canonicalize = runtime_arithmetic_literal_to_canonical;
     parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
         &info.expression,
         symbols,
         &symbol_units,
-        &mut ignore_units,
-        ArithmeticExpressionProfile::SOURCE_RESIDUAL,
+        &mut canonicalize,
+        ArithmeticExpressionProfile::RUNTIME_SCALAR,
     )
     .ok()
+}
+
+fn deterministic_scalar_symbols(
+    deterministic_scalars: &HashMap<String, RuntimeDeterministicScalar>,
+) -> HashMap<String, f64> {
+    deterministic_scalars
+        .iter()
+        .map(|(name, scalar)| (name.clone(), scalar.canonical_value))
+        .collect()
+}
+
+fn uncertainty_value_to_canonical(uncertainty: &RuntimeUncertainty, value: f64) -> Option<f64> {
+    let canonical_unit = canonical_unit_for_quantity(&uncertainty.quantity_kind)?;
+    convert_to_canonical_unit(
+        value,
+        Some(&uncertainty.display_unit),
+        &canonical_unit,
+        &uncertainty.quantity_kind,
+    )
+    .ok()
+}
+
+fn uncertainty_delta_to_canonical(uncertainty: &RuntimeUncertainty, value: f64) -> Option<f64> {
+    let canonical_unit = canonical_unit_for_quantity(&uncertainty.quantity_kind)?;
+    try_convert_delta_display_value(value, &uncertainty.display_unit, &canonical_unit)
+}
+
+fn uncertainty_value_from_canonical(
+    info: &eng_compiler::UncertaintyInfo,
+    value: f64,
+) -> Option<f64> {
+    let canonical_unit = canonical_unit_for_quantity(&info.quantity_kind)?;
+    try_convert_display_value(value, &canonical_unit, &info.display_unit)
 }
 
 fn materialize_ml_artifacts(
@@ -21232,16 +21506,31 @@ fn try_convert_display_value(value: f64, from_unit: &str, to_unit: &str) -> Opti
     Some((value * from_scale + from_offset - to_offset) / to_scale)
 }
 
-fn convert_delta_value(value: f64, from_unit: &str, to_unit: &str) -> f64 {
+fn try_convert_delta_display_value(value: f64, from_unit: &str, to_unit: &str) -> Option<f64> {
     let from_unit = normalize_unit(from_unit);
     let to_unit = normalize_unit(to_unit);
-    match (from_unit.as_str(), to_unit.as_str()) {
-        ("w", "kw") => value / 1000.0,
-        ("kw", "w") => value * 1000.0,
-        ("pa", "kpa") => value / 1000.0,
-        ("k", "degc") | ("degc", "k") => value,
-        _ => value,
+    if from_unit == to_unit {
+        return Some(value);
     }
+    let from_info = all_unit_infos()
+        .iter()
+        .find(|info| normalize_unit(info.symbol) == from_unit)?;
+    let to_info = all_unit_infos()
+        .iter()
+        .find(|info| normalize_unit(info.symbol) == to_unit)?;
+    if normalize_unit(from_info.canonical_unit) != normalize_unit(to_info.canonical_unit) {
+        return None;
+    }
+    let from_scale = from_info.scale_to_canonical.parse::<f64>().ok()?;
+    let to_scale = to_info.scale_to_canonical.parse::<f64>().ok()?;
+    if !to_scale.is_finite() || to_scale.abs() <= f64::EPSILON {
+        return None;
+    }
+    Some(value * from_scale / to_scale)
+}
+
+fn convert_delta_value(value: f64, from_unit: &str, to_unit: &str) -> f64 {
+    try_convert_delta_display_value(value, from_unit, to_unit).unwrap_or(value)
 }
 
 fn accepted_sensor_std_value<'a>(
@@ -21264,6 +21553,18 @@ fn accepted_sensor_std_value<'a>(
 
 fn first_numeric_value(text: &str) -> Option<f64> {
     number_with_optional_unit(text).map(|(value, _)| value)
+}
+
+fn uncertainty_value_in_display_unit(text: &str, display_unit: &str, delta: bool) -> Option<f64> {
+    let (value, unit) = number_with_optional_unit(text)?;
+    let Some(unit) = unit else {
+        return Some(value);
+    };
+    if delta {
+        try_convert_delta_display_value(value, &unit, display_unit)
+    } else {
+        try_convert_display_value(value, &unit, display_unit)
+    }
 }
 
 fn relative_error_fraction(text: &str) -> Option<f64> {
@@ -21323,7 +21624,11 @@ fn resample_deterministic(values: &[f64], count: usize) -> Vec<f64> {
     }
     let count = count.clamp(1, 256);
     (0..count)
-        .map(|index| values[index % values.len()])
+        .map(|index| {
+            let source_index =
+                ((2 * index + 1) * values.len() / (2 * count)).min(values.len().saturating_sub(1));
+            values[source_index]
+        })
         .collect()
 }
 
@@ -22521,6 +22826,14 @@ report {
     }
 
     #[test]
+    fn deterministic_resampling_spreads_samples_without_prefix_bias() {
+        let resampled = resample_deterministic(&[-2.0, -1.0, 0.0, 1.0, 2.0], 8);
+
+        assert_eq!(resampled, vec![-2.0, -2.0, -1.0, 0.0, 0.0, 1.0, 2.0, 2.0]);
+        assert_eq!(resampled.iter().sum::<f64>(), 0.0);
+    }
+
+    #[test]
     fn parses_histogram_plot_options() {
         let options = parse_plot_options(
             r#"
@@ -22740,6 +23053,43 @@ report {
     }
 
     #[test]
+    fn materializes_linear_propagation_across_display_units() {
+        let source = r#"
+Q_dist = normal(mean=5 kW, std=100 W, samples=31)
+Q_adjusted = propagate(Q_dist, method=linear, scale=1.1, offset=400 W)
+"#;
+        let report = eng_compiler::check_source("ok.eng", source, &CheckOptions::default());
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let source_uncertainty = runtime
+            .uncertainties
+            .iter()
+            .find(|uncertainty| uncertainty.binding == "Q_dist")
+            .expect("Q_dist uncertainty");
+        assert_eq!(source_uncertainty.stddev, Some(0.1));
+        let adjusted = runtime
+            .uncertainties
+            .iter()
+            .find(|uncertainty| uncertainty.binding == "Q_adjusted")
+            .expect("Q_adjusted uncertainty");
+        assert_eq!(adjusted.status, "propagated_linear");
+        assert_eq!(adjusted.display_unit, "W");
+        assert!(
+            adjusted
+                .mean
+                .is_some_and(|mean| (mean - 5900.0).abs() < 1.0),
+            "{adjusted:#?}"
+        );
+        assert!(
+            adjusted
+                .stddev
+                .is_some_and(|stddev| (90.0..130.0).contains(&stddev)),
+            "{adjusted:#?}"
+        );
+    }
+
+    #[test]
     fn materializes_uncertainty_arithmetic_samples() {
         let source = r#"
 Q_meas = measured(10 kW, std=1 kW)
@@ -22766,6 +23116,79 @@ Q_total = Q_meas + 2 kW
             .expect("Q_total numeric value");
         assert_eq!(numeric.representation, "Measured");
         assert_eq!(numeric.status, "uncertainty_attached");
+    }
+
+    #[test]
+    fn materializes_deterministic_scalar_aliases_and_mixed_units() {
+        let source = r#"
+Q_base = 500 W
+Q_alias = Q_base
+Q_total = Q_alias + 0.5 kW
+"#;
+        let report = eng_compiler::check_source("ok.eng", source, &CheckOptions::default());
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        for (binding, expected_value, expected_unit) in [
+            ("Q_base", 500.0, "W"),
+            ("Q_alias", 500.0, "W"),
+            ("Q_total", 1000.0, "W"),
+        ] {
+            let numeric = runtime
+                .numeric_values
+                .iter()
+                .find(|numeric| numeric.binding == binding)
+                .unwrap_or_else(|| panic!("missing runtime numeric value for {binding}"));
+            assert_eq!(numeric.value, Some(expected_value));
+            assert_eq!(numeric.display_unit, expected_unit);
+            assert_eq!(numeric.representation, "Certain");
+            assert_eq!(numeric.status, "certain_fast_path");
+        }
+    }
+
+    #[test]
+    fn propagates_uncertainty_through_deterministic_scalar_dependencies() {
+        let source = r#"
+Q_meas = measured(10 kW, std=100 W)
+gain_base = 1
+gain = gain_base + 0.1
+Q_bias = 500 W
+Q_total = Q_meas * gain + Q_bias
+"#;
+        let report = eng_compiler::check_source("ok.eng", source, &CheckOptions::default());
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let derived = runtime
+            .uncertainties
+            .iter()
+            .find(|uncertainty| uncertainty.binding == "Q_total")
+            .expect("Q_total uncertainty");
+        assert_eq!(derived.status, "propagated_linear_arithmetic");
+        assert!((derived.mean.unwrap() - 11.5).abs() < 0.01);
+        assert!(derived
+            .stddev
+            .is_some_and(|stddev| (0.08..0.14).contains(&stddev)));
+        assert_eq!(derived.display_unit, "kW");
+
+        let gain = runtime
+            .numeric_values
+            .iter()
+            .find(|numeric| numeric.binding == "gain")
+            .expect("gain runtime numeric value");
+        assert_eq!(gain.value, Some(1.1));
+        let bias = runtime
+            .numeric_values
+            .iter()
+            .find(|numeric| numeric.binding == "Q_bias")
+            .expect("Q_bias runtime numeric value");
+        assert_eq!(bias.value, Some(500.0));
+        let total = runtime
+            .numeric_values
+            .iter()
+            .find(|numeric| numeric.binding == "Q_total")
+            .expect("Q_total runtime numeric value");
+        assert!(total.value.is_some_and(|value| (value - 11.5).abs() < 0.01));
     }
 
     #[test]
