@@ -10903,6 +10903,124 @@ mod tests {
     }
 
     #[test]
+    fn quantity_args_scalar_edits_use_incremental_compiler_recheck() {
+        let root = std::env::temp_dir().join(format!(
+            "eng_lsp_args_scalar_analysis_cache_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("Args scalar fixture should be created");
+        let path = root.join("current.eng");
+        let initial_source = concat!(
+            "args {\n",
+            "    power: HeatRate [kW] = 5 kW\n",
+            "    efficiency: Ratio [1] = 80 %\n",
+            "}\n",
+            "\n",
+            "base = args.power\n",
+            "adjusted = base * args.efficiency\n",
+        );
+        std::fs::write(&path, initial_source).expect("Args scalar source should be written");
+        let path = path
+            .canonicalize()
+            .expect("Args scalar source should exist");
+        let uri = file_uri_from_path(&path);
+        let mut documents = Documents::new();
+        documents.insert(
+            uri.clone(),
+            DocumentState::new(initial_source.to_owned(), Some(1)),
+        );
+
+        assert_eq!(
+            snapshot_for_open_documents(&path, initial_source, &documents),
+            snapshot_for_source(&path, initial_source)
+        );
+        assert_eq!(documents[&uri].scalar_binding_reuse_count(), 0);
+
+        let scalar_source = concat!(
+            "args {\n",
+            "    power: HeatRate [kW] = 5 kW\n",
+            "    efficiency: Ratio [1] = 80 %\n",
+            "}\n",
+            "\n",
+            "base: HeatRate [W] = args.power + 250 W\n",
+            "adjusted: HeatRate [W] = base * args.efficiency\n",
+        );
+        let scalar_change = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 2 },
+                "contentChanges": [{ "text": scalar_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&scalar_change, &documents)
+                .expect("Args-dependent scalar edit should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, scalar_source, &documents),
+            snapshot_for_source(&path, scalar_source)
+        );
+        assert_eq!(
+            documents[&uri].scalar_binding_reuse_count(),
+            1,
+            "the unchanged Args block should feed the incremental scalar suffix"
+        );
+        {
+            let cache = documents[&uri]
+                .analysis_cache
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            let report = &cache
+                .analysis
+                .as_ref()
+                .expect("Args scalar analysis should be cached")
+                .report;
+            assert_eq!(
+                report
+                    .semantic_program
+                    .arg_values
+                    .iter()
+                    .map(|value| (value.name.as_str(), value.value.as_str()))
+                    .collect::<Vec<_>>(),
+                vec![("power", "5 kW"), ("efficiency", "0.8")]
+            );
+        }
+
+        let args_source = scalar_source.replace("5 kW", "6 kW");
+        let args_change = json!({
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": uri, "version": 3 },
+                "contentChanges": [{ "text": args_source }]
+            }
+        });
+        let (changed_uri, changed_state) =
+            document_state_from_notification(&args_change, &documents)
+                .expect("Args default edit should be accepted");
+        documents.insert(changed_uri.clone(), changed_state);
+        let affected = diagnostic_documents_after_change(&changed_uri, &documents);
+        invalidate_dependent_document_analyses(&changed_uri, &affected);
+        assert_eq!(
+            snapshot_for_open_documents(&path, &args_source, &documents),
+            snapshot_for_source(&path, &args_source)
+        );
+        assert_eq!(
+            documents[&uri].scalar_binding_reuse_count(),
+            1,
+            "an Args declaration edit must still use a full compiler analysis"
+        );
+        assert_eq!(
+            documents[&uri].analysis_cache_stats(),
+            (0, 3, 0, true, true)
+        );
+
+        std::fs::remove_dir_all(&root).expect("Args scalar fixture should be removed");
+    }
+
+    #[test]
     fn scalar_suffix_edits_after_rich_prefix_use_incremental_compiler_recheck() {
         let root = std::env::temp_dir().join(format!(
             "eng_lsp_rich_prefix_scalar_analysis_cache_{}",

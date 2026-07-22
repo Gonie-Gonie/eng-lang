@@ -5627,6 +5627,111 @@ mod tests {
     }
 
     #[test]
+    fn native_ide_reuses_quantity_args_scalar_suffix_analysis() {
+        fn assert_fresh_equivalent(reused: &CheckReport, fresh: &CheckReport) {
+            assert_eq!(reused.source_path, fresh.source_path);
+            assert_eq!(reused.source_files, fresh.source_files);
+            assert_eq!(reused.source_hash, fresh.source_hash);
+            assert_eq!(reused.source_lines, fresh.source_lines);
+            assert_eq!(reused.diagnostics, fresh.diagnostics);
+            assert_eq!(reused.inferred_declarations, fresh.inferred_declarations);
+            assert_eq!(reused.syntax_summary, fresh.syntax_summary);
+            assert_eq!(reused.semantic_program, fresh.semantic_program);
+        }
+
+        let state = IdeState::default();
+        let path = Path::new("native_ide_args_scalar_cache.eng");
+        let documents = Vec::new();
+        let initial_source = concat!(
+            "args {\n",
+            "    power: HeatRate [kW] = 5 kW\n",
+            "    efficiency: Ratio [1] = 80 %\n",
+            "}\n",
+            "\n",
+            "base = args.power\n",
+            "adjusted = base * args.efficiency\n",
+        );
+        let scalar_source = concat!(
+            "args {\n",
+            "    power: HeatRate [kW] = 5 kW\n",
+            "    efficiency: Ratio [1] = 80 %\n",
+            "}\n",
+            "\n",
+            "base: HeatRate [W] = args.power + 250 W\n",
+            "adjusted: HeatRate [W] = base * args.efficiency\n",
+        );
+
+        let initial = ide_analysis_report(&state, path, initial_source, &documents)
+            .expect("initial Args analysis");
+        let validated_at = state
+            .analysis
+            .lock()
+            .expect("analysis cache")
+            .as_ref()
+            .expect("cached Args analysis")
+            .validated_at;
+        let scalar = ide_analysis_report(&state, path, scalar_source, &documents)
+            .expect("Args-dependent scalar suffix analysis");
+        assert!(!Arc::ptr_eq(&initial, &scalar));
+        assert_eq!(
+            state
+                .analysis
+                .lock()
+                .expect("analysis cache")
+                .as_ref()
+                .expect("cached scalar analysis")
+                .validated_at,
+            validated_at,
+            "bounded Args-aware scalar reuse must retain the original validation deadline"
+        );
+        let scalar_fresh = check_source(path, scalar_source, &CheckOptions::default());
+        assert_fresh_equivalent(&scalar, &scalar_fresh);
+        assert_eq!(
+            scalar
+                .semantic_program
+                .typed_bindings
+                .iter()
+                .find(|binding| binding.name == "adjusted")
+                .map(|binding| {
+                    (
+                        binding.semantic_type.quantity_kind.as_str(),
+                        binding.semantic_type.display_unit.as_str(),
+                    )
+                }),
+            Some(("HeatRate", "W"))
+        );
+
+        let args_source = scalar_source.replace("5 kW", "6 kW");
+        {
+            let cache = state.analysis.lock().expect("analysis cache");
+            assert!(
+                incrementally_recheck_ide_analysis(
+                    cache.as_ref().expect("cached scalar analysis"),
+                    path,
+                    &args_source,
+                    &documents,
+                )
+                .is_none(),
+                "an edit inside the Args block must use a full check"
+            );
+        }
+        let args = ide_analysis_report(&state, path, &args_source, &documents)
+            .expect("changed Args block analysis");
+        let args_fresh = check_source(path, &args_source, &CheckOptions::default());
+        assert_fresh_equivalent(&args, &args_fresh);
+        assert!(
+            state
+                .analysis
+                .lock()
+                .expect("analysis cache")
+                .as_ref()
+                .expect("refreshed Args analysis")
+                .validated_at
+                > validated_at
+        );
+    }
+
+    #[test]
     fn native_ide_incremental_analysis_rejects_stale_or_different_context() {
         let path = Path::new("native_ide_incremental_context.eng");
         let source = "value = 1 m\n";

@@ -144,8 +144,11 @@ review material. It is not a broad solver claim.
   responses, and shares its report with live checks. Exact inputs reuse the
   same report during a hard two-second window; eligible token-stable trivia and
   final scalar-declaration suffix edits use the compiler's bounded incremental
-  recheck without extending that window. Changed paths, open-document
-  snapshots, broader edits, and expired entries use full analysis.
+  recheck without extending that window. An unchanged typed Args block may
+  supply registry quantity `args.<field>` values to that suffix after its
+  fields, units, resolved values, and spans are verified. Changed paths,
+  open-document snapshots, Args declarations, broader edits, and expired
+  entries use full analysis.
 - Packaged editor-tooling binary plus an internal persistent VS Code stdio
   client for document sync, diagnostics, semantic tokens, typed signature help
   for user functions, zero-argument class-object methods, and compiler-owned
@@ -158,13 +161,16 @@ review material. It is not a broad solver claim.
   `const` declarations. Scalar-only documents may retain unchanged supported
   module or static imports. A clean report may also retain an unchanged richer
   prefix, including root scalar helpers, non-scalar file/path bindings,
-  TimeSeries values, cached boundaries, and `print`, when every old and new
-  suffix result is a registered scalar. Each patched semantic vector must own
-  an exact independent tail, prior cache and axis metadata must regenerate
-  exactly, and isolated old-suffix analysis must match the report. Axis metadata
-  is rebuilt and cache records are rekeyed with the new source hash after the
-  patch. Except for individually verified root import declaration lines, richer
-  prefix constructs are not reparsed or reanalyzed; suffix expressions cannot
+  TimeSeries values, cached boundaries, `print`, and a typed root Args block,
+  when every old and new suffix result is a registered scalar. Registry
+  quantity Args aliases and arithmetic are accepted only after Args field,
+  unit, resolved-value, redaction, and span metadata agree. Each patched
+  semantic vector must own an exact independent tail, prior cache and axis
+  metadata must regenerate exactly, and isolated old-suffix analysis must match
+  the report. Axis metadata is rebuilt and cache records are rekeyed with the
+  new source hash after the patch. Except for individually verified root import
+  declaration lines, richer prefix constructs are not reparsed or reanalyzed;
+  suffix expressions cannot
   use preserved non-scalar bindings as aliases or operands, and edits inside
   the prefix use full analysis. This richer root-edit contract may retain
   unchanged supported `eng.*` module and static file imports after exact

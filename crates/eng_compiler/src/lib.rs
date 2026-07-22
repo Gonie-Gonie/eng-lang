@@ -706,6 +706,10 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// check. Only root
 /// import declaration lines are reparsed for verification; imported definitions and other richer
 /// prefix constructs are not reparsed or reanalyzed.
+/// An unchanged root `args { ... }` block may also remain in that prefix when its declaration,
+/// field, resolved-value, type, unit, and source-span records are internally consistent. Numeric
+/// registry quantity fields then participate as trusted `args.<field>` inputs to the changed
+/// scalar suffix.
 /// Changes inside it, a token-bearing non-declaration in the affected suffix, diagnostics,
 /// unsupported calls, unverifiable cache or axis metadata, unresolved or duplicate names, and edits
 /// without an affected declaration return `None` for a normal full check.
@@ -960,6 +964,7 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
     let previous_analysis = semantic::analyze_incremental_scalar_declarations(
         &previous_suffix.program,
         &scalar_prefix_environment,
+        &report.semantic_program.args_blocks,
         &report.semantic_program.functions,
         &report.semantic_program.classes,
         &report.semantic_program.class_objects,
@@ -967,6 +972,7 @@ fn recheck_scalar_declaration_suffix_incrementally_with_mode(
     let source_analysis = semantic::analyze_incremental_scalar_declarations(
         &source_suffix.program,
         &scalar_prefix_environment,
+        &report.semantic_program.args_blocks,
         &report.semantic_program.functions,
         &report.semantic_program.classes,
         &report.semantic_program.class_objects,
@@ -1520,6 +1526,7 @@ fn incremental_rich_prefix_supports_scalar_suffix(
         && source_ids.len() == report.source_files.len()
         && report.diagnostics.is_empty()
         && incremental_rich_prefix_imports_match_report(report, prefix_lines)
+        && incremental_args_prefix_matches_report(report, prefix_lines.len())
         && incremental_rich_prefix_definition_ownership_matches_report(report)
         && incremental_rich_prefix_derived_metadata_matches(report)
         && report.syntax_summary.ast_items > suffix.declarations.len()
@@ -1651,7 +1658,8 @@ fn incremental_report_requires_rich_prefix_contract(
     report: &CheckReport,
     offsets: IncrementalScalarRecordOffsets,
 ) -> bool {
-    !report.semantic_program.schemas.is_empty()
+    !report.semantic_program.args_blocks.is_empty()
+        || !report.semantic_program.schemas.is_empty()
         || !report.semantic_program.systems.is_empty()
         || !report.semantic_program.domains.is_empty()
         || !report.semantic_program.component_templates.is_empty()
@@ -1672,6 +1680,76 @@ fn incremental_report_requires_rich_prefix_contract(
             function.span.is_root_source()
                 || !incremental_scalar_function_contract_matches_registry(function)
         })
+}
+
+fn incremental_args_prefix_matches_report(report: &CheckReport, prefix_line_count: usize) -> bool {
+    let program = &report.semantic_program;
+    if report.syntax_summary.args_blocks != program.args_blocks.len()
+        || report.syntax_summary.args_fields
+            != program
+                .args_blocks
+                .iter()
+                .map(|args_block| args_block.fields.len())
+                .sum::<usize>()
+    {
+        return false;
+    }
+
+    let mut field_names = HashSet::new();
+    let fields_match = program.args_blocks.iter().all(|args_block| {
+        args_block.name == "Args"
+            && args_block.span.is_root_source()
+            && args_block.line == args_block.span.line
+            && args_block.line <= prefix_line_count
+            && args_block.fields.iter().all(|field| {
+                field_names.insert(field.name.as_str())
+                    && field.span.is_root_source()
+                    && field.type_span.is_root_source()
+                    && field.line == field.span.line
+                    && field.type_span.line == field.line
+                    && field.line <= prefix_line_count
+                    && field
+                        .unit_span
+                        .is_none_or(|span| span.is_root_source() && span.line == field.line)
+                    && field.default_value.is_some() == field.default_value_span.is_some()
+                    && field
+                        .default_value_span
+                        .is_none_or(|span| span.is_root_source() && span.line == field.line)
+                    && field.redacted == semantic::secret_type_inner(&field.type_name).is_some()
+                    && field.required == field.default_value.is_none()
+                    && (!crate::quantities::all_quantity_completions()
+                        .iter()
+                        .any(|quantity| quantity.quantity_kind == field.type_name)
+                        || (!field.display_unit.is_empty()
+                            && semantic::unit_compatible_with_quantity(
+                                &field.type_name,
+                                &field.display_unit,
+                            )))
+            })
+    });
+    if !fields_match {
+        return false;
+    }
+
+    let mut value_names = HashSet::new();
+    program.arg_values.iter().all(|value| {
+        let Some(field) = program
+            .args_blocks
+            .iter()
+            .flat_map(|args_block| &args_block.fields)
+            .find(|field| field.name == value.name)
+        else {
+            return false;
+        };
+        value_names.insert(value.name.as_str())
+            && value.type_name == field.type_name
+            && value.display_unit == field.display_unit
+            && value.redacted == field.redacted
+            && value.required == field.required
+            && value.line == field.line
+            && matches!(value.source.as_str(), "default" | "cli")
+            && (value.source != "default" || field.default_value.is_some())
+    })
 }
 
 fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckReport) -> bool {
@@ -12625,6 +12703,7 @@ total = add_lengths(add_lengths(adjusted, imported_length), imported_length) + a
         semantic::analyze_incremental_scalar_declarations(
             &previous_suffix.program,
             &previous.semantic_program.typed_bindings[..4],
+            &previous.semantic_program.args_blocks,
             &previous.semantic_program.functions,
             &previous.semantic_program.classes,
             &previous.semantic_program.class_objects,
@@ -12633,6 +12712,7 @@ total = add_lengths(add_lengths(adjusted, imported_length), imported_length) + a
         semantic::analyze_incremental_scalar_declarations(
             &source_suffix.program,
             &previous.semantic_program.typed_bindings[..4],
+            &previous.semantic_program.args_blocks,
             &previous.semantic_program.functions,
             &previous.semantic_program.classes,
             &previous.semantic_program.class_objects,
@@ -13409,6 +13489,109 @@ factor = 0.5
             )
             .is_none(),
             "the fast-only API must not adopt the rich declaration-prefix contract"
+        );
+    }
+
+    #[test]
+    fn incrementally_rechecks_quantity_args_scalar_suffixes() {
+        let previous_source = concat!(
+            "args {\n",
+            "    power: HeatRate [kW] = 5 kW\n",
+            "    efficiency: Ratio [1] = 80 %\n",
+            "}\n",
+            "\n",
+            "base = args.power\n",
+            "adjusted = base * args.efficiency\n",
+        );
+        let source = concat!(
+            "args {\n",
+            "    power: HeatRate [kW] = 5 kW\n",
+            "    efficiency: Ratio [1] = 80 %\n",
+            "}\n",
+            "\n",
+            "base: HeatRate [W] = args.power + 250 W\n",
+            "adjusted: HeatRate [W] = base * args.efficiency\n",
+        );
+        let options = CheckOptions {
+            args: vec![
+                ArgOverride {
+                    name: "power".to_owned(),
+                    value: "750 W".to_owned(),
+                },
+                ArgOverride {
+                    name: "efficiency".to_owned(),
+                    value: "25%".to_owned(),
+                },
+            ],
+            ..CheckOptions::default()
+        };
+        let previous = check_source("incremental-args.eng", previous_source, &options);
+        assert!(
+            previous.diagnostics.is_empty(),
+            "unexpected Args fixture diagnostics: {:#?}",
+            previous.diagnostics
+        );
+        assert_eq!(
+            previous
+                .semantic_program
+                .arg_values
+                .iter()
+                .map(|value| (value.name.as_str(), value.value.as_str()))
+                .collect::<Vec<_>>(),
+            vec![("power", "0.75 kW"), ("efficiency", "0.25")]
+        );
+
+        let reused =
+            recheck_scalar_declaration_suffix_incrementally(&previous, previous_source, source)
+                .expect("an unchanged typed Args block should feed the changed scalar suffix");
+        let fresh = check_source("incremental-args.eng", source, &options);
+        assert_eq!(reused.source_path, fresh.source_path);
+        assert_eq!(reused.source_files, fresh.source_files);
+        assert_eq!(reused.source_hash, fresh.source_hash);
+        assert_eq!(reused.source_lines, fresh.source_lines);
+        assert_eq!(reused.diagnostics, fresh.diagnostics);
+        assert_eq!(reused.inferred_declarations, fresh.inferred_declarations);
+        assert_eq!(reused.syntax_summary, fresh.syntax_summary);
+        assert_eq!(reused.semantic_program, fresh.semantic_program);
+        assert_eq!(review_json(&reused), review_json(&fresh));
+        assert_eq!(
+            encode_bytecode(&build_bytecode_program(&reused, source)),
+            encode_bytecode(&build_bytecode_program(&fresh, source))
+        );
+        assert_eq!(
+            reused.semantic_program.args_blocks,
+            previous.semantic_program.args_blocks
+        );
+        assert_eq!(
+            reused.semantic_program.arg_values,
+            previous.semantic_program.arg_values
+        );
+
+        let edited_args = source.replace("5 kW", "6 kW");
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(&reused, source, &edited_args)
+                .is_none(),
+            "an edit inside Args must use a full check until changed-block reanalysis owns it"
+        );
+
+        let mut stale_field = previous.clone();
+        stale_field.semantic_program.args_blocks[0].fields[0].display_unit = "W".to_owned();
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(&stale_field, previous_source, source,)
+                .is_none(),
+            "Args field/value metadata disagreement must reject incremental reuse"
+        );
+
+        let mut missing_args = previous.clone();
+        missing_args.semantic_program.args_blocks.clear();
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &missing_args,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "missing Args metadata must reject incremental reuse"
         );
     }
 

@@ -1456,7 +1456,9 @@ pub(crate) struct IncrementalScalarDeclarationAnalysis {
 /// with component parameter validation; workflow expressions and non-scalar functions cannot enter
 /// this local semantic path. Preserved non-scalar or axis-bearing prefix bindings may remain in the
 /// trusted report, but suffix expressions cannot use them as aliases or operands, and every new
-/// suffix binding must resolve to a registered scalar quantity.
+/// suffix binding must resolve to a registered scalar quantity. Trusted Args metadata may expose
+/// numeric `args.<field>` bindings to the same expression checks without adding those pseudo
+/// bindings to the returned semantic vectors.
 /// When the caller supplies verified class and object metadata, a fast binding may also use one
 /// direct scalar object-field access or zero-argument method call. That member-derived binding may
 /// feed later aliases and arithmetic in the same suffix; member access embedded inside a larger
@@ -1465,6 +1467,7 @@ pub(crate) struct IncrementalScalarDeclarationAnalysis {
 pub(crate) fn analyze_incremental_scalar_declarations(
     program: &ParsedProgram,
     prefix_typed_bindings: &[TypedBinding],
+    args_blocks: &[ArgsBlockInfo],
     functions: &[FunctionInfo],
     classes: &[ClassInfo],
     class_objects: &[ClassObjectInfo],
@@ -1498,12 +1501,13 @@ pub(crate) fn analyze_incremental_scalar_declarations(
     let mut const_declaration_count = 0usize;
 
     for item in &program.items {
+        let available_bindings = scalar_bindings_with_args(&typed_bindings, args_blocks);
         match item {
             AstItem::FastBinding(binding) if binding.context == ParseContext::TopLevel => {
                 if !supports_incremental_fast_binding_expression_with_class_metadata(
                     &binding.expression,
                     binding.expression_span,
-                    &typed_bindings,
+                    &available_bindings,
                     functions,
                     classes,
                     class_objects,
@@ -1522,7 +1526,7 @@ pub(crate) fn analyze_incremental_scalar_declarations(
                     uncertainty_infos: &mut uncertainty_infos,
                     ml_infos: &mut ml_infos,
                     functions,
-                    args_blocks: &[],
+                    args_blocks,
                     classes,
                     class_objects,
                     db_reads: &mut db_reads,
@@ -1537,7 +1541,7 @@ pub(crate) fn analyze_incremental_scalar_declarations(
                     || !supports_incremental_annotated_scalar_expression(
                         expression,
                         &declaration.type_name,
-                        &typed_bindings,
+                        &available_bindings,
                         functions,
                     )
                 {
@@ -1555,7 +1559,7 @@ pub(crate) fn analyze_incremental_scalar_declarations(
                         inferred_declarations: &mut inferred_declarations,
                         integrations: &mut integrations,
                         functions,
-                        args_blocks: &[],
+                        args_blocks,
                     },
                 );
                 explicit_declaration_count = explicit_declaration_count.checked_add(1)?;
@@ -1565,7 +1569,7 @@ pub(crate) fn analyze_incremental_scalar_declarations(
                     || !supports_incremental_annotated_scalar_expression(
                         &declaration.expression,
                         &declaration.type_name,
-                        &typed_bindings,
+                        &available_bindings,
                         functions,
                     )
                 {
@@ -1581,7 +1585,7 @@ pub(crate) fn analyze_incremental_scalar_declarations(
                     &mut type_infos,
                     &mut unit_derivations,
                     functions,
-                    &[],
+                    args_blocks,
                 );
                 const_declaration_count = const_declaration_count.checked_add(1)?;
             }
@@ -1636,6 +1640,12 @@ pub(crate) fn supports_incremental_scalar_expression(
 ) -> bool {
     let expression = expression.trim();
     if parse_numeric_literal(expression).is_some() {
+        return true;
+    }
+    if available_bindings.iter().any(|binding| {
+        binding.name == expression
+            && registered_scalar_quantity_kind(&binding.semantic_type.quantity_kind)
+    }) {
         return true;
     }
     if is_identifier(expression) {
@@ -17067,32 +17077,44 @@ impl SemanticAccum<'_> {
     fn available_bindings(&self) -> Vec<TypedBinding> {
         let mut bindings = self.typed_bindings.clone();
         bindings.extend(self.scoped_bindings.clone());
-        bindings.extend(self.args_blocks.iter().flat_map(|args_block| {
-            args_block
-                .fields
-                .iter()
-                .filter(|field| {
-                    crate::quantities::all_quantity_completions()
-                        .iter()
-                        .any(|quantity| quantity.quantity_kind == field.type_name)
-                        || matches!(
-                            field.type_name.as_str(),
-                            "Int" | "Integer" | "Count" | "Float" | "Number"
-                        )
-                })
-                .map(|field| TypedBinding {
-                    name: format!("args.{}", field.name),
-                    semantic_type: SemanticType {
-                        quantity_kind: field.type_name.clone(),
-                        display_unit: field.display_unit.clone(),
-                    },
-                    is_top_level: true,
-                    line: field.line,
-                    span: field.span,
-                })
-        }));
+        bindings.extend(numeric_args_typed_bindings(self.args_blocks));
         bindings
     }
+}
+
+fn scalar_bindings_with_args(
+    typed_bindings: &[TypedBinding],
+    args_blocks: &[ArgsBlockInfo],
+) -> Vec<TypedBinding> {
+    let mut bindings = typed_bindings.to_vec();
+    bindings.extend(numeric_args_typed_bindings(args_blocks));
+    bindings
+}
+
+fn numeric_args_typed_bindings(args_blocks: &[ArgsBlockInfo]) -> Vec<TypedBinding> {
+    args_blocks
+        .iter()
+        .flat_map(|args_block| &args_block.fields)
+        .filter(|field| {
+            crate::quantities::all_quantity_completions()
+                .iter()
+                .any(|quantity| quantity.quantity_kind == field.type_name)
+                || matches!(
+                    field.type_name.as_str(),
+                    "Int" | "Integer" | "Count" | "Float" | "Number"
+                )
+        })
+        .map(|field| TypedBinding {
+            name: format!("args.{}", field.name),
+            semantic_type: SemanticType {
+                quantity_kind: field.type_name.clone(),
+                display_unit: field.display_unit.clone(),
+            },
+            is_top_level: true,
+            line: field.line,
+            span: field.span,
+        })
+        .collect()
 }
 
 fn schema_fast_assignment_help(binding: &FastBinding) -> String {

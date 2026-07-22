@@ -115,8 +115,10 @@ Editor
   standalone comments or blank lines with unchanged token anchors and supported
   final scalar declarations use the compiler's bounded incremental recheck.
   That suffix path includes valid dimensionless scalar math in fast, explicit,
-  and `const` declarations; invalid calls and unsupported expression shapes
-  still select a normal full analysis.
+  and `const` declarations, plus registry quantity `args.<field>` values from
+  an unchanged typed Args block. Args fields, units, resolved values, redaction,
+  and source spans must remain consistent; editing the Args block, invalid
+  calls, and unsupported expression shapes select a normal full analysis.
   A different selected file, modified import snapshot, broader syntax edit, or
   expired window receives a normal full analysis. Check and Run still force an
   immediate refresh. A fixed line-number gutter stays aligned with the editable

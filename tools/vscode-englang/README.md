@@ -271,7 +271,12 @@ suffix. A clean report may also retain an unchanged richer prefix when every
 old and new suffix result is a registered scalar and the prior report proves
 independent semantic-vector tails plus reproducible cache and axis metadata.
 The preserved prefix may include file or directory paths, TimeSeries values,
-cached process or data boundaries, a pure scalar `fn` helper, and `print`.
+cached process or data boundaries, a pure scalar `fn` helper, `print`, and an
+unchanged typed root Args block. After the compiler verifies each Args field's
+type, unit, and source-span ownership and confirms its resolved-value/redaction
+metadata agrees, registry quantity `args.<field>` values may feed direct aliases
+or arithmetic in the changed scalar suffix. Editing the Args block itself still
+selects full analysis.
 Axis metadata is rebuilt after the suffix patch, and cache records are rekeyed
 with the changed source hash. Suffix expressions cannot use preserved
 non-scalar values as scalar aliases or operands. An edit inside that richer

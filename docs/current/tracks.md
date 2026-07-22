@@ -67,8 +67,10 @@ and next cleanup action.
   includes a scalar suffix recheck that can preserve strictly verified
   imported state-space, immutable class-object, and complete system-owned
   component-graph metadata without exposing ordinary system-local names at
-  root. A changed direct scalar class-object field or zero-argument method
-  binding can reuse that metadata and feed later scalar declarations.
+  root. It can also verify an unchanged typed Args block and expose registry
+  quantity `args.<field>` values to a changed scalar suffix. A changed direct
+  scalar class-object field or zero-argument method binding can reuse preserved
+  metadata and feed later scalar declarations.
 - Next cleanup: keep primary TimeSeries/schema/unit/report/check flows ahead of
   advanced system, component-graph, and kernel detail, then replace the current
   compilation-wide component-instance namespace with explicit per-system
