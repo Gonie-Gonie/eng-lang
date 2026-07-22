@@ -11,7 +11,8 @@ use std::sync::Mutex;
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, bundled_module_registry, check_source,
     check_source_with_import_overrides, format_source, review_semantic_diff, CheckOptions,
-    CheckReport, ImportSourceOverrides, Severity,
+    CheckReport, ImportSourceOverrides, Severity, BEHAVIOR_CONTRACT_RESOLVED,
+    BEHAVIOR_IDENTITY_CONTRACT, BEHAVIOR_RELATIONSHIP_RESOLVED, BEHAVIOR_STATUS_DECLARED,
 };
 use eng_runtime::{run_file, run_source, ExecutionProfile, RunOptions, RuntimeError};
 use serde::{Deserialize, Serialize};
@@ -4067,7 +4068,7 @@ fn smoke() -> Result<(), String> {
             && json_field_string(node, "signal").as_deref() == Some("temperature_signal")
             && json_field_f64(node, "delay_s").is_some_and(|value| (value - 5.0).abs() <= 1e-9)
             && json_field_string(node, "relationship_status").as_deref()
-                == Some("delay_relationship_metadata_only")
+                == Some(BEHAVIOR_RELATIONSHIP_RESOLVED)
             && has_contract_quantity(node, "contract_inputs", "AbsoluteTemperature")
             && has_contract_quantity(node, "contract_outputs", "AbsoluteTemperature")
             && has_diagnostic_channel(node, "delay_history_underflow_failure")
@@ -4076,34 +4077,24 @@ fn smoke() -> Result<(), String> {
     let has_predictor_node = behavior_nodes.iter().any(|node| {
         json_field_string(node, "behavior_kind").as_deref() == Some("predictor")
             && json_field_string(node, "signal").as_deref() == Some("temperature_signal")
-            && json_field_string(node, "status").as_deref()
-                == Some("predictor_call_contract_pending_integration")
+            && json_field_string(node, "status").as_deref() == Some(BEHAVIOR_STATUS_DECLARED)
             && json_field_string(node, "contract_status").as_deref()
-                == Some("predictor_contract_metadata")
+                == Some(BEHAVIOR_CONTRACT_RESOLVED)
             && has_contract_quantity(node, "contract_inputs", "AbsoluteTemperature")
             && has_contract_quantity(node, "contract_outputs", "AbsoluteTemperature")
-            && has_contract_status(
-                node,
-                "contract_outputs",
-                "predictor_output_typed_identity_contract",
-            )
+            && has_contract_status(node, "contract_outputs", BEHAVIOR_IDENTITY_CONTRACT)
             && has_diagnostic_channel(node, "predictor_valid_range_warning")
             && node.get("source_span").is_some()
     });
     let has_external_node = behavior_nodes.iter().any(|node| {
         json_field_string(node, "behavior_kind").as_deref() == Some("external")
             && json_field_string(node, "signal").as_deref() == Some("out.Q")
-            && json_field_string(node, "status").as_deref()
-                == Some("external_behavior_wrapper_pending_integration")
+            && json_field_string(node, "status").as_deref() == Some(BEHAVIOR_STATUS_DECLARED)
             && json_field_string(node, "contract_status").as_deref()
-                == Some("external_behavior_contract_metadata")
+                == Some(BEHAVIOR_CONTRACT_RESOLVED)
             && has_contract_quantity(node, "contract_inputs", "HeatRate")
             && has_contract_quantity(node, "contract_outputs", "HeatRate")
-            && has_contract_status(
-                node,
-                "contract_outputs",
-                "external_output_typed_identity_contract",
-            )
+            && has_contract_status(node, "contract_outputs", BEHAVIOR_IDENTITY_CONTRACT)
             && has_diagnostic_channel(node, "external_adapter_failure")
             && node.get("source_span").is_some()
     });
@@ -4866,9 +4857,11 @@ fn assert_native_ide_ui_behavior_status_labels() -> Result<(), String> {
         "function statusLabel(status)",
         "if (module.status_label) return module.status_label;",
         "if (module.status_detail) return module.status_detail;",
-        "delay runtime buffer not connected to this language-level solve",
-        "Predictor contract not connected to this language-level solve",
-        "safe/repro profile policy metadata",
+        "declared, not executed",
+        "executed in behavior graph",
+        "runtime diagnostics unavailable",
+        "runtime diagnostics available",
+        "safe/repro policy checked on execution",
         "statusLabel(node.status || \"-\")",
         "relationship=${statusLabel(relationship)}",
         "copyVisibleHighlightsBtn.onclick = copyVisibleHighlights",

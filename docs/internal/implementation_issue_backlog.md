@@ -458,34 +458,39 @@ Current coverage:
   signals, passes the combined behavior evaluation into an RHS closure, and
   preserves node artifacts, range warnings, invalid-source failures, and
   non-finite RHS failures in solver-API tests and CLI smoke coverage.
-- Component artifacts distinguish delay calls as
-  `delay_call_runtime_buffer_pending_integration` and Predictor calls as
-  `predictor_call_contract_pending_integration`; external behavior expressions
-  report `external_behavior_wrapper_pending_integration`.
+- Component artifacts use one declaration/execution vocabulary for all behavior
+  kinds: `not_declared`, `declared_not_executed`, and
+  `executed_in_behavior_graph`. Relationship, contract, Jacobian, profile, and
+  runtime-diagnostic fields use the same capability-versus-execution split.
 - Review/report/component-graph artifacts and the IDE Assembly panel expose
   behavior nodes with source navigation metadata, inferred input/output
   quantity-unit contract metadata, and diagnostic channels for delay
   history-underflow, Predictor valid-range warnings, and external
   adapter/profile failures.
-- Runtime component solver artifacts now add an explicit reason/failure note
-  when behavior graph nodes are present but not yet integrated into numeric
-  residual evaluation; if a square residual graph would otherwise solve while
+- Runtime component solver artifacts add an explicit reason/failure note when
+  behavior graph nodes are declared but the selected solve path does not
+  execute them. If a square residual graph would otherwise solve while
   ignoring behavior nodes, runtime marks it
-  `not_solved_behavior_not_integrated` with `E-BEHAVIOR-NOT-INTEGRATED`.
+  `not_solved_behavior_graph_not_executed` with
+  `E-BEHAVIOR-GRAPH-NOT-EXECUTED`.
 - `examples/internal/25_component_behavior_nodes` exercises valid delay,
   Predictor, and external adapter behavior-node artifacts, including prior
-  component-local signal contract resolution, in the CLI example smoke path.
+  component-local signal contract resolution, without claiming execution.
+- `examples/advanced_solver/29_delay_component_solver`,
+  `30_predictor_component_solver`, and `31_external_behavior_solver` execute
+  the supported native behavior graph paths and preserve runtime node
+  diagnostics in result, report, and IDE artifacts.
 
-Definition of Done:
+Remaining scope:
 
-- Expand `delay(x, tau)` type checking beyond component port variables into
-  full behavior graph expressions.
-- Wire the solver-API behavior graph adapter into language-level RHS/residual
-  evaluation for supported component/system paths.
-- Wire behavior node evaluations into report/IDE artifacts for solved language
-  workflows rather than only solver-API tests.
-- Report and IDE should show full behavior contracts and invalid/extrapolated
-  behavior warnings once behavior nodes are connected to runtime evaluation.
+- Expand behavior-expression type checking beyond the supported component
+  port, prior-local, and nested-call shapes.
+- Extend behavior graph execution beyond the narrow explicit-Euler source and
+  selected DAE paths.
+- Define a delay-history mutation policy for implicit-Euler Newton replay
+  before enabling delay nodes on that DAE path.
+- Preserve full invalid/extrapolated behavior warnings on every future
+  execution path.
 
 ## Class/Domain Objects
 

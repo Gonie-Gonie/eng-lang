@@ -8,6 +8,7 @@ use crate::ast::{
     StateSpaceVectorDecl, SystemVariableDecl, TestDecl, WhereBindingDecl, WithOptionDecl,
     WriteDecl,
 };
+use crate::behavior::{BEHAVIOR_STATUS_DECLARED, BEHAVIOR_STATUS_NOT_DECLARED};
 use crate::cache::CacheRecordInfo;
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
 use crate::hover::HoverHint;
@@ -10881,7 +10882,7 @@ fn analyze_component_local_expression(
             expression_span: binding.expression_span,
             equation_left_span: None,
             equation_right_span: None,
-            status: "metadata_only".to_owned(),
+            status: "declared".to_owned(),
             quantity_kind: signal_contract.quantity_kind,
             display_unit: signal_contract.display_unit,
             canonical_unit: signal_contract.canonical_unit,
@@ -13268,7 +13269,7 @@ fn build_component_solver_preview(
     ComponentSolverPreviewInfo {
         status: status.to_owned(),
         method: if equation_count == 0 {
-            "metadata_only"
+            "declaration_only"
         } else {
             "homogeneous_connection_constraint_preview"
         }
@@ -13287,21 +13288,21 @@ fn build_component_solver_preview(
         }
         .to_owned(),
         delay_history: if delay_call_count > 0 {
-            "delay_call_runtime_buffer_pending_integration"
+            BEHAVIOR_STATUS_DECLARED
         } else {
-            "deferred_no_delay_calls"
+            BEHAVIOR_STATUS_NOT_DECLARED
         }
         .to_owned(),
         predictor: if predictor_call_count > 0 {
-            "predictor_call_contract_pending_integration"
+            BEHAVIOR_STATUS_DECLARED
         } else {
-            "deferred_no_predictor_calls"
+            BEHAVIOR_STATUS_NOT_DECLARED
         }
         .to_owned(),
         external_adapter: if external_call_count > 0 {
-            "external_behavior_wrapper_pending_integration"
+            BEHAVIOR_STATUS_DECLARED
         } else {
-            "deferred_no_external_behavior_adapter"
+            BEHAVIOR_STATUS_NOT_DECLARED
         }
         .to_owned(),
         limitations: vec![

@@ -10078,22 +10078,32 @@ function statusLabel(status) {
       return "algebraic split preview";
     case "component_local_signal_resolved":
       return "component-local signal resolved";
-    case "behavior_graph_not_integrated":
-      return "behavior graph not connected to this language-level solve";
-    case "behavior_not_integrated":
-      return "behavior variable not connected to this language-level solve";
+    case "contract_resolved":
+      return "contract resolved";
+    case "declaration_only":
+      return "declaration only";
+    case "declared_not_executed":
+      return "declared, not executed";
+    case "domain_signal_resolved":
+      return "domain signal resolved";
+    case "behavior_graph_executed":
+      return "behavior graph executed";
+    case "behavior_graph_not_executed":
+      return "behavior graph not executed by this solve path";
+    case "behavior_variable_not_evaluated":
+      return "behavior variable not evaluated by this solve path";
     case "dae_split_deferred":
       return "DAE split deferred";
-    case "delay_call_runtime_buffer_pending_integration":
-      return "delay runtime buffer not connected to this language-level solve";
-    case "delay_relationship_metadata_only":
-      return "delay relationship metadata";
-    case "external_behavior_contract_metadata":
-      return "external behavior contract metadata";
-    case "external_behavior_wrapper_pending_integration":
-      return "external behavior adapter not connected to this language-level solve";
-    case "external_output_typed_identity_contract":
-      return "external output typed from input";
+    case "executed_in_behavior_graph":
+      return "executed in behavior graph";
+    case "external_output_contract_unresolved":
+      return "external output contract unresolved";
+    case "finite_difference_allowed":
+      return "finite difference allowed";
+    case "finite_difference_on_execution":
+      return "finite difference on execution";
+    case "literal_duration_resolved":
+      return "duration resolved";
     case "mixed_state_algebraic_preview":
       return "mixed state/algebraic preview";
     case "no_jit_speed_claim":
@@ -10104,22 +10114,34 @@ function statusLabel(status) {
       return "not a full DAE solve";
     case "not_general_nonlinear":
       return "not a general nonlinear solve";
-    case "not_solved_behavior_not_integrated":
-      return "not solved because behavior graph is not connected";
+    case "not_declared":
+      return "not declared";
+    case "not_solved_behavior_graph_not_executed":
+      return "not solved because this path does not execute behavior nodes";
     case "not_production_multi_domain":
       return "not production multi-domain";
-    case "predictor_call_contract_pending_integration":
-      return "Predictor contract not connected to this language-level solve";
-    case "predictor_contract_metadata":
-      return "Predictor contract metadata";
-    case "predictor_output_typed_identity_contract":
-      return "Predictor output typed from input";
-    case "safe_repro_profile_policy_metadata":
-      return "safe/repro profile policy metadata";
-    case "solver_policy_not_integrated":
-      return "solver policy not connected";
+    case "predictor_output_contract_unresolved":
+      return "Predictor output contract unresolved";
+    case "relationship_evaluated_in_behavior_graph":
+      return "relationship evaluated in behavior graph";
+    case "relationship_resolved":
+      return "relationship resolved";
+    case "runtime_diagnostics_available":
+      return "runtime diagnostics available";
+    case "runtime_diagnostics_not_available":
+      return "runtime diagnostics unavailable";
+    case "safe_repro_policy_on_execution":
+      return "safe/repro policy checked on execution";
+    case "same_quantity_as_delayed_signal":
+      return "same quantity as delayed signal";
+    case "signal_contract_unresolved":
+      return "signal contract unresolved";
     case "symbolic_residual_preview_no_nonlinear_iteration":
       return "symbolic residual preview, no nonlinear iteration";
+    case "typed_from_runtime_input":
+      return "typed from runtime input";
+    case "typed_identity_contract":
+      return "typed identity contract";
     default:
       return String(status ?? "-");
   }

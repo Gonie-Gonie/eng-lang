@@ -115,17 +115,19 @@ The summary also records `domain_count`,
 `domain_plans`, component-local expression counts, and the legacy-named
 `solver_preview` field for domain/component graphs. A graph with
 Thermal, `Fluid[Water]`, and `MechanicalNode[World, X]` connection sets reports
-`solver_preview.status = multi_domain_preview`, plus explicit future-solver
-limitation statuses for nonlinear residuals, DAE splitting, delay/history buffers,
-Predictor behavior, and external behavior adapters.
+`solver_preview.status = multi_domain_preview`, plus explicit capability and
+execution statuses for nonlinear residuals, DAE splitting, delay/history
+buffers, Predictor behavior, and external behavior adapters.
 The `multi_domain_preview` value is a legacy-named Internal metadata label, not
 a supported multi-domain solve claim.
-Delay calls currently report a runtime-buffer status, Predictor calls report a
-contract-wrapper status, and external adapter expressions report an
-external-wrapper status. The narrow unitful temperature explicit-Euler source behavior RHS
-examples update those behavior-node rows to integrated statuses in
-report-spec/HTML after runtime evaluation. This is still not a full
-component-solver behavior graph integration.
+Behavior capabilities use one raw status vocabulary across delay, Predictor,
+and external nodes. An absent kind is `not_declared`; a parsed node is
+`declared_not_executed`; and a native runtime evaluation updates it to
+`executed_in_behavior_graph`. Relationship, contract, Jacobian, profile, and
+runtime-diagnostic fields separately state what was resolved at compile time
+and what was evaluated at runtime. A solve path that cannot execute declared
+nodes reports `behavior_graph_not_executed` instead of silently solving while
+ignoring them.
 Runtime report specs and result artifacts also attach component solver residual
 evaluations with raw value, unit, normalized value, scale, and scale policy.
 They also expose `largest_residuals`, capped to the top normalized residuals,
@@ -152,7 +154,7 @@ per-step Newton diagnostics, failure artifacts for inconsistent initial
 conditions, and largest-residual artifacts. `examples/advanced_solver/29_delay_component_solver`,
 `examples/advanced_solver/30_predictor_component_solver`, and
 `examples/advanced_solver/31_external_behavior_solver` cover the narrow source
-behavior RHS path and record integrated delay/Predictor/external behavior-node
+behavior RHS path and record executed delay/Predictor/external behavior-node
 artifacts plus per-step behavior graph diagnostics.
 `examples/advanced_solver/32_small_thermal_fluid_loop` covers the constrained
 Thermal/Fluid[Water] pressure/flow algebraic residual path and records generated

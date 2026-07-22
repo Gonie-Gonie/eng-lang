@@ -879,23 +879,20 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             return ExitCode::from(1);
         }
     }
-    for (source, build_dir, behavior_status, binding) in [
+    for (source, build_dir, binding) in [
         (
             "examples/advanced_solver/29_delay_component_solver/main.eng",
             "build/test-official-delay-behavior",
-            "delay_call_runtime_buffer_integrated",
             "delay_result",
         ),
         (
             "examples/advanced_solver/30_predictor_component_solver/main.eng",
             "build/test-official-predictor-behavior",
-            "predictor_call_contract_integrated",
             "predictor_result",
         ),
         (
             "examples/advanced_solver/31_external_behavior_solver/main.eng",
             "build/test-official-external-behavior",
-            "external_behavior_wrapper_integrated",
             "external_result",
         ),
     ] {
@@ -911,7 +908,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                         .contains("\"method\": \"behavior_graph_explicit_euler_source\"")
                     || !output
                         .result_json
-                        .contains("\"convergence_status\": \"behavior_graph_integrated\"")
+                        .contains("\"convergence_status\": \"behavior_graph_executed\"")
                     || !output.result_json.contains("\"name\": \"node.node.T\"")
                     || !output.result_json.contains("\"unit\": \"K\"")
                     || !output.result_json.contains("\"y\": 300.00000000")
@@ -919,19 +916,20 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     || !output
                         .report_spec_json
                         .contains(&format!("source solve binding `{binding}`"))
-                    || !output.report_spec_json.contains(behavior_status)
                     || !output
                         .report_spec_json
-                        .contains("evaluated_in_language_behavior_graph")
-                    || !output.report_html.contains(behavior_status)
-                    || !output.report_html.contains("behavior_graph_integrated")
+                        .contains("\"status\": \"executed_in_behavior_graph\"")
+                    || !output
+                        .report_spec_json
+                        .contains("runtime_diagnostics_available")
+                    || !output.report_html.contains("executed in behavior graph")
+                    || !output.report_html.contains("runtime diagnostics available")
+                    || !output.report_html.contains("behavior graph executed")
                 {
-                    eprintln!(
-                        "expected {source} to solve through integrated source behavior graph"
-                    );
+                    eprintln!("expected {source} to execute the source behavior graph");
                     return ExitCode::from(2);
                 }
-                println!("ok: {source} solved integrated source behavior graph");
+                println!("ok: {source} executed source behavior graph");
             }
             Err(error) => {
                 eprintln!("official behavior graph example failed: {source}: {error}");
@@ -2272,10 +2270,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("node.node.z - predicted - (0)")
                 || !output
                     .report_spec_json
-                    .contains("predictor_call_contract_integrated")
+                    .contains("\"status\": \"executed_in_behavior_graph\"")
                 || !output
                     .report_spec_json
-                    .contains("evaluated_in_language_behavior_graph")
+                    .contains("runtime_diagnostics_available")
                 || !output
                     .report_html
                     .contains("behavior_graph_implicit_euler_dae_source")
@@ -2319,10 +2317,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("node.node.z - adapted - (0)")
                 || !output
                     .report_spec_json
-                    .contains("external_behavior_wrapper_integrated")
+                    .contains("\"status\": \"executed_in_behavior_graph\"")
                 || !output
                     .report_spec_json
-                    .contains("evaluated_in_language_behavior_graph")
+                    .contains("runtime_diagnostics_available")
                 || !output
                     .report_html
                     .contains("behavior_graph_implicit_euler_dae_source")
@@ -2362,13 +2360,13 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"diagnostic_code\": \"E-BEHAVIOR-SOURCE-DAE-DELAY\"")
                 || !output
                     .report_spec_json
-                    .contains("delay_call_runtime_buffer_pending_integration")
+                    .contains("\"status\": \"declared_not_executed\"")
                 || !output
                     .report_spec_json
-                    .contains("not_evaluated_in_language_behavior_graph")
-                || output.report_spec_json.contains(
-                    "\"runtime_warning_status\": \"evaluated_in_language_behavior_graph\"",
-                )
+                    .contains("runtime_diagnostics_not_available")
+                || output
+                    .report_spec_json
+                    .contains("\"runtime_warning_status\": \"runtime_diagnostics_available\"")
                 || !output.report_html.contains("E-BEHAVIOR-SOURCE-DAE-DELAY")
             {
                 eprintln!(
@@ -2452,21 +2450,18 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             return ExitCode::from(1);
         }
     }
-    for (source, build_dir, behavior_status) in [
+    for (source, build_dir) in [
         (
             "tests/runtime/delay_behavior_from_source.eng",
             "build/test-runtime-delay-behavior-source",
-            "delay_call_runtime_buffer_integrated",
         ),
         (
             "tests/runtime/predictor_behavior_from_source.eng",
             "build/test-runtime-predictor-behavior-source",
-            "predictor_call_contract_integrated",
         ),
         (
             "tests/runtime/external_behavior_from_source.eng",
             "build/test-runtime-external-behavior-source",
-            "external_behavior_wrapper_integrated",
         ),
     ] {
         match run_file(
@@ -2481,24 +2476,25 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                         .contains("\"method\": \"behavior_graph_explicit_euler_source\"")
                     || !output
                         .result_json
-                        .contains("\"convergence_status\": \"behavior_graph_integrated\"")
+                        .contains("\"convergence_status\": \"behavior_graph_executed\"")
                     || !output.result_json.contains("\"name\": \"node.node.T\"")
                     || !output.result_json.contains("\"unit\": \"K\"")
                     || !output.result_json.contains("\"y\": 300.00000000")
                     || !output.result_json.contains("\"step_diagnostics\"")
-                    || !output.report_spec_json.contains(behavior_status)
                     || !output
                         .report_spec_json
-                        .contains("evaluated_in_language_behavior_graph")
-                    || !output.report_html.contains(behavior_status)
-                    || !output.report_html.contains("behavior_graph_integrated")
+                        .contains("\"status\": \"executed_in_behavior_graph\"")
+                    || !output
+                        .report_spec_json
+                        .contains("runtime_diagnostics_available")
+                    || !output.report_html.contains("executed in behavior graph")
+                    || !output.report_html.contains("runtime diagnostics available")
+                    || !output.report_html.contains("behavior graph executed")
                 {
-                    eprintln!(
-                        "expected {source} to solve through integrated source behavior graph"
-                    );
+                    eprintln!("expected {source} to execute the source behavior graph");
                     return ExitCode::from(2);
                 }
-                println!("ok: {source} solved integrated source behavior graph");
+                println!("ok: {source} executed source behavior graph");
             }
             Err(error) => {
                 eprintln!("behavior graph source runtime fixture failed: {source}: {error}");
@@ -4768,13 +4764,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             if !output.report_spec_json.contains("\"behavior_nodes\"")
                 || !output
                     .report_spec_json
-                    .contains("\"delay_call_runtime_buffer_pending_integration\"")
-                || !output
-                    .report_spec_json
-                    .contains("\"predictor_call_contract_pending_integration\"")
-                || !output
-                    .report_spec_json
-                    .contains("\"external_behavior_wrapper_pending_integration\"")
+                    .contains("\"status\": \"declared_not_executed\"")
                 || !output
                     .report_spec_json
                     .contains("\"signal\": \"temperature_signal\"")
@@ -4791,10 +4781,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"quantity_kind\": \"HeatRate\"")
                 || !output
                     .report_spec_json
-                    .contains("\"predictor_output_typed_identity_contract\"")
-                || !output
-                    .report_spec_json
-                    .contains("\"external_output_typed_identity_contract\"")
+                    .contains("\"status\": \"typed_identity_contract\"")
                 || !output.report_spec_json.contains("\"diagnostic_channels\"")
                 || !output
                     .report_spec_json
@@ -4807,12 +4794,18 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .report_html
                     .contains("diagnostics=predictor_valid_range_warning")
                 || !output.report_spec_json.contains(
-                    "behavior graph nodes are present but not yet integrated into numeric residual evaluation",
+                    "behavior nodes are declared, but this component solve path does not execute the behavior graph",
                 )
-                || !output.report_html.contains("solver policy not connected")
+                || !output.report_html.contains("declared, not executed")
                 || !output
                     .report_html
-                    .contains("safe/repro profile policy metadata")
+                    .contains("finite difference on execution")
+                || !output
+                    .report_html
+                    .contains("safe/repro policy checked on execution")
+                || !output
+                    .report_html
+                    .contains("runtime diagnostics unavailable")
             {
                 eprintln!(
                     "expected component behavior fixture to expose delay, Predictor, and external behavior nodes"

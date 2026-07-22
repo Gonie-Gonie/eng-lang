@@ -2476,6 +2476,51 @@ function uncertaintyAliasLexicalFallbackUsesGeneratedCallContexts() {
   `);
 }
 
+function behaviorStatusLabelsDistinguishDeclarationAndExecution() {
+  assert.strictEqual(
+    run('statusLabel("declared_not_executed")'),
+    "declared, not executed"
+  );
+  assert.strictEqual(
+    run('statusLabel("executed_in_behavior_graph")'),
+    "executed in behavior graph"
+  );
+  assert.strictEqual(
+    run('statusLabel("behavior_graph_executed")'),
+    "behavior graph executed"
+  );
+  assert.strictEqual(
+    run('statusLabel("behavior_graph_not_executed")'),
+    "behavior graph not executed by this solve path"
+  );
+  assert.strictEqual(
+    run('statusLabel("behavior_variable_not_evaluated")'),
+    "behavior variable not evaluated by this solve path"
+  );
+
+  const details = run(`behaviorNodeDetails({
+    signal: "temperature",
+    relationship_status: "relationship_evaluated_in_behavior_graph",
+    contract_status: "contract_resolved",
+    jacobian_policy: "finite_difference_on_execution",
+    profile_policy: "safe_repro_policy_on_execution",
+    runtime_warning_status: "runtime_diagnostics_available"
+  })`);
+  assert.ok(details.includes("relationship=relationship evaluated in behavior graph"), details);
+  assert.ok(details.includes("contract=contract resolved"), details);
+  assert.ok(details.includes("jacobian=finite difference on execution"), details);
+  assert.ok(details.includes("profile=safe/repro policy checked on execution"), details);
+  assert.ok(details.includes("runtime_warnings=runtime diagnostics available"), details);
+  for (const rawStatus of [
+    "relationship_evaluated_in_behavior_graph",
+    "finite_difference_on_execution",
+    "safe_repro_policy_on_execution",
+    "runtime_diagnostics_available"
+  ]) {
+    assert.ok(!details.includes(rawStatus), details);
+  }
+}
+
 async function main() {
   await dirtyTabRequiresDecision();
   await reopeningDirtyTabPreservesTheOpenBuffer();
@@ -2527,6 +2572,7 @@ async function main() {
   await saveAllFailureKeepsRemainingDirtyFilesOpen();
   liveCheckTracksAllDirtyImportedBuffers();
   uncertaintyAliasLexicalFallbackUsesGeneratedCallContexts();
+  behaviorStatusLabelsDistinguishDeclarationAndExecution();
   process.stdout.write("Native IDE editor safety smoke passed.\n");
 }
 

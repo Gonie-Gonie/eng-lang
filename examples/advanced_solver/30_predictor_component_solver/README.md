@@ -1,6 +1,6 @@
 # Official Example 30: Predictor Component Solver
 
-This example exercises the scoped source behavior integration path for
+This example exercises the scoped native source behavior execution path for
 `predictor(signal)`. The deterministic identity Predictor wrapper is evaluated
 during `solver = dynamic_component_explicit_euler`, and the unitful behavior
 signal affects the temperature state derivative through:

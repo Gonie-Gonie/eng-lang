@@ -1,4 +1,5 @@
 mod ast;
+mod behavior;
 mod bytecode;
 mod cache;
 mod case;
@@ -41,6 +42,15 @@ pub use ast::{
     PromotionKind, ReturnDecl, SchemaDecl, ScriptDecl, StateSpaceTypeBlockDecl,
     StateSpaceTypeMemberDecl, StructDecl, SystemDecl, SystemVariableDecl, TestDecl,
     WhereBindingDecl, WhereBlockDecl, WherePredicateDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
+};
+pub use behavior::{
+    component_behavior_calls, ComponentBehaviorCall, BEHAVIOR_CONTRACT_RESOLVED,
+    BEHAVIOR_GRAPH_EXECUTED, BEHAVIOR_GRAPH_NOT_EXECUTED, BEHAVIOR_IDENTITY_CONTRACT,
+    BEHAVIOR_IDENTITY_RUNTIME, BEHAVIOR_JACOBIAN_POLICY, BEHAVIOR_PROFILE_POLICY,
+    BEHAVIOR_RELATIONSHIP_EXECUTED, BEHAVIOR_RELATIONSHIP_RESOLVED,
+    BEHAVIOR_RUNTIME_DIAGNOSTICS_AVAILABLE, BEHAVIOR_RUNTIME_DIAGNOSTICS_UNAVAILABLE,
+    BEHAVIOR_SOLUTION_NOT_EXECUTED, BEHAVIOR_STATUS_DECLARED, BEHAVIOR_STATUS_EXECUTED,
+    BEHAVIOR_STATUS_NOT_DECLARED, BEHAVIOR_VARIABLE_NOT_EVALUATED,
 };
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
@@ -9759,134 +9769,43 @@ fn component_behavior_nodes(program: &semantic::SemanticProgram) -> Vec<Componen
         .iter()
         .flat_map(|component| {
             component.local_expressions.iter().flat_map(move |local| {
-                behavior_node_seeds(&local.expression)
+                component_behavior_calls(&local.expression)
                     .into_iter()
-                    .map(move |seed| ComponentBehaviorNode {
-                        id: format!("{}.{}:{}", component.name, local.name, seed.behavior_kind),
-                        behavior_kind: seed.behavior_kind,
-                        component: component.name.clone(),
-                        name: local.name.clone(),
-                        expression: local.expression.clone(),
-                        status: seed.status,
-                        signal: seed.signal,
-                        delay_s: seed.delay_s,
-                        relationship_status: seed.relationship_status,
-                        contract_status: seed.contract_status,
-                        jacobian_policy: seed.jacobian_policy,
-                        profile_policy: seed.profile_policy,
-                        line: local.line,
+                    .map(move |call| {
+                        let behavior_kind = call.behavior_kind;
+                        let signal = call.arguments.first().cloned();
+                        ComponentBehaviorNode {
+                            id: format!("{}.{}:{}", component.name, local.name, behavior_kind),
+                            relationship_status: (behavior_kind == "delay")
+                                .then(|| BEHAVIOR_RELATIONSHIP_RESOLVED.to_owned()),
+                            contract_status: matches!(
+                                behavior_kind.as_str(),
+                                "predictor" | "external"
+                            )
+                            .then(|| BEHAVIOR_CONTRACT_RESOLVED.to_owned()),
+                            jacobian_policy: (behavior_kind == "predictor")
+                                .then(|| BEHAVIOR_JACOBIAN_POLICY.to_owned()),
+                            profile_policy: (behavior_kind == "external")
+                                .then(|| BEHAVIOR_PROFILE_POLICY.to_owned()),
+                            delay_s: (behavior_kind == "delay")
+                                .then(|| {
+                                    call.arguments.get(1).and_then(|duration| {
+                                        review_duration_seconds(duration.trim())
+                                    })
+                                })
+                                .flatten(),
+                            behavior_kind,
+                            component: component.name.clone(),
+                            name: local.name.clone(),
+                            expression: local.expression.clone(),
+                            status: BEHAVIOR_STATUS_DECLARED.to_owned(),
+                            signal,
+                            line: local.line,
+                        }
                     })
             })
         })
         .collect()
-}
-
-struct ComponentBehaviorSeed {
-    behavior_kind: String,
-    status: String,
-    signal: Option<String>,
-    delay_s: Option<f64>,
-    relationship_status: Option<String>,
-    contract_status: Option<String>,
-    jacobian_policy: Option<String>,
-    profile_policy: Option<String>,
-}
-
-fn behavior_node_seeds(expression: &str) -> Vec<ComponentBehaviorSeed> {
-    let normalized = expression.to_ascii_lowercase();
-    let mut nodes = Vec::new();
-    if normalized.contains("delay(") {
-        let arguments = first_behavior_call_arguments(expression, "delay").unwrap_or_default();
-        nodes.push(ComponentBehaviorSeed {
-            behavior_kind: "delay".to_owned(),
-            status: "delay_call_runtime_buffer_pending_integration".to_owned(),
-            signal: arguments.first().cloned(),
-            delay_s: arguments
-                .get(1)
-                .and_then(|duration| review_duration_seconds(duration.trim())),
-            relationship_status: Some("delay_relationship_metadata_only".to_owned()),
-            contract_status: None,
-            jacobian_policy: None,
-            profile_policy: None,
-        });
-    }
-    if normalized.contains("predict(") || normalized.contains("predictor(") {
-        nodes.push(ComponentBehaviorSeed {
-            behavior_kind: "predictor".to_owned(),
-            status: "predictor_call_contract_pending_integration".to_owned(),
-            signal: first_behavior_call_arguments(expression, "predictor")
-                .or_else(|| first_behavior_call_arguments(expression, "predict"))
-                .and_then(|arguments| arguments.first().cloned()),
-            delay_s: None,
-            relationship_status: None,
-            contract_status: Some("predictor_contract_metadata".to_owned()),
-            jacobian_policy: Some("solver_policy_not_integrated".to_owned()),
-            profile_policy: None,
-        });
-    }
-    if normalized.contains("external(") || normalized.contains("adapter(") {
-        nodes.push(ComponentBehaviorSeed {
-            behavior_kind: "external".to_owned(),
-            status: "external_behavior_wrapper_pending_integration".to_owned(),
-            signal: first_behavior_call_arguments(expression, "external")
-                .or_else(|| first_behavior_call_arguments(expression, "adapter"))
-                .and_then(|arguments| arguments.first().cloned()),
-            delay_s: None,
-            relationship_status: None,
-            contract_status: Some("external_behavior_contract_metadata".to_owned()),
-            jacobian_policy: None,
-            profile_policy: Some("safe_repro_profile_policy_metadata".to_owned()),
-        });
-    }
-    nodes
-}
-
-fn first_behavior_call_arguments(expression: &str, call_name: &str) -> Option<Vec<String>> {
-    let lowered = expression.to_ascii_lowercase();
-    let needle = format!("{call_name}(");
-    let start = lowered.find(&needle)?;
-    let open_index = start + call_name.len();
-    let mut depth = 0i32;
-    let mut close_index = None;
-    for (index, character) in expression[open_index..].char_indices() {
-        match character {
-            '(' => depth += 1,
-            ')' => {
-                depth -= 1;
-                if depth == 0 {
-                    close_index = Some(open_index + index);
-                    break;
-                }
-            }
-            _ => {}
-        }
-    }
-    let close_index = close_index?;
-    Some(
-        split_behavior_arguments(&expression[open_index + 1..close_index])
-            .into_iter()
-            .filter(|part| !part.is_empty())
-            .collect(),
-    )
-}
-
-fn split_behavior_arguments(arguments: &str) -> Vec<String> {
-    let mut parts = Vec::new();
-    let mut depth = 0i32;
-    let mut start = 0usize;
-    for (index, character) in arguments.char_indices() {
-        match character {
-            '(' => depth += 1,
-            ')' => depth -= 1,
-            ',' if depth == 0 => {
-                parts.push(arguments[start..index].trim().to_owned());
-                start = index + character.len_utf8();
-            }
-            _ => {}
-        }
-    }
-    parts.push(arguments[start..].trim().to_owned());
-    parts
 }
 
 fn domain_argument_labels(
@@ -14141,7 +14060,7 @@ bad_scheme = url("ftp://example.org/data")
         assert_eq!(assembly.local_expression_count, 1);
         assert_eq!(
             assembly.solver_preview.delay_history,
-            "delay_call_runtime_buffer_pending_integration"
+            BEHAVIOR_STATUS_DECLARED
         );
         assert_eq!(assembly.connection_sets.len(), 1);
         assert_eq!(assembly.connection_sets[0].ports.len(), 2);
@@ -14206,7 +14125,7 @@ bad_scheme = url("ftp://example.org/data")
         assert!(review.contains("\"component_summary\""));
         assert!(review.contains("\"local_expression_count\": 1"));
         assert!(review.contains("\"pressure_seed\""));
-        assert!(review.contains("\"delay_call_runtime_buffer_pending_integration\""));
+        assert!(review.contains("\"declared_not_executed\""));
         assert!(review.contains("\"connection_summary\""));
         assert!(review.contains("\"assembly_summary\""));
         assert!(review.contains("\"component_graph\""));
@@ -14217,7 +14136,7 @@ bad_scheme = url("ftp://example.org/data")
         assert!(review.contains("\"behavior_kind\": \"delay\""));
         assert!(review.contains("\"signal\": \"outlet.m_dot\""));
         assert!(review.contains("\"delay_s\": 5"));
-        assert!(review.contains("\"relationship_status\": \"delay_relationship_metadata_only\""));
+        assert!(review.contains("\"relationship_status\": \"relationship_resolved\""));
         assert!(review.contains("\"connection_set_1\""));
         assert!(review.contains("\"through_conservation\""));
         assert!(
@@ -15176,7 +15095,7 @@ system Envelope {
     }
 
     #[test]
-    fn records_predictor_contract_pending_status_in_component_preview() {
+    fn records_predictor_declared_status_in_component_preview() {
         let report = check_source(
             "ok.eng",
             "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Source {\n    port out: Thermal\n    prediction = predictor(out.T)\n}\n\ncomponent Sink {\n    port inlet: Thermal\n}\n\nconnect Source.out -> Sink.inlet\n",
@@ -15186,14 +15105,11 @@ system Envelope {
         assert!(!report.has_errors());
         let assembly = &report.semantic_program.component_assemblies[0];
         assert_eq!(assembly.predictor_call_count, 1);
-        assert_eq!(
-            assembly.solver_preview.predictor,
-            "predictor_call_contract_pending_integration"
-        );
+        assert_eq!(assembly.solver_preview.predictor, BEHAVIOR_STATUS_DECLARED);
     }
 
     #[test]
-    fn records_external_behavior_pending_status_in_component_preview() {
+    fn records_external_behavior_declared_status_in_component_preview() {
         let report = check_source(
             "ok.eng",
             "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Source {\n    port out: Thermal\n    adapter_value = adapter(out.T)\n}\n\ncomponent Sink {\n    port inlet: Thermal\n}\n\nconnect Source.out -> Sink.inlet\n",
@@ -15204,7 +15120,7 @@ system Envelope {
         let assembly = &report.semantic_program.component_assemblies[0];
         assert_eq!(
             assembly.solver_preview.external_adapter,
-            "external_behavior_wrapper_pending_integration"
+            BEHAVIOR_STATUS_DECLARED
         );
     }
 

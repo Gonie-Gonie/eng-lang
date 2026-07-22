@@ -214,14 +214,15 @@ official Thermal boundary shape and constrained Thermal/Fluid[Water] pressure/fl
 shape it is a real numeric solve for the constrained linear graph, but it is
 not a production physical multi-domain solve.
 
-The artifact also records explicit future-solver status fields:
+The artifact also records explicit capability and execution status fields:
 
 - algebraic-only versus mixed state/algebraic classification;
 - symbolic nonlinear residual status;
 - DAE split status;
-- delay/history buffer status, including whether delay calls are backed by
-  runtime delay-buffer metadata but not yet integrated as a broad component solve;
-- Predictor behavior contract and external adapter wrapper status;
+- delay/history, Predictor, and external behavior status, distinguishing
+  `not_declared`, `declared_not_executed`, and
+  `executed_in_behavior_graph`;
+- resolved relationship/contract metadata and runtime diagnostic availability;
 - limitations: `not_full_dae`, `not_general_nonlinear`, `not_adaptive`,
   `not_production_multi_domain`, and `no_jit_speed_claim`.
 

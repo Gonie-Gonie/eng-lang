@@ -6,6 +6,10 @@ use std::path::{Path, PathBuf};
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, normalize_unit, parse_percentile_fraction,
     rmse_operands, timeseries_statistic_operands, CheckReport, SchemaColumn, SchemaInfo,
+    BEHAVIOR_GRAPH_EXECUTED, BEHAVIOR_GRAPH_NOT_EXECUTED, BEHAVIOR_IDENTITY_RUNTIME,
+    BEHAVIOR_RELATIONSHIP_EXECUTED, BEHAVIOR_RUNTIME_DIAGNOSTICS_AVAILABLE,
+    BEHAVIOR_SOLUTION_NOT_EXECUTED, BEHAVIOR_STATUS_DECLARED, BEHAVIOR_STATUS_EXECUTED,
+    BEHAVIOR_STATUS_NOT_DECLARED, BEHAVIOR_VARIABLE_NOT_EVALUATED,
 };
 use eng_report::{
     PlotAxis, PlotBin, PlotConfidenceBand, PlotPoint, PlotSeries, PlotSpec, ReportAssemblyBoundary,
@@ -799,10 +803,10 @@ impl RuntimeData {
     }
 
     pub fn apply_component_solutions(&self, spec: &mut ReportSpec) {
-        let behavior_graph_integrated = self
+        let behavior_graph_executed = self
             .component_solutions
             .iter()
-            .any(behavior_graph_solution_integrated);
+            .any(behavior_graph_solution_executed);
         for solution in &self.component_solutions {
             let Some(assembly_index) = spec
                 .assemblies
@@ -828,29 +832,20 @@ impl RuntimeData {
             }
             apply_residual_graph_solution_metadata(assembly, solution);
             assembly.solver_result = Some(solution.to_report_solver_result());
-            if behavior_graph_solution_integrated(solution) {
-                if assembly.solver_preview.delay_history
-                    == "delay_call_runtime_buffer_pending_integration"
-                {
-                    assembly.solver_preview.delay_history =
-                        "delay_call_runtime_buffer_integrated".to_owned();
+            if behavior_graph_solution_executed(solution) {
+                if assembly.solver_preview.delay_history == BEHAVIOR_STATUS_DECLARED {
+                    assembly.solver_preview.delay_history = BEHAVIOR_STATUS_EXECUTED.to_owned();
                 }
-                if assembly.solver_preview.predictor
-                    == "predictor_call_contract_pending_integration"
-                {
-                    assembly.solver_preview.predictor =
-                        "predictor_call_contract_integrated".to_owned();
+                if assembly.solver_preview.predictor == BEHAVIOR_STATUS_DECLARED {
+                    assembly.solver_preview.predictor = BEHAVIOR_STATUS_EXECUTED.to_owned();
                 }
-                if assembly.solver_preview.external_adapter
-                    == "external_behavior_wrapper_pending_integration"
-                {
-                    assembly.solver_preview.external_adapter =
-                        "external_behavior_wrapper_integrated".to_owned();
+                if assembly.solver_preview.external_adapter == BEHAVIOR_STATUS_DECLARED {
+                    assembly.solver_preview.external_adapter = BEHAVIOR_STATUS_EXECUTED.to_owned();
                 }
             }
         }
-        if behavior_graph_integrated {
-            mark_behavior_graph_report_integrated(spec);
+        if behavior_graph_executed {
+            mark_behavior_graph_report_executed(spec);
         }
     }
 }
@@ -1000,7 +995,7 @@ fn report_assembly_summary_from_source_system_solution(
             .unwrap_or(0),
     }
 }
-fn behavior_graph_solution_integrated(solution: &RuntimeComponentSolution) -> bool {
+fn behavior_graph_solution_executed(solution: &RuntimeComponentSolution) -> bool {
     solution.method.starts_with("behavior_graph_")
         && solution.status == "computed"
         && solution.failure_artifact.is_none()
@@ -1033,33 +1028,27 @@ fn apply_residual_graph_solution_metadata(
     }
 }
 
-fn mark_behavior_graph_report_integrated(spec: &mut ReportSpec) {
+fn mark_behavior_graph_report_executed(spec: &mut ReportSpec) {
     for node in &mut spec.component_graph.behavior_nodes {
         match node.behavior_kind.as_str() {
             "delay" => {
-                node.status = "delay_call_runtime_buffer_integrated".to_owned();
-                node.relationship_status = Some("delay_relationship_runtime_evaluated".to_owned());
+                node.status = BEHAVIOR_STATUS_EXECUTED.to_owned();
+                node.relationship_status = Some(BEHAVIOR_RELATIONSHIP_EXECUTED.to_owned());
                 node.runtime_warning_status =
-                    Some("evaluated_in_language_behavior_graph".to_owned());
+                    Some(BEHAVIOR_RUNTIME_DIAGNOSTICS_AVAILABLE.to_owned());
             }
             "predictor" => {
-                node.status = "predictor_call_contract_integrated".to_owned();
+                node.status = BEHAVIOR_STATUS_EXECUTED.to_owned();
                 node.jacobian_policy = Some("finite_difference_allowed".to_owned());
                 node.runtime_warning_status =
-                    Some("evaluated_in_language_behavior_graph".to_owned());
-                fill_behavior_output_contract_from_input(
-                    node,
-                    "predictor_output_typed_identity_runtime",
-                );
+                    Some(BEHAVIOR_RUNTIME_DIAGNOSTICS_AVAILABLE.to_owned());
+                fill_behavior_output_contract_from_input(node, BEHAVIOR_IDENTITY_RUNTIME);
             }
             "external" => {
-                node.status = "external_behavior_wrapper_integrated".to_owned();
+                node.status = BEHAVIOR_STATUS_EXECUTED.to_owned();
                 node.runtime_warning_status =
-                    Some("evaluated_in_language_behavior_graph".to_owned());
-                fill_behavior_output_contract_from_input(
-                    node,
-                    "external_output_typed_identity_runtime",
-                );
+                    Some(BEHAVIOR_RUNTIME_DIAGNOSTICS_AVAILABLE.to_owned());
+                fill_behavior_output_contract_from_input(node, BEHAVIOR_IDENTITY_RUNTIME);
             }
             _ => {}
         }
@@ -1074,11 +1063,9 @@ fn fill_behavior_output_contract_from_input(
         return;
     };
     for output in &mut node.contract_outputs {
-        if output.quantity_kind == "unspecified_by_seed" {
-            output.quantity_kind = input.quantity_kind.clone();
-            output.display_unit = input.display_unit.clone();
-            output.canonical_unit = input.canonical_unit.clone();
-        }
+        output.quantity_kind = input.quantity_kind.clone();
+        output.display_unit = input.display_unit.clone();
+        output.canonical_unit = input.canonical_unit.clone();
         output.status = status.to_owned();
     }
 }
@@ -2137,7 +2124,7 @@ impl RuntimeComponentSolution {
         let equation_count = solver_assembly.equation_count();
         let unknown_count = solver_assembly.unknown_count();
         let mut variable_values = vec![0.0; unknown_count];
-        let mut variable_status = "homogeneous_zero_seed".to_owned();
+        let mut variable_status = "homogeneous_zero_initial_guess".to_owned();
         let mut method = "linear_residual_graph_shape_check".to_owned();
         let mut iteration_count = usize::from(equation_count > 0 && unknown_count > 0);
         let mut linear_condition_estimate = None;
@@ -11652,9 +11639,9 @@ fn materialize_system_algebraic_solutions(report: &CheckReport) -> Vec<RuntimeCo
     solutions
 }
 const COMPONENT_LINEAR_SOLVER_TOLERANCE: f64 = 1e-9;
-const COMPONENT_BEHAVIOR_NOT_INTEGRATED_CODE: &str = "E-BEHAVIOR-NOT-INTEGRATED";
-const COMPONENT_BEHAVIOR_NOT_INTEGRATED_NOTE: &str =
-    "behavior graph nodes are present but not yet integrated into numeric residual evaluation";
+const COMPONENT_BEHAVIOR_NOT_EXECUTED_CODE: &str = "E-BEHAVIOR-GRAPH-NOT-EXECUTED";
+const COMPONENT_BEHAVIOR_NOT_EXECUTED_NOTE: &str =
+    "behavior nodes are declared, but this component solve path does not execute the behavior graph";
 
 #[derive(Clone, Debug, PartialEq)]
 struct ComponentSolveRequest {
@@ -12012,8 +11999,8 @@ fn dae_component_solution_from_solve_request(
     request: &ComponentSolveRequest,
     series: &[RuntimeTimeSeries],
 ) -> RuntimeComponentSolution {
-    let has_behavior_seed = component_assembly_has_behavior_seed(component_info);
-    let method = if has_behavior_seed {
+    let has_behavior_nodes = component_assembly_has_behavior_nodes(component_info);
+    let method = if has_behavior_nodes {
         "behavior_graph_implicit_euler_dae_source"
     } else {
         "implicit_euler_dae_source_residual_graph"
@@ -12162,7 +12149,7 @@ fn dae_component_solution_from_solve_request(
             );
         }
     };
-    let (mut behavior_graph, behavior_output_symbols) = if has_behavior_seed {
+    let (mut behavior_graph, behavior_output_symbols) = if has_behavior_nodes {
         match source_behavior_graph_from_report(
             report,
             solver_assembly,
@@ -12544,7 +12531,7 @@ fn dae_component_solution_from_solve_request(
     } else {
         " and source input materialization"
     };
-    let behavior_reason = if has_behavior_seed {
+    let behavior_reason = if has_behavior_nodes {
         " and behavior graph residual evaluation"
     } else {
         ""
@@ -12695,7 +12682,7 @@ fn dynamic_component_solution_from_solve_request(
         ..DynamicComponentOptions::default()
     };
     if solver == "dynamic_component_explicit_euler"
-        && component_assembly_has_behavior_seed(component_info)
+        && component_assembly_has_behavior_nodes(component_info)
     {
         return behavior_dynamic_component_solution_from_solve_request(
             report,
@@ -14182,7 +14169,7 @@ fn behavior_dynamic_component_solution_from_solve_request(
             {
                 "behavior_graph_range_warning".to_owned()
             } else {
-                "behavior_graph_integrated".to_owned()
+                BEHAVIOR_GRAPH_EXECUTED.to_owned()
             };
             solution
         }
@@ -14276,7 +14263,7 @@ fn source_behavior_graph_from_report(
                     if !mode.allows_delay() {
                         return Err(SolverFailure::new(
                             "E-BEHAVIOR-SOURCE-DAE-DELAY",
-                            "delay behavior nodes are not yet integrated into implicit-Euler DAE residual evaluation because delay history mutation during Newton iteration needs a dedicated replay policy",
+                            "implicit-Euler DAE behavior graphs do not support delay nodes because Newton replay has no delay-history mutation policy",
                         ));
                     }
                     let delay_s = call.delay_s.ok_or_else(|| {
@@ -17640,44 +17627,42 @@ fn annotate_component_behavior_solution(
     solution: &mut RuntimeComponentSolution,
     assembly: &eng_compiler::ComponentAssemblyInfo,
 ) {
-    if !component_assembly_has_behavior_seed(assembly) {
+    if !component_assembly_has_behavior_nodes(assembly) {
         return;
     }
-    if solution.method.starts_with("behavior_graph_")
-        || solution.convergence_status.starts_with("behavior_graph_")
-    {
+    if behavior_graph_solution_executed(solution) {
         return;
     }
-    append_component_solution_reason(solution, COMPONENT_BEHAVIOR_NOT_INTEGRATED_NOTE);
+    append_component_solution_reason(solution, COMPONENT_BEHAVIOR_NOT_EXECUTED_NOTE);
     if solution.failure_artifact.is_none() {
-        solution.status = "not_solved_behavior_not_integrated".to_owned();
-        solution.convergence_status = "behavior_graph_not_integrated".to_owned();
+        solution.status = BEHAVIOR_SOLUTION_NOT_EXECUTED.to_owned();
+        solution.convergence_status = BEHAVIOR_GRAPH_NOT_EXECUTED.to_owned();
         for variable in &mut solution.variables {
             if variable.status == "solved_linear" {
-                variable.status = "behavior_not_integrated".to_owned();
+                variable.status = BEHAVIOR_VARIABLE_NOT_EVALUATED.to_owned();
             }
         }
         solution.failure_artifact = Some(RuntimeSolverFailureArtifact {
-            code: COMPONENT_BEHAVIOR_NOT_INTEGRATED_CODE.to_owned(),
-            message: COMPONENT_BEHAVIOR_NOT_INTEGRATED_NOTE.to_owned(),
+            code: COMPONENT_BEHAVIOR_NOT_EXECUTED_CODE.to_owned(),
+            message: COMPONENT_BEHAVIOR_NOT_EXECUTED_NOTE.to_owned(),
         });
     } else if let Some(failure) = &mut solution.failure_artifact {
         if !failure
             .message
-            .contains(COMPONENT_BEHAVIOR_NOT_INTEGRATED_NOTE)
+            .contains(COMPONENT_BEHAVIOR_NOT_EXECUTED_NOTE)
         {
             failure.message = format!(
                 "{}; {}",
-                failure.message, COMPONENT_BEHAVIOR_NOT_INTEGRATED_NOTE
+                failure.message, COMPONENT_BEHAVIOR_NOT_EXECUTED_NOTE
             );
         }
     }
 }
 
-fn component_assembly_has_behavior_seed(assembly: &eng_compiler::ComponentAssemblyInfo) -> bool {
-    assembly.solver_preview.delay_history != "deferred_no_delay_calls"
-        || assembly.solver_preview.predictor != "deferred_no_predictor_calls"
-        || assembly.solver_preview.external_adapter != "deferred_no_external_behavior_adapter"
+fn component_assembly_has_behavior_nodes(assembly: &eng_compiler::ComponentAssemblyInfo) -> bool {
+    assembly.solver_preview.delay_history != BEHAVIOR_STATUS_NOT_DECLARED
+        || assembly.solver_preview.predictor != BEHAVIOR_STATUS_NOT_DECLARED
+        || assembly.solver_preview.external_adapter != BEHAVIOR_STATUS_NOT_DECLARED
 }
 
 fn append_component_solution_reason(solution: &mut RuntimeComponentSolution, note: &str) {
@@ -25289,7 +25274,7 @@ with {
     }
 
     #[test]
-    fn behavior_seed_prevents_claiming_linear_component_solve() {
+    fn behavior_nodes_prevent_claiming_linear_component_solve() {
         let behavior_report = check_source(
             "behavior.eng",
             "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Source {\n    port out: Thermal\n    temperature_signal = out.T\n    delayed_temperature = delay(temperature_signal, 5 s)\n}\n\ncomponent Sink {\n    port inlet: Thermal\n}\n\nconnect Source.out -> Sink.inlet\n",
@@ -25305,22 +25290,22 @@ with {
 
         annotate_component_behavior_solution(&mut solution, behavior_assembly);
 
-        assert_eq!(solution.status, "not_solved_behavior_not_integrated");
-        assert_eq!(solution.convergence_status, "behavior_graph_not_integrated");
+        assert_eq!(solution.status, BEHAVIOR_SOLUTION_NOT_EXECUTED);
+        assert_eq!(solution.convergence_status, BEHAVIOR_GRAPH_NOT_EXECUTED);
         assert!(solution
             .variables
             .iter()
-            .all(|variable| variable.status == "behavior_not_integrated"));
+            .all(|variable| variable.status == BEHAVIOR_VARIABLE_NOT_EVALUATED));
         assert_eq!(
             solution
                 .failure_artifact
                 .as_ref()
                 .map(|failure| failure.code.as_str()),
-            Some(COMPONENT_BEHAVIOR_NOT_INTEGRATED_CODE)
+            Some(COMPONENT_BEHAVIOR_NOT_EXECUTED_CODE)
         );
         assert!(solution
             .reason
-            .contains(COMPONENT_BEHAVIOR_NOT_INTEGRATED_NOTE));
+            .contains(COMPONENT_BEHAVIOR_NOT_EXECUTED_NOTE));
 
         let mut spec = eng_report::report_spec_from_report(
             &behavior_report,
@@ -25333,8 +25318,8 @@ with {
         }
         .apply_component_solutions(&mut spec);
         let json = eng_report::report_spec_json(&spec);
-        assert!(json.contains("\"status\": \"not_solved_behavior_not_integrated\""));
-        assert!(json.contains("\"failure_code\": \"E-BEHAVIOR-NOT-INTEGRATED\""));
+        assert!(json.contains("\"status\": \"not_solved_behavior_graph_not_executed\""));
+        assert!(json.contains("\"failure_code\": \"E-BEHAVIOR-GRAPH-NOT-EXECUTED\""));
     }
 
     #[test]

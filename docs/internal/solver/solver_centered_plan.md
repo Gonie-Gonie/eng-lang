@@ -59,7 +59,7 @@ end:
 | SOLVER-501 | Delay history buffer | Implemented as solver-API behavior path and covered by CLI smoke for interpolation plus history-underflow failure artifacts. |
 | SOLVER-502 | Predictor behavior contract | Implemented as solver-API behavior path and covered by CLI smoke for valid-range warnings, contract metadata, and output-layout failure artifacts. |
 | SOLVER-503 | External behavior wrapper | Implemented as solver-API behavior path and covered by CLI smoke for deterministic repro execution, safe-profile rejection, and adapter failure wrapping. |
-| SOLVER-504 | Behavior node report/IDE | Implemented for delay, Predictor, and external behavior metadata, including inferred contract fields and diagnostic channels; narrow unitful temperature explicit-Euler source behavior RHS smokes mark behavior nodes integrated in runtime/report/IDE artifacts, and narrow DAE Predictor/external residual samples mark integrated behavior while DAE delay reports an explicit unsupported artifact. |
+| SOLVER-504 | Behavior node report/IDE | Implemented for delay, Predictor, and external behavior metadata, including inferred contract fields and diagnostic channels; narrow unitful temperature explicit-Euler source behavior RHS smokes mark behavior nodes executed in runtime/report/IDE artifacts, and narrow DAE Predictor/external residual samples record executed behavior while DAE delay reports an explicit unsupported artifact. |
 
 ## Checklist Ladder
 

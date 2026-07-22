@@ -14,14 +14,14 @@
     "format": "eng-report-spec-v1",
     "report_schema_version": 1,
     "behavior_node_count": 3,
-    "delay_history": "delay_call_runtime_buffer_pending_integration",
-    "predictor": "predictor_call_contract_pending_integration",
-    "external_adapter": "external_behavior_wrapper_pending_integration"
+    "delay_history": "declared_not_executed",
+    "predictor": "declared_not_executed",
+    "external_adapter": "declared_not_executed"
   },
   "behavior_nodes": [
     {
       "behavior_kind": "delay",
-      "status": "delay_call_runtime_buffer_pending_integration",
+      "status": "declared_not_executed",
       "signal": "temperature_signal",
       "delay_s": 5.0,
       "contract_status": null,
@@ -32,23 +32,23 @@
     },
     {
       "behavior_kind": "predictor",
-      "status": "predictor_call_contract_pending_integration",
+      "status": "declared_not_executed",
       "signal": "temperature_signal",
       "delay_s": null,
-      "contract_status": "predictor_contract_metadata",
-      "jacobian_policy": "solver_policy_not_integrated",
+      "contract_status": "contract_resolved",
+      "jacobian_policy": "finite_difference_on_execution",
       "profile_policy": null,
       "input_contract_status": "component_local_signal_resolved",
       "input_quantity_kind": "AbsoluteTemperature"
     },
     {
       "behavior_kind": "external",
-      "status": "external_behavior_wrapper_pending_integration",
+      "status": "declared_not_executed",
       "signal": "out.Q",
       "delay_s": null,
-      "contract_status": "external_behavior_contract_metadata",
+      "contract_status": "contract_resolved",
       "jacobian_policy": null,
-      "profile_policy": "safe_repro_profile_policy_metadata",
+      "profile_policy": "safe_repro_policy_on_execution",
       "input_contract_status": "domain_signal_resolved",
       "input_quantity_kind": "HeatRate"
     }

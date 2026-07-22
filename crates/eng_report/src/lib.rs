@@ -1,5 +1,12 @@
 use eng_compiler::{
-    extract_review_document, CheckReport, DomainTypeParameterInfo, ReviewDocumentError, Severity,
+    component_behavior_calls, extract_review_document, CheckReport, DomainTypeParameterInfo,
+    ReviewDocumentError, Severity, BEHAVIOR_CONTRACT_RESOLVED, BEHAVIOR_GRAPH_EXECUTED,
+    BEHAVIOR_GRAPH_NOT_EXECUTED, BEHAVIOR_IDENTITY_CONTRACT, BEHAVIOR_IDENTITY_RUNTIME,
+    BEHAVIOR_JACOBIAN_POLICY, BEHAVIOR_PROFILE_POLICY, BEHAVIOR_RELATIONSHIP_EXECUTED,
+    BEHAVIOR_RELATIONSHIP_RESOLVED, BEHAVIOR_RUNTIME_DIAGNOSTICS_AVAILABLE,
+    BEHAVIOR_RUNTIME_DIAGNOSTICS_UNAVAILABLE, BEHAVIOR_SOLUTION_NOT_EXECUTED,
+    BEHAVIOR_STATUS_DECLARED, BEHAVIOR_STATUS_EXECUTED, BEHAVIOR_STATUS_NOT_DECLARED,
+    BEHAVIOR_VARIABLE_NOT_EVALUATED,
 };
 use eng_jit::{candidate_executor_status, plan_for_report};
 use serde_json::Value;
@@ -2216,26 +2223,29 @@ fn report_component_behavior_nodes(report: &CheckReport) -> Vec<ReportComponentG
         .iter()
         .flat_map(|component| {
             component.local_expressions.iter().flat_map(move |local| {
-                report_behavior_node_seeds(report, component, local)
+                report_behavior_node_descriptors(report, component, local)
                     .into_iter()
-                    .map(move |seed| ReportComponentGraphBehaviorNode {
-                        id: format!("{}.{}:{}", component.name, local.name, seed.behavior_kind),
+                    .map(move |descriptor| ReportComponentGraphBehaviorNode {
+                        id: format!(
+                            "{}.{}:{}",
+                            component.name, local.name, descriptor.behavior_kind
+                        ),
                         kind: "behavior".to_owned(),
-                        behavior_kind: seed.behavior_kind,
+                        behavior_kind: descriptor.behavior_kind,
                         component: component.name.clone(),
                         name: local.name.clone(),
                         expression: local.expression.clone(),
-                        status: seed.status,
-                        signal: seed.signal,
-                        delay_s: seed.delay_s,
-                        relationship_status: seed.relationship_status,
-                        contract_status: seed.contract_status,
-                        jacobian_policy: seed.jacobian_policy,
-                        profile_policy: seed.profile_policy,
-                        contract_inputs: seed.contract_inputs,
-                        contract_outputs: seed.contract_outputs,
-                        diagnostic_channels: seed.diagnostic_channels,
-                        runtime_warning_status: seed.runtime_warning_status,
+                        status: descriptor.status,
+                        signal: descriptor.signal,
+                        delay_s: descriptor.delay_s,
+                        relationship_status: descriptor.relationship_status,
+                        contract_status: descriptor.contract_status,
+                        jacobian_policy: descriptor.jacobian_policy,
+                        profile_policy: descriptor.profile_policy,
+                        contract_inputs: descriptor.contract_inputs,
+                        contract_outputs: descriptor.contract_outputs,
+                        diagnostic_channels: descriptor.diagnostic_channels,
+                        runtime_warning_status: descriptor.runtime_warning_status,
                         line: local.line,
                         source_span: report_source_span(local.line),
                     })
@@ -2244,7 +2254,7 @@ fn report_component_behavior_nodes(report: &CheckReport) -> Vec<ReportComponentG
         .collect()
 }
 
-struct ReportBehaviorSeed {
+struct ReportBehaviorDescriptor {
     behavior_kind: String,
     status: String,
     signal: Option<String>,
@@ -2259,17 +2269,16 @@ struct ReportBehaviorSeed {
     runtime_warning_status: Option<String>,
 }
 
-fn report_behavior_node_seeds(
+fn report_behavior_node_descriptors(
     report: &CheckReport,
     component: &eng_compiler::ComponentInfo,
     local: &eng_compiler::ComponentLocalExpressionInfo,
-) -> Vec<ReportBehaviorSeed> {
+) -> Vec<ReportBehaviorDescriptor> {
     let expression = &local.expression;
-    let normalized = expression.to_ascii_lowercase();
+    let calls = component_behavior_calls(expression);
     let mut nodes = Vec::new();
-    if normalized.contains("delay(") {
-        let arguments =
-            first_report_behavior_call_arguments(expression, "delay").unwrap_or_default();
+    if let Some(call) = calls.iter().find(|call| call.behavior_kind == "delay") {
+        let arguments = &call.arguments;
         let signal = arguments.first().cloned();
         let mut contract_inputs = Vec::new();
         if let Some(signal) = signal.as_deref() {
@@ -2297,14 +2306,14 @@ fn report_behavior_node_seeds(
             })
             .into_iter()
             .collect();
-        nodes.push(ReportBehaviorSeed {
+        nodes.push(ReportBehaviorDescriptor {
             behavior_kind: "delay".to_owned(),
-            status: "delay_call_runtime_buffer_pending_integration".to_owned(),
+            status: BEHAVIOR_STATUS_DECLARED.to_owned(),
             signal,
             delay_s: arguments
                 .get(1)
                 .and_then(|duration| report_duration_seconds(duration.trim())),
-            relationship_status: Some("delay_relationship_metadata_only".to_owned()),
+            relationship_status: Some(BEHAVIOR_RELATIONSHIP_RESOLVED.to_owned()),
             contract_status: None,
             jacobian_policy: None,
             profile_policy: None,
@@ -2314,13 +2323,11 @@ fn report_behavior_node_seeds(
                 "delay_history_underflow_failure".to_owned(),
                 "delay_out_of_order_sample_failure".to_owned(),
             ],
-            runtime_warning_status: Some("not_evaluated_in_language_behavior_graph".to_owned()),
+            runtime_warning_status: Some(BEHAVIOR_RUNTIME_DIAGNOSTICS_UNAVAILABLE.to_owned()),
         });
     }
-    if normalized.contains("predict(") || normalized.contains("predictor(") {
-        let signal = first_report_behavior_call_arguments(expression, "predictor")
-            .or_else(|| first_report_behavior_call_arguments(expression, "predict"))
-            .and_then(|arguments| arguments.first().cloned());
+    if let Some(call) = calls.iter().find(|call| call.behavior_kind == "predictor") {
+        let signal = call.arguments.first().cloned();
         let contract_inputs: Vec<ReportBehaviorSignalContract> = signal
             .as_deref()
             .map(|signal| {
@@ -2328,19 +2335,19 @@ fn report_behavior_node_seeds(
             })
             .into_iter()
             .collect();
-        nodes.push(ReportBehaviorSeed {
+        nodes.push(ReportBehaviorDescriptor {
             behavior_kind: "predictor".to_owned(),
-            status: "predictor_call_contract_pending_integration".to_owned(),
+            status: BEHAVIOR_STATUS_DECLARED.to_owned(),
             signal,
             delay_s: None,
             relationship_status: None,
-            contract_status: Some("predictor_contract_metadata".to_owned()),
-            jacobian_policy: Some("solver_policy_not_integrated".to_owned()),
+            contract_status: Some(BEHAVIOR_CONTRACT_RESOLVED.to_owned()),
+            jacobian_policy: Some(BEHAVIOR_JACOBIAN_POLICY.to_owned()),
             profile_policy: None,
             contract_outputs: report_behavior_identity_output_contract(
                 &contract_inputs,
                 &local.name,
-                "predictor_output_typed_identity_contract",
+                BEHAVIOR_IDENTITY_CONTRACT,
                 "predictor_output_contract_unresolved",
             ),
             contract_inputs,
@@ -2348,15 +2355,11 @@ fn report_behavior_node_seeds(
                 "predictor_valid_range_warning".to_owned(),
                 "predictor_output_layout_failure".to_owned(),
             ],
-            runtime_warning_status: Some(
-                "solver_api_only_until_behavior_graph_integration".to_owned(),
-            ),
+            runtime_warning_status: Some(BEHAVIOR_RUNTIME_DIAGNOSTICS_UNAVAILABLE.to_owned()),
         });
     }
-    if normalized.contains("external(") || normalized.contains("adapter(") {
-        let signal = first_report_behavior_call_arguments(expression, "external")
-            .or_else(|| first_report_behavior_call_arguments(expression, "adapter"))
-            .and_then(|arguments| arguments.first().cloned());
+    if let Some(call) = calls.iter().find(|call| call.behavior_kind == "external") {
+        let signal = call.arguments.first().cloned();
         let contract_inputs: Vec<ReportBehaviorSignalContract> = signal
             .as_deref()
             .map(|signal| {
@@ -2364,19 +2367,19 @@ fn report_behavior_node_seeds(
             })
             .into_iter()
             .collect();
-        nodes.push(ReportBehaviorSeed {
+        nodes.push(ReportBehaviorDescriptor {
             behavior_kind: "external".to_owned(),
-            status: "external_behavior_wrapper_pending_integration".to_owned(),
+            status: BEHAVIOR_STATUS_DECLARED.to_owned(),
             signal,
             delay_s: None,
             relationship_status: None,
-            contract_status: Some("external_behavior_contract_metadata".to_owned()),
+            contract_status: Some(BEHAVIOR_CONTRACT_RESOLVED.to_owned()),
             jacobian_policy: None,
-            profile_policy: Some("safe_repro_profile_policy_metadata".to_owned()),
+            profile_policy: Some(BEHAVIOR_PROFILE_POLICY.to_owned()),
             contract_outputs: report_behavior_identity_output_contract(
                 &contract_inputs,
                 &local.name,
-                "external_output_typed_identity_contract",
+                BEHAVIOR_IDENTITY_CONTRACT,
                 "external_output_contract_unresolved",
             ),
             contract_inputs,
@@ -2384,9 +2387,7 @@ fn report_behavior_node_seeds(
                 "external_profile_policy_failure".to_owned(),
                 "external_adapter_failure".to_owned(),
             ],
-            runtime_warning_status: Some(
-                "solver_api_only_until_behavior_graph_integration".to_owned(),
-            ),
+            runtime_warning_status: Some(BEHAVIOR_RUNTIME_DIAGNOSTICS_UNAVAILABLE.to_owned()),
         });
     }
     nodes
@@ -2526,35 +2527,6 @@ fn report_named_signal_contract(
         canonical_unit: variable.canonical_unit.clone(),
         status: "domain_signal_resolved".to_owned(),
     })
-}
-
-fn first_report_behavior_call_arguments(expression: &str, call_name: &str) -> Option<Vec<String>> {
-    let lowered = expression.to_ascii_lowercase();
-    let needle = format!("{call_name}(");
-    let start = lowered.find(&needle)?;
-    let open_index = start + call_name.len();
-    let mut depth = 0i32;
-    let mut close_index = None;
-    for (index, character) in expression[open_index..].char_indices() {
-        match character {
-            '(' => depth += 1,
-            ')' => {
-                depth -= 1;
-                if depth == 0 {
-                    close_index = Some(open_index + index);
-                    break;
-                }
-            }
-            _ => {}
-        }
-    }
-    let close_index = close_index?;
-    Some(
-        report_split_behavior_arguments(&expression[open_index + 1..close_index])
-            .into_iter()
-            .filter(|part| !part.is_empty())
-            .collect(),
-    )
 }
 
 fn report_behavior_call_arguments_expression(expression: &str, call_name: &str) -> Option<String> {
@@ -2705,30 +2677,40 @@ fn report_status_label(status: &str) -> &str {
     match status {
         "algebraic_only_preview" => "algebraic-only preview",
         "algebraic_split_preview" => "algebraic split preview",
+        BEHAVIOR_GRAPH_EXECUTED => "behavior graph executed",
+        BEHAVIOR_GRAPH_NOT_EXECUTED => "behavior graph not executed by this solve path",
+        BEHAVIOR_VARIABLE_NOT_EVALUATED => "behavior variable not evaluated by this solve path",
         "component_local_signal_resolved" => "component-local signal resolved",
+        "declaration_only" => "declaration only",
+        "domain_signal_resolved" => "domain signal resolved",
         "dae_split_deferred" => "DAE split deferred",
-        "delay_call_runtime_buffer_pending_integration" => {
-            "delay runtime buffer not connected to this language-level solve"
-        }
-        "delay_relationship_metadata_only" => "delay relationship metadata",
-        "external_behavior_contract_metadata" => "external behavior contract metadata",
-        "external_behavior_wrapper_pending_integration" => {
-            "external behavior adapter not connected to this language-level solve"
-        }
-        "external_output_typed_identity_contract" => "external output typed from input",
+        BEHAVIOR_STATUS_NOT_DECLARED => "not declared",
+        BEHAVIOR_STATUS_DECLARED => "declared, not executed",
+        BEHAVIOR_STATUS_EXECUTED => "executed in behavior graph",
+        BEHAVIOR_RELATIONSHIP_RESOLVED => "relationship resolved",
+        BEHAVIOR_RELATIONSHIP_EXECUTED => "relationship evaluated in behavior graph",
+        BEHAVIOR_CONTRACT_RESOLVED => "contract resolved",
+        BEHAVIOR_JACOBIAN_POLICY => "finite difference on execution",
+        BEHAVIOR_PROFILE_POLICY => "safe/repro policy checked on execution",
+        BEHAVIOR_RUNTIME_DIAGNOSTICS_UNAVAILABLE => "runtime diagnostics unavailable",
+        BEHAVIOR_RUNTIME_DIAGNOSTICS_AVAILABLE => "runtime diagnostics available",
+        BEHAVIOR_IDENTITY_CONTRACT => "typed identity contract",
+        BEHAVIOR_IDENTITY_RUNTIME => "typed from runtime input",
+        "external_output_contract_unresolved" => "external output contract unresolved",
+        "finite_difference_allowed" => "finite difference allowed",
+        "literal_duration_resolved" => "duration resolved",
         "mixed_state_algebraic_preview" => "mixed state/algebraic preview",
         "no_jit_speed_claim" => "no JIT speed claim",
         "not_adaptive" => "not adaptive",
         "not_full_dae" => "not a full DAE solve",
         "not_general_nonlinear" => "not a general nonlinear solve",
-        "not_production_multi_domain" => "not production multi-domain",
-        "predictor_call_contract_pending_integration" => {
-            "Predictor contract not connected to this language-level solve"
+        BEHAVIOR_SOLUTION_NOT_EXECUTED => {
+            "not solved because this path does not execute behavior nodes"
         }
-        "predictor_contract_metadata" => "Predictor contract metadata",
-        "predictor_output_typed_identity_contract" => "Predictor output typed from input",
-        "safe_repro_profile_policy_metadata" => "safe/repro profile policy metadata",
-        "solver_policy_not_integrated" => "solver policy not connected",
+        "not_production_multi_domain" => "not production multi-domain",
+        "predictor_output_contract_unresolved" => "Predictor output contract unresolved",
+        "same_quantity_as_delayed_signal" => "same quantity as delayed signal",
+        "signal_contract_unresolved" => "signal contract unresolved",
         "symbolic_residual_preview_no_nonlinear_iteration" => {
             "symbolic residual preview, no nonlinear iteration"
         }
@@ -8220,10 +8202,10 @@ fn render_component_solver_section(spec: &ReportSpec) -> String {
                 "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
                 assembly.line,
                 html_escape(&assembly.name),
-                html_escape(&assembly.status),
+                html_escape(report_status_label(&assembly.status)),
                 assembly.boundary.equation_count,
                 assembly.boundary.unknown_count,
-                html_escape(&assembly.residual_graph.status),
+                html_escape(report_status_label(&assembly.residual_graph.status)),
                 html_escape(&assembly.residual_graph.solver_plan),
                 html_escape(&residual_norm),
                 html_escape(&conditioning),
@@ -9228,6 +9210,30 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    fn behavior_status_labels_distinguish_declaration_and_execution() {
+        assert_eq!(
+            report_status_label(BEHAVIOR_STATUS_DECLARED),
+            "declared, not executed"
+        );
+        assert_eq!(
+            report_status_label(BEHAVIOR_STATUS_EXECUTED),
+            "executed in behavior graph"
+        );
+        assert_eq!(
+            report_status_label(BEHAVIOR_GRAPH_EXECUTED),
+            "behavior graph executed"
+        );
+        assert_eq!(
+            report_status_label(BEHAVIOR_GRAPH_NOT_EXECUTED),
+            "behavior graph not executed by this solve path"
+        );
+        assert_eq!(
+            report_status_label(BEHAVIOR_VARIABLE_NOT_EVALUATED),
+            "behavior variable not evaluated by this solve path"
+        );
+    }
+
+    #[test]
     fn plotspec_uses_timeseries_axis_unit_labels() {
         let report = check_source(
             "ok.eng",
@@ -9612,7 +9618,7 @@ mod tests {
             spec.component_graph.behavior_nodes[0]
                 .relationship_status
                 .as_deref(),
-            Some("delay_relationship_metadata_only")
+            Some(BEHAVIOR_RELATIONSHIP_RESOLVED)
         );
         assert_eq!(
             spec.component_graph.behavior_nodes[0].contract_inputs[0].name,
@@ -9674,7 +9680,7 @@ mod tests {
         assert!(json.contains("\"component_summary\""));
         assert!(json.contains("\"local_expression_count\": 1"));
         assert!(json.contains("\"pressure_seed\""));
-        assert!(json.contains("\"delay_call_runtime_buffer_pending_integration\""));
+        assert!(json.contains("\"declared_not_executed\""));
         assert!(json.contains("\"connection_summary\""));
         assert!(json.contains("\"assembly_summary\""));
         assert!(json.contains("\"solver_result\": null"));
@@ -9683,7 +9689,7 @@ mod tests {
         assert!(json.contains("\"behavior_kind\": \"delay\""));
         assert!(json.contains("\"signal\": \"outlet.m_dot\""));
         assert!(json.contains("\"delay_s\": 5"));
-        assert!(json.contains("\"relationship_status\": \"delay_relationship_metadata_only\""));
+        assert!(json.contains("\"relationship_status\": \"relationship_resolved\""));
         assert!(json.contains("\"contract_inputs\""));
         assert!(json.contains("\"quantity_kind\": \"MassFlowRate\""));
         assert!(json.contains("\"diagnostic_channels\""));
@@ -9710,12 +9716,13 @@ mod tests {
         assert!(html.contains("pressure_seed"));
         assert!(html.contains("signal=outlet.m_dot"));
         assert!(html.contains("delay_s=5"));
-        assert!(html.contains("relationship=delay relationship metadata"));
+        assert!(html.contains("relationship=relationship resolved"));
         assert!(html.contains("inputs=input:outlet.m_dot:MassFlowRate"));
         assert!(html.contains("outputs=output:pressure_seed:MassFlowRate"));
         assert!(html.contains("diagnostics=delay_history_underflow_failure"));
-        assert!(!html.contains("delay_call_runtime_buffer_pending_integration"));
-        assert!(html.contains("delay runtime buffer not connected to this language-level solve"));
+        assert!(!html.contains("declared_not_executed"));
+        assert!(html.contains("declared, not executed"));
+        assert!(html.contains("runtime diagnostics unavailable"));
         assert!(html.contains("Connections"));
         assert!(html.contains("Component Assembly"));
         assert!(html.contains("constraint check"));
@@ -9807,12 +9814,12 @@ mod tests {
         );
         assert_eq!(
             predictor_node.contract_outputs[0].status,
-            "predictor_output_typed_identity_contract"
+            BEHAVIOR_IDENTITY_CONTRACT
         );
         assert!(json.contains("\"type_status\": \"delay_output_matches_signal\""));
         assert!(json.contains("\"component_local_signal_resolved\""));
         assert!(json.contains("\"delay_expression_signal_resolved\""));
-        assert!(json.contains("\"predictor_output_typed_identity_contract\""));
+        assert!(json.contains("\"typed_identity_contract\""));
         assert!(html.contains("signal=temperature_signal"));
         assert!(html.contains("signal=delay(out.T, 1 s)"));
         assert!(html.contains("inputs=input:temperature_signal:AbsoluteTemperature"));

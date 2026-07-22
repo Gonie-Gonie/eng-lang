@@ -7869,6 +7869,7 @@ function Invoke-IdeCheck {
     $TauriUiStylesPath = Join-Path $RepoRoot "crates\eng_ide\ui\styles.css"
     $TauriCapabilityPath = Join-Path $RepoRoot "crates\eng_ide\capabilities\main.json"
     $TauriEditorSafetyTestPath = Join-Path $RepoRoot "crates\eng_ide\tests\editorSafety.test.js"
+    $CompilerBehaviorSourcePath = Join-Path $RepoRoot "crates\eng_compiler\src\behavior.rs"
     $CompilerSemanticSourcePath = Join-Path $RepoRoot "crates\eng_compiler\src\semantic.rs"
     $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
     if (-not (Test-Path $TauriConfigPath)) {
@@ -7891,6 +7892,9 @@ function Invoke-IdeCheck {
     }
     if (-not (Test-Path $TauriEditorSafetyTestPath)) {
         throw "missing native IDE editor safety smoke at $TauriEditorSafetyTestPath"
+    }
+    if (-not (Test-Path $CompilerBehaviorSourcePath)) {
+        throw "missing compiler behavior contract source at $CompilerBehaviorSourcePath"
     }
     if (-not (Test-Path $CompilerSemanticSourcePath)) {
         throw "missing compiler semantic source at $CompilerSemanticSourcePath"
@@ -8615,25 +8619,68 @@ function Invoke-IdeCheck {
     if ($IdeUiSource.Contains('return "Native workflow support";')) {
         throw "Native IDE module fallback label should stay short; use compiler status_label for full registry wording"
     }
-    foreach ($RequiredBehaviorStatusToken in @(
+    $CanonicalBehaviorStatusTokens = @(
+        "not_declared",
+        "declared_not_executed",
+        "executed_in_behavior_graph",
+        "behavior_graph_executed",
+        "behavior_graph_not_executed",
+        "not_solved_behavior_graph_not_executed",
+        "behavior_variable_not_evaluated",
+        "relationship_resolved",
+        "relationship_evaluated_in_behavior_graph",
+        "contract_resolved",
+        "finite_difference_on_execution",
+        "safe_repro_policy_on_execution",
+        "runtime_diagnostics_not_available",
+        "runtime_diagnostics_available",
+        "typed_identity_contract",
+        "typed_from_runtime_input"
+    )
+    $CompilerBehaviorSource = Get-Content -LiteralPath $CompilerBehaviorSourcePath -Raw
+    foreach ($RequiredBehaviorStatusToken in $CanonicalBehaviorStatusTokens) {
+        if (-not $CompilerBehaviorSource.Contains($RequiredBehaviorStatusToken)) {
+            throw "Compiler behavior contract missing canonical status $RequiredBehaviorStatusToken"
+        }
+        if (-not $IdeUiSource.Contains($RequiredBehaviorStatusToken)) {
+            throw "Native IDE behavior status labels missing canonical artifact status $RequiredBehaviorStatusToken"
+        }
+    }
+    foreach ($RequiredBehaviorStatusLabel in @(
+        "declared, not executed",
+        "executed in behavior graph",
+        "behavior graph executed",
+        "behavior graph not executed by this solve path",
+        "behavior variable not evaluated by this solve path",
+        "not solved because this path does not execute behavior nodes",
+        "runtime diagnostics unavailable",
+        "runtime diagnostics available"
+    )) {
+        if (-not $IdeUiSource.Contains($RequiredBehaviorStatusLabel)) {
+            throw "Native IDE behavior status labels missing human wording $RequiredBehaviorStatusLabel"
+        }
+    }
+    $BehaviorStatusSources = $CompilerBehaviorSource + "`n" + $IdeUiSource
+    foreach ($ForbiddenBehaviorStatusToken in @(
         "delay_call_runtime_buffer_pending_integration",
         "predictor_call_contract_pending_integration",
         "external_behavior_wrapper_pending_integration",
+        "delay_relationship_metadata_only",
         "predictor_contract_metadata",
         "external_behavior_contract_metadata",
+        "solver_policy_not_integrated",
         "safe_repro_profile_policy_metadata",
+        "delay_call_runtime_buffer_integrated",
+        "predictor_call_contract_integrated",
+        "external_behavior_wrapper_integrated",
+        "evaluated_in_language_behavior_graph",
+        "not_evaluated_in_language_behavior_graph",
+        "predictor_output_typed_identity_contract",
+        "external_output_typed_identity_contract",
+        "behavior_graph_integrated",
         "behavior_graph_not_integrated",
         "behavior_not_integrated",
         "not_solved_behavior_not_integrated",
-        "behavior graph not connected to this language-level solve",
-        "behavior variable not connected to this language-level solve",
-        "not solved because behavior graph is not connected"
-    )) {
-        if (-not $IdeUiSource.Contains($RequiredBehaviorStatusToken)) {
-            throw "Native IDE behavior status labels missing current artifact status $RequiredBehaviorStatusToken"
-        }
-    }
-    foreach ($ForbiddenBehaviorStatusToken in @(
         "delay_call_runtime_buffer_seed_not_integrated",
         "predictor_call_contract_seed_not_integrated",
         "external_behavior_wrapper_seed_not_integrated",
@@ -8641,8 +8688,8 @@ function Invoke-IdeCheck {
         "external_behavior_contract_metadata_seed",
         "safe_repro_profile_policy_seed"
     )) {
-        if ($IdeUiSource.Contains($ForbiddenBehaviorStatusToken)) {
-            throw "Native IDE behavior status labels must not expose legacy seed status $ForbiddenBehaviorStatusToken"
+        if ($BehaviorStatusSources.Contains($ForbiddenBehaviorStatusToken)) {
+            throw "Behavior status contracts must not expose legacy status $ForbiddenBehaviorStatusToken"
         }
     }
     $CompilerSemanticSource = Get-Content -LiteralPath $CompilerSemanticSourcePath -Raw
