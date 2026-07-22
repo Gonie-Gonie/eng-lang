@@ -14,6 +14,6 @@ and IDE inspectors must expose:
 - normalized residuals and largest residuals
 - explicit solver status and convergence status
 
-This is still a constrained algebraic seed. It is not a production physical
-multi-domain simulation engine, not a nonlinear coupled component solver, and
-not a domain package ecosystem claim.
+This fixture executes a constrained native algebraic solve. It is not a
+production physical multi-domain simulation engine, a nonlinear coupled
+component solver, or a domain package ecosystem claim.

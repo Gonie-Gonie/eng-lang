@@ -108,8 +108,8 @@ when it has connection constraints, or `no_compatible_connections` otherwise.
 Its `source_span` selects the first source component name. Generated connection
 equations use `assembled_constraint`; component boundary and local equations use
 `component_boundary_constraint` and `component_equation_constraint`. These
-names describe executable constraints rather than future solver seeds. Runtime
-report specs preserve that span while updating solve status; only a runtime-only
+names describe executable constraints. Runtime report specs preserve that span
+while updating solve status; only a runtime-only
 source-system assembly without a component declaration reports `source_span = null`.
 The summary also records `domain_count`,
 `domain_plans`, component-local expression counts, and the legacy-named

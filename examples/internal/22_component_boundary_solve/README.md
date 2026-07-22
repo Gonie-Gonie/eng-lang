@@ -1,6 +1,7 @@
 # Component Boundary Solve
 
-Internal fixture for the component-assembly linear residual solver seed.
+Internal fixture that executes the native component-assembly linear residual
+solve.
 
 - `RoomBoundary` adds component-local boundary equations with
   `name = port.signal = literal`.
@@ -10,5 +11,5 @@ Internal fixture for the component-assembly linear residual solver seed.
 - Artifacts must show `solved_linear`, residuals, variables, and the explicit
   boundary RHS values.
 
-This is still a small algebraic assembly seed, not a production multi-domain
-component graph solver.
+The supported scope is a small algebraic assembly, not a production
+multi-domain component graph solver.

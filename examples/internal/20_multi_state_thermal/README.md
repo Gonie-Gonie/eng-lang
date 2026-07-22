@@ -11,6 +11,6 @@ This fixture exercises the internal multi-state state-space simulation path.
   entries surfaced in report/review/IDE inspection.
 - Runtime artifacts emit both `sim.T_air` and `sim.T_wall` TimeSeries values.
 
-This is an actual state-space runtime seed. It is not a public-supported
-general state-space workflow, nonlinear solver, DAE solver, adaptive solver, or
-production component-graph solver.
+This fixture executes the native multi-state state-space runtime path. It does
+not establish public support for a general state-space workflow, nonlinear
+solver, DAE solver, adaptive solver, or production component-graph solver.

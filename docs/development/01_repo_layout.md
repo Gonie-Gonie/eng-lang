@@ -10,7 +10,7 @@ Current public release layout:
 |   |-- eng_ide/        portable native IDE shell, built as eng-ide.exe
 |   |-- eng_jit/        internal hot-kernel detection and lowering-plan metadata
 |   |-- eng_lsp/        internal eng-lsp.exe smoke/snapshot/stdio editor service
-|   |-- eng_runtime/    run/build/doctor, VM seed, TimeSeries object store, artifacts
+|   |-- eng_runtime/    bytecode VM, native workflows, solvers, runtime artifacts
 |   `-- eng_report/     PlotSpec, SVG plot, HTML review report renderer
 |-- docs/
 |   |-- user/           first-user guide, tutorials, how-to, concepts
@@ -34,7 +34,7 @@ Current public release layout:
 |-- stdlib/             prelude and unit registry
 |-- tools/
 |   |-- docs/           optional documentation publishing scripts
-|   |-- python/         repo-local Python helper scripts
+|   |-- python/         optional documentation publishing requirements
 |   `-- vscode-englang/ optional VS Code extension source
 |-- artifacts/docs/     generated release documentation bundles
 |-- dev.bat             common execution-policy bypass wrapper
@@ -69,145 +69,92 @@ Rules:
 - Artifact changes must update docs/architecture/01_runtime_artifacts.md.
 ```
 
-## `eng_jit`
-
-Plans future native numeric kernels without changing runtime execution.
-
-Current responsibilities:
-
-```text
-hot-kernel detection
-eng-kernel-plan-v1 JSON
-TimeSeries arithmetic candidate detection
-TimeSeries statistics fusion candidate detection
-TimeSeries integration candidate detection
-system residual interface-only candidates
-```
-
-Current boundary:
-
-```text
-backend = interpreter-fallback
-no native code generation
-no speedup claim
-```
-
 ## `eng_compiler`
 
-Checks `.eng` source and emits reviewable compiler metadata.
+Owns the source-to-semantic contract for `.eng` programs.
 
 Current responsibilities:
 
 ```text
-lexer/parser
-source spans
-top-level workflow metadata
-fast `=` declarations
-no `:=` diagnostic
-dimensionless diagnostics
-ambiguous quantity warning
-schema and CSV promotion analysis
-TimeSeries/statistics metadata and runtime value hooks
-system/equation/residual metadata
-HeatRate sum lint
-physical equation == diagnostic
-equation unit consistency diagnostic
-workflow metadata
-bytecode v1 encode/decode
-review.json serialization
-review_schema_version and table sections
+lexer, parser, AST, formatter, and source spans
+imports, modules, declarations, expected types, and symbol metadata
+unit, dimension, quantity-kind, axis, and supported shape checks
+schema, table, TimeSeries, statistics, and plotting contracts
+native net/cache/sampling/case/db/model/uncertainty workflow contracts
+system, component, equation, residual, and behavior graph metadata
+diagnostics, hover/review metadata, and compiler quick fixes
+bytecode v1 encoding/decoding and review.json serialization
 ```
 
-Long-term responsibilities:
-
-```text
-name resolution
-unit/dimension/quantity-kind checking
-axis/shape checking
-typed IR
-function table
-bytecode/source map emission
-```
+Supported subsets and remaining gaps are tracked in
+[feature maturity](../current/feature_maturity_matrix.md) and the
+[internal solver plan](../internal/solver/generic_solver_completion_plan.md);
+the layout document does not duplicate those roadmaps.
 
 ## `eng_runtime`
 
-Turns compiler output into run/build artifacts.
+Executes compiler output and produces native runtime values and artifact
+payloads.
 
-Current outputs:
-
-```text
-.engbc
-.engres
-review.json
-report.html
-report_spec.json
-plots/plot_spec.json
-plots/plot_manifest.json
-plots/timeseries.svg
-dist/englang
-dist/englang-v<version>-windows-x64.zip
-dist/englang-v<version>-windows-x64.zip.sha256
-dist/englang-user-guide-v<version>.pdf
-dist/englang/eng-ide.exe
-dist/englang/docs/EngLang_User_Guide.pdf
-dist/<model>-standalone/eng.exe
-dist/<model>-standalone/run.bat
-dist/<model>-standalone/<model>.engpkg
-dist/<model>-standalone/<model>.lock
-```
-
-Current runtime responsibilities:
+Current responsibilities:
 
 ```text
 top-level workflow file run/build policy
-bytecode decode
-VM instruction execution
-object store
-RuntimeTable CSV column pages
-TimeSeries point materialization for the official CSV path
-computed statistics/integration payloads
-result.engres v1 generation
-source/bytecode/data provenance
-system residual-only payload metadata
-system IR dependency, solver-plan, and solver-boundary payload metadata
-packaged standalone runner bundle
-```
-
-Long-term responsibilities:
-
-```text
-numeric execution
-general TimeSeries pages
-PlotSpec payloads
-portable zip assembly
-portable clean-folder smoke
-AOT/optimized standalone execution
+bytecode decode and VM instruction execution
+typed scalar, object, table, and TimeSeries materialization
+native workflow execution for the module-registry-supported surface
+case scheduling, cache replay, model/DB, and uncertainty runtime data
+linear, fixed-point, Newton, ODE, state-space, DAE, component, and behavior
+  solver subsets documented by their examples and limitation artifacts
+result.engres, review/report payloads, logs, manifests, and provenance
+standalone and portable package runtime assembly
 ```
 
 ## `eng_report`
 
-Creates reviewable artifacts.
-
-Current outputs:
+Renders compiler/runtime metadata into reviewable visual artifacts.
 
 ```text
 PlotSpec v1
-SVG plot from PlotSpec
-plot manifest
+SVG plots and plot manifests
 ReportSpec v1
-system equation summary
 HTML review report
+unit-aware axis labels
+provenance, workflow, equation, residual, convergence, and failure tables
 ```
 
-Long-term responsibilities:
+## `eng_lsp`
+
+Adapts compiler-owned editor semantics to the Language Server Protocol.
 
 ```text
-PlotSpec renderer
-report spec renderer
-review card renderer
-unit-aware axis labels
-provenance tables
-residual summary tables
+persistent stdio service and deterministic snapshot mode
+diagnostics, hover, completion, semantic tokens, and formatting
+definition, references, rename, symbols, highlights, and code actions
+UTF-16 range conversion, cancellation, and stale-result suppression
+```
+
+## `eng_ide`
+
+Packages the native Tauri IDE shell and its static frontend.
+
+```text
+compiler check/run/report service bridge
+source editor, diagnostics, variables, artifacts, plots, and assembly panels
+source-span navigation and canonical user-facing status labels
+portable target-PC smoke without Node, Rust, or Python
+```
+
+## `eng_jit`
+
+Produces native-kernel candidate plans without changing runtime execution.
+
+```text
+hot-kernel detection and eng-kernel-plan-v1 JSON
+TimeSeries arithmetic/statistics/integration candidates
+system residual and component solver kernel candidates
+interpreter-fallback parity and benchmark metadata
+no native code generation or speedup claim
 ```
 
 ## Core Path Rules
@@ -225,4 +172,5 @@ Development-time release documentation may use the repo-local portable Python
 environment installed by `dev.bat setup`. That tooling must stay outside the
 core `eng.exe run` path and outside target-PC package requirements.
 
-Use `dev.bat` for development tasks. Do not add extra PowerShell entry scripts unless they are routed through the shared wrapper.
+Use `dev.bat` for development tasks. Do not add extra PowerShell entry
+scripts unless they are routed through the shared wrapper.

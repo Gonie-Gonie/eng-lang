@@ -2130,6 +2130,92 @@ function Test-MarkdownLinks {
     Write-Host "Docs link check passed. Checked $($Files.Count) Markdown file(s)."
 }
 
+function Test-DocumentationTopology {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $LoadMapPath
+    )
+
+    if (-not (Test-Path -LiteralPath $LoadMapPath -PathType Leaf)) {
+        throw "missing documentation load map at $LoadMapPath"
+    }
+
+    $failures = New-Object System.Collections.Generic.List[string]
+    foreach ($line in (Get-Content -LiteralPath $LoadMapPath -Encoding UTF8)) {
+        if ($line -notmatch '^\s*-\s+(?<path>[^#]+?)\s*$') {
+            continue
+        }
+        $entry = $Matches["path"].Trim()
+        $candidate = Join-Path $RepoRoot ($entry -replace '/', '\')
+        if (-not (Test-Path -LiteralPath $candidate)) {
+            $failures.Add("docs/llm/load_map.yml references missing path $entry") | Out-Null
+        }
+    }
+
+    $docFiles = @(
+        Get-Item -LiteralPath (Join-Path $RepoRoot "README.md")
+        Get-Item -LiteralPath (Join-Path $RepoRoot "LLM_CONTEXT.md")
+        Get-ChildItem -LiteralPath (Join-Path $RepoRoot "docs") -Recurse -Filter "*.md" -File |
+            Where-Object { $_.FullName -notmatch '[\\/]docs[\\/]archive[\\/]' }
+    ) | Sort-Object FullName -Unique
+
+    foreach ($file in $docFiles) {
+        $text = Get-Content -LiteralPath $file.FullName -Raw -Encoding UTF8
+        $matches = [regex]::Matches(
+            $text,
+            '`(?<path>(?:docs|examples|tools|crates|stdlib|benchmarks)[\\/][^`\r\n]+?\.md)`'
+        )
+        foreach ($match in $matches) {
+            $entry = $match.Groups["path"].Value
+            if ($entry.Contains("*") -or $entry.Contains("?")) {
+                continue
+            }
+            $candidate = Join-Path $RepoRoot ($entry -replace '/', '\')
+            if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+                $relative = $file.FullName.Substring($RepoRoot.Length).TrimStart('\')
+                $failures.Add("$relative references missing document $entry") | Out-Null
+            }
+        }
+    }
+
+    foreach ($retiredPath in @(
+        "docs\user\user_guide.md",
+        "docs\internal\design_notes\simple_system_tutorial.md",
+        "docs\internal\design_notes\integrated_hvac_tutorial.md"
+    )) {
+        if (Test-Path -LiteralPath (Join-Path $RepoRoot $retiredPath)) {
+            $failures.Add("retired duplicate or obsolete document returned: $retiredPath") | Out-Null
+        }
+    }
+
+    $wordingFiles = @(
+        $docFiles
+        Get-ChildItem -LiteralPath (Join-Path $RepoRoot "examples") -Recurse -Filter "README.md" -File
+    ) | Sort-Object FullName -Unique
+    $staleWordingPattern = '(?i)\b(?:solver|runtime|vm|boundary|algebraic|assembly|implementation)[ -]seeds?\b|\bliteral seeds?\b'
+    foreach ($file in $wordingFiles) {
+        if ($file.FullName.EndsWith(
+            "docs\current\usability_improvement_backlog.md",
+            [System.StringComparison]::OrdinalIgnoreCase
+        )) {
+            continue
+        }
+        $text = Get-Content -LiteralPath $file.FullName -Raw -Encoding UTF8
+        $match = [regex]::Match($text, $staleWordingPattern)
+        if ($match.Success) {
+            $relative = $file.FullName.Substring($RepoRoot.Length).TrimStart('\')
+            $failures.Add("$relative uses ambiguous implementation wording '$($match.Value)'") | Out-Null
+        }
+    }
+
+    if ($failures.Count -gt 0) {
+        $failures | Sort-Object -Unique | ForEach-Object { Write-Host $_ }
+        throw "Documentation topology check failed with $($failures.Count) issue(s)."
+    }
+
+    Write-Host "Documentation topology passed. Checked $($docFiles.Count) current document(s)."
+}
+
 function Test-ModuleRegistryDocs {
     param(
         [Parameter(Mandatory = $true)]
@@ -2665,6 +2751,7 @@ function Invoke-DocsCheck {
     )
     Test-NoCelsiusMojibake -Paths $CelsiusMojibakeCheckFiles
     Test-MarkdownLinks -Files $linkFiles.ToArray()
+    Test-DocumentationTopology -LoadMapPath (Join-Path $RepoRoot "docs\llm\load_map.yml")
     Test-ModuleRegistryDocs `
         -RegistryPath (Join-Path $RepoRoot "stdlib\eng\modules.toml") `
         -ReadmePath (Join-Path $RepoRoot "stdlib\README.md") `
@@ -4164,7 +4251,7 @@ function Assert-VscodeExtensionContract {
     $VscodeDarkThemePath = Join-Path $ExtensionRoot "themes\englang-dark-color-theme.json"
     $VscodeLightThemePath = Join-Path $ExtensionRoot "themes\englang-light-color-theme.json"
     $NativeIdeHowtoPath = Join-Path $RepoRoot "docs\user\howto\use_native_ide.md"
-    $UserGuidePath = Join-Path $RepoRoot "docs\user\user_guide.md"
+    $UserDocsRoot = Join-Path $RepoRoot "docs\user"
     $FeatureMaturityPath = Join-Path $RepoRoot "docs\current\feature_maturity_matrix.md"
     $MainInternalStatusPath = Join-Path $RepoRoot "docs\current\main_internal_status.md"
     $CurrentStatusPath = Join-Path $RepoRoot "docs\current\status.md"
@@ -4316,7 +4403,7 @@ function Assert-VscodeExtensionContract {
     if (-not (Test-Path $TokenScopesDocPath)) {
         throw "missing editor token scope contract at $TokenScopesDocPath"
     }
-    foreach ($RequiredDocPath in @($DevScriptPath, $VscodeReadmePath, $NativeIdeHowtoPath, $UserGuidePath, $FeatureMaturityPath, $MainInternalStatusPath, $CurrentStatusPath, $CurrentTracksPath)) {
+    foreach ($RequiredDocPath in @($DevScriptPath, $VscodeReadmePath, $NativeIdeHowtoPath, $UserDocsRoot, $FeatureMaturityPath, $MainInternalStatusPath, $CurrentStatusPath, $CurrentTracksPath)) {
         if (-not (Test-Path $RequiredDocPath)) {
             throw "missing VS Code install contract input at $RequiredDocPath"
         }
@@ -4331,7 +4418,11 @@ function Assert-VscodeExtensionContract {
     $DevScriptSource = Get-Content -LiteralPath $DevScriptPath -Raw
     $VscodeReadmeSource = Get-Content -LiteralPath $VscodeReadmePath -Raw
     $NativeIdeHowtoSource = Get-Content -LiteralPath $NativeIdeHowtoPath -Raw
-    $UserGuideSource = Get-Content -LiteralPath $UserGuidePath -Raw
+    $UserDocsSource = @(
+        Get-ChildItem -LiteralPath $UserDocsRoot -Recurse -Filter "*.md" -File |
+            Sort-Object FullName |
+            ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }
+    ) -join "`n"
     $FeatureMaturitySource = Get-Content -LiteralPath $FeatureMaturityPath -Raw
     $MainInternalStatusSource = Get-Content -LiteralPath $MainInternalStatusPath -Raw
     $CurrentStatusSource = Get-Content -LiteralPath $CurrentStatusPath -Raw
@@ -4783,7 +4874,7 @@ function Assert-VscodeExtensionContract {
         "active runtime/LSP paths",
         "LSP-backed"
     )) {
-        if ($VscodeReadmeSource.Contains($ForbiddenEditorDocWording) -or $NativeIdeHowtoSource.Contains($ForbiddenEditorDocWording) -or $UserGuideSource.Contains($ForbiddenEditorDocWording) -or $FeatureMaturitySource.Contains($ForbiddenEditorDocWording) -or $MainInternalStatusSource.Contains($ForbiddenEditorDocWording) -or $CurrentStatusSource.Contains($ForbiddenEditorDocWording) -or $CurrentTracksSource.Contains($ForbiddenEditorDocWording)) {
+        if ($VscodeReadmeSource.Contains($ForbiddenEditorDocWording) -or $NativeIdeHowtoSource.Contains($ForbiddenEditorDocWording) -or $UserDocsSource.Contains($ForbiddenEditorDocWording) -or $FeatureMaturitySource.Contains($ForbiddenEditorDocWording) -or $MainInternalStatusSource.Contains($ForbiddenEditorDocWording) -or $CurrentStatusSource.Contains($ForbiddenEditorDocWording) -or $CurrentTracksSource.Contains($ForbiddenEditorDocWording)) {
             throw "User-facing editor docs must avoid internal wording: $ForbiddenEditorDocWording"
         }
     }

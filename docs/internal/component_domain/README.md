@@ -74,7 +74,7 @@ quantity kinds produce `E-DOMAIN-VAR-001`.
 ```text
 component RoomBoundary {
     port heat: Thermal
-    ua_seed = 0.5 kW/K
+    conductance = 0.5 kW/K
 }
 
 component SupplyPipe {
@@ -315,9 +315,9 @@ re-parsing source files.
 - `examples/advanced_solver/23_thermal_component_assembly/main.eng`
   shows the supported constrained Thermal boundary assembly with
   system-local `name = Component(...)` instances, `connect instance.port to
-  instance.port`, generated connection equations, literal boundary seeds, a
-  square dense linear residual solve, solved variables, residual values, and
-  `largest_residuals`.
+  instance.port`, generated connection equations, literal boundary
+  constraints, a square dense linear residual solve, solved variables, residual
+  values, and `largest_residuals`.
 - `examples/advanced_solver/24_linear_algebraic_thermal_node/main.eng`
   shows the source-to-solver dense linear ResidualGraph path with named
   solution variables, residual norm, and `largest_residuals`.

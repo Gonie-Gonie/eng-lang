@@ -36,8 +36,8 @@ It is intentionally short so agents do not need to load every planning file.
 Open solver-specific documents only for solver implementation tasks:
 
 - `docs/internal/solver/README.md`
-- `docs/current/solver_centered_plan.md`
-- `docs/current/generic_solver_completion_plan.md`
+- `docs/internal/solver/solver_centered_plan.md`
+- `docs/internal/solver/generic_solver_completion_plan.md`
 
 ## Product Identity
 

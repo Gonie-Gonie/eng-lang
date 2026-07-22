@@ -11,7 +11,8 @@ It exercises:
   metadata;
 - system-local component instances using `name = Component()`;
 - `connect instance.port to instance.port` connection equations;
-- component-local literal boundary seeds on both across and through signals;
+- component-local literal boundary constraints on both across and through
+  signals;
 - a square four-equation/four-unknown residual graph assembled from source;
 - dense linear residual solving, named solution variables, residual norm, and
   largest-residual report artifacts.

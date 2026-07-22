@@ -28,8 +28,8 @@ Distribution[T]
 Ensemble[T]
 ```
 
-`T` is inferred from the name and unit seed. For example, `Q_coil_dist` with
-`kW` is treated as `Distribution[HeatRate]`.
+`T` is inferred from the binding name and unit metadata. For example,
+`Q_coil_dist` with `kW` is treated as `Distribution[HeatRate]`.
 
 ## Runtime Semantics
 

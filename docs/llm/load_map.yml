@@ -53,8 +53,8 @@ task_types:
     - docs/llm/contexts/solver_internal.md
     - docs/internal/solver/README.md
     - docs/current/main_internal_status.md
-    - docs/current/solver_centered_plan.md
-    - docs/current/generic_solver_completion_plan.md
+    - docs/internal/solver/solver_centered_plan.md
+    - docs/internal/solver/generic_solver_completion_plan.md
     - crates/eng_runtime/src/solver/
     - crates/eng_runtime/src/runtime_data.rs
     - crates/eng_compiler/src/semantic.rs

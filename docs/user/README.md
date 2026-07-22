@@ -22,6 +22,10 @@ documentation publishing; it is not part of the EngLang runtime, workflow
 examples, tests, or package smoke path. PDF generation passes the assembled
 Markdown to OODocs only when a PDF is requested.
 
+The assembled guide is a build artifact. Do not add a second checked-in
+monolithic guide beside the topic files; it duplicates the canonical sources
+and becomes stale independently.
+
 The release package must not ship the whole developer documentation tree. It
 should ship only polished user artifacts such as:
 

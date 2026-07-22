@@ -1,7 +1,7 @@
 # Internal 21 Thermal Component Assembly
 
 Focused thermal component-assembly fixture for the residual graph and dense
-linear algebraic solver seed.
+linear algebraic solve.
 
 This example keeps the model intentionally small:
 

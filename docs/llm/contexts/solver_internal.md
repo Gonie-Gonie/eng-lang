@@ -6,7 +6,7 @@ Solver paths are implementation tracks that support semantic engineering
 workflows. They should produce typed TimeSeries, residual evidence,
 convergence/failure metadata, report/review artifacts, and IDE inspector data.
 
-Do not describe current solver seeds as:
+Do not generalize the current narrow solver implementations into:
 
 - a general nonlinear solver platform
 - broad DAE support

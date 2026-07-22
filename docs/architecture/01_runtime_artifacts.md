@@ -546,8 +546,8 @@ across/through equation records, residual graph metadata, `domain_plans`,
 `solver_preview`, and component-local expression counts. Compiler-built rows use
 `assembled_graph` or `no_compatible_connections`, preserve the exact first
 component-name `source_span`, and label generated/boundary/local equations as
-assembled constraints rather than solver seeds. Runtime report specs retain
-that span while attaching solver results.
+executable assembled constraints. Runtime report specs retain that span while
+attaching solver results.
 `component_summary.local_expressions` keeps those component-owned
 `name = expr` metadata records separate from top-level workflow bindings. A graph with more than one generated domain plan is labeled
 `multi_domain_preview`; that label means reviewable metadata plus homogeneous

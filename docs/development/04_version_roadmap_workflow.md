@@ -11,7 +11,7 @@ track, not from a broad feature list.
 2. Read `docs/current/status.md`, `docs/current/philosophy.md`,
    `docs/current/version_plan.md`, and `docs/current/tracks.md`.
 3. Read focused reference policies such as
-   `docs/reference/side_effect_policy.md` when they match the task.
+   `docs/reference/language/side_effect_policy.md` when they match the task.
 4. Open the v9 master plan only for long-term historical design sections.
 5. Create or select an issue with a maturity status or track target.
 6. Implement code, tests, examples, and docs together.
@@ -86,7 +86,8 @@ Definitions:
 
 ```text
 Internal
-  Internal spike or seed. Do not present as a release feature.
+  Internal experiment or narrow implementation. Do not present as a release
+  feature.
 
 Supported
   Usable through official examples or package paths with explicit limitations,
