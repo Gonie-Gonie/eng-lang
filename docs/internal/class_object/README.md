@@ -123,12 +123,29 @@ Field access is type-checked from class/object metadata. The example above is
 typed as `Conductance [W/K]`, appears in the variable table, and is available to
 review/report/IDE metadata consumers.
 
+## Static Module Objects
+
+Top-level object literals and copy-with values are immutable metadata values and
+cross a static file-import boundary with class declarations:
+
+```text
+use "materials.eng"
+wall_u = standard_wall.u_value
+```
+
+The imported object keeps its original source span, explicit fields, copied
+fields, overrides, source-object provenance, class validation results, and
+parallel type/hover metadata. Object names share one compilation-wide binding
+namespace; a duplicate imported or root name is an error. Arbitrary top-level
+`name = expression` executable bindings are still not imported.
+
 ## Diagnostics
 
 | Diagnostic | Trigger |
 |---|---|
 | `E-CLASS-OBJECT-001` | Object literal references an unknown class. |
 | `E-CLASS-OBJECT-002` | Object field is not attached to an object literal. |
+| `E-CLASS-OBJECT-DUPLICATE-001` | Object name conflicts with an earlier imported or root binding. |
 | `E-CLASS-FIELD-MISSING-001` | Object omits a required class field. |
 | `E-CLASS-FIELD-UNKNOWN-001` | Object sets a field not declared by its class. |
 | `E-CLASS-FIELD-TYPE-001` | Field value has an incompatible type or quantity. |
@@ -190,6 +207,7 @@ Current:
 - parser and AST support for `class` declarations;
 - typed fields with default values;
 - object literals;
+- static import of top-level object literals and copy-with values;
 - nested object references;
 - field access type metadata;
 - simple class validation blocks with object-level pass/fail artifacts;

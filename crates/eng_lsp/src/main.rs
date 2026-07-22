@@ -10923,6 +10923,15 @@ class ImportedEnvelope {
     }
     method value() -> Conductance [W/K] = self.conductance
 }
+
+imported_envelope = ImportedEnvelope {
+    name = "south_envelope"
+    conductance = 12 W/K
+}
+
+imported_envelope_copy = imported_envelope with {
+    conductance = 10 W/K
+}
 "#,
         )
         .expect("static class module should be written");
@@ -10965,6 +10974,7 @@ const imported_factor: Ratio [1] = 0.5
         let initial_source = concat!(
             "use \"shared.eng\"\n",
             "use eng.stats\n",
+            "envelope_value = imported_envelope_copy.conductance\n",
             "input_file = file(\"input.csv\")\n",
             "series: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
             "process_result = run command \"cmd\"\n",
@@ -11005,6 +11015,24 @@ const imported_factor: Ratio [1] = 0.5
             assert_eq!(report.semantic_program.state_space_type_blocks.len(), 2);
             assert_eq!(report.semantic_program.state_space_vectors.len(), 3);
             assert_eq!(report.semantic_program.linear_operators.len(), 2);
+            assert_eq!(report.semantic_program.class_objects.len(), 2);
+            assert!(!report.semantic_program.class_objects[0]
+                .span
+                .is_root_source());
+            assert_eq!(
+                report.semantic_program.class_objects[1]
+                    .source_object
+                    .as_deref(),
+                Some("imported_envelope")
+            );
+            let envelope_value = report
+                .semantic_program
+                .typed_bindings
+                .iter()
+                .find(|binding| binding.name == "envelope_value")
+                .expect("root field access should resolve the imported class object");
+            assert_eq!(envelope_value.semantic_type.quantity_kind, "Conductance");
+            assert_eq!(envelope_value.semantic_type.display_unit, "W/K");
             assert_eq!(report.semantic_program.component_templates.len(), 1);
             assert_eq!(
                 report.semantic_program.component_templates[0]
@@ -11031,6 +11059,7 @@ const imported_factor: Ratio [1] = 0.5
         let changed_source = concat!(
             "use \"shared.eng\"\n",
             "use eng.stats\n",
+            "envelope_value = imported_envelope_copy.conductance\n",
             "input_file = file(\"input.csv\")\n",
             "series: TimeSeries[Time] of HeatRate [kW] = 5 kW\n",
             "process_result = run command \"cmd\"\n",
@@ -11084,6 +11113,11 @@ const imported_factor: Ratio [1] = 0.5
             );
             assert_eq!(report.semantic_program.component_instances.len(), 1);
             assert_eq!(report.semantic_program.connections.len(), 1);
+            assert_eq!(report.semantic_program.class_objects.len(), 2);
+            assert_eq!(
+                report.semantic_program.class_objects[1].fields[1].expression,
+                "10 W/K"
+            );
             assert!(!report.semantic_program.connections[0]
                 .right_span
                 .is_root_source());

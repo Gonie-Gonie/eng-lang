@@ -1038,6 +1038,179 @@ impl SemanticProgram {
     }
 }
 
+pub(crate) fn class_object_metadata_matches_derived(program: &SemanticProgram) -> bool {
+    let mut object_names = HashSet::new();
+    let mut rebuilt_objects = Vec::with_capacity(program.class_objects.len());
+    let mut previous_binding_index = None;
+
+    for object in &program.class_objects {
+        let source_id = object.span.source_id;
+        if !object_names.insert(object.name.as_str())
+            || object.line != object.span.line
+            || program
+                .classes
+                .iter()
+                .filter(|class| class.name == object.class_name)
+                .count()
+                != 1
+        {
+            return false;
+        }
+
+        let mut binding_indices = program
+            .typed_bindings
+            .iter()
+            .enumerate()
+            .filter(|(_, binding)| {
+                binding.name == object.name
+                    && binding.span == object.span
+                    && binding.line == object.line
+            })
+            .map(|(index, _)| index);
+        let Some(binding_index) = binding_indices.next() else {
+            return false;
+        };
+        if binding_indices.next().is_some()
+            || previous_binding_index.is_some_and(|previous| binding_index <= previous)
+        {
+            return false;
+        }
+        previous_binding_index = Some(binding_index);
+
+        let mut typed_bindings = Vec::new();
+        let mut hover_hints = Vec::new();
+        let mut type_infos = Vec::new();
+        let mut diagnostics = Vec::new();
+        match object.construction.as_str() {
+            "literal" => {
+                let Some(class_name_span) = object.class_name_span else {
+                    return false;
+                };
+                if class_name_span.source_id != source_id
+                    || class_name_span.line != object.line
+                    || object.source_object.is_some()
+                    || object.source_object_span.is_some()
+                {
+                    return false;
+                }
+                analyze_class_object_decl(
+                    &ClassObjectDecl {
+                        name: object.name.clone(),
+                        class_name: object.class_name.clone(),
+                        class_name_span,
+                        line: object.line,
+                        span: object.span,
+                        context: ParseContext::TopLevel,
+                    },
+                    &program.classes,
+                    &mut rebuilt_objects,
+                    &mut diagnostics,
+                    &mut typed_bindings,
+                    &mut hover_hints,
+                    &mut type_infos,
+                );
+            }
+            "copy_with" => {
+                let (Some(source_object), Some(source_object_span)) =
+                    (&object.source_object, object.source_object_span)
+                else {
+                    return false;
+                };
+                if object.class_name_span.is_some()
+                    || source_object_span.source_id != source_id
+                    || source_object_span.line != object.line
+                {
+                    return false;
+                }
+                analyze_class_object_copy_decl(
+                    &ClassObjectCopyDecl {
+                        name: object.name.clone(),
+                        source_name: source_object.clone(),
+                        source_name_span: source_object_span,
+                        line: object.line,
+                        span: object.span,
+                        context: ParseContext::TopLevel,
+                    },
+                    &program.classes,
+                    &mut rebuilt_objects,
+                    &mut diagnostics,
+                    &mut typed_bindings,
+                    &mut hover_hints,
+                    &mut type_infos,
+                );
+            }
+            _ => return false,
+        }
+        if !diagnostics.is_empty()
+            || typed_bindings.len() != 1
+            || hover_hints.len() != 1
+            || type_infos.len() != 1
+            || typed_bindings[0] != program.typed_bindings[binding_index]
+        {
+            return false;
+        }
+
+        let mut matching_hovers = program.hover_hints.iter().filter(|hover| {
+            hover.name == object.name && hover.span == object.span && hover.line == object.line
+        });
+        let Some(existing_hover) = matching_hovers.next() else {
+            return false;
+        };
+        if matching_hovers.next().is_some() || hover_hints[0] != *existing_hover {
+            return false;
+        }
+        let mut matching_types = program.type_infos.iter().filter(|info| {
+            info.name == object.name && info.span == object.span && info.line == object.line
+        });
+        let Some(existing_type) = matching_types.next() else {
+            return false;
+        };
+        if matching_types.next().is_some() || type_infos[0] != *existing_type {
+            return false;
+        }
+
+        let Some(available_bindings) = program.typed_bindings.get(..=binding_index) else {
+            return false;
+        };
+        for field in object
+            .fields
+            .iter()
+            .filter(|field| field.status != "copied")
+        {
+            if field.span.source_id != source_id
+                || field.expression_span.source_id != source_id
+                || field.line != field.span.line
+                || field.line != field.expression_span.line
+                || field.line <= object.line
+            {
+                return false;
+            }
+            analyze_class_object_field(
+                &ClassObjectFieldDecl {
+                    owner_line: Some(object.line),
+                    name: field.name.clone(),
+                    expression: field.expression.clone(),
+                    expression_span: field.expression_span,
+                    line: field.line,
+                    span: field.span,
+                },
+                &program.classes,
+                &mut rebuilt_objects,
+                available_bindings,
+                &program.functions,
+                &mut diagnostics,
+            );
+        }
+        if !diagnostics.is_empty() {
+            return false;
+        }
+    }
+
+    let mut diagnostics = Vec::new();
+    validate_class_contracts(&program.classes, &mut rebuilt_objects, &mut diagnostics);
+    diagnostics.is_empty() && rebuilt_objects == program.class_objects
+}
+
 pub(crate) fn component_metadata_matches_derived(program: &SemanticProgram) -> bool {
     let mut templates = Vec::with_capacity(program.component_templates.len());
     for template in &program.component_templates {
@@ -9519,6 +9692,13 @@ fn analyze_class_object_decl(
     hover_hints: &mut Vec<HoverHint>,
     type_infos: &mut Vec<TypeInfo>,
 ) {
+    if typed_bindings
+        .iter()
+        .any(|binding| binding.name == object.name)
+    {
+        diagnostics.push(class_object_duplicate_diagnostic(&object.name, object.span));
+        return;
+    }
     let class_exists = classes
         .iter()
         .any(|class_info| class_info.name == object.class_name);
@@ -9605,6 +9785,13 @@ fn analyze_class_object_copy_decl(
     hover_hints: &mut Vec<HoverHint>,
     type_infos: &mut Vec<TypeInfo>,
 ) {
+    if typed_bindings
+        .iter()
+        .any(|binding| binding.name == object.name)
+    {
+        diagnostics.push(class_object_duplicate_diagnostic(&object.name, object.span));
+        return;
+    }
     let source = class_objects
         .iter()
         .find(|candidate| candidate.name == object.source_name)
@@ -9679,6 +9866,18 @@ fn analyze_class_object_copy_decl(
         },
         line: object.line,
     });
+}
+
+fn class_object_duplicate_diagnostic(name: &str, span: SourceSpan) -> Diagnostic {
+    Diagnostic::error(
+        "E-CLASS-OBJECT-DUPLICATE-001",
+        span.line,
+        &format!("Class object `{name}` is already declared."),
+        Some(
+            "Rename the object so imported and root class objects have one unambiguous binding name.",
+        ),
+    )
+    .with_source_span(span)
 }
 
 fn analyze_class_object_field(

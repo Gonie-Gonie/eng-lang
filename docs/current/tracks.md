@@ -127,7 +127,8 @@ and next cleanup action.
 - Purpose: describe typed engineering objects and validation metadata.
 - Public scope: typed fields/defaults, object literals, nested references,
   validation blocks, metadata methods, copy-with metadata, diagnostics, report
-  artifacts, IDE summaries, and LSP metadata.
+  artifacts, IDE summaries, LSP metadata, and static-module reuse of immutable
+  top-level literals/copy-with values with duplicate-name diagnostics.
 - Main internal: runtime object dispatch/lowering remains planned.
 - Next cleanup: keep classes as reviewable objects, not replacements for
   systems/components.

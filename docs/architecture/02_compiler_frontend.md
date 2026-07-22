@@ -214,8 +214,9 @@ source annotation, while `display_unit` is the resolved display unit. Import
 and const diagnostics, semantic tokens, and outline selection ranges consume
 these fields directly.
 
-The strict scalar-suffix recheck may preserve unchanged imported state-space and
-component-graph prefixes only after replaying their source registry. State-space
+The strict scalar-suffix recheck may preserve unchanged imported state-space,
+class-object, and component-graph prefixes only after replaying their source
+registry. State-space
 members, vector layouts, operator endpoints, shapes, compatibility, canonical
 matrices, and parallel editor records must reproduce from semantic declarations.
 Component headers, parameters, inputs, ports, local expressions/equations,
@@ -224,7 +225,12 @@ systems, and assembly graphs must also reproduce. Imported instances must remain
 owned by a preceding system in the same source, and imported connections must retain
 same-source endpoints and instance ownership. Static imports admit only
 constructor-shaped system bindings and top-level/system `connect` declarations;
-other system-local executable bindings remain outside the module boundary. Its
+other system-local executable bindings remain outside the module boundary.
+Top-level immutable class object literals and copy-with values cross that
+boundary with their explicit fields. The compiler rebuilds literal/copy
+construction, inherited fields, overrides, source-object provenance, validation
+results, and parallel typed/hover/type records before reuse. Duplicate class
+object binding names are diagnosed instead of selecting one implicitly. Its
 suffix environment includes eligible root scalar
 declarations and importable constants, never system- or component-local variables.
 Any ownership or derived-metadata mismatch returns to a full check.

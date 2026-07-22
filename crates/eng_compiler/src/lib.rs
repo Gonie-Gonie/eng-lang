@@ -672,8 +672,9 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// static file imports when every compiler import record exactly matches its root source line, span,
 /// kind, and status. Static imports additionally require the complete recursive path-to-source-ID
 /// registry to reproduce exactly and limit imported semantic definitions to schemas, constants,
-/// functions, basic or state-space systems, domains, classes, component templates, and
-/// system-owned component graphs with
+/// functions, basic or state-space systems, domains, classes, component templates,
+/// system-owned component graphs, and immutable top-level class object literals/copy-with values
+/// with
 /// internally consistent registered source ownership. System headers, variables and parallel
 /// type/editor records, equations, residual IR, static solver plans, state-space vector layouts,
 /// and linear-operator matrices are verified together. Component headers, parameters, inputs,
@@ -681,7 +682,9 @@ pub fn recheck_explicit_scalar_declaration_suffix_incrementally(
 /// graphs must also reproduce exactly, including graph items contributed by imported systems.
 /// Static imports admit only constructor-shaped system bindings and top-level/system `connect`
 /// declarations; arbitrary system-local executable bindings remain outside the module boundary.
-/// Imported class objects remain ineligible. Only root
+/// Imported class objects must reproduce their literal/copy construction, explicit and inherited
+/// fields, source provenance, validation results, and parallel typed/hover/type records exactly;
+/// duplicate object binding names are rejected. Only root
 /// import declaration lines are reparsed for verification; imported definitions and other richer
 /// prefix constructs are not reparsed or reanalyzed.
 /// Changes inside it, a token-bearing non-declaration in the affected suffix, diagnostics,
@@ -1632,6 +1635,7 @@ fn incremental_report_requires_rich_prefix_contract(
         || !report.semantic_program.component_instances.is_empty()
         || !report.semantic_program.connections.is_empty()
         || !report.semantic_program.classes.is_empty()
+        || !report.semantic_program.class_objects.is_empty()
         || report
             .semantic_program
             .typed_bindings
@@ -1655,15 +1659,20 @@ fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckRep
         .collect::<HashSet<_>>();
     let program = &report.semantic_program;
 
-    let unsupported_imported_definition = program
-        .class_objects
-        .iter()
-        .any(|info| !info.span.is_root_source());
-    if unsupported_imported_definition {
-        return false;
-    }
     if report.syntax_summary.systems != program.systems.len()
         || report.syntax_summary.components != program.component_templates.len()
+        || report
+            .syntax_summary
+            .class_objects
+            .checked_add(report.syntax_summary.class_object_copies)
+            != Some(program.class_objects.len())
+        || report.syntax_summary.class_object_fields
+            != program
+                .class_objects
+                .iter()
+                .flat_map(|object| &object.fields)
+                .filter(|field| field.status != "copied")
+                .count()
     {
         return false;
     }
@@ -1733,6 +1742,23 @@ fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckRep
         });
         templates_match && instances_match && connections_match
     };
+    let class_object_metadata_matches = program.class_objects.iter().all(|object| {
+        source_ids.contains(&object.span.source_id)
+            && object
+                .class_name_span
+                .is_none_or(|span| source_ids.contains(&span.source_id))
+            && object
+                .source_object_span
+                .is_none_or(|span| source_ids.contains(&span.source_id))
+            && object.fields.iter().all(|field| {
+                source_ids.contains(&field.span.source_id)
+                    && source_ids.contains(&field.expression_span.source_id)
+            })
+            && object
+                .validations
+                .iter()
+                .all(|validation| source_ids.contains(&validation.rule_span.source_id))
+    });
 
     program.consts.iter().all(|constant| {
         let source_id = constant.span.source_id;
@@ -1798,6 +1824,7 @@ fn incremental_rich_prefix_definition_ownership_matches_report(report: &CheckRep
             .iter()
             .all(|class| incremental_class_definition_ownership_matches_report(class, &source_ids))
         && component_metadata_matches
+        && class_object_metadata_matches
 }
 
 fn incremental_system_definition_ownership_matches_report(
@@ -2480,6 +2507,7 @@ fn incremental_rich_prefix_derived_metadata_matches(report: &CheckReport) -> boo
         && cache_analysis.records == report.semantic_program.cache_records
         && crate::stats::axis_infos(&report.semantic_program.typed_bindings)
             == report.semantic_program.axis_infos
+        && semantic::class_object_metadata_matches_derived(&report.semantic_program)
         && semantic::component_metadata_matches_derived(&report.semantic_program)
 }
 
@@ -3141,6 +3169,9 @@ fn importable_definition_item(item: &AstItem) -> bool {
         | AstItem::ClassField(_)
         | AstItem::ClassValidation(_)
         | AstItem::ClassMethod(_) => true,
+        AstItem::ClassObject(object) => object.context == ParseContext::TopLevel,
+        AstItem::ClassObjectCopy(object) => object.context == ParseContext::TopLevel,
+        AstItem::ClassObjectField(field) => field.owner_line.is_some(),
         AstItem::Connect(connection) => {
             matches!(
                 connection.context,
@@ -3204,6 +3235,12 @@ fn importer_defined_symbol(item: &AstItem) -> Option<String> {
         AstItem::ExplicitDecl(declaration) if declaration.context == ParseContext::TopLevel => {
             Some(declaration.name.clone())
         }
+        AstItem::ClassObject(object) if object.context == ParseContext::TopLevel => {
+            Some(object.name.clone())
+        }
+        AstItem::ClassObjectCopy(object) if object.context == ParseContext::TopLevel => {
+            Some(object.name.clone())
+        }
         _ => None,
     }
 }
@@ -3238,6 +3275,11 @@ fn first_symbol_use_line(program: &ParsedProgram, symbol: &str) -> Option<usize>
         }
         AstItem::Print(print) if print.template.contains(symbol) => Some(print.line),
         AstItem::CsvExportField(field)
+            if expression_mentions_identifier(&field.expression, symbol) =>
+        {
+            Some(field.line)
+        }
+        AstItem::ClassObjectField(field)
             if expression_mentions_identifier(&field.expression, symbol) =>
         {
             Some(field.line)
@@ -14008,7 +14050,7 @@ adjusted = base * factor
     }
 
     #[test]
-    fn incrementally_rechecks_scalar_suffix_after_unchanged_static_class_import() {
+    fn incrementally_rechecks_scalar_suffix_after_unchanged_static_class_object_import() {
         fn assert_fresh_equivalent(reused: &CheckReport, fresh: &CheckReport, source: &str) {
             assert_eq!(reused.source_path, fresh.source_path);
             assert_eq!(reused.source_files, fresh.source_files);
@@ -14031,11 +14073,12 @@ adjusted = base * factor
         }
 
         let root = std::env::temp_dir().join(format!(
-            "eng_compiler_incremental_static_class_import_{}",
+            "eng_compiler_incremental_static_class_object_import_{}",
             std::process::id()
         ));
         let _ = std::fs::remove_dir_all(&root);
-        std::fs::create_dir_all(&root).expect("static class import fixture should be created");
+        std::fs::create_dir_all(&root)
+            .expect("static class-object import fixture should be created");
         std::fs::write(
             root.join("class.eng"),
             r#"class ImportedConstruction {
@@ -14048,45 +14091,100 @@ adjusted = base * factor
     }
     method conductance() -> Conductance [W/K] = self.u_value
 }
+
+imported_wall = ImportedConstruction {
+    name = "south_wall"
+    u_value = 120 W/K
+}
+
+imported_better_wall = imported_wall with {
+    u_value = 100 W/K
+}
 "#,
         )
-        .expect("imported class module should be written");
+        .expect("imported class-object module should be written");
         std::fs::write(root.join("shared.eng"), "use \"class.eng\"\n")
             .expect("recursive class module should be written");
         let main_path = root.join("main.eng");
         let previous_source = r#"use "shared.eng"
+imported_wall_value = imported_better_wall.u_value
 base = 2 m
 factor = 0.5
 "#;
         let source = r#"use "shared.eng"
+imported_wall_value = imported_better_wall.u_value
 base = 180 cm
 factor = 0.75
 adjusted = base * factor
 "#;
-        std::fs::write(&main_path, previous_source).expect("class root should be written");
+        std::fs::write(&main_path, previous_source).expect("class-object root should be written");
         let previous = check_source(&main_path, previous_source, &CheckOptions::default());
         assert!(
             previous.diagnostics.is_empty(),
-            "unexpected imported class diagnostics: {:#?}",
+            "unexpected imported class-object diagnostics: {:#?}",
             previous.diagnostics
         );
         assert_eq!(previous.source_files.len(), 3);
         assert_eq!(previous.semantic_program.imports.len(), 1);
         assert_eq!(previous.semantic_program.classes.len(), 1);
+        assert_eq!(previous.semantic_program.class_objects.len(), 2);
         let class = &previous.semantic_program.classes[0];
         assert_eq!(class.fields.len(), 3);
         assert_eq!(class.validations.len(), 2);
         assert_eq!(class.methods.len(), 1);
         assert_eq!(class.span.source_id, previous.source_files[2].source_id);
+        let imported_wall = &previous.semantic_program.class_objects[0];
+        assert_eq!(imported_wall.name, "imported_wall");
+        assert_eq!(imported_wall.construction, "literal");
+        assert!(!imported_wall.span.is_root_source());
+        assert_eq!(imported_wall.fields.len(), 2);
+        assert_eq!(imported_wall.validations.len(), 2);
+        assert!(imported_wall
+            .validations
+            .iter()
+            .all(|validation| validation.status == "pass"));
+        let imported_copy = &previous.semantic_program.class_objects[1];
+        assert_eq!(imported_copy.name, "imported_better_wall");
+        assert_eq!(imported_copy.construction, "copy_with");
+        assert_eq!(
+            imported_copy.source_object.as_deref(),
+            Some("imported_wall")
+        );
+        assert!(!imported_copy.span.is_root_source());
+        assert!(imported_copy
+            .fields
+            .iter()
+            .any(|field| field.name == "name" && field.status == "copied"));
+        assert!(imported_copy.fields.iter().any(|field| {
+            field.name == "u_value" && field.expression == "100 W/K" && field.status == "typed"
+        }));
+        assert_eq!(imported_copy.validations.len(), 2);
+        assert!(semantic::class_object_metadata_matches_derived(
+            &previous.semantic_program
+        ));
+        let imported_value = previous
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "imported_wall_value")
+            .expect("root field access should use the imported class object");
+        assert_eq!(imported_value.semantic_type.quantity_kind, "Conductance");
+        assert_eq!(imported_value.semantic_type.display_unit, "W/K");
 
         let reused =
             recheck_scalar_declaration_suffix_incrementally(&previous, previous_source, source)
-                .expect("an unchanged recursive class import should preserve the scalar suffix");
+                .expect(
+                    "an unchanged recursive class-object import should preserve the scalar suffix",
+                );
         let fresh = check_source(&main_path, source, &CheckOptions::default());
         assert_fresh_equivalent(&reused, &fresh, source);
         assert_eq!(
             reused.semantic_program.classes,
             previous.semantic_program.classes
+        );
+        assert_eq!(
+            reused.semantic_program.class_objects,
+            previous.semantic_program.class_objects
         );
 
         let mut stale_field_owner = previous.clone();
@@ -14134,13 +14232,157 @@ adjusted = base * factor
             .is_none(),
             "inconsistent imported class method ownership must use full analysis"
         );
+
+        let mut stale_object_owner = previous.clone();
+        stale_object_owner.semantic_program.class_objects[0]
+            .class_name_span
+            .as_mut()
+            .expect("class object should retain its class-name span")
+            .source_id = SourceSpan::ROOT_SOURCE_ID;
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_object_owner,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "inconsistent imported class-object ownership must use full analysis"
+        );
+
+        let mut stale_copy_source = previous.clone();
+        stale_copy_source.semantic_program.class_objects[1].source_object =
+            Some("missing_wall".to_owned());
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_copy_source,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "a stale class-object copy source must use full analysis"
+        );
+
+        let mut stale_copied_field = previous.clone();
+        stale_copied_field.semantic_program.class_objects[1]
+            .fields
+            .iter_mut()
+            .find(|field| field.name == "name")
+            .expect("copy should retain the inherited name field")
+            .status = "typed".to_owned();
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_copied_field,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "a stale copied-field contract must use full analysis"
+        );
+
+        let mut stale_validation = previous.clone();
+        stale_validation.semantic_program.class_objects[1].validations[0].status =
+            "unresolved".to_owned();
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_validation,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "a stale class-object validation result must use full analysis"
+        );
+
+        let mut stale_parallel_type = previous.clone();
+        stale_parallel_type
+            .semantic_program
+            .type_infos
+            .iter_mut()
+            .find(|info| info.name == "imported_better_wall")
+            .expect("copy should retain parallel object type metadata")
+            .canonical_unit = "stale".to_owned();
+        assert!(
+            recheck_scalar_declaration_suffix_incrementally(
+                &stale_parallel_type,
+                previous_source,
+                source,
+            )
+            .is_none(),
+            "stale parallel class-object type metadata must use full analysis"
+        );
         assert!(
             recheck_scalar_binding_suffix_incrementally(&previous, previous_source, source)
                 .is_none(),
-            "the fast-only API must retain its scalar-only static import contract"
+            "the fast-only API must retain its scalar-only class-object import contract"
         );
 
-        std::fs::remove_dir_all(&root).expect("static class import fixture should be removed");
+        std::fs::remove_dir_all(&root)
+            .expect("static class-object import fixture should be removed");
+    }
+
+    #[test]
+    fn rejects_duplicate_imported_class_object_bindings() {
+        let root = std::env::temp_dir().join(format!(
+            "eng_compiler_duplicate_imported_class_objects_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root)
+            .expect("duplicate imported class-object fixture should be created");
+        std::fs::write(
+            root.join("left.eng"),
+            r#"class LeftAsset {
+    label: String = "left"
+}
+
+shared_asset = LeftAsset {
+}
+"#,
+        )
+        .expect("left class-object module should be written");
+        std::fs::write(
+            root.join("right.eng"),
+            r#"class RightAsset {
+    label: String = "right"
+}
+
+shared_asset = RightAsset {
+}
+"#,
+        )
+        .expect("right class-object module should be written");
+        let main_path = root.join("main.eng");
+        let source = "use \"left.eng\"\nuse \"right.eng\"\n";
+        std::fs::write(&main_path, source).expect("duplicate import root should be written");
+
+        let report = check_source(&main_path, source, &CheckOptions::default());
+        let duplicates = report
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "E-CLASS-OBJECT-DUPLICATE-001")
+            .collect::<Vec<_>>();
+        assert_eq!(duplicates.len(), 1);
+        assert!(duplicates[0]
+            .message
+            .contains("`shared_asset` is already declared"));
+        let duplicate_span = duplicates[0]
+            .source_span
+            .expect("duplicate object diagnostic should retain an exact source span");
+        assert!(!duplicate_span.is_root_source());
+        let right_source_id = report
+            .source_files
+            .iter()
+            .find(|source| source.path.ends_with("right.eng"))
+            .expect("right imported source should be registered")
+            .source_id;
+        assert_eq!(duplicate_span.source_id, right_source_id);
+        assert_eq!(report.semantic_program.class_objects.len(), 1);
+        assert_eq!(
+            report.semantic_program.class_objects[0].name,
+            "shared_asset"
+        );
+
+        std::fs::remove_dir_all(&root)
+            .expect("duplicate imported class-object fixture should be removed");
     }
 
     #[test]

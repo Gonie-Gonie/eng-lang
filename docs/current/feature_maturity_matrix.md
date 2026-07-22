@@ -292,7 +292,8 @@ separate.
   recursive path-to-source-ID registry to reproduce exactly and restrict
   preserved imported semantic definitions to schemas, constants, functions,
   basic and state-space systems, state-space type blocks, vectors and linear
-  operators, domains, classes, component templates, and system-owned component
+  operators, domains, classes, top-level immutable class object literals and
+  copy-with values, component templates, and system-owned component
   constructor/connection graphs whose internal spans retain registered source
   ownership. Basic and state-space system headers,
   variables and parallel
@@ -304,14 +305,18 @@ separate.
   shapes, compatibility, and canonical matrices. Domain headers,
   type parameters, across/through variables, and conservation expressions are
   verified together. Class headers, fields and defaults, validation expressions,
-  and method return/expression metadata are verified together. Component
+  and method return/expression metadata are verified together. Class object
+  construction, explicit/inherited fields, copy-source provenance, validation
+  results, and parallel typed/hover/type records must also rederive exactly;
+  duplicate object binding names are rejected. Component
   parameters, inputs, ports, local expressions and equations retain imported
   source ownership; port resolution, sequential local signal contracts,
   constructor instance cloning and connections from root or imported systems,
   and derived assembly graphs must reproduce exactly. Only constructor-shaped
   system bindings and top-level/system `connect` declarations cross the static
-  import boundary; arbitrary system-local executable bindings do not. Imported
-  class objects use full analysis. Component instances currently share one
+  import boundary; arbitrary system-local executable bindings do not. Top-level
+  class object literals/copy-with values also cross as immutable metadata, while
+  arbitrary top-level fast bindings do not. Component instances currently share one
   compilation-wide graph namespace, so duplicate names across systems are
   rejected rather than silently merged.
   Callers must preserve the resolved import environment.

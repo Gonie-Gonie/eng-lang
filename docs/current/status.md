@@ -154,9 +154,10 @@ review material. It is not a broad solver claim.
   require the complete recursive path-to-source-ID registry to reproduce
   exactly. Preserved imported semantic definitions are limited to schemas,
   constants, functions, basic and state-space systems, state-space type blocks,
-  vectors and linear operators, domains, classes, component templates, and
-  system-owned component constructor/connection graphs with internally
-  consistent registered source ownership. System headers, variables
+  vectors and linear operators, domains, classes, top-level immutable class
+  object literals/copy-with values, component templates, and system-owned
+  component constructor/connection graphs with internally consistent
+  registered source ownership. System headers, variables
   and parallel
   expected/typed/hover/type/unit records, equations, residual IR, and `ready`
   solver plans with sparsity metadata are verified together. State-space type
@@ -166,14 +167,18 @@ review material. It is not a broad solver claim.
   headers, type parameters, across/through variables, and conservation
   expressions are verified together. Class headers, fields and defaults,
   validation expressions, and method return/expression metadata are verified
-  together. Component headers, parameters, inputs, ports, local expressions and
+  together. Class object construction, explicit and inherited fields,
+  copy-source provenance, validation results, and parallel typed/hover/type
+  records must rederive exactly. Duplicate object binding names are rejected.
+  Component headers, parameters, inputs, ports, local expressions and
   equations retain imported source ownership; port resolution, sequential local
   signal contracts, constructor instance cloning and connections from root or
   imported systems, and the derived assembly graph must reproduce exactly.
   Static imports admit only constructor-shaped system bindings and
   top-level/system `connect` declarations; arbitrary system-local executable
-  bindings remain outside the module boundary. Imported class objects use full
-  analysis. The scalar
+  bindings remain outside the module boundary. Top-level class object literals
+  and copy-with values are importable metadata values; arbitrary top-level fast
+  bindings remain outside the module boundary. The scalar
   suffix environment contains only eligible root declarations and importable
   constants, so duplicate or same-spelled system-local values cannot leak into
   root expressions. The caller must preserve the resolved import environment, and
@@ -231,7 +236,7 @@ review material. It is not a broad solver claim.
   references,
   dimensionally incompatible arithmetic, invalid or unsupported calls, workflow
   expressions, diagnostics,
-  static imports that contribute unverified class objects,
+  duplicate or internally inconsistent class objects,
   import-line edits, imports inside the affected suffix, caches, and richer
   language use full analysis.
   Source changes invalidate recursive open import dependents while preserving
@@ -242,6 +247,10 @@ review material. It is not a broad solver claim.
   compilation-wide `component_graph` namespace. Duplicate instance names across
   systems are diagnosed; per-system namespaced assembly selection remains an
   internal module-semantics gap.
+
+  Imported and root class objects likewise use one compilation-wide binding
+  namespace. Duplicate names are diagnosed; class objects remain immutable
+  review metadata rather than runtime-dispatched objects.
 
 ## Supported But Narrow Main Behavior
 
