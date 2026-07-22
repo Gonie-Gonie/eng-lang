@@ -371,14 +371,16 @@ separate.
   compatibility wrappers over this engine; lazy shared editor snapshots,
   recursive import-dependent invalidation, a VS Code persistent stdio client
   with document sync, direct protocol semantic tokens, and standard
-  `textDocument/signatureHelp` for local/imported user functions and
-  zero-argument class-object methods, request-ID-scoped protocol cancellation
+  `textDocument/signatureHelp` for local/imported user functions,
+  zero-argument class-object methods, and compiler-owned built-in contracts
+  covering path, date, network, TimeSeries/statistics, quality, uncertainty,
+  model, solver behavior, scalar math, and bounded numeric percentiles,
+  request-ID-scoped protocol cancellation
   with cooperative workspace scan interruption, compiler-owned
   declaration and explicit Outline selection ranges, import-source isolation
   across diagnostics/semantic overlays/hover fallback, source-origin-aware
   validation records, stdio tests, and optional VS Code source.
-- Not included: signature help for the general built-in/workflow API catalog, a
-  stable public compatibility guarantee across EngLang releases
+- Not included: a stable public compatibility guarantee across EngLang releases
   or general partial parse/semantic recomputation beyond the bounded scalar
   declaration contract, including forward/unresolved references, non-scalar
   suffix declarations, invalid, unregistered, non-unit-consistent, or

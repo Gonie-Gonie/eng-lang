@@ -85,6 +85,34 @@ assert.strictEqual(converted.signatures[0].parameters[1].documentation.value, "S
 assert.strictEqual(signatureHelpFromLsp({ signatures: [] }), undefined);
 assert.strictEqual(parameterLabelFromLsp([-1, 2]), undefined);
 
+const overloadedBuiltin = signatureHelpFromLsp({
+  signatures: [
+    {
+      label: "measured(value: Quantity, relative_error: Ratio) -> Uncertain[Quantity]",
+      parameters: [
+        { label: "value: Quantity" },
+        { label: "relative_error: Ratio" }
+      ]
+    },
+    {
+      label: "measured(value: Quantity, std: Quantity) -> Uncertain[Quantity]",
+      parameters: [
+        { label: "value: Quantity" },
+        { label: "std: Quantity" }
+      ]
+    }
+  ],
+  activeSignature: 1,
+  activeParameter: 1
+});
+assert.strictEqual(overloadedBuiltin.signatures.length, 2);
+assert.strictEqual(overloadedBuiltin.activeSignature, 1);
+assert.strictEqual(overloadedBuiltin.activeParameter, 1);
+assert.strictEqual(
+  overloadedBuiltin.signatures[1].parameters[1].label,
+  "std: Quantity"
+);
+
 async function main() {
   const document = { languageId: "englang", version: 1 };
   const provider = new EngSignatureHelpProvider({

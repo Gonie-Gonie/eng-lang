@@ -5903,6 +5903,7 @@ with {
             "Array[T]",
             "List[T]",
             "kW",
+            "file",
         ] {
             assert!(
                 labels.contains(required),
@@ -5954,7 +5955,7 @@ with {
         assert_eq!(mkdir_dir.insert, "mkdir \"outputs/archive\"");
         let file_helper = completions
             .iter()
-            .find(|completion| completion.label == "file(...)")
+            .find(|completion| completion.label == "file")
             .expect("file helper completion");
         assert_eq!(file_helper.insert, "file(\"data/input.csv\")");
         assert_eq!(

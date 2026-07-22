@@ -2,13 +2,15 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use eng_compiler::{
-    all_quantity_completions, all_unit_infos, bundled_module_registry, check_source,
+    all_quantity_completions, all_unit_infos, builtin_function_signatures,
+    builtin_function_signatures_for_name, bundled_module_registry, check_source,
     check_source_with_import_overrides, classify_diagnostic_review_risk, classify_review_risk,
-    is_percentile_statistic, read_only_io_expression, review_validation_records,
-    uncertainty_argument_alias, CheckOptions, CheckReport, ClassFieldInfo, ClassMethodInfo,
-    CommandStyleInfo, Diagnostic, DomainTypeParameterInfo, FileOperationInfo, FunctionInfo,
-    FunctionParamInfo, ImportSourceOverrides, ReviewValidationRecord, SemanticProgram, Severity,
-    SourceSpan, WithBlockInfo, WithOptionInfo, WriteInfo, DIMENSIONLESS_MATH_FUNCTIONS,
+    is_percentile_statistic, parse_module_function_signature, read_only_io_expression,
+    review_validation_records, uncertainty_argument_alias, BuiltinFunctionSignature, CheckOptions,
+    CheckReport, ClassFieldInfo, ClassMethodInfo, CommandStyleInfo, Diagnostic,
+    DomainTypeParameterInfo, FileOperationInfo, FunctionInfo, FunctionParamInfo,
+    ImportSourceOverrides, ReviewValidationRecord, SemanticProgram, Severity, SourceSpan,
+    WithBlockInfo, WithOptionInfo, WriteInfo, DIMENSIONLESS_MATH_FUNCTIONS,
     PERCENTILE_STATISTIC_PATTERN, UNCERTAINTY_ARGUMENT_ALIASES,
 };
 use serde_json::{json, Value};
@@ -2084,6 +2086,7 @@ pub fn editor_metadata_json() -> Value {
 
 pub fn editor_syntax_catalog_json() -> Value {
     let constants = editor_constant_keywords();
+    let builtin_signatures = builtin_function_signatures();
     let workflow_builtins = WORKFLOW_BUILTIN_KEYWORDS
         .iter()
         .copied()
@@ -2120,6 +2123,11 @@ pub fn editor_syntax_catalog_json() -> Value {
         "hyphenated_workflow_builtins": HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS,
         "legacy_workflow_builtin_aliases": EDITOR_LEGACY_WORKFLOW_BUILTIN_ALIASES,
         "legacy_workflow_option_aliases": EDITOR_LEGACY_WORKFLOW_OPTION_ALIASES,
+        "builtin_function_signatures_count": builtin_signatures.len(),
+        "builtin_function_signatures": builtin_signatures
+            .iter()
+            .map(builtin_function_signature_metadata_json)
+            .collect::<Vec<_>>(),
         "uncertainty_argument_aliases": UNCERTAINTY_ARGUMENT_ALIASES
             .iter()
             .map(|item| json!({
@@ -2245,6 +2253,29 @@ pub fn editor_syntax_catalog_json() -> Value {
                 "dimension": unit.dimension,
             }))
             .collect::<Vec<_>>(),
+    })
+}
+
+fn builtin_function_signature_metadata_json(signature: &BuiltinFunctionSignature) -> Value {
+    json!({
+        "owner": signature.owner,
+        "status": signature.status,
+        "status_label": signature.status_label,
+        "documentation": signature.documentation,
+        "name": signature.name,
+        "label": signature.label,
+        "parameters": signature
+            .parameters
+            .iter()
+            .map(|parameter| json!({
+                "name": parameter.name,
+                "label": parameter.label,
+                "type": parameter.type_name,
+                "optional": parameter.optional,
+            }))
+            .collect::<Vec<_>>(),
+        "return_type": signature.return_type,
+        "return_display_unit": signature.return_display_unit,
     })
 }
 
@@ -10276,6 +10307,22 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         push_completion(&mut items, &mut seen, type_name, "class", detail);
     }
 
+    for signature in builtin_function_signatures().iter().filter(|signature| {
+        signature.name != "pNN"
+            && matches!(
+                signature.status.as_str(),
+                "supported" | "supported_narrow" | "native_preview"
+            )
+    }) {
+        push_completion(
+            &mut items,
+            &mut seen,
+            &signature.name,
+            "function",
+            &format!("{} ({})", signature.label, signature.owner),
+        );
+    }
+
     for (label, detail) in WORKFLOW_BUILTIN_COMPLETIONS.iter().copied() {
         push_completion(&mut items, &mut seen, label, "function", detail);
     }
@@ -10311,6 +10358,9 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
             &module.completion_detail(),
         );
         for symbol in &module.symbols {
+            if parse_module_function_signature(symbol).is_ok() {
+                continue;
+            }
             push_completion(
                 &mut items,
                 &mut seen,
@@ -10847,6 +10897,7 @@ pub fn signature_help_at(
         return Some(function_signature_help(function, context.active_parameter));
     }
     class_method_signature_help(report, &context)
+        .or_else(|| builtin_function_signature_help(&context))
 }
 
 fn function_signature_help(function: &FunctionInfo, active_parameter: usize) -> LspSignatureHelp {
@@ -10909,6 +10960,54 @@ fn class_method_signature_help(
         }],
         active_signature: 0,
         active_parameter: 0,
+    })
+}
+
+fn builtin_function_signature_help(context: &SignatureHelpContext) -> Option<LspSignatureHelp> {
+    let builtin_signatures = builtin_function_signatures_for_name(&context.callee);
+    if builtin_signatures.is_empty() {
+        return None;
+    }
+    let active_signature = builtin_signatures
+        .iter()
+        .position(|signature| context.active_parameter < signature.parameters.len())
+        .unwrap_or(0);
+    let active_parameter = context.active_parameter.min(
+        builtin_signatures[active_signature]
+            .parameters
+            .len()
+            .saturating_sub(1),
+    );
+    Some(LspSignatureHelp {
+        signatures: builtin_signatures
+            .iter()
+            .map(|signature| LspSignatureInformation {
+                label: signature.label.clone(),
+                documentation: format!(
+                    "{} ({}). {}",
+                    signature.owner, signature.status_label, signature.documentation
+                ),
+                parameters: signature
+                    .parameters
+                    .iter()
+                    .map(|parameter| LspParameterInformation {
+                        label: parameter.label.clone(),
+                        documentation: format!(
+                            "{} parameter {} expects {}.",
+                            if parameter.optional {
+                                "Optional"
+                            } else {
+                                "Required"
+                            },
+                            parameter.name,
+                            parameter.type_name
+                        ),
+                    })
+                    .collect(),
+            })
+            .collect(),
+        active_signature,
+        active_parameter,
     })
 }
 
@@ -12026,6 +12125,7 @@ fn is_starter_snippet_label(label: &str) -> bool {
 }
 
 fn completion_insert_for_label(label: &str) -> Option<&'static str> {
+    let label = call_completion_snippet_label(label);
     match label {
         "file(...)" => Some("file(\"data/input.csv\")"),
         "dir(...)" => Some("dir(\"build/result\")"),
@@ -12073,6 +12173,7 @@ fn completion_insert_for_label(label: &str) -> Option<&'static str> {
 }
 
 fn completion_insert_snippet_for_label(label: &str) -> Option<String> {
+    let label = call_completion_snippet_label(label);
     if let Some(base) = label.strip_suffix("[T]") {
         return Some(format!("{base}[${{1:T}}]"));
     }
@@ -12188,6 +12289,19 @@ fn completion_insert_snippet_for_label(label: &str) -> Option<String> {
                 .to_owned(),
         ),
         _ => None,
+    }
+}
+
+fn call_completion_snippet_label(label: &str) -> &str {
+    match label {
+        "file" => "file(...)",
+        "dir" => "dir(...)",
+        "join" => "join(...)",
+        "parent" => "parent(...)",
+        "stem" => "stem(...)",
+        "extension" => "extension(...)",
+        "exists" => "exists path",
+        _ => label,
     }
 }
 
@@ -14506,6 +14620,26 @@ print "done"
         assert!(completion_items
             .iter()
             .any(|completion| completion["label"] == "uniform"));
+        let normal_completion = completion_items
+            .iter()
+            .find(|completion| completion["label"] == "normal")
+            .expect("normal completion");
+        assert!(normal_completion["detail"]
+            .as_str()
+            .is_some_and(|detail| detail.contains("samples?: Int")));
+        assert!(!completion_items
+            .iter()
+            .any(|completion| completion["label"] == "normal(...)"));
+        let file_completion = completion_items
+            .iter()
+            .find(|completion| completion["label"] == "file")
+            .expect("file completion");
+        assert!(file_completion["insert_snippet"]
+            .as_str()
+            .is_some_and(|snippet| snippet.contains("data/input.csv")));
+        assert!(!completion_items
+            .iter()
+            .any(|completion| completion["label"] == "file(...)"));
         for alias in [
             "latin_hypercube",
             "latin-hypercube",
@@ -14545,6 +14679,45 @@ print "done"
             );
         }
         let syntax_catalog = &metadata["syntax_catalog"];
+        let builtin_signatures = syntax_catalog["builtin_function_signatures"]
+            .as_array()
+            .expect("syntax catalog builtin signatures should be an array");
+        assert_eq!(
+            syntax_catalog["builtin_function_signatures_count"].as_u64(),
+            Some(builtin_signatures.len() as u64)
+        );
+        for label in [
+            "file(path: String) -> FilePath",
+            "uniform(lower: Quantity, upper: Quantity) -> SampleDistribution",
+            "normal(mean: Quantity, std: Quantity, samples?: Int) -> Uncertain[Quantity]",
+            "duration_above(series: TimeSeries[Time], threshold: Quantity) -> Duration [s]",
+            "sqrt(value: Number) -> Number",
+            "pNN(series: TimeSeries | Uncertain, axis?: TimeAxis) -> Quantity",
+        ] {
+            assert!(
+                builtin_signatures
+                    .iter()
+                    .any(|signature| signature["label"] == label),
+                "syntax catalog should expose builtin signature {label}"
+            );
+        }
+        let duration_signature = builtin_signatures
+            .iter()
+            .find(|signature| signature["name"] == "duration_above")
+            .expect("duration signature");
+        assert_eq!(duration_signature["return_display_unit"], "s");
+        assert_eq!(duration_signature["parameters"][1]["type"], "Quantity");
+        let uniform_signatures = builtin_signatures
+            .iter()
+            .filter(|signature| signature["name"] == "uniform")
+            .collect::<Vec<_>>();
+        assert_eq!(uniform_signatures.len(), 2);
+        assert!(uniform_signatures
+            .iter()
+            .any(|signature| signature["owner"] == "eng.sampling"));
+        assert!(uniform_signatures
+            .iter()
+            .any(|signature| signature["owner"] == "eng.uncertainty"));
         assert_eq!(syntax_catalog["keywords"][0], COMPLETION_KEYWORDS[0]);
         assert_eq!(
             syntax_catalog["percentile_statistic_pattern"],
@@ -17625,7 +17798,7 @@ title = "Measured vs simulated zone temperature"
             .expect("rmse completion");
         assert_eq!(
             completion.detail,
-            "eng.quality native TimeSeries RMSE: rmse(left, right)"
+            "rmse(left: TimeSeries, right: TimeSeries) -> Quantity (eng.quality)"
         );
     }
 
@@ -17661,7 +17834,7 @@ title = "Measured vs simulated zone temperature"
             .expect("duration_above completion");
         assert_eq!(
             completion.detail,
-            "eng.stats native duration: duration_above(series, threshold) -> Duration [s]"
+            "duration_above(series: TimeSeries[Time], threshold: Quantity) -> Duration [s] (eng.stats)"
         );
     }
 
@@ -23516,6 +23689,139 @@ summary = wall.summary()
         assert!(help.signatures[0]
             .documentation
             .contains("from `Construction`"));
+    }
+
+    #[test]
+    fn signature_help_uses_compiler_owned_builtin_overloads_and_percentiles() {
+        let source = r#"profile = env("ENG_PROFILE", "dev")
+sensor = measured(12 degC, relative_error=1 %)
+range = uniform(1 kW, 2 kW)
+uncertain = uniform(1 kW, 2 kW, samples=11)
+tail = p05(Q, axis=Time)
+"#;
+        let report = check_source(
+            Path::new("builtin_signature_help.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+
+        let env_line = source
+            .lines()
+            .position(|line| line.contains("profile ="))
+            .expect("env call line");
+        let env_text = source.lines().nth(env_line).expect("env call source");
+        let env_character = env_text.find("\"dev\"").expect("env fallback");
+        let env_help = signature_help_at(&report, source, env_line, env_character)
+            .expect("env should expose a typed signature");
+        assert_eq!(env_help.active_parameter, 1);
+        assert_eq!(
+            env_help.signatures[0].label,
+            "env(name: String, fallback?: String) -> String"
+        );
+        assert!(env_help.signatures[0].parameters[1]
+            .documentation
+            .starts_with("Optional parameter"));
+
+        let measured_line = source
+            .lines()
+            .position(|line| line.contains("sensor ="))
+            .expect("measured call line");
+        let measured_text = source
+            .lines()
+            .nth(measured_line)
+            .expect("measured call source");
+        let measured_character = measured_text
+            .find("relative_error")
+            .expect("measured second argument");
+        let measured_help = signature_help_at(&report, source, measured_line, measured_character)
+            .expect("measured should expose both supported overloads");
+        assert_eq!(measured_help.active_parameter, 1);
+        assert_eq!(measured_help.signatures.len(), 2);
+        assert!(measured_help
+            .signatures
+            .iter()
+            .any(|signature| signature.label.contains("relative_error: Ratio")));
+
+        let range_line = source
+            .lines()
+            .position(|line| line.contains("range ="))
+            .expect("sample range call line");
+        let range_text = source
+            .lines()
+            .nth(range_line)
+            .expect("sample range call source");
+        let range_character = range_text.find("2 kW").expect("sample range upper bound");
+        let range_help = signature_help_at(&report, source, range_line, range_character)
+            .expect("uniform should expose sampling and uncertainty overloads");
+        assert_eq!(range_help.active_parameter, 1);
+        assert_eq!(range_help.active_signature, 0);
+        assert_eq!(range_help.signatures.len(), 2);
+        assert_eq!(
+            range_help.signatures[0].label,
+            "uniform(lower: Quantity, upper: Quantity) -> SampleDistribution"
+        );
+
+        let uncertain_line = source
+            .lines()
+            .position(|line| line.contains("uncertain ="))
+            .expect("uncertainty uniform call line");
+        let uncertain_text = source
+            .lines()
+            .nth(uncertain_line)
+            .expect("uncertainty uniform call source");
+        let uncertain_character = uncertain_text.find("samples=").expect("samples argument");
+        let uncertain_help =
+            signature_help_at(&report, source, uncertain_line, uncertain_character)
+                .expect("third uniform argument should select uncertainty overload");
+        assert_eq!(uncertain_help.active_parameter, 2);
+        assert_eq!(uncertain_help.active_signature, 1);
+        assert!(uncertain_help.signatures[1].label.contains("samples?: Int"));
+
+        let percentile_line = source
+            .lines()
+            .position(|line| line.contains("tail ="))
+            .expect("percentile call line");
+        let percentile_text = source
+            .lines()
+            .nth(percentile_line)
+            .expect("percentile call source");
+        let percentile_character = percentile_text.find("axis=").expect("percentile axis");
+        let percentile_help =
+            signature_help_at(&report, source, percentile_line, percentile_character)
+                .expect("valid numeric percentile should expose a materialized signature");
+        assert_eq!(percentile_help.active_parameter, 1);
+        assert!(percentile_help.signatures[0].label.starts_with("p05("));
+    }
+
+    #[test]
+    fn user_function_signature_takes_precedence_over_builtin_catalog() {
+        let source = r#"fn mean(value: Number) -> Number {
+    return value
+}
+
+result = mean(1)
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.contains("result ="))
+            .expect("call line");
+        let line_text = source.lines().nth(line).expect("call source");
+        let character = line_text.find('1').expect("call argument");
+        let report = check_source(
+            Path::new("builtin_shadow_signature_help.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+
+        let help = signature_help_at(&report, source, line, character)
+            .expect("shadowing user function should expose signature");
+        assert_eq!(
+            help.signatures[0].label,
+            "mean(value: Number [-]) -> Number [-]"
+        );
+        assert!(help.signatures[0]
+            .documentation
+            .starts_with("User-defined function"));
     }
 
     #[test]

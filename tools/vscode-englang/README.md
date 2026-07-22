@@ -69,8 +69,11 @@ embedding compiler logic in JavaScript.
 - hover from compiler review metadata
 - position-aware completion from compiler/editor metadata
 - compiler-derived signature help while typing local or statically imported
-  user-function calls and zero-argument class-object method calls; nested and
-  multiline calls select the active parameter using UTF-16 editor positions
+  user-function calls, zero-argument class-object method calls, and structured
+  built-in calls; module-owned overloads, optional parameters, return types,
+  return units, dimensionless math, and valid `p1` through `p100` calls use
+  the same catalog as generated completion metadata, while nested and multiline
+  calls select the active parameter using UTF-16 editor positions
 - owner-aware `run_case` completion and highlighting for `scheduler`, `workers`,
   sequential/parallel policy values, and CaseRunResult runner/worker/lifecycle
   fields

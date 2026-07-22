@@ -66,6 +66,7 @@ artifacts = ["review.inputs", "review_document.table_transforms", "typed_payload
 diagnostics = ["E-TABLE-UNKNOWN-COLUMN", "E-TABLE-PREDICATE-TYPE", "E-TABLE-JOIN-KEY-MISMATCH", "E-TABLE-SCHEMA-MISMATCH", "W-TABLE-LEGACY-SELECT-FIRST-ROW"]
 examples = ["examples/workflows/01_weather_api_to_standard_file", "examples/workflows/02_native_surrogate_case_workflow"]
 tests = ["cargo test -p eng_runtime table_", "cargo test -p eng_compiler table_"]
+symbols = ["date(year: Int, month: Int, day: Int) -> Date"]
 
 [module."eng.timeseries"]
 status = "native_preview"
@@ -75,6 +76,7 @@ artifacts = ["typed_payload.numeric_values", "typed_payload.timeseries_coverage"
 diagnostics = ["E-TIMESERIES-COVERAGE-GAP", "E-TIMESERIES-FILL-BINDING", "E-TIMESERIES-FILL-METHOD", "E-TIMESERIES-FILL-STEP", "E-TIMESERIES-FILL-STEP-CONFLICT", "E-TIMESERIES-FILL-MAX-GAP", "W-TIMESERIES-FILL-METHOD-IMPLICIT", "E-TIMESERIES-ALIGN-BINDING", "E-TIMESERIES-ALIGN-METHOD", "E-TIMESERIES-ALIGN-STEP", "E-TIMESERIES-ALIGN-TOLERANCE", "W-TIMESERIES-RESAMPLE-STEP-REDUNDANT", "W-FALLBACK-USED"]
 examples = ["examples/official/01_csv_plot", "examples/internal/17_measured_vs_simulated", "examples/workflows/01_weather_api_to_standard_file", "examples/workflows/03_uncertain_sensor_report"]
 tests = ["cargo test -p eng_compiler timeseries_fill_missing", "cargo test -p eng_compiler timeseries_alignment", "cargo test -p eng_runtime computes_heat_rate_statistics_and_integral", "cargo test -p eng_runtime run_file_materializes_explicit_computed_scalars_in_declared_units", "cargo test -p eng_runtime run_file_records_timeseries_coverage_in_review", "cargo test -p eng_runtime run_file_records_timeseries_fill_missing_in_artifacts", "cargo test -p eng_runtime run_file_materializes_timeseries_alignment_and_resampling_outputs"]
+symbols = ["integrate(series: TimeSeries[Time], over?: TimeAxis) -> Energy"]
 
 [module."eng.sampling"]
 status = "native_preview"
@@ -84,6 +86,7 @@ artifacts = ["typed_payload.sample_tables", "case_manifest"]
 diagnostics = ["E-SAMPLING-COUNT-INVALID", "E-SAMPLING-RANGE-UNIT", "E-SAMPLING-SEED-INVALID", "E-SAMPLING-SEED-MISSING", "E-CASE-ID-DUPLICATE"]
 examples = ["examples/workflows/02_native_surrogate_case_workflow"]
 tests = ["cargo test -p eng_compiler sample_generation", "cargo test -p eng_runtime sample"]
+symbols = ["uniform(lower: Quantity, upper: Quantity) -> SampleDistribution"]
 
 [module."eng.case"]
 status = "native_preview"
@@ -120,6 +123,7 @@ artifacts = ["typed_payload.model_specs", "typed_payload.model_cards", "typed_pa
 diagnostics = ["E-MODEL-FEATURE-MISSING", "E-MODEL-TARGET-MISSING", "E-MODEL-CARD-MISSING", "W-MODEL-EXTRAPOLATION"]
 examples = ["examples/workflows/02_native_surrogate_case_workflow", "examples/internal/05_data_driven_modeling"]
 tests = ["cargo test -p eng_compiler records_data_driven_modeling_metadata", "cargo test -p eng_runtime model", "cargo test -p eng_runtime run_file_predicts_native_model_into_table_and_sqlite"]
+symbols = ["train_test_split(series: TimeSeries, target: TimeSeries, features: Array[TimeSeries], test: Ratio, seed?: Int) -> TrainTestSplit", "regression(split: TrainTestSplit, algorithm?: String) -> Model[Regression]", "mlp(split: TrainTestSplit, hidden: Array[Int], epochs: Int, seed?: Int) -> Model[MLP]", "evaluate(model: Model, split?: TrainTestSplit) -> ModelEvaluation", "model_card(model: Model) -> ModelCard", "leakage_lint(split: TrainTestSplit) -> LeakageReport"]
 
 [module."eng.db"]
 status = "native_preview"
@@ -147,6 +151,7 @@ artifacts = ["review.external_boundaries", "typed_payload.network_boundaries", "
 diagnostics = ["E-URL-CALL-001", "E-NET-INVALID-URL", "E-NET-RETRY-POLICY", "E-NET-TIMEOUT", "E-NET-BODY-METHOD", "E-NET-BODY-POLICY", "E-NET-BODY-SIZE-LIMIT", "E-NET-HASH-MISMATCH", "E-NET-UNPINNED-REPRO", "E-NET-SECRET-LIVE", "W-NET-FIXTURE-ALIAS", "W-NET-RESPONSE-HASH-ALIAS", "W-NET-RESPONSE-STATUS-ALIAS"]
 examples = ["examples/workflows/01_weather_api_to_standard_file"]
 tests = ["cargo test -p eng_compiler net_", "cargo test -p eng_runtime network", "cargo test -p eng_runtime secret_arg", "cargo test -p eng_runtime run_file_executes_live_http_response_body_json_source", "cargo test -p eng_runtime run_file_sends_live_http_request_body"]
+symbols = ["url(address: String) -> Url"]
 
 [module."eng.cache"]
 status = "native_preview"
@@ -202,7 +207,7 @@ artifacts = ["typed_payload.numeric_values", "typed_payload.statistics", "report
 diagnostics = ["E-STATS-DURATION-CALL-001", "E-STATS-DURATION-SOURCE-001", "E-STATS-DURATION-UNIT-001", "W-STATS-SUM-001"]
 examples = ["examples/official/01_csv_plot", "examples/workflows/03_uncertain_sensor_report"]
 tests = ["cargo test -p eng_compiler duration_above_", "cargo test -p eng_compiler explicit_computed_scalars_share_native_validation_and_metadata", "cargo test -p eng_runtime computes_heat_rate_statistics_and_integral", "cargo test -p eng_runtime run_file_materializes_explicit_computed_scalars_in_declared_units", "cargo test -p eng_jit executes_native_sum_statistic_reduction"]
-symbols = ["duration_above(series: TimeSeries, threshold: Quantity) -> Duration [s]", "sum(series: TimeSeries) -> Quantity"]
+symbols = ["mean(series: TimeSeries | Uncertain, axis?: TimeAxis) -> Quantity", "time_weighted_mean(series: TimeSeries[Time], axis?: TimeAxis) -> Quantity", "min(series: TimeSeries, axis?: TimeAxis) -> Quantity", "max(series: TimeSeries, axis?: TimeAxis) -> Quantity", "median(series: TimeSeries, axis?: TimeAxis) -> Quantity", "std(series: TimeSeries, axis?: TimeAxis) -> Quantity", "sum(series: TimeSeries, axis?: TimeAxis) -> Quantity", "duration_above(series: TimeSeries[Time], threshold: Quantity) -> Duration [s]"]
 
 [module."eng.plot"]
 status = "native_preview"
@@ -230,6 +235,7 @@ artifacts = ["review.systems", "system_ir"]
 diagnostics = []
 examples = ["examples/advanced_solver/31_external_behavior_solver"]
 tests = ["cargo test -p eng_runtime system"]
+symbols = ["der(value: Quantity) -> Derivative[Quantity]", "delay(signal: Quantity, duration: Duration) -> Quantity", "predictor(signal: Quantity) -> Quantity", "predict(signal: Quantity) -> Quantity", "adapter(signal: Quantity) -> Quantity", "external(signal: Quantity) -> Quantity"]
 
 [module."eng.ml"]
 status = "internal"
@@ -248,3 +254,4 @@ artifacts = ["typed_payload.uncertainties", "review.uncertainty", "timeseries_un
 diagnostics = ["W-UNC-INDEPENDENCE-ASSUMED", "W-WITH-UNCERTAINTY-SEED-001"]
 examples = ["examples/workflows/03_uncertain_sensor_report"]
 tests = ["cargo test -p eng_compiler uncertainty", "cargo test -p eng_runtime uncertainty"]
+symbols = ["measured(value: Quantity, std: Quantity) -> Uncertain[Quantity]", "measured(value: Quantity, relative_error: Ratio) -> Uncertain[Quantity]", "interval(lower: Quantity, upper: Quantity) -> Uncertain[Quantity]", "normal(mean: Quantity, std: Quantity, samples?: Int) -> Uncertain[Quantity]", "uniform(lower: Quantity, upper: Quantity, samples?: Int) -> Uncertain[Quantity]", "distribution(kind: DistributionKind, mean?: Quantity, std?: Quantity, lower?: Quantity, upper?: Quantity, samples?: Int) -> Uncertain[Quantity]", "ensemble(source: Uncertain, samples?: Int) -> Uncertain[Quantity]", "propagate(source: Uncertain, method?: PropagationMethod, scale?: Number, offset?: Quantity, samples?: Int) -> Uncertain[Quantity]", "probability(comparison: UncertainComparison) -> Ratio"]

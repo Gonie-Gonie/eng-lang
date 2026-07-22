@@ -307,9 +307,12 @@ diagnostics mode or Problems settings also refresh or clear the active EngLang e
 
 The extension shares the same checked-code diagnostics, hover, completion, and
 role-aware highlighting data as the native IDE. It also shows typed parameter
-help while entering local or statically imported user-function calls and
-zero-argument class-object method calls. Live diagnostics, hover, completion,
-call signature help, go-to-definition, Find All References, rename preparation,
+help while entering local or statically imported user-function calls,
+zero-argument class-object method calls, and built-in calls such as
+`join(...)`, `normal(...)`, `duration_above(...)`, and `sqrt(...)`.
+Built-in help comes from compiler-owned module contracts and includes overloads,
+optional parameters, return types, and declared return units. Live diagnostics,
+hover, completion, call signature help, go-to-definition, Find All References, rename preparation,
 and rename pass the current file plus every modified open EngLang file in the
 workspace to the compiler. Recursive static imports use open text before disk,
 and results are discarded if the participating document set, dirty state, or

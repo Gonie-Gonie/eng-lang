@@ -1,6 +1,1203 @@
 {
     "format":  "eng-lsp-editor-metadata-v2",
     "syntax_catalog":  {
+                           "builtin_function_signatures":  [
+                                                               {
+                                                                   "documentation":  "Dimensionless scalar math for solver, component, and scalar arithmetic expressions.",
+                                                                   "label":  "acos(value: Number) -\u003e Number",
+                                                                   "name":  "acos",
+                                                                   "owner":  "EngLang core",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "value: Number",
+                                                                                          "name":  "value",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Number"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Number",
+                                                                   "status":  "supported_narrow",
+                                                                   "status_label":  "Supported narrow"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Solver-facing adapters and metadata, not the public identity of stdlib.",
+                                                                   "label":  "adapter(signal: Quantity) -\u003e Quantity",
+                                                                   "name":  "adapter",
+                                                                   "owner":  "eng.system",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "signal: Quantity",
+                                                                                          "name":  "signal",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Quantity"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Quantity",
+                                                                   "status":  "internal_planned",
+                                                                   "status_label":  "Internal target"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Dimensionless scalar math for solver, component, and scalar arithmetic expressions.",
+                                                                   "label":  "asin(value: Number) -\u003e Number",
+                                                                   "name":  "asin",
+                                                                   "owner":  "EngLang core",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "value: Number",
+                                                                                          "name":  "value",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Number"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Number",
+                                                                   "status":  "supported_narrow",
+                                                                   "status_label":  "Supported narrow"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Dimensionless scalar math for solver, component, and scalar arithmetic expressions.",
+                                                                   "label":  "atan(value: Number) -\u003e Number",
+                                                                   "name":  "atan",
+                                                                   "owner":  "EngLang core",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "value: Number",
+                                                                                          "name":  "value",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Number"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Number",
+                                                                   "status":  "supported_narrow",
+                                                                   "status_label":  "Supported narrow"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Dimensionless scalar math for solver, component, and scalar arithmetic expressions.",
+                                                                   "label":  "cos(value: Number) -\u003e Number",
+                                                                   "name":  "cos",
+                                                                   "owner":  "EngLang core",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "value: Number",
+                                                                                          "name":  "value",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Number"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Number",
+                                                                   "status":  "supported_narrow",
+                                                                   "status_label":  "Supported narrow"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Promoted table diagnostics and schema-aware filter/select/derive/sort/require_one/join transform records with row-level diagnostics; broader table transforms are planned.",
+                                                                   "label":  "date(year: Int, month: Int, day: Int) -\u003e Date",
+                                                                   "name":  "date",
+                                                                   "owner":  "eng.table",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "year: Int",
+                                                                                          "name":  "year",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Int"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "month: Int",
+                                                                                          "name":  "month",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Int"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "day: Int",
+                                                                                          "name":  "day",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Int"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Date",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Solver-facing adapters and metadata, not the public identity of stdlib.",
+                                                                   "label":  "delay(signal: Quantity, duration: Duration) -\u003e Quantity",
+                                                                   "name":  "delay",
+                                                                   "owner":  "eng.system",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "signal: Quantity",
+                                                                                          "name":  "signal",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Quantity"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "duration: Duration",
+                                                                                          "name":  "duration",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Duration"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Quantity",
+                                                                   "status":  "internal_planned",
+                                                                   "status_label":  "Internal target"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Solver-facing adapters and metadata, not the public identity of stdlib.",
+                                                                   "label":  "der(value: Quantity) -\u003e Derivative[Quantity]",
+                                                                   "name":  "der",
+                                                                   "owner":  "eng.system",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "value: Quantity",
+                                                                                          "name":  "value",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Quantity"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Derivative[Quantity]",
+                                                                   "status":  "internal_planned",
+                                                                   "status_label":  "Internal target"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Typed path helpers, joins, names, review-visible existence checks, and provenance-recorded non-secret environment values.",
+                                                                   "label":  "dir(path: String) -\u003e DirectoryPath",
+                                                                   "name":  "dir",
+                                                                   "owner":  "eng.path",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "path: String",
+                                                                                          "name":  "path",
+                                                                                          "optional":  false,
+                                                                                          "type":  "String"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "DirectoryPath",
+                                                                   "status":  "supported",
+                                                                   "status_label":  "Supported"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Narrow native uncertainty constructors, linear propagation metadata, sensor_std TimeSeries review metadata, probability/statistic validation, and report confidence-band artifacts; broad probabilistic propagation remains planned.",
+                                                                   "label":  "distribution(kind: DistributionKind, mean?: Quantity, std?: Quantity, lower?: Quantity, upper?: Quantity, samples?: Int) -\u003e Uncertain[Quantity]",
+                                                                   "name":  "distribution",
+                                                                   "owner":  "eng.uncertainty",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "kind: DistributionKind",
+                                                                                          "name":  "kind",
+                                                                                          "optional":  false,
+                                                                                          "type":  "DistributionKind"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "mean?: Quantity",
+                                                                                          "name":  "mean",
+                                                                                          "optional":  true,
+                                                                                          "type":  "Quantity"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "std?: Quantity",
+                                                                                          "name":  "std",
+                                                                                          "optional":  true,
+                                                                                          "type":  "Quantity"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "lower?: Quantity",
+                                                                                          "name":  "lower",
+                                                                                          "optional":  true,
+                                                                                          "type":  "Quantity"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "upper?: Quantity",
+                                                                                          "name":  "upper",
+                                                                                          "optional":  true,
+                                                                                          "type":  "Quantity"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "samples?: Int",
+                                                                                          "name":  "samples",
+                                                                                          "optional":  true,
+                                                                                          "type":  "Int"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Uncertain[Quantity]",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Compiler-checked TimeSeries summarize directives and value calls with runtime-computed mean, time-weighted mean, sum, min, max, median, population standard deviation, nearest-rank percentiles, and duration-above values.",
+                                                                   "label":  "duration_above(series: TimeSeries[Time], threshold: Quantity) -\u003e Duration [s]",
+                                                                   "name":  "duration_above",
+                                                                   "owner":  "eng.stats",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "series: TimeSeries[Time]",
+                                                                                          "name":  "series",
+                                                                                          "optional":  false,
+                                                                                          "type":  "TimeSeries[Time]"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "threshold: Quantity",
+                                                                                          "name":  "threshold",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Quantity"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  "s",
+                                                                   "return_type":  "Duration",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Narrow native uncertainty constructors, linear propagation metadata, sensor_std TimeSeries review metadata, probability/statistic validation, and report confidence-band artifacts; broad probabilistic propagation remains planned.",
+                                                                   "label":  "ensemble(source: Uncertain, samples?: Int) -\u003e Uncertain[Quantity]",
+                                                                   "name":  "ensemble",
+                                                                   "owner":  "eng.uncertainty",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "source: Uncertain",
+                                                                                          "name":  "source",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Uncertain"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "samples?: Int",
+                                                                                          "name":  "samples",
+                                                                                          "optional":  true,
+                                                                                          "type":  "Int"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Uncertain[Quantity]",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Typed path helpers, joins, names, review-visible existence checks, and provenance-recorded non-secret environment values.",
+                                                                   "label":  "env(name: String, fallback?: String) -\u003e String",
+                                                                   "name":  "env",
+                                                                   "owner":  "eng.path",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "name: String",
+                                                                                          "name":  "name",
+                                                                                          "optional":  false,
+                                                                                          "type":  "String"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "fallback?: String",
+                                                                                          "name":  "fallback",
+                                                                                          "optional":  true,
+                                                                                          "type":  "String"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "String",
+                                                                   "status":  "supported",
+                                                                   "status_label":  "Supported"
+                                                               },
+                                                               {
+                                                                   "documentation":  "ModelSpec, FeatureSpec, TargetSpec, model-card, metric, residual, native predict-table, prediction-manifest, confidence, and hash review artifacts.",
+                                                                   "label":  "evaluate(model: Model, split?: TrainTestSplit) -\u003e ModelEvaluation",
+                                                                   "name":  "evaluate",
+                                                                   "owner":  "eng.model",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "model: Model",
+                                                                                          "name":  "model",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Model"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "split?: TrainTestSplit",
+                                                                                          "name":  "split",
+                                                                                          "optional":  true,
+                                                                                          "type":  "TrainTestSplit"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "ModelEvaluation",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Typed path helpers, joins, names, review-visible existence checks, and provenance-recorded non-secret environment values.",
+                                                                   "label":  "exists(path: FilePath | DirectoryPath) -\u003e Bool",
+                                                                   "name":  "exists",
+                                                                   "owner":  "eng.path",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "path: FilePath | DirectoryPath",
+                                                                                          "name":  "path",
+                                                                                          "optional":  false,
+                                                                                          "type":  "FilePath | DirectoryPath"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Bool",
+                                                                   "status":  "supported",
+                                                                   "status_label":  "Supported"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Dimensionless scalar math for solver, component, and scalar arithmetic expressions.",
+                                                                   "label":  "exp(value: Number) -\u003e Number",
+                                                                   "name":  "exp",
+                                                                   "owner":  "EngLang core",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "value: Number",
+                                                                                          "name":  "value",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Number"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Number",
+                                                                   "status":  "supported_narrow",
+                                                                   "status_label":  "Supported narrow"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Typed path helpers, joins, names, review-visible existence checks, and provenance-recorded non-secret environment values.",
+                                                                   "label":  "extension(path: FilePath) -\u003e String",
+                                                                   "name":  "extension",
+                                                                   "owner":  "eng.path",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "path: FilePath",
+                                                                                          "name":  "path",
+                                                                                          "optional":  false,
+                                                                                          "type":  "FilePath"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "String",
+                                                                   "status":  "supported",
+                                                                   "status_label":  "Supported"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Solver-facing adapters and metadata, not the public identity of stdlib.",
+                                                                   "label":  "external(signal: Quantity) -\u003e Quantity",
+                                                                   "name":  "external",
+                                                                   "owner":  "eng.system",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "signal: Quantity",
+                                                                                          "name":  "signal",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Quantity"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Quantity",
+                                                                   "status":  "internal_planned",
+                                                                   "status_label":  "Internal target"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Typed path helpers, joins, names, review-visible existence checks, and provenance-recorded non-secret environment values.",
+                                                                   "label":  "file(path: String) -\u003e FilePath",
+                                                                   "name":  "file",
+                                                                   "owner":  "eng.path",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "path: String",
+                                                                                          "name":  "path",
+                                                                                          "optional":  false,
+                                                                                          "type":  "String"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "FilePath",
+                                                                   "status":  "supported",
+                                                                   "status_label":  "Supported"
+                                                               },
+                                                               {
+                                                                   "documentation":  "TimeSeries axis metadata, coverage checks, explicit native interpolation or non-mutating fill policies, quality summaries, native statistics and unit-correct HeatRate integration with declared-unit scalar results over materialized fill/alignment outputs, plus exact/nearest/linear alignment and resampling.",
+                                                                   "label":  "integrate(series: TimeSeries[Time], over?: TimeAxis) -\u003e Energy",
+                                                                   "name":  "integrate",
+                                                                   "owner":  "eng.timeseries",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "series: TimeSeries[Time]",
+                                                                                          "name":  "series",
+                                                                                          "optional":  false,
+                                                                                          "type":  "TimeSeries[Time]"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "over?: TimeAxis",
+                                                                                          "name":  "over",
+                                                                                          "optional":  true,
+                                                                                          "type":  "TimeAxis"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Energy",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Narrow native uncertainty constructors, linear propagation metadata, sensor_std TimeSeries review metadata, probability/statistic validation, and report confidence-band artifacts; broad probabilistic propagation remains planned.",
+                                                                   "label":  "interval(lower: Quantity, upper: Quantity) -\u003e Uncertain[Quantity]",
+                                                                   "name":  "interval",
+                                                                   "owner":  "eng.uncertainty",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "lower: Quantity",
+                                                                                          "name":  "lower",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Quantity"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "upper: Quantity",
+                                                                                          "name":  "upper",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Quantity"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Uncertain[Quantity]",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Typed path helpers, joins, names, review-visible existence checks, and provenance-recorded non-secret environment values.",
+                                                                   "label":  "join(base: DirectoryPath, child: String) -\u003e FilePath | DirectoryPath",
+                                                                   "name":  "join",
+                                                                   "owner":  "eng.path",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "base: DirectoryPath",
+                                                                                          "name":  "base",
+                                                                                          "optional":  false,
+                                                                                          "type":  "DirectoryPath"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "child: String",
+                                                                                          "name":  "child",
+                                                                                          "optional":  false,
+                                                                                          "type":  "String"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "FilePath | DirectoryPath",
+                                                                   "status":  "supported",
+                                                                   "status_label":  "Supported"
+                                                               },
+                                                               {
+                                                                   "documentation":  "ModelSpec, FeatureSpec, TargetSpec, model-card, metric, residual, native predict-table, prediction-manifest, confidence, and hash review artifacts.",
+                                                                   "label":  "leakage_lint(split: TrainTestSplit) -\u003e LeakageReport",
+                                                                   "name":  "leakage_lint",
+                                                                   "owner":  "eng.model",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "split: TrainTestSplit",
+                                                                                          "name":  "split",
+                                                                                          "optional":  false,
+                                                                                          "type":  "TrainTestSplit"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "LeakageReport",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Dimensionless scalar math for solver, component, and scalar arithmetic expressions.",
+                                                                   "label":  "ln(value: Number) -\u003e Number",
+                                                                   "name":  "ln",
+                                                                   "owner":  "EngLang core",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "value: Number",
+                                                                                          "name":  "value",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Number"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Number",
+                                                                   "status":  "supported_narrow",
+                                                                   "status_label":  "Supported narrow"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Compiler-checked TimeSeries summarize directives and value calls with runtime-computed mean, time-weighted mean, sum, min, max, median, population standard deviation, nearest-rank percentiles, and duration-above values.",
+                                                                   "label":  "max(series: TimeSeries, axis?: TimeAxis) -\u003e Quantity",
+                                                                   "name":  "max",
+                                                                   "owner":  "eng.stats",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "series: TimeSeries",
+                                                                                          "name":  "series",
+                                                                                          "optional":  false,
+                                                                                          "type":  "TimeSeries"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "axis?: TimeAxis",
+                                                                                          "name":  "axis",
+                                                                                          "optional":  true,
+                                                                                          "type":  "TimeAxis"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Quantity",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Compiler-checked TimeSeries summarize directives and value calls with runtime-computed mean, time-weighted mean, sum, min, max, median, population standard deviation, nearest-rank percentiles, and duration-above values.",
+                                                                   "label":  "mean(series: TimeSeries | Uncertain, axis?: TimeAxis) -\u003e Quantity",
+                                                                   "name":  "mean",
+                                                                   "owner":  "eng.stats",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "series: TimeSeries | Uncertain",
+                                                                                          "name":  "series",
+                                                                                          "optional":  false,
+                                                                                          "type":  "TimeSeries | Uncertain"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "axis?: TimeAxis",
+                                                                                          "name":  "axis",
+                                                                                          "optional":  true,
+                                                                                          "type":  "TimeAxis"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Quantity",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Narrow native uncertainty constructors, linear propagation metadata, sensor_std TimeSeries review metadata, probability/statistic validation, and report confidence-band artifacts; broad probabilistic propagation remains planned.",
+                                                                   "label":  "measured(value: Quantity, relative_error: Ratio) -\u003e Uncertain[Quantity]",
+                                                                   "name":  "measured",
+                                                                   "owner":  "eng.uncertainty",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "value: Quantity",
+                                                                                          "name":  "value",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Quantity"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "relative_error: Ratio",
+                                                                                          "name":  "relative_error",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Ratio"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Uncertain[Quantity]",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Narrow native uncertainty constructors, linear propagation metadata, sensor_std TimeSeries review metadata, probability/statistic validation, and report confidence-band artifacts; broad probabilistic propagation remains planned.",
+                                                                   "label":  "measured(value: Quantity, std: Quantity) -\u003e Uncertain[Quantity]",
+                                                                   "name":  "measured",
+                                                                   "owner":  "eng.uncertainty",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "value: Quantity",
+                                                                                          "name":  "value",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Quantity"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "std: Quantity",
+                                                                                          "name":  "std",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Quantity"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Uncertain[Quantity]",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Compiler-checked TimeSeries summarize directives and value calls with runtime-computed mean, time-weighted mean, sum, min, max, median, population standard deviation, nearest-rank percentiles, and duration-above values.",
+                                                                   "label":  "median(series: TimeSeries, axis?: TimeAxis) -\u003e Quantity",
+                                                                   "name":  "median",
+                                                                   "owner":  "eng.stats",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "series: TimeSeries",
+                                                                                          "name":  "series",
+                                                                                          "optional":  false,
+                                                                                          "type":  "TimeSeries"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "axis?: TimeAxis",
+                                                                                          "name":  "axis",
+                                                                                          "optional":  true,
+                                                                                          "type":  "TimeAxis"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Quantity",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Compiler-checked TimeSeries summarize directives and value calls with runtime-computed mean, time-weighted mean, sum, min, max, median, population standard deviation, nearest-rank percentiles, and duration-above values.",
+                                                                   "label":  "min(series: TimeSeries, axis?: TimeAxis) -\u003e Quantity",
+                                                                   "name":  "min",
+                                                                   "owner":  "eng.stats",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "series: TimeSeries",
+                                                                                          "name":  "series",
+                                                                                          "optional":  false,
+                                                                                          "type":  "TimeSeries"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "axis?: TimeAxis",
+                                                                                          "name":  "axis",
+                                                                                          "optional":  true,
+                                                                                          "type":  "TimeAxis"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Quantity",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "ModelSpec, FeatureSpec, TargetSpec, model-card, metric, residual, native predict-table, prediction-manifest, confidence, and hash review artifacts.",
+                                                                   "label":  "mlp(split: TrainTestSplit, hidden: Array[Int], epochs: Int, seed?: Int) -\u003e Model[MLP]",
+                                                                   "name":  "mlp",
+                                                                   "owner":  "eng.model",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "split: TrainTestSplit",
+                                                                                          "name":  "split",
+                                                                                          "optional":  false,
+                                                                                          "type":  "TrainTestSplit"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "hidden: Array[Int]",
+                                                                                          "name":  "hidden",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Array[Int]"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "epochs: Int",
+                                                                                          "name":  "epochs",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Int"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "seed?: Int",
+                                                                                          "name":  "seed",
+                                                                                          "optional":  true,
+                                                                                          "type":  "Int"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Model[MLP]",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "ModelSpec, FeatureSpec, TargetSpec, model-card, metric, residual, native predict-table, prediction-manifest, confidence, and hash review artifacts.",
+                                                                   "label":  "model_card(model: Model) -\u003e ModelCard",
+                                                                   "name":  "model_card",
+                                                                   "owner":  "eng.model",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "model: Model",
+                                                                                          "name":  "model",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Model"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "ModelCard",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Narrow native uncertainty constructors, linear propagation metadata, sensor_std TimeSeries review metadata, probability/statistic validation, and report confidence-band artifacts; broad probabilistic propagation remains planned.",
+                                                                   "label":  "normal(mean: Quantity, std: Quantity, samples?: Int) -\u003e Uncertain[Quantity]",
+                                                                   "name":  "normal",
+                                                                   "owner":  "eng.uncertainty",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "mean: Quantity",
+                                                                                          "name":  "mean",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Quantity"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "std: Quantity",
+                                                                                          "name":  "std",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Quantity"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "samples?: Int",
+                                                                                          "name":  "samples",
+                                                                                          "optional":  true,
+                                                                                          "type":  "Int"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Uncertain[Quantity]",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Nearest-rank percentile for p1 through p100, including leading-zero spellings.",
+                                                                   "label":  "pNN(series: TimeSeries | Uncertain, axis?: TimeAxis) -\u003e Quantity",
+                                                                   "name":  "pNN",
+                                                                   "owner":  "eng.stats",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "series: TimeSeries | Uncertain",
+                                                                                          "name":  "series",
+                                                                                          "optional":  false,
+                                                                                          "type":  "TimeSeries | Uncertain"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "axis?: TimeAxis",
+                                                                                          "name":  "axis",
+                                                                                          "optional":  true,
+                                                                                          "type":  "TimeAxis"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Quantity",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Typed path helpers, joins, names, review-visible existence checks, and provenance-recorded non-secret environment values.",
+                                                                   "label":  "parent(path: FilePath) -\u003e DirectoryPath",
+                                                                   "name":  "parent",
+                                                                   "owner":  "eng.path",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "path: FilePath",
+                                                                                          "name":  "path",
+                                                                                          "optional":  false,
+                                                                                          "type":  "FilePath"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "DirectoryPath",
+                                                                   "status":  "supported",
+                                                                   "status_label":  "Supported"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Solver-facing adapters and metadata, not the public identity of stdlib.",
+                                                                   "label":  "predict(signal: Quantity) -\u003e Quantity",
+                                                                   "name":  "predict",
+                                                                   "owner":  "eng.system",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "signal: Quantity",
+                                                                                          "name":  "signal",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Quantity"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Quantity",
+                                                                   "status":  "internal_planned",
+                                                                   "status_label":  "Internal target"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Solver-facing adapters and metadata, not the public identity of stdlib.",
+                                                                   "label":  "predictor(signal: Quantity) -\u003e Quantity",
+                                                                   "name":  "predictor",
+                                                                   "owner":  "eng.system",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "signal: Quantity",
+                                                                                          "name":  "signal",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Quantity"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Quantity",
+                                                                   "status":  "internal_planned",
+                                                                   "status_label":  "Internal target"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Narrow native uncertainty constructors, linear propagation metadata, sensor_std TimeSeries review metadata, probability/statistic validation, and report confidence-band artifacts; broad probabilistic propagation remains planned.",
+                                                                   "label":  "probability(comparison: UncertainComparison) -\u003e Ratio",
+                                                                   "name":  "probability",
+                                                                   "owner":  "eng.uncertainty",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "comparison: UncertainComparison",
+                                                                                          "name":  "comparison",
+                                                                                          "optional":  false,
+                                                                                          "type":  "UncertainComparison"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Ratio",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Narrow native uncertainty constructors, linear propagation metadata, sensor_std TimeSeries review metadata, probability/statistic validation, and report confidence-band artifacts; broad probabilistic propagation remains planned.",
+                                                                   "label":  "propagate(source: Uncertain, method?: PropagationMethod, scale?: Number, offset?: Quantity, samples?: Int) -\u003e Uncertain[Quantity]",
+                                                                   "name":  "propagate",
+                                                                   "owner":  "eng.uncertainty",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "source: Uncertain",
+                                                                                          "name":  "source",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Uncertain"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "method?: PropagationMethod",
+                                                                                          "name":  "method",
+                                                                                          "optional":  true,
+                                                                                          "type":  "PropagationMethod"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "scale?: Number",
+                                                                                          "name":  "scale",
+                                                                                          "optional":  true,
+                                                                                          "type":  "Number"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "offset?: Quantity",
+                                                                                          "name":  "offset",
+                                                                                          "optional":  true,
+                                                                                          "type":  "Quantity"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "samples?: Int",
+                                                                                          "name":  "samples",
+                                                                                          "optional":  true,
+                                                                                          "type":  "Int"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Uncertain[Quantity]",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "ModelSpec, FeatureSpec, TargetSpec, model-card, metric, residual, native predict-table, prediction-manifest, confidence, and hash review artifacts.",
+                                                                   "label":  "regression(split: TrainTestSplit, algorithm?: String) -\u003e Model[Regression]",
+                                                                   "name":  "regression",
+                                                                   "owner":  "eng.model",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "split: TrainTestSplit",
+                                                                                          "name":  "split",
+                                                                                          "optional":  false,
+                                                                                          "type":  "TrainTestSplit"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "algorithm?: String",
+                                                                                          "name":  "algorithm",
+                                                                                          "optional":  true,
+                                                                                          "type":  "String"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Model[Regression]",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Paired-TimeSeries RMSE with declared-unit scalar results plus common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection.",
+                                                                   "label":  "rmse(left: TimeSeries, right: TimeSeries) -\u003e Quantity",
+                                                                   "name":  "rmse",
+                                                                   "owner":  "eng.quality",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "left: TimeSeries",
+                                                                                          "name":  "left",
+                                                                                          "optional":  false,
+                                                                                          "type":  "TimeSeries"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "right: TimeSeries",
+                                                                                          "name":  "right",
+                                                                                          "optional":  false,
+                                                                                          "type":  "TimeSeries"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Quantity",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Dimensionless scalar math for solver, component, and scalar arithmetic expressions.",
+                                                                   "label":  "sin(value: Number) -\u003e Number",
+                                                                   "name":  "sin",
+                                                                   "owner":  "EngLang core",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "value: Number",
+                                                                                          "name":  "value",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Number"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Number",
+                                                                   "status":  "supported_narrow",
+                                                                   "status_label":  "Supported narrow"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Dimensionless scalar math for solver, component, and scalar arithmetic expressions.",
+                                                                   "label":  "sqrt(value: Number) -\u003e Number",
+                                                                   "name":  "sqrt",
+                                                                   "owner":  "EngLang core",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "value: Number",
+                                                                                          "name":  "value",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Number"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Number",
+                                                                   "status":  "supported_narrow",
+                                                                   "status_label":  "Supported narrow"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Compiler-checked TimeSeries summarize directives and value calls with runtime-computed mean, time-weighted mean, sum, min, max, median, population standard deviation, nearest-rank percentiles, and duration-above values.",
+                                                                   "label":  "std(series: TimeSeries, axis?: TimeAxis) -\u003e Quantity",
+                                                                   "name":  "std",
+                                                                   "owner":  "eng.stats",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "series: TimeSeries",
+                                                                                          "name":  "series",
+                                                                                          "optional":  false,
+                                                                                          "type":  "TimeSeries"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "axis?: TimeAxis",
+                                                                                          "name":  "axis",
+                                                                                          "optional":  true,
+                                                                                          "type":  "TimeAxis"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Quantity",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Typed path helpers, joins, names, review-visible existence checks, and provenance-recorded non-secret environment values.",
+                                                                   "label":  "stem(path: FilePath) -\u003e String",
+                                                                   "name":  "stem",
+                                                                   "owner":  "eng.path",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "path: FilePath",
+                                                                                          "name":  "path",
+                                                                                          "optional":  false,
+                                                                                          "type":  "FilePath"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "String",
+                                                                   "status":  "supported",
+                                                                   "status_label":  "Supported"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Compiler-checked TimeSeries summarize directives and value calls with runtime-computed mean, time-weighted mean, sum, min, max, median, population standard deviation, nearest-rank percentiles, and duration-above values.",
+                                                                   "label":  "sum(series: TimeSeries, axis?: TimeAxis) -\u003e Quantity",
+                                                                   "name":  "sum",
+                                                                   "owner":  "eng.stats",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "series: TimeSeries",
+                                                                                          "name":  "series",
+                                                                                          "optional":  false,
+                                                                                          "type":  "TimeSeries"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "axis?: TimeAxis",
+                                                                                          "name":  "axis",
+                                                                                          "optional":  true,
+                                                                                          "type":  "TimeAxis"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Quantity",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Dimensionless scalar math for solver, component, and scalar arithmetic expressions.",
+                                                                   "label":  "tan(value: Number) -\u003e Number",
+                                                                   "name":  "tan",
+                                                                   "owner":  "EngLang core",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "value: Number",
+                                                                                          "name":  "value",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Number"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Number",
+                                                                   "status":  "supported_narrow",
+                                                                   "status_label":  "Supported narrow"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Compiler-checked TimeSeries summarize directives and value calls with runtime-computed mean, time-weighted mean, sum, min, max, median, population standard deviation, nearest-rank percentiles, and duration-above values.",
+                                                                   "label":  "time_weighted_mean(series: TimeSeries[Time], axis?: TimeAxis) -\u003e Quantity",
+                                                                   "name":  "time_weighted_mean",
+                                                                   "owner":  "eng.stats",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "series: TimeSeries[Time]",
+                                                                                          "name":  "series",
+                                                                                          "optional":  false,
+                                                                                          "type":  "TimeSeries[Time]"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "axis?: TimeAxis",
+                                                                                          "name":  "axis",
+                                                                                          "optional":  true,
+                                                                                          "type":  "TimeAxis"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Quantity",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "ModelSpec, FeatureSpec, TargetSpec, model-card, metric, residual, native predict-table, prediction-manifest, confidence, and hash review artifacts.",
+                                                                   "label":  "train_test_split(series: TimeSeries, target: TimeSeries, features: Array[TimeSeries], test: Ratio, seed?: Int) -\u003e TrainTestSplit",
+                                                                   "name":  "train_test_split",
+                                                                   "owner":  "eng.model",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "series: TimeSeries",
+                                                                                          "name":  "series",
+                                                                                          "optional":  false,
+                                                                                          "type":  "TimeSeries"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "target: TimeSeries",
+                                                                                          "name":  "target",
+                                                                                          "optional":  false,
+                                                                                          "type":  "TimeSeries"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "features: Array[TimeSeries]",
+                                                                                          "name":  "features",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Array[TimeSeries]"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "test: Ratio",
+                                                                                          "name":  "test",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Ratio"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "seed?: Int",
+                                                                                          "name":  "seed",
+                                                                                          "optional":  true,
+                                                                                          "type":  "Int"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "TrainTestSplit",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Deterministic grid/random/LHS sample generation plus promoted sample-table metadata, parameter ranges, duplicate case IDs, seed policy, row hashes, and row-value previews.",
+                                                                   "label":  "uniform(lower: Quantity, upper: Quantity) -\u003e SampleDistribution",
+                                                                   "name":  "uniform",
+                                                                   "owner":  "eng.sampling",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "lower: Quantity",
+                                                                                          "name":  "lower",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Quantity"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "upper: Quantity",
+                                                                                          "name":  "upper",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Quantity"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "SampleDistribution",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Narrow native uncertainty constructors, linear propagation metadata, sensor_std TimeSeries review metadata, probability/statistic validation, and report confidence-band artifacts; broad probabilistic propagation remains planned.",
+                                                                   "label":  "uniform(lower: Quantity, upper: Quantity, samples?: Int) -\u003e Uncertain[Quantity]",
+                                                                   "name":  "uniform",
+                                                                   "owner":  "eng.uncertainty",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "lower: Quantity",
+                                                                                          "name":  "lower",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Quantity"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "upper: Quantity",
+                                                                                          "name":  "upper",
+                                                                                          "optional":  false,
+                                                                                          "type":  "Quantity"
+                                                                                      },
+                                                                                      {
+                                                                                          "label":  "samples?: Int",
+                                                                                          "name":  "samples",
+                                                                                          "optional":  true,
+                                                                                          "type":  "Int"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Uncertain[Quantity]",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               },
+                                                               {
+                                                                   "documentation":  "Live HTTP(S) GET/download execution plus POST/PUT/PATCH request bodies and pinned offline/cache HTTP(S) boundary records with redacted Secret[T] query values, SHA-256 checks, and artifact summaries.",
+                                                                   "label":  "url(address: String) -\u003e Url",
+                                                                   "name":  "url",
+                                                                   "owner":  "eng.net",
+                                                                   "parameters":  [
+                                                                                      {
+                                                                                          "label":  "address: String",
+                                                                                          "name":  "address",
+                                                                                          "optional":  false,
+                                                                                          "type":  "String"
+                                                                                      }
+                                                                                  ],
+                                                                   "return_display_unit":  null,
+                                                                   "return_type":  "Url",
+                                                                   "status":  "native_preview",
+                                                                   "status_label":  "Native workflow support"
+                                                               }
+                                                           ],
+                           "builtin_function_signatures_count":  52,
                            "case_output_table_fields":  [
                                                             {
                                                                 "detail":  "case output row count",

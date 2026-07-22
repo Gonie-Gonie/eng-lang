@@ -15,6 +15,7 @@ function loadEditorMetadata(extensionRoot) {
   const completionItems = metadata.completion_items;
   const syntaxCatalog = metadata.syntax_catalog ?? {};
   const keywordGroups = syntaxCatalog.keyword_groups ?? {};
+  const builtinFunctionSignatures = syntaxCatalog.builtin_function_signatures;
   const uncertaintyArgumentAliases = syntaxCatalog.uncertainty_argument_aliases;
   const requiredKeywordGroups = [
     "import",
@@ -48,6 +49,42 @@ function loadEditorMetadata(extensionRoot) {
     !Array.isArray(syntaxCatalog.hyphenated_workflow_builtins) ||
     !Array.isArray(syntaxCatalog.legacy_workflow_builtin_aliases) ||
     !Array.isArray(syntaxCatalog.legacy_workflow_option_aliases) ||
+    !Array.isArray(builtinFunctionSignatures) ||
+    builtinFunctionSignatures.some((signature) => (
+      !signature ||
+      typeof signature.owner !== "string" ||
+      !signature.owner.trim() ||
+      typeof signature.status !== "string" ||
+      !signature.status.trim() ||
+      typeof signature.status_label !== "string" ||
+      !signature.status_label.trim() ||
+      typeof signature.documentation !== "string" ||
+      !signature.documentation.trim() ||
+      typeof signature.name !== "string" ||
+      !signature.name.trim() ||
+      typeof signature.label !== "string" ||
+      !signature.label.trim() ||
+      !Array.isArray(signature.parameters) ||
+      signature.parameters.some((parameter) => (
+        !parameter ||
+        typeof parameter.name !== "string" ||
+        !parameter.name.trim() ||
+        typeof parameter.label !== "string" ||
+        !parameter.label.trim() ||
+        typeof parameter.type !== "string" ||
+        !parameter.type.trim() ||
+        typeof parameter.optional !== "boolean"
+      )) ||
+      typeof signature.return_type !== "string" ||
+      !signature.return_type.trim() ||
+      !(
+        signature.return_display_unit === null ||
+        (
+          typeof signature.return_display_unit === "string" &&
+          signature.return_display_unit.trim()
+        )
+      )
+    )) ||
     !Array.isArray(uncertaintyArgumentAliases) ||
     uncertaintyArgumentAliases.some((item) => (
       !item ||
@@ -83,10 +120,18 @@ function loadEditorMetadata(extensionRoot) {
       `Invalid EngLang editor metadata at ${metadataPath}: completion_items_count must match completion_items`
     );
   }
+  if (syntaxCatalog.builtin_function_signatures_count !== builtinFunctionSignatures.length) {
+    throw new Error(
+      "Invalid EngLang editor metadata at " +
+        metadataPath +
+        ": builtin_function_signatures_count must match builtin_function_signatures"
+    );
+  }
   return {
     semanticTokenTypes,
     semanticTokenModifiers,
     completionItems,
+    builtinFunctionSignatures,
     syntaxCatalog
   };
 }

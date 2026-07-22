@@ -806,6 +806,7 @@ fn stdio_server_round_trips_core_lsp_requests() {
 }
 
 result = combine(1 m, 2 m)
+uncertain = normal(mean=5 kW, std=0.8 kW, samples=31)
 "#;
     let signature_path = repo_root().join("build/editor-tests/signature_help_stdio.eng");
     let signature_uri = file_uri(&signature_path);
@@ -865,6 +866,44 @@ result = combine(1 m, 2 m)
     assert_eq!(
         signature_help["result"]["signatures"][0]["parameters"][1]["label"],
         "right: Length [m]"
+    );
+
+    let builtin_signature_line = signature_source
+        .lines()
+        .position(|line| line.contains("uncertain ="))
+        .expect("builtin signature call line");
+    let builtin_signature_text = signature_source
+        .lines()
+        .nth(builtin_signature_line)
+        .expect("builtin signature call source");
+    let builtin_signature_character = builtin_signature_text
+        .find("samples=")
+        .expect("builtin signature third argument");
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 92,
+            "method": "textDocument/signatureHelp",
+            "params": {
+                "textDocument": { "uri": signature_uri },
+                "position": {
+                    "line": builtin_signature_line,
+                    "character": builtin_signature_character
+                }
+            }
+        }),
+    );
+    let builtin_signature_help = read_message(&mut stdout);
+    assert_eq!(builtin_signature_help["id"], 92);
+    assert_eq!(builtin_signature_help["result"]["activeParameter"], 2);
+    assert_eq!(
+        builtin_signature_help["result"]["signatures"][0]["label"],
+        "normal(mean: Quantity, std: Quantity, samples?: Int) -> Uncertain[Quantity]"
+    );
+    assert_eq!(
+        builtin_signature_help["result"]["signatures"][0]["parameters"][2]["label"],
+        "samples?: Int"
     );
 
     write_message(

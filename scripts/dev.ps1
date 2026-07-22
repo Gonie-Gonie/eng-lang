@@ -6244,6 +6244,9 @@ function Assert-VscodeExtensionContract {
     if ($EditorMetadataLoaderSource.Contains("metadata.completion_items ??") -or $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("const completionItems = metadata.completion_items") -or -not $EditorMetadataLoaderSource.Contains("metadata.completion_items_count !== completionItems.length")) {
         throw "VS Code editor metadata loader must require completion_items as the only runtime completion catalog"
     }
+    if (-not $EditorMetadataLoaderSource.Contains("const builtinFunctionSignatures = syntaxCatalog.builtin_function_signatures") -or -not $EditorMetadataLoaderSource.Contains("builtin_function_signatures_count !== builtinFunctionSignatures.length") -or -not $EditorMetadataLoaderSource.Contains("typeof parameter.optional !== ""boolean""")) {
+        throw "VS Code editor metadata loader must validate compiler-owned builtin function signatures"
+    }
     if ($ExtensionSource.Contains("const SEMANTIC_TOKEN_TYPES = [") -or $ExtensionSource.Contains("const SEMANTIC_TOKEN_MODIFIERS = [")) {
         throw "VS Code extension must not hardcode semantic token legend arrays"
     }
@@ -7337,6 +7340,30 @@ function Assert-VscodeExtensionContract {
     $MetadataCompletionLabels = @($EditorMetadata.completion_items | ForEach-Object { $_.label })
     $GeneratedCompletionLabels = @($GeneratedCompletions.completion_items | ForEach-Object { $_.label })
     Assert-SameStringSequence -Left $MetadataCompletionLabels -Right $GeneratedCompletionLabels -Description "VS Code generated completion item labels"
+    $BuiltinFunctionSignatures = @($EditorMetadata.syntax_catalog.builtin_function_signatures)
+    if ($BuiltinFunctionSignatures.Count -lt 40 -or [int]$EditorMetadata.syntax_catalog.builtin_function_signatures_count -ne $BuiltinFunctionSignatures.Count) {
+        throw "generated VS Code editor metadata builtin function signature catalog is missing or has a stale count"
+    }
+    foreach ($RequiredBuiltinSignature in @(
+        "file(path: String) -> FilePath",
+        "uniform(lower: Quantity, upper: Quantity) -> SampleDistribution",
+        "normal(mean: Quantity, std: Quantity, samples?: Int) -> Uncertain[Quantity]",
+        "duration_above(series: TimeSeries[Time], threshold: Quantity) -> Duration [s]",
+        "sqrt(value: Number) -> Number",
+        "pNN(series: TimeSeries | Uncertain, axis?: TimeAxis) -> Quantity"
+    )) {
+        if (-not ($BuiltinFunctionSignatures | Where-Object { [string]$_.label -eq $RequiredBuiltinSignature } | Select-Object -First 1)) {
+            throw "generated VS Code editor metadata missing builtin function signature $RequiredBuiltinSignature"
+        }
+    }
+    $InvalidCallableCompletionLabels = @($MetadataCompletionLabels | Where-Object { $_ -match "\(\.\.\.\)$" })
+    if ($InvalidCallableCompletionLabels.Count -gt 0) {
+        throw "generated VS Code completion labels must insert callable names rather than literal ellipses: $($InvalidCallableCompletionLabels -join ', ')"
+    }
+    $NormalCompletion = @($EditorMetadata.completion_items | Where-Object { $_.label -eq "normal" }) | Select-Object -First 1
+    if ($null -eq $NormalCompletion -or -not ([string]$NormalCompletion.detail).Contains("samples?: Int")) {
+        throw "generated VS Code normal completion must use the compiler-owned typed signature detail"
+    }
     if ($null -ne $EditorMetadata.PSObject.Properties["completion_seed"] -or $null -ne $EditorMetadata.PSObject.Properties["completion_seed_count"] -or $null -ne $GeneratedCompletions.PSObject.Properties["completion_seed"] -or $null -ne $GeneratedCompletions.PSObject.Properties["completion_seed_count"]) {
         throw "generated VS Code editor metadata must expose completion_items only; completion_seed was removed from the public editor metadata contract"
     }

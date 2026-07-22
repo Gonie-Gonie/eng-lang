@@ -132,7 +132,8 @@ review material. It is not a broad solver claim.
   PlotSpec viewing, report opening, and side-effect artifact panels.
 - Packaged editor-tooling binary plus an internal persistent VS Code stdio
   client for document sync, diagnostics, semantic tokens, typed signature help
-  for user functions and zero-argument class-object methods, and editor requests.
+  for user functions, zero-argument class-object methods, and compiler-owned
+  built-in API contracts, and editor requests.
   Exact-source editor requests share one compiler report and lazy snapshot;
   token-free comment/blank-line edits can retarget that report when every token
   and token-bearing line stays at the same absolute source location. A separate
@@ -205,6 +206,11 @@ review material. It is not a broad solver claim.
   built-in tokens, completion, generated editor metadata, and TextMate first-paint
   scopes. Component `predictor(...)` and call-style `predict(...)` share the solver
   role without changing command-style model prediction.
+  Module `symbols` contracts are parsed into a typed compiler catalog with
+  required/optional parameters, overloads, return types, and display units.
+  LSP signature help and completion detail consume that catalog directly;
+  generated metadata exposes the same 52 signatures and completion no longer
+  inserts literal `(...)` labels.
   VS Code extension checks now load the installed TextMate engine, including
   ASAR-based installs, and compare role-bearing first-paint scopes against
   compiler semantic snapshots for every example. Report/test/solver block words,

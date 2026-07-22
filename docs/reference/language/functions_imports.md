@@ -31,6 +31,17 @@ Rules:
 - Top-level `const` declarations are importable and can be used by functions
   or root workflows.
 
+VS Code signature help uses the compiler's resolved parameter and return
+metadata for local and statically imported functions. If a user function has
+the same name as a built-in, the user function wins at that call site.
+
+Built-in calls use the same protocol, but their signatures come from validated
+`stdlib/eng/modules.toml` symbol contracts plus compiler-owned scalar math and
+numeric-percentile catalogs. The catalog distinguishes required and optional
+parameters, supports overloads such as `measured(...)`, and preserves declared
+return units such as `Duration [s]`. Command-style workflow statements do not
+pretend to be ordinary functions.
+
 ## File Imports
 
 ```text

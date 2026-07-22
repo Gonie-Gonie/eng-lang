@@ -22,6 +22,23 @@ pub struct ModuleRegistryEntry {
     pub symbols: Vec<String>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ModuleFunctionParameter {
+    pub name: String,
+    pub label: String,
+    pub type_name: String,
+    pub optional: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ModuleFunctionSignature {
+    pub name: String,
+    pub label: String,
+    pub parameters: Vec<ModuleFunctionParameter>,
+    pub return_type: String,
+    pub return_display_unit: Option<String>,
+}
+
 impl ModuleRegistryEntry {
     pub fn is_public_api(&self) -> bool {
         matches!(
@@ -44,6 +61,14 @@ impl ModuleRegistryEntry {
             module_completion_status_label(&self.status),
             module_completion_purpose(&self.purpose)
         )
+    }
+
+    pub fn function_signatures(&self) -> Vec<ModuleFunctionSignature> {
+        self.symbols
+            .iter()
+            .filter(|symbol| looks_like_function_signature(symbol))
+            .filter_map(|symbol| parse_module_function_signature(symbol).ok())
+            .collect()
     }
 }
 
@@ -178,7 +203,15 @@ pub fn parse_module_registry(source: &str) -> Result<ModuleRegistry, ModuleRegis
             "diagnostics" => entry.diagnostics = Some(parse_string_array(value, line_number)?),
             "examples" => entry.examples = Some(parse_string_array(value, line_number)?),
             "tests" => entry.tests = Some(parse_string_array(value, line_number)?),
-            "symbols" => entry.symbols = Some(parse_string_array(value, line_number)?),
+            "symbols" => {
+                let symbols = parse_string_array(value, line_number)?;
+                for symbol in &symbols {
+                    if looks_like_function_signature(symbol) {
+                        parse_module_function_signature_at(symbol, line_number)?;
+                    }
+                }
+                entry.symbols = Some(symbols);
+            }
             other => {
                 return Err(registry_error(
                     line_number,
@@ -274,6 +307,177 @@ fn parse_string_array(value: &str, line_number: usize) -> Result<Vec<String>, Mo
         rest = after_comma.trim_start();
     }
     Ok(items)
+}
+
+pub fn parse_module_function_signature(
+    value: &str,
+) -> Result<ModuleFunctionSignature, ModuleRegistryError> {
+    parse_module_function_signature_at(value, 0)
+}
+
+fn parse_module_function_signature_at(
+    value: &str,
+    line_number: usize,
+) -> Result<ModuleFunctionSignature, ModuleRegistryError> {
+    let value = value.trim();
+    let (callable, return_value) = value.split_once(" -> ").ok_or_else(|| {
+        registry_error(
+            line_number,
+            "function symbol must use name(parameters) -> ReturnType",
+        )
+    })?;
+    let open = callable.find('(').ok_or_else(|| {
+        registry_error(
+            line_number,
+            "function symbol must include an opening parenthesis",
+        )
+    })?;
+    let close = callable
+        .rfind(')')
+        .filter(|close| *close + 1 == callable.len())
+        .ok_or_else(|| {
+            registry_error(
+                line_number,
+                "function symbol must end its parameter list with a closing parenthesis",
+            )
+        })?;
+    let name = callable[..open].trim();
+    if !is_registry_identifier(name) {
+        return Err(registry_error(
+            line_number,
+            "function symbol name must be an identifier",
+        ));
+    }
+
+    let parameters = split_signature_parameters(&callable[open + 1..close], line_number)?
+        .into_iter()
+        .map(|parameter| parse_signature_parameter(parameter, line_number))
+        .collect::<Result<Vec<_>, _>>()?;
+    let (return_type, return_display_unit) =
+        parse_signature_return(return_value.trim(), line_number)?;
+
+    Ok(ModuleFunctionSignature {
+        name: name.to_owned(),
+        label: value.to_owned(),
+        parameters,
+        return_type,
+        return_display_unit,
+    })
+}
+
+fn looks_like_function_signature(value: &str) -> bool {
+    value.contains('(') || value.contains(')') || value.contains("->")
+}
+
+fn split_signature_parameters(
+    value: &str,
+    line_number: usize,
+) -> Result<Vec<&str>, ModuleRegistryError> {
+    if value.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut parameters = Vec::new();
+    let mut start = 0usize;
+    let mut bracket_depth = 0usize;
+    for (index, character) in value.char_indices() {
+        match character {
+            '[' => bracket_depth += 1,
+            ']' => {
+                bracket_depth = bracket_depth.checked_sub(1).ok_or_else(|| {
+                    registry_error(
+                        line_number,
+                        "function parameter type has an unmatched closing bracket",
+                    )
+                })?;
+            }
+            ',' if bracket_depth == 0 => {
+                parameters.push(value[start..index].trim());
+                start = index + character.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    if bracket_depth != 0 {
+        return Err(registry_error(
+            line_number,
+            "function parameter type has an unmatched opening bracket",
+        ));
+    }
+    parameters.push(value[start..].trim());
+    if parameters.iter().any(|parameter| parameter.is_empty()) {
+        return Err(registry_error(
+            line_number,
+            "function signature contains an empty parameter",
+        ));
+    }
+    Ok(parameters)
+}
+
+fn parse_signature_parameter(
+    value: &str,
+    line_number: usize,
+) -> Result<ModuleFunctionParameter, ModuleRegistryError> {
+    let (raw_name, type_name) = value.split_once(':').ok_or_else(|| {
+        registry_error(line_number, "function parameter must use name: Type syntax")
+    })?;
+    let raw_name = raw_name.trim();
+    let (name, optional) = raw_name
+        .strip_suffix('?')
+        .map(|name| (name.trim(), true))
+        .unwrap_or((raw_name, false));
+    let type_name = type_name.trim();
+    if !is_registry_identifier(name) {
+        return Err(registry_error(
+            line_number,
+            "function parameter name must be an identifier",
+        ));
+    }
+    if type_name.is_empty() {
+        return Err(registry_error(
+            line_number,
+            "function parameter type cannot be empty",
+        ));
+    }
+    Ok(ModuleFunctionParameter {
+        name: name.to_owned(),
+        label: value.to_owned(),
+        type_name: type_name.to_owned(),
+        optional,
+    })
+}
+
+fn parse_signature_return(
+    value: &str,
+    line_number: usize,
+) -> Result<(String, Option<String>), ModuleRegistryError> {
+    if value.is_empty() {
+        return Err(registry_error(
+            line_number,
+            "function return type cannot be empty",
+        ));
+    }
+    if let Some(unit_start) = value.rfind(" [") {
+        if value.ends_with(']') {
+            let return_type = value[..unit_start].trim();
+            let display_unit = value[unit_start + 2..value.len() - 1].trim();
+            if return_type.is_empty() || display_unit.is_empty() {
+                return Err(registry_error(
+                    line_number,
+                    "function return type and display unit cannot be empty",
+                ));
+            }
+            return Ok((return_type.to_owned(), Some(display_unit.to_owned())));
+        }
+    }
+    Ok((value.to_owned(), None))
+}
+
+fn is_registry_identifier(value: &str) -> bool {
+    let mut bytes = value.bytes();
+    bytes
+        .next()
+        .is_some_and(|byte| byte == b'_' || byte.is_ascii_alphabetic())
+        && bytes.all(|byte| byte == b'_' || byte.is_ascii_alphanumeric())
 }
 
 fn is_module_registry_diagnostic_code(value: &str) -> bool {
@@ -606,5 +810,42 @@ status = "planned"
         )
         .expect_err("missing fields should fail");
         assert!(error.message.contains("missing backing"));
+    }
+
+    #[test]
+    fn parses_typed_function_symbols_with_optional_parameters_and_return_units() {
+        let signature = parse_module_function_signature(
+            "duration_above(series: TimeSeries[Time], threshold: Quantity, axis?: TimeAxis) -> Duration [s]",
+        )
+        .expect("typed function symbol should parse");
+
+        assert_eq!(signature.name, "duration_above");
+        assert_eq!(signature.parameters.len(), 3);
+        assert_eq!(signature.parameters[0].type_name, "TimeSeries[Time]");
+        assert_eq!(signature.parameters[2].name, "axis");
+        assert!(signature.parameters[2].optional);
+        assert_eq!(signature.return_type, "Duration");
+        assert_eq!(signature.return_display_unit.as_deref(), Some("s"));
+    }
+
+    #[test]
+    fn registry_rejects_malformed_function_symbols() {
+        let error = parse_module_registry(
+            r#"
+[module."eng.stats"]
+status = "native_preview"
+backing = "compiler_runtime_builtin"
+purpose = "Typed statistics."
+artifacts = []
+diagnostics = []
+examples = []
+tests = []
+symbols = ["mean(series TimeSeries) -> Quantity"]
+"#,
+        )
+        .expect_err("malformed function symbol should fail");
+
+        assert_eq!(error.line, 10);
+        assert!(error.message.contains("name: Type"));
     }
 }

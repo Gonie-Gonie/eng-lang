@@ -1,5 +1,6 @@
 mod ast;
 mod behavior;
+mod builtin_api;
 mod bytecode;
 mod cache;
 mod case;
@@ -52,6 +53,9 @@ pub use behavior::{
     BEHAVIOR_SOLUTION_NOT_EXECUTED, BEHAVIOR_STATUS_DECLARED, BEHAVIOR_STATUS_EXECUTED,
     BEHAVIOR_STATUS_NOT_DECLARED, BEHAVIOR_VARIABLE_NOT_EVALUATED,
 };
+pub use builtin_api::{
+    builtin_function_signatures, builtin_function_signatures_for_name, BuiltinFunctionSignature,
+};
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
     BytecodeParseError, BytecodeProgram, BYTECODE_FORMAT, BYTECODE_VERSION,
@@ -64,7 +68,8 @@ pub use hover::HoverHint;
 pub use lexer::{Keyword, Symbol, Token, TokenKind};
 pub use ml::{MlArgumentInfo, MlFeatureInfo, MlInfo};
 pub use module_registry::{
-    bundled_module_registry, load_module_registry, parse_module_registry, ModuleRegistry,
+    bundled_module_registry, load_module_registry, parse_module_function_signature,
+    parse_module_registry, ModuleFunctionParameter, ModuleFunctionSignature, ModuleRegistry,
     ModuleRegistryEntry, ModuleRegistryError,
 };
 pub use net::{

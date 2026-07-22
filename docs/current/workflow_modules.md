@@ -76,6 +76,9 @@ to `offline_response`.
 
 The canonical machine-readable registry is `stdlib/eng/modules.toml`. The table
 below is generated from that registry and checked by `dev.bat docs-check`.
+Callable `symbols` are parsed and validated as typed compiler API contracts;
+the LSP and generated editor metadata consume those contracts rather than
+maintaining an editor-only signature list.
 
 <!-- module-registry-table:start -->
 | Module | Status | Backing | Artifacts | Diagnostics | Examples | Tests |

@@ -13,6 +13,12 @@ compiler/runtime crates until importable stdlib execution is implemented.
 The machine-readable status registry is `stdlib/eng/modules.toml`; this README
 must describe the same module names.
 
+Callable entries in each module's `symbols` array are validated by the
+compiler as typed API contracts. They carry parameter names, optional markers,
+types, return types, and optional return display units, and directly feed LSP
+signature help plus generated editor metadata. Command-style workflow syntax is
+documented separately and is not represented as a fake parenthesized function.
+
 ## Supported Built-In Declarations
 
 These names are backed by current compiler/runtime behavior. The `.eng` files
